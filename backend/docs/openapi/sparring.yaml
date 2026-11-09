@@ -198,7 +198,7 @@ components:
         id: {type: integer, format: int64}
         authorId: {type: integer, format: int64}
         name: {type: string}
-        memberType: {type: string, enum: [CREW, COACH, BOOTCAMP, PROFESSIONAL]}
+        memberType: {type: string, enum: [CREW, COACH, BOOTCAMP, PROFESSIONAL, MEMBER]}
         side: {$ref: '#/components/schemas/Side'}
         text: {type: string}
     Post:

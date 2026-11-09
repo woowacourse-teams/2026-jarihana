@@ -77,6 +77,7 @@ Refresh Token을 인증 계약에서 확정한 위치로 전달한다. Request B
 
 - `githubId`는 Request Body가 아니라 가입 세션에서 읽는다.
 - `memberType`은 `CREW`, `COACH`, `BOOTCAMP`, `PROFESSIONAL` 중 하나다. 가입 화면은 `COACH`를 더 이상 제공하지 않지만 API는 그대로 받는다.
+- `memberType = MEMBER`(기본 멤버)는 조회 응답에만 나온다. 가입은 읽기 지원이 운영에 배포된 뒤 여는 후속 변경에서 받으며, 지금은 `INVALID_PARAMETER`로 거부한다.
 - `memberType = CREW`이면 `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나이고 `generation`은 양수 필수다.
 - `memberType = COACH`이면 `course`와 `generation`을 생략한다.
 - `memberType = BOOTCAMP`이면 `bootcamp`(`name` 30자 이하, `status`는 `IN_PROGRESS` 또는 `COMPLETED`, `cohort` 선택 20자 이하)와 `field`가 필수다. 캠프 이름이 우아한테크코스(우테코)이면 거부한다.
@@ -192,6 +193,8 @@ Location: /api/members/12
 프로필 이미지 URL은 저장하지 않고 `githubId`로 구성한다.
 
 `memberType = COACH`인 회원은 `generation`과 `course`가 `null`이다.
+
+`MEMBER` 회원은 `generation`, `course`, `bootcamp`, `field`, `career`, `company`가 모두 `null`이다.
 
 `BOOTCAMP`, `PROFESSIONAL` 회원은 `generation`과 `course`가 `null`이고 `bootcamp`, `field`, `career`, `company`를 가입 요청과 같은 모양으로 담는다. 회사명은 본인 조회에만 포함한다.
 
