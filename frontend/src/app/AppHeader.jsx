@@ -19,6 +19,7 @@ import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
+import { PeperoStickIcon } from "./PeperoStickIcon";
 import { ProfileMenu } from "./ProfileMenu";
 import { GroupNavigation, isGroupNavigationActive } from "./GroupNavigation";
 
@@ -33,6 +34,7 @@ const SPARRING_LINK = {
 // 빼빼로데이 이벤트 진입점이다. 서버가 이벤트를 진행 중(OPEN)이라고 할 때만 보인다.
 const PEPERO_DAY_LINK = {
   action: "pepero_day_view",
+  icon: PeperoStickIcon,
   isActive: (pathname) => pathname === PEPERO_DAY_PATH,
   label: "반띵 게임",
   requiresAuth: false,
@@ -73,6 +75,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
 
   return links.map((link) => {
     const isActive = link.isActive(pathname);
+    const Icon = link.icon;
     return (
       <Link
         aria-current={isActive ? "page" : undefined}
@@ -88,6 +91,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
         }}
         to={link.to}
       >
+        {Icon ? <Icon /> : null}
         {link.label}
       </Link>
     );

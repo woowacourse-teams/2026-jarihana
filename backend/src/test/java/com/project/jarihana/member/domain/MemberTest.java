@@ -237,4 +237,72 @@ class MemberTest {
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
+
+    @DisplayName("명단으로 인증한 기본 멤버는 닉네임을 유지한 채 명단의 기수와 과정을 가진 크루가 된다.")
+    @Test
+    void basicMemberBecomesCrewWithRosterGenerationAndCourse() {
+        // Given
+        Member member = Member.createBasic("도담", "123456");
+
+        // When
+        member.verifyCrew(8, Course.FRONTEND);
+
+        // Then
+        assertThat(member.getMemberType()).isEqualTo(MemberType.CREW);
+        assertThat(member.getCrewName()).isEqualTo("도담");
+        assertThat(member.getGeneration()).isEqualTo(8);
+        assertThat(member.getCourse()).isEqualTo(Course.FRONTEND);
+    }
+
+    @DisplayName("명단으로 인증한 부트캠프 회원과 현직자는 소속 정보를 비우고 크루가 된다.")
+    @Test
+    void affiliationMemberDropsAffiliationWhenVerifiedAsCrew() {
+        // Given
+        Member bootcamp = Member.createBootcamp(
+                "도담", "123456", Bootcamp.of("SSAFY", BootcampStatus.COMPLETED, "12기"), MemberField.BACKEND
+        );
+        Member professional = Member.createProfessional(
+                "하나", "654321", MemberField.DATA_AI, Career.YEARS_1_3, Company.of("자리하나", true)
+        );
+
+        // When
+        bootcamp.verifyCrew(8, Course.BACKEND);
+        professional.verifyCrew(7, Course.ANDROID);
+
+        // Then
+        assertThat(bootcamp.getMemberType()).isEqualTo(MemberType.CREW);
+        assertThat(bootcamp.getBootcamp()).isNull();
+        assertThat(bootcamp.getField()).isNull();
+        assertThat(professional.getMemberType()).isEqualTo(MemberType.CREW);
+        assertThat(professional.getField()).isNull();
+        assertThat(professional.getCareer()).isNull();
+        assertThat(professional.getCompany()).isNull();
+    }
+
+    @DisplayName("크루와 코치는 명단 인증 대상이 아니다.")
+    @Test
+    void crewAndCoachAreNotCrewVerificationTargets() {
+        // Given
+        Member crew = Member.create("가온", 7, "123456", Course.BACKEND);
+        Member coach = Member.create("코치", null, "654321", MemberType.COACH, null);
+
+        // When & Then
+        assertThat(crew.isCrewVerificationTarget()).isFalse();
+        assertThat(coach.isCrewVerificationTarget()).isFalse();
+        assertThat(Member.createBasic("도담", "111111").isCrewVerificationTarget()).isTrue();
+        assertThatThrownBy(() -> crew.verifyCrew(8, Course.FRONTEND)).isInstanceOf(IllegalStateException.class);
+        assertThat(crew.getGeneration()).isEqualTo(7);
+    }
+
+    @DisplayName("명단 인증에도 양수 기수와 과정이 필요하다.")
+    @Test
+    void crewVerificationRequiresGenerationAndCourse() {
+        // Given
+        Member member = Member.createBasic("도담", "123456");
+
+        // When & Then
+        assertThatThrownBy(() -> member.verifyCrew(0, Course.BACKEND)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> member.verifyCrew(8, null)).isInstanceOf(BusinessException.class);
+        assertThat(member.getMemberType()).isEqualTo(MemberType.MEMBER);
+    }
 }

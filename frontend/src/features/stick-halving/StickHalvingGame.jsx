@@ -48,6 +48,8 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   const positionReference = useRef(position);
   const phaseReference = useRef(phase);
   const startedReference = useRef(false);
+  const sectionReference = useRef(null);
+  const revealReference = useRef(false);
 
   useEffect(() => {
     positionReference.current = position;
@@ -55,6 +57,15 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
 
   useEffect(() => {
     phaseReference.current = phase;
+  }, [phase]);
+
+  // 결과를 보려고 아래로 내린 채 다음 막대로 넘어가면, 결과 블록이 사라지면서 화면이 아래 순위 쪽에 남는다.
+  // 새 막대가 나오면 막대 번호부터 자르기 버튼까지가 보이도록 게임 영역 맨 위로 올린다.
+  useEffect(() => {
+    if (phase !== "play" || !revealReference.current) return;
+    revealReference.current = false;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    sectionReference.current?.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
   }, [phase]);
 
   const begin = useCallback(({ remainingMillis, round: nextRound, stick: nextStick }, requestedAt) => {
@@ -148,6 +159,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
       return;
     }
     phaseReference.current = "issuing";
+    revealReference.current = true;
     setPhase("issuing");
     const requestedAt = Date.now();
     Promise.resolve(adapter.next(round + 1))
@@ -214,7 +226,7 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   const showingResult = (phase === "result" || phase === "issuing") && outcome;
 
   return (
-    <section aria-label="게임" className="stick-game">
+    <section aria-label="게임" className="stick-game" ref={sectionReference}>
       <div className="stick-game__head">
         <p className="stick-game__round">
           <span className="stick-game__round-number">{round}</span>
