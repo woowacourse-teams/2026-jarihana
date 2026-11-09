@@ -73,6 +73,12 @@ if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/conflict.l
 echo 'PASS release-workflow conflicting_scopes_rejected_before_mutation'
 INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false BEFORE_SHA=1111111111111111111111111111111111111111
 GITHUB_EVENT_NAME=push
+export CHANGE_SCOPE=backend
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/old-app.log" 2>&1; then exit 1; fi
+[[ ! -e $DOCKER_TRACE ]]
+grep -q 'lacks release Compose capability' "$TEST_DIR/old-app.log"
+echo 'PASS release-workflow old_app_control_rejected_for_backend_release'
+printf '%s\n' '# APP_RELEASE_COMPOSE_CAPABILITY=1' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/app.sh"
 for scope in backend frontend both infra; do
   export CHANGE_SCOPE=$scope
   : >"$GITHUB_OUTPUT"

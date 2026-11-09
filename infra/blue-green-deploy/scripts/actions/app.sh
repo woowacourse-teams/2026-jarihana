@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Runs on the selected application runner; management access never leaves loopback.
+# APP_RELEASE_COMPOSE_CAPABILITY=1
 set -Eeuo pipefail
 set +x
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
@@ -217,17 +218,58 @@ app_stop_container() {
   STOPPED=true
 }
 
+# Only same-name, optional application variables can vary between control releases.
+app_compose_protected_content() {
+  awk '
+    /^    [^ ]/ { environment = ($0 == "    environment:") }
+    environment && /^      JARIHANA_[A-Z0-9_]+: / {
+      key = $1
+      sub(/:$/, "", key)
+      if ($0 == "      " key ": \"${" key ":-}\"") next
+    }
+    { print }
+  ' "$1"
+}
+
+app_release_compose() {
+  local destination=$1 checkout=$BG_RELEASE_COMPOSE_CHECKOUT
+  local source_path=infra/blue-green-deploy/controller/app-compose.yml
+  local source_sha blob size approved release release_hash
+  source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
+  [[ "$source_sha" == "$GITHUB_SHA" ]] || bg_die 'Release Compose checkout does not match the deployment commit'
+  blob="$source_sha:$source_path"
+  size=$(git -C "$checkout" cat-file -s "$blob") || bg_die 'Release Compose file is missing'
+  (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
+  git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
+  approved=$(app_compose_protected_content "$SCRIPT_ROOT/../../controller/app-compose.yml") ||
+    bg_die 'Cannot read approved control Compose'
+  release=$(app_compose_protected_content "$destination") || bg_die 'Cannot read release Compose'
+  [[ "$release" == "$approved" ]] || bg_die 'Release Compose differs from protected control settings'
+  release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
+  printf 'Release Compose commit: %s, SHA-256: %s\n' "$source_sha" "${release_hash%% *}"
+}
+
 app_prepare() {
-  local compose existing inspected deadline pin
+  local compose project_directory existing inspected deadline pin
   compose=$(jq -r '.compose_file' <<<"$CONFIG")
-  bg_root_file "$compose"
-  cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
+  project_directory=$(dirname -- "$compose")
+  if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
+    RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
+    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
+    app_release_compose "$RELEASE_COMPOSE_FILE"
+    compose=$RELEASE_COMPOSE_FILE
+  else
+    bg_root_file "$compose"
+    cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
+  fi
   : "${RDS_URL:?GitHub RDS_URL is required}"
   [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"
   export DEPLOY_HOST_ID="$HOST_ID" APP_BIND_ADDRESS="$(jq -r '.upstream|split(":")[0]' <<<"$HOST")"
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"
   app_push_settings
+  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory" --env-file /dev/null -f "$compose")
+  app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check
   existing=$(docker ps -aq --no-trunc --filter "name=^/$CONTAINER$") || bg_die 'Cannot enumerate application containers'
   if [[ -n "$existing" ]]; then
@@ -252,8 +294,6 @@ app_prepare() {
     docker rm -- "$(jq -r '.container_id' <<<"$pin")" >/dev/null || bg_die 'Cannot remove normally stopped standby'
   fi
   BOOT_ID=; STOPPED=false
-  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --env-file /dev/null -f "$compose")
-  app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check; timeout 150 "${args[@]}" pull backend >"$APP_DIR/compose.log" 2>&1 || bg_die 'Image pull failed'
   app_check; bg_live; timeout 150 "${args[@]}" up -d --no-build --pull never backend >>"$APP_DIR/compose.log" 2>&1 || bg_die 'Candidate startup uncertain; preserve container'
   deadline=$(( $(bg_now)+600 ))
