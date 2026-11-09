@@ -133,7 +133,7 @@ UNLOGGED의 복구·복제 특성은 [PostgreSQL 17 공식 문서](https://www.p
 ## 검증 근거와 한계
 
 2026-11-06에 PostgreSQL 17.11, 2 CPU·1 GiB의 격리된 컨테이너에서 실제 UPSERT 조건을
-사용해 총 36회 비교했다. 조건별 3회 중앙값과 한계를 [측정 기록](evidence/0030-member-activity-benchmark.md)에 남긴다.
+사용해 총 36회 비교했다. 표는 조건별 3회 측정의 중앙값이다.
 
 | 비교 항목 | LOGGED | UNLOGGED |
 | --- | ---: | ---: |
