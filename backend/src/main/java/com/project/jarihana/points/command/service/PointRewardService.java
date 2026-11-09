@@ -22,6 +22,7 @@ import static com.project.jarihana.points.config.PointRewardRules.FIRST_GROUP_JO
 import static com.project.jarihana.points.config.PointRewardRules.GOMOKU_WIN;
 import static com.project.jarihana.points.config.PointRewardRules.GROUP_CREATED;
 import static com.project.jarihana.points.config.PointRewardRules.GROUP_FIRST_MEMBER;
+import static com.project.jarihana.points.config.PointRewardRules.MEMBER_SIGNUP;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,21 @@ public class PointRewardService {
                 .toList();
         active.stream().mapToLong(PointReward::memberId).distinct().sorted().forEach(repository::lockWallet);
         active.forEach(this::recordLocked);
+    }
+
+    public void memberSignedUp(long memberId) {
+        register(signupReward(memberId, LocalDateTime.now(clock)));
+    }
+
+    public void backfillSignupRewards(LocalDateTime occurredAt, int limit) {
+        List<PointReward> missingRewards = repository.findMembersWithoutAward(MEMBER_SIGNUP.code(), limit).stream()
+                .map(memberId -> signupReward(memberId, occurredAt))
+                .toList();
+        registerAll(missingRewards);
+    }
+
+    private static PointReward signupReward(long memberId, LocalDateTime occurredAt) {
+        return PointReward.of(MEMBER_SIGNUP, memberId, "member:" + memberId, occurredAt);
     }
 
     public void groupCreated(long groupId, long creatorId, LocalDateTime occurredAt) {

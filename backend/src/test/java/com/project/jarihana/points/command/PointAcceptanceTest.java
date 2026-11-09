@@ -19,6 +19,7 @@ import com.project.jarihana.points.domain.PointReward.SkipReason;
 import com.project.jarihana.points.domain.PointRewardRule;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.SignupSessionFixture;
 import io.restassured.specification.RequestSpecification;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.DisplayName;
@@ -63,7 +64,8 @@ import static org.hamcrest.Matchers.nullValue;
 
 @TestPropertySource(properties = {
         "jarihana.points.starts-at=2026-08-01T00:00:00",
-        "jarihana.points.poll-delay=3600000"
+        "jarihana.points.poll-delay=3600000",
+        "jarihana.points.signup-backfill-delay=3600000"
 })
 @Import(PointAcceptanceTest.ExtraRewardRules.class)
 class PointAcceptanceTest extends IntegrationTestSupport {
@@ -81,7 +83,55 @@ class PointAcceptanceTest extends IntegrationTestSupport {
     @Autowired private GroupMemberCommandRepository memberships;
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
+    @Autowired private SignupSessionFixture signupSession;
     @Autowired private PointRewardRule challengeClearReward;
+
+    @DisplayName("서비스 가입을 완료하면 신규 회원에게 가입 보상 200P를 예약한다.")
+    @Test
+    void awardsSignupPointsToNewMember() {
+        // Given
+        String sessionId = signupSession.create("21001");
+        String csrf = given().get("/members/me").cookie("XSRF-TOKEN");
+
+        // When
+        long memberId = given().contentType("application/json")
+                .cookie("SESSION", signupSession.cookieValue(sessionId))
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .body(Map.of("crewName", "가온", "generation", 8, "course", "BACKEND", "memberType", "CREW"))
+                .post("/members").then().statusCode(201).extract().jsonPath().getLong("data.id");
+
+        // Then
+        request(memberId).get(POINTS).then().statusCode(200)
+                .body("data.processing", equalTo(true)).body("data.balance", equalTo(0));
+        worker.backfillSignupRewards();
+        worker.processDue();
+        request(memberId).get(POINTS).then().statusCode(200).body("data.balance", equalTo(200));
+        request(memberId).get(POINTS + "/transactions").then().statusCode(200)
+                .body("data.items.reason", equalTo(List.of("MEMBER_SIGNUP")));
+    }
+
+    @DisplayName("모임 소속이나 로그인 없이 기존 회원의 가입 보상 200P를 한 번만 지급한다.")
+    @Test
+    void backfillsSignupPointsOnceForExistingMember() throws Exception {
+        // Given
+        long memberId = member("가온", "21001").getId();
+        assertThat(jdbc.queryForObject("select count(*) from point_wallet", Long.class)).isZero();
+
+        // When
+        CompletableFuture.allOf(
+                CompletableFuture.runAsync(worker::backfillSignupRewards),
+                CompletableFuture.runAsync(worker::backfillSignupRewards)
+        ).get(10, TimeUnit.SECONDS);
+        worker.processDue();
+        worker.backfillSignupRewards();
+        worker.processDue();
+
+        // Then
+        request(memberId).get(POINTS).then().statusCode(200).body("data.balance", equalTo(200));
+        request(memberId).get(POINTS + "/transactions").then().statusCode(200)
+                .body("data.items.reason", equalTo(List.of("MEMBER_SIGNUP")))
+                .body("data.items.label", equalTo(List.of("서비스 가입")));
+    }
 
     @DisplayName("등록한 보상 규칙은 지급 조건, 금액, 주간 한도와 조회에 공통 흐름을 사용한다.")
     @Test
@@ -230,7 +280,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         request(winner).get(POINTS).then().statusCode(200)
-                .body("data.balance", equalTo(15)).body("data.gomokuWeekly.completed", equalTo(3));
+                .body("data.balance", equalTo(150)).body("data.gomokuWeekly.completed", equalTo(3));
         assertThat(jdbc.queryForObject("select skip_reason from point_reward where source_key = 'game:4'", String.class))
                 .isEqualTo("WEEKLY_LIMIT");
     }
@@ -322,9 +372,9 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
         worker.processDue();
 
-        request(creator).get(POINTS).then().body("data.balance", equalTo(60));
-        request(first).get(POINTS).then().body("data.balance", equalTo(15));
-        request(second).get(POINTS).then().body("data.balance", equalTo(15));
+        request(creator).get(POINTS).then().body("data.balance", equalTo(600));
+        request(first).get(POINTS).then().body("data.balance", equalTo(150));
+        request(second).get(POINTS).then().body("data.balance", equalTo(150));
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(4);
     }
 
@@ -352,7 +402,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
             worker.processDue();
             request(applicant).get(POINTS).then().body("data.processing", equalTo(false))
                     .body("data.balance", equalTo(0));
-            request(creator).get(POINTS).then().body("data.balance", equalTo(20));
+            request(creator).get(POINTS).then().body("data.balance", equalTo(200));
             request(creator).body(Map.of("status", "APPROVED")).patch(registrations + "/" + registration)
                     .then().statusCode(200).body("data.status", equalTo("APPROVED"));
         } else {
@@ -365,9 +415,30 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
         worker.processDue();
 
-        request(creator).get(POINTS).then().body("data.balance", equalTo(60));
-        request(applicant).get(POINTS).then().body("data.balance", equalTo(15));
+        request(creator).get(POINTS).then().body("data.balance", equalTo(600));
+        request(applicant).get(POINTS).then().body("data.balance", equalTo(150));
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(3);
+    }
+
+    @DisplayName("이전 정책에서 예약한 5P는 보존하고 새 오목 승리에는 50P를 적립한다.")
+    @Test
+    void keepsReservedAmountsWhenRewardPolicyChanges() {
+        long winner = member("가온", "21001").getId();
+
+        // Given
+        transaction.executeWithoutResult(status -> rewards.gomokuWon(1, winner, true, FIXED_NOW));
+        jdbc.update("update point_reward set amount = 5, policy_version = 2 where source_key = 'game:1'");
+
+        // When
+        transaction.executeWithoutResult(status -> rewards.gomokuWon(2, winner, true, FIXED_NOW));
+        worker.processDue();
+
+        // Then
+        request(winner).get(POINTS).then().statusCode(200).body("data.balance", equalTo(55));
+        request(winner).get(POINTS + "/transactions").then().statusCode(200)
+                .body("data.items.amount", equalTo(List.of(50, 5)));
+        assertThat(jdbc.queryForObject("select policy_version from point_reward where source_key = 'game:2'",
+                Integer.class)).isEqualTo(3);
     }
 
     @DisplayName("동시에 적립을 예약해도 대국이 끝난 주의 3회 한도와 대국별 중복 방지를 지킨다.")
@@ -405,7 +476,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
                 CompletableFuture.runAsync(worker::processDue),
                 CompletableFuture.runAsync(worker::processDue)
         ).get(10, TimeUnit.SECONDS);
-        request(winner).get(POINTS).then().body("data.balance", equalTo(20))
+        request(winner).get(POINTS).then().body("data.balance", equalTo(200))
                 .body("data.gomokuWeekly.completed", equalTo(3));
         request(winner).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items.size()", equalTo(8))
@@ -433,7 +504,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
 
         worker.processDue();
 
-        request(host).get(POINTS).then().body("data.balance", equalTo(15));
+        request(host).get(POINTS).then().body("data.balance", equalTo(150));
         request(guest).get(POINTS).then().body("data.balance", equalTo(0));
         request(host).get(POINTS + "/transactions").then()
                 .body("data.items.status", equalTo(List.of("SKIPPED", "COMPLETED", "COMPLETED", "COMPLETED", "SKIPPED")))
@@ -457,7 +528,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
 
         // Then
-        request(winner).get(POINTS).then().body("data.balance", equalTo(5));
+        request(winner).get(POINTS).then().body("data.balance", equalTo(50));
         request(winner == host ? guest : host).get(POINTS).then().body("data.balance", equalTo(0));
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(1);
     }
@@ -487,7 +558,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         boolean eligible = moves == 10;
-        request(winner).get(POINTS).then().body("data.balance", equalTo(eligible ? 5 : 0));
+        request(winner).get(POINTS).then().body("data.balance", equalTo(eligible ? 50 : 0));
         request(loser).get(POINTS).then().body("data.balance", equalTo(0));
         request(winner).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items.size()", equalTo(1))
@@ -511,7 +582,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
                 member.getId(), FIXED_NOW));
         worker.processDue();
 
-        request(member.getId()).get(POINTS).then().body("data.balance", equalTo(15));
+        request(member.getId()).get(POINTS).then().body("data.balance", equalTo(150));
     }
 
     @Test
@@ -540,7 +611,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
         worker.processDue();
 
-        request(author).get(POINTS).then().body("data.balance", equalTo(15));
+        request(author).get(POINTS).then().body("data.balance", equalTo(150));
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(1);
     }
 
@@ -568,7 +639,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
 
         // Then
-        request(author).get(POINTS).then().body("data.balance", equalTo(50))
+        request(author).get(POINTS).then().body("data.balance", equalTo(500))
                 .body("data.activityPostWeekly.completed", equalTo(2));
         request(author).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items[0].skipReason", equalTo("WEEKLY_LIMIT"))

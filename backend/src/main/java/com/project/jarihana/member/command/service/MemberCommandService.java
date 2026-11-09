@@ -13,6 +13,7 @@ import com.project.jarihana.member.domain.Bootcamp;
 import com.project.jarihana.member.domain.Company;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.points.command.service.PointRewardService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,21 +27,24 @@ public class MemberCommandService {
     private final MemberRepository memberRepository;
     private final AccessTokenProvider accessTokenProvider;
     private final RefreshTokenIssuer refreshTokenIssuer;
+    private final PointRewardService pointRewards;
 
     public MemberCommandService(
             MemberRepository memberRepository,
             AccessTokenProvider accessTokenProvider,
-            RefreshTokenIssuer refreshTokenIssuer
+            RefreshTokenIssuer refreshTokenIssuer,
+            PointRewardService pointRewards
     ) {
         this.memberRepository = memberRepository;
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenIssuer = refreshTokenIssuer;
+        this.pointRewards = pointRewards;
     }
 
     /**
      * 가입 세션의 githubId로 회원을 만들고 이후 API에서 쓸 토큰을 발급한다.
      *
-     * <p>회원 저장과 Refresh Token 발급이 함께 성립해야 하므로 하나의 트랜잭션으로 묶는다.
+     * <p>회원 저장, 가입 보상 예약과 Refresh Token 발급을 하나의 트랜잭션으로 묶는다.
      */
     @Transactional
     public MemberSignupResult signup(MemberSignupCommand command) {
@@ -50,6 +54,7 @@ public class MemberCommandService {
         validateCrewNameAvailable(member);
 
         member = memberRepository.save(member);
+        pointRewards.memberSignedUp(member.getId());
         return new MemberSignupResult(
                 member.getId(),
                 member.getCrewName(),

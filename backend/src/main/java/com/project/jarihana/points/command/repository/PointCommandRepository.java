@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -41,6 +42,17 @@ public class PointCommandRepository {
                 .param(groupId)
                 .query((row, index) -> new GroupOrigin(row.getLong(1), row.getObject(2, LocalDateTime.class)))
                 .optional();
+    }
+
+    public List<Long> findMembersWithoutAward(String reason, int limit) {
+        return jdbc.sql("""
+                SELECT member.id FROM member
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM point_reward
+                    WHERE member_id = member.id AND reason = ? AND status <> 'SKIPPED'
+                )
+                ORDER BY member.id LIMIT ?
+                """).params(reason, limit).query(Long.class).list();
     }
 
     public boolean hasOlderMembership(long memberId, LocalDateTime startsAt) {

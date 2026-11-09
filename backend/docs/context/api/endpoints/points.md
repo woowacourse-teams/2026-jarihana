@@ -11,7 +11,7 @@
   "success": true,
   "data": {
     "enabled": true,
-    "balance": 80,
+    "balance": 800,
     "processing": true,
     "gomokuWeekly": { "limit": 3, "completed": 2, "pending": 1, "remaining": 0 },
     "activityPostWeekly": { "limit": 2, "completed": 1, "pending": 0, "remaining": 1 },

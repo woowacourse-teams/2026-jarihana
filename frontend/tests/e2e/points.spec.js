@@ -3,9 +3,11 @@ import { assertSurface, installApiFixture } from "./api-fixture.js";
 
 const activityPostWeekly = { limit: 2, completed: 1, pending: 0, remaining: 1 };
 const events = [
-  { id: "3", reason: "GOMOKU_WIN", amount: 5, status: "PENDING", skipReason: null, completedAt: null },
-  { id: "2", reason: "GROUP_CREATED", amount: 20, status: "COMPLETED", skipReason: null,
+  { id: "3", reason: "GOMOKU_WIN", amount: 50, status: "PENDING", skipReason: null, completedAt: null },
+  { id: "2", reason: "GROUP_CREATED", amount: 200, status: "COMPLETED", skipReason: null,
     completedAt: "2026-11-06T14:00:00" },
+  { id: "4", reason: "MEMBER_SIGNUP", label: "서비스 가입", amount: 200, status: "COMPLETED", skipReason: null,
+    occurredAt: "2026-11-06T11:00:00", completedAt: "2026-11-06T11:00:00" },
   { id: "1", reason: "GOMOKU_WIN", amount: 5, status: "SKIPPED", skipReason: "SAME_OPPONENT", completedAt: null,
     occurredAt: "2026-10-30T13:50:00" },
   { id: "0", reason: "GOMOKU_WIN", amount: 5, status: "SKIPPED", skipReason: "WEEKLY_LIMIT", completedAt: null,
@@ -35,12 +37,12 @@ async function setup(page, { claimFailures = 0 } = {}) {
     if (url.pathname.endsWith("/transactions")) {
       const next = url.searchParams.has("cursor");
       const first = settled ? { ...events[0], status: "COMPLETED", completedAt: "2026-11-06T14:00:00" } : events[0];
-      return reply({ items: next ? events.slice(2) : [first, events[1]], hasNext: !next, nextCursor: next ? null : "next" });
+      return reply({ items: next ? events.slice(3) : [first, ...events.slice(1, 3)], hasNext: !next, nextCursor: next ? null : "next" });
     }
     return reply({
       enabled: true,
       processing: !settled,
-      balance: (settled ? 40 : 35) + (claimed ? 15 : 0),
+      balance: (settled ? 700 : 650) + (claimed ? 150 : 0),
       gomokuWeekly: { limit: 3, completed: settled ? 3 : 2, pending: settled ? 0 : 1, remaining: 0 },
       activityPostWeekly,
       resetsAt: "2026-11-09T00:00:00"
@@ -57,12 +59,12 @@ for (const width of [390, 896, 1440, 1920]) {
       const { state } = await setup(page);
       await page.goto("/my");
       const heading = page.getByRole("heading", { name: "마이페이지", exact: true });
-      const walletName = "포인트 35 P, 내역 보기";
+      const walletName = "포인트 650 P, 내역 보기";
       const wallet = page.locator(".account-heading").getByRole("link", { name: walletName });
       await expect(wallet).toBeVisible();
       await expect(page.locator(".profile-column").getByRole("link", { name: walletName })).toHaveCount(0);
       const label = wallet.getByRole("heading", { name: "포인트", exact: true });
-      const balance = wallet.getByText("35 P", { exact: true });
+      const balance = wallet.getByText("650 P", { exact: true });
       const historyLabel = wallet.getByText("내역 보기", { exact: true });
       await expect(label).toBeVisible();
       const titleBox = await heading.boundingBox();
@@ -83,10 +85,12 @@ for (const width of [390, 896, 1440, 1920]) {
       await page.screenshot({ path: testInfo.outputPath("my-page.png"), fullPage: true });
       await wallet.click();
       await expect(page).toHaveURL(/\/my\/points$/);
-      await expect(page.getByText("35 P", { exact: true })).toBeVisible();
+      await expect(page.getByText("650 P", { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "이번 주 적립 한도" })).toBeVisible();
       await expect(page.getByText("3회 중 2회 적립, 1회 처리 중")).toBeVisible();
       await expect(page.getByText("처리 중", { exact: true })).toBeVisible();
+      await expect(page.getByText("+50 P", { exact: true })).toBeVisible();
+      await expect(page.getByRole("listitem").filter({ hasText: "서비스 가입" })).toContainText("+200 P");
       await page.getByRole("button", { name: "내역 더 보기" }).click();
       await expect(page.getByText("대국한 날 같은 상대와의 적립 한도에 도달했어요.")).toBeVisible();
       await expect(page.getByText("활동한 주의 적립 한도에 도달했어요.")).toBeVisible();
@@ -136,18 +140,18 @@ test("pending points refresh while the member stays on the page", async ({ page 
   await page.goto("/my/points");
   await expect(page.getByText("처리 중", { exact: true })).toBeVisible();
   settle();
-  await expect(page.getByText("40 P", { exact: true })).toBeVisible();
+  await expect(page.getByText("700 P", { exact: true })).toBeVisible();
   await expect(page.getByText("처리 중", { exact: true })).toHaveCount(0);
 });
 
 test("legacy reward recovers after two 503 responses in the same session", async ({ page }) => {
   const { claimAttempts } = await setup(page, { claimFailures: 2 });
   await page.goto("/my/points");
-  await expect(page.getByText("35 P", { exact: true })).toBeVisible();
+  await expect(page.getByText("650 P", { exact: true })).toBeVisible();
   await expect.poll(claimAttempts, { timeout: 10_000 }).toBe(2);
   await page.getByRole("link", { name: "마이페이지로 돌아가기" }).click();
   await page.getByRole("link", { name: "내역 보기" }).click();
 
-  await expect(page.getByText("50 P", { exact: true })).toBeVisible({ timeout: 17_000 });
+  await expect(page.getByText("800 P", { exact: true })).toBeVisible({ timeout: 17_000 });
   expect(claimAttempts()).toBe(3);
 });

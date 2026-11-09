@@ -24,11 +24,13 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class PointRewardWorker {
     private static final int BATCH_SIZE = 20;
+    private static final int SIGNUP_BACKFILL_BATCH_SIZE = 100;
     private final PointCommandRepository repository;
     private final TransactionTemplate transaction;
     private final Clock clock;
     private final ApplicationActivity activity;
     private final PointPolicy policy;
+    private final PointRewardService rewards;
 
     @Scheduled(fixedDelayString = "${jarihana.points.poll-delay:1000}",
             initialDelayString = "${jarihana.points.poll-delay:1000}")
@@ -43,6 +45,21 @@ public class PointRewardWorker {
         } catch (RuntimeException failure) {
             log.atWarn().addKeyValue("error.type", failure.getClass().getSimpleName())
                     .log("points.worker.failed");
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${jarihana.points.signup-backfill-delay:30000}",
+            initialDelayString = "${jarihana.points.signup-backfill-delay:30000}")
+    public void backfillSignupRewards() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (!policy.isActiveAt(now)) {
+            return;
+        }
+        try (var running = activity.beginBackground()) {
+            transaction.executeWithoutResult(status -> rewards.backfillSignupRewards(now, SIGNUP_BACKFILL_BATCH_SIZE));
+        } catch (RuntimeException failure) {
+            log.atWarn().addKeyValue("error.type", failure.getClass().getSimpleName())
+                    .log("points.signup.backfill.failed");
         }
     }
 

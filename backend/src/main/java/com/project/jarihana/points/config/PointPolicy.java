@@ -9,7 +9,7 @@ import java.time.temporal.TemporalAdjusters;
 
 @Component
 public class PointPolicy {
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     private final LocalDateTime startsAt;
 
