@@ -27,10 +27,12 @@ const source = readFileSync(
   new URL("../../../src/features/game/rhythm/mount-practice-game.mjs", import.meta.url),
   "utf8"
 );
-const html = readFileSync(
-  new URL("../../../src/features/game/rhythm/RhythmHarpoonGame.jsx", import.meta.url),
-  "utf8"
-);
+// 싱크 진단 창은 공식 도전과 함께 쓰는 SyncDialog.jsx로 분리했으므로 두 파일의 요소를 함께 읽는다.
+const html = ["RhythmHarpoonGame.jsx", "SyncDialog.jsx"]
+  .map((file) =>
+    readFileSync(new URL("../../../src/features/game/rhythm/" + file, import.meta.url), "utf8")
+  )
+  .join("\n");
 const chart = JSON.parse(
   readFileSync(
     new URL("../../../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url),

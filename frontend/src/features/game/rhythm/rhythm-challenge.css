@@ -1,0 +1,239 @@
+/* 공식 도전: 옵션 설정과 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
+.rhythm-challenge-steps {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-caption, 0.8rem);
+  color: var(--color-text-muted);
+}
+.rhythm-challenge-steps li {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border, #d6dbe1);
+  border-radius: 999px;
+}
+.rhythm-challenge-steps li[aria-current="step"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: var(--color-surface);
+  font-weight: 700;
+}
+
+.rhythm-game .rhythm-challenge {
+  display: grid;
+  justify-items: center;
+  min-block-size: var(--rhythm-board-space);
+  align-content: start;
+}
+.rhythm-game .rhythm-challenge__panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  inline-size: min(560px, 100%);
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #13232b;
+}
+.rhythm-game .rhythm-challenge__panel h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+.rhythm-game .rhythm-challenge__panel p {
+  margin: 0;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-challenge__panel a {
+  color: var(--mint);
+}
+.rhythm-game .rhythm-challenge__levels {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.rhythm-game .rhythm-challenge__levels button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.rhythm-game .rhythm-challenge__levels .life-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 28%);
+  color: #f3f6f4;
+  font-size: 0.68rem;
+}
+.rhythm-game .rhythm-challenge__summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.rhythm-game .rhythm-challenge__summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #1b2e37;
+}
+.rhythm-game .rhythm-challenge__summary dt {
+  color: var(--muted);
+}
+.rhythm-game .rhythm-challenge__summary dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+.rhythm-game .rhythm-challenge__rules {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-challenge__error {
+  color: #ffd0c7;
+}
+.rhythm-game .rhythm-challenge__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 결과(왼쪽)와 랭킹(오른쪽)을 나란히 둔다. 좁은 화면에서는 결과 아래에 랭킹을 쌓는다. */
+.rhythm-game .rhythm-challenge__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  inline-size: min(1080px, 100%);
+  align-items: start;
+}
+.rhythm-game .rhythm-challenge__result .rhythm-challenge__panel {
+  inline-size: 100%;
+}
+.rhythm-game .rhythm-result__score {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 0 4px;
+}
+.rhythm-game .rhythm-result__score small {
+  color: var(--muted);
+}
+.rhythm-game .rhythm-result__score strong {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: clamp(2rem, 5vw, 3rem);
+  color: var(--mint);
+}
+.rhythm-game .rhythm-ranking {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #13232b;
+}
+.rhythm-game .rhythm-ranking__heading h2 {
+  margin: 2px 0 4px;
+  font-size: 1.3rem;
+}
+.rhythm-game .rhythm-ranking__heading p {
+  margin: 0;
+}
+.rhythm-game .rhythm-ranking__state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px 0;
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+.rhythm-game .rhythm-ranking__mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #263e34;
+  color: var(--mint);
+}
+.rhythm-game .rhythm-ranking__mine strong {
+  font-size: 1.3rem;
+}
+.rhythm-game .rhythm-ranking__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rhythm-game .rhythm-ranking__list li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #1b2e37;
+}
+.rhythm-game .rhythm-ranking__list li.is-mine {
+  outline: 2px solid var(--mint);
+}
+.rhythm-game .rhythm-ranking__rank {
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 700;
+  text-align: center;
+}
+.rhythm-game .rhythm-ranking__member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rhythm-game .rhythm-ranking__member > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rhythm-game .rhythm-ranking__member small {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mint);
+  color: #0f1a14;
+  font-weight: 700;
+}
+.rhythm-game .rhythm-ranking__score {
+  display: grid;
+  justify-items: end;
+}
+.rhythm-game .rhythm-ranking__score b {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.rhythm-game .rhythm-ranking__score small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+@media (max-width: 767px) {
+  .rhythm-challenge-steps {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .rhythm-game .rhythm-challenge__result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rhythm-game .rhythm-challenge__panel,
+  .rhythm-game .rhythm-ranking {
+    padding: 18px 16px;
+  }
+}

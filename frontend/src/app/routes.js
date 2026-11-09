@@ -8,6 +8,11 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "RhythmHarpoonSinglePage", path: "/games/rhythm-harpoon/single" },
   { access: "public", page: "RhythmHarpoonLessonPage", path: "/games/rhythm-harpoon/learn" },
   { access: "public", page: "RhythmHarpoonPage", path: "/games/rhythm-harpoon/practice" },
+  {
+    access: "member",
+    page: "RhythmHarpoonChallengePage",
+    path: "/games/rhythm-harpoon/challenge"
+  },
   { access: "member", page: "ChatPage", path: "/chat" },
   { access: "member", page: "ChatPage", path: "/chat/:roomId" },
   { access: "public", page: "HomePage", path: "/" },

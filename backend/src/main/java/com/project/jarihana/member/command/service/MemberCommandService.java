@@ -23,6 +23,7 @@ public class MemberCommandService {
     private static final String SIGNUP_SESSION_MESSAGE = "가입 절차를 다시 시작해 주세요.";
     private static final String ALREADY_EXISTS_MESSAGE = "이미 가입한 사용자입니다.";
     private static final String CREW_DUPLICATED_MESSAGE = "이미 사용 중인 크루명입니다.";
+    private static final String BASIC_MEMBER_SIGNUP_CLOSED_MESSAGE = "아직 지원하지 않는 회원 유형입니다.";
 
     private final MemberRepository memberRepository;
     private final AccessTokenProvider accessTokenProvider;
@@ -73,6 +74,10 @@ public class MemberCommandService {
 
     private static Member createMember(MemberSignupCommand command, String githubId) {
         MemberType memberType = command.memberType();
+        if (memberType == MemberType.MEMBER) {
+            // 구버전 앱이 MEMBER를 읽지 못하므로, 읽기 지원이 운영에 배포된 뒤 가입을 연다.
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, BASIC_MEMBER_SIGNUP_CLOSED_MESSAGE);
+        }
         if (memberType == MemberType.BOOTCAMP) {
             return Member.createBootcamp(command.crewName(), githubId, toBootcamp(command.bootcamp()), command.field());
         }

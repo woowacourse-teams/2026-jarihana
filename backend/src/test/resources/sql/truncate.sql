@@ -2,6 +2,8 @@
 -- SSE는 주제 revision을 먼저 읽으므로 sparring_topic을 의견·투표보다 먼저 잠근다.
 TRUNCATE TABLE
     point_group_origin,
+    rhythm_challenge_batch,
+    rhythm_challenge,
     chat_read_state,
     chat_message,
     chat_room,
@@ -25,6 +27,7 @@ TRUNCATE TABLE
     sparring_post,
     sparring_vote,
     refresh_token,
+    crew_roster,
     proposal_comment,
     proposal_interest,
     proposal,

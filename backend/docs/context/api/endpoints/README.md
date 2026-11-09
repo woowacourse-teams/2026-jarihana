@@ -133,6 +133,11 @@
 | 오목 | `GET` | `/api/games/gomoku/history/me/summary` | `MEMBER` | 본인 총 대국, 승/패/무와 승률 |
 | 오목 | `GET` | `/api/games/gomoku/history/me` | `MEMBER` | 본인 완료 대전기록 커서 조회 |
 | 오목 | `GET` | `/api/games/gomoku/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges` | `MEMBER` | 공식 도전 생성과 시드 발급 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/start` | `MEMBER + 본인` | 실제 경과 시간 기준 시각 기록 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/batches` | `MEMBER + 본인` | 입력 묶음으로 점수 재계산, 실시간 진행 검사 |
+| 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/abandon` | `MEMBER + 본인` | 이탈한 도전 무효 처리 |
+| 리듬 작살 | `GET` | `/api/games/rhythm-harpoon/rankings` | `MEMBER` | 난이도별 회원 최고 기록 랭킹과 내 순위 |
 
 ## 상세 문서
 
@@ -143,6 +148,7 @@
 | 포인트 | [points.md](points.md) | 잔액, 주간 한도, 적립 내역과 기존 소속 보상 |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
+| 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |

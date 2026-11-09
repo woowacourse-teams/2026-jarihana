@@ -205,4 +205,36 @@ class MemberTest {
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
+
+    @DisplayName("기본 멤버는 닉네임과 GitHub ID만으로 생성하고 기수, 과정, 소속 정보를 갖지 않는다.")
+    @Test
+    void createBasicMember() {
+        // When
+        Member member = Member.createBasic("도담", "123456");
+
+        // Then
+        assertThat(member.getMemberType()).isEqualTo(MemberType.MEMBER);
+        assertThat(member.getCrewName()).isEqualTo("도담");
+        assertThat(member.getGithubId()).isEqualTo("123456");
+        assertThat(member.getGeneration()).isNull();
+        assertThat(member.getCourse()).isNull();
+        assertThat(member.getBootcamp()).isNull();
+        assertThat(member.getField()).isNull();
+        assertThat(member.getCareer()).isNull();
+        assertThat(member.getCompany()).isNull();
+    }
+
+    @DisplayName("기본 멤버는 기수나 과정을 가질 수 없다.")
+    @Test
+    void basicMemberCannotHaveGenerationOrCourse() {
+        // When & Then
+        assertThatThrownBy(() -> Member.create("도담", 8, "123456", MemberType.MEMBER, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+        assertThatThrownBy(() -> Member.create("도담", null, "123456", MemberType.MEMBER, Course.BACKEND))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
 }
