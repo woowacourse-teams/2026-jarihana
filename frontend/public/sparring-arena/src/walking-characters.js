@@ -1,3 +1,5 @@
+import { createAvatarInstanceBatch } from './avatar-instance-batch.js';
+import { AVATAR_PARTS } from './avatar-part-definitions.js';
 import * as THREE from 'three';
 import { characterVariant } from './character-motion.js';
 import { studioMaterial } from './studio-materials.js';
@@ -136,92 +138,9 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     return node;
   }
 
-  function shoeChoices(ankle, variant) {
-    return Object.fromEntries(AVATAR_OPTIONS.shoes.map(kind => {
-      const shoe = joint(ankle, [0, 0, 0]);
-      part(shoe, variant, 'sole', [0, -0.075, 0.065], [0.158, 0.03, 0.23], [0, 0, 0], 'rounded');
-      if (kind === 'slipOn') {
-        part(shoe, variant, 'footwear', [0, -0.012, 0.068], [0.163, 0.073, 0.231], [0, 0, 0], 'soft');
-        part(shoe, variant, 'footwear', [0, 0.032, 0.08], [0.115, 0.026, 0.095], [0, 0, 0], 'soft');
-        part(shoe, variant, 'sole', [0, 0.051, 0.104], [0.106, 0.008, 0.013]);
-      } else {
-        // Sneakers retain the existing shoe silhouette and detailing.
-        part(shoe, variant, 'footwear', [0, -0.001, 0.064], [0.167, 0.087, 0.235]);
-        part(shoe, variant, 'footwear', [0, 0.042, 0.01], [0.085, 0.042, 0.095]);
-        if (kind === 'highTop') {
-          part(shoe, variant, 'footwear', [0, 0.074, -0.005], [0.16, 0.115, 0.15], [0, 0, 0], 'soft');
-          part(shoe, variant, 'footwear', [0, 0.084, 0.148], [0.09, 0.073, 0.04], [-0.12, 0, 0], 'soft');
-          for (const y of [0.09, 0.13]) part(shoe, variant, 'sole', [0, y, 0.186], [0.075, 0.009, 0.011]);
-        }
-        for (const z of [0.015, 0.052, 0.089]) {
-          part(shoe, variant, 'sole', [0, 0.065 - z * 0.13, z], [0.07, 0.009, 0.011]);
-        }
-      }
-      return [kind, shoe];
-    }));
-  }
-
-  function bagChoices(torso, variant, hair) {
-    const backpack = joint(torso, [0, 0, 0]);
-    const longHair = hair === 'long' || hair === 'flowing', back = longHair ? -0.55 : -0.38;
-    part(backpack, variant, 'bag', [0, 0.29, back], [0.28, 0.29, 0.13], [0, 0, 0], 'soft');
-    part(backpack, variant, 'bagTrim', [0, 0.15, back - 0.13], [0.22, 0.12, 0.04], [0, 0, 0], 'soft');
-    part(backpack, variant, 'bagHardware', [0, 0.24, back - 0.17], [0.17, 0.007, 0.008], [0, 0, 0], 'rounded');
-    part(backpack, variant, 'bagHardware', [0.12, 0.22, back - 0.181], [0.012, 0.026, 0.005], [0, 0, -0.12], 'rounded');
-    for (const sign of [-1, 1]) {
-      part(backpack, variant, 'bagTrim', [sign * 0.228, 0, 0], [1, 1, 1], [0, 0, 0], longHair ? 'avatarBackpackLongStrap' : 'avatarBackpackStrap');
-      part(backpack, variant, 'bagHardware', [sign * 0.228, 0.20, 0.25], [0.028, 0.02, 0.008], [0, 0, 0], 'rounded');
-    }
-    const crossbody = joint(torso, [0, 0, 0]);
-    part(crossbody, variant, 'bagTrim', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'avatarCrossbodyStrap');
-    part(crossbody, variant, 'bag', [0.12, 0.04, 0.32], [0.21, 0.13, 0.08], [0, 0, -0.12], 'soft');
-    part(crossbody, variant, 'bagTrim', [0.12, 0.08, 0.39], [0.185, 0.075, 0.014], [0, 0, -0.12], 'soft');
-    part(crossbody, variant, 'bagHardware', [0.12, 0.02, 0.408], [0.028, 0.025, 0.006], [0, 0, -0.12], 'rounded');
-    const shoulder = joint(torso, [0, 0, 0]);
-    part(shoulder, variant, 'bagTrim', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'avatarShoulderStrap');
-    part(shoulder, variant, 'bag', [0.42, -0.10, -0.21], [0.12, 0.20, 0.09], [0, 0, -0.05], 'soft');
-    part(shoulder, variant, 'bagTrim', [0.42, 0.025, -0.12], [0.105, 0.06, 0.016], [0, 0, -0.05], 'soft');
-    part(shoulder, variant, 'bagHardware', [0.42, 0, -0.101], [0.027, 0.021, 0.006], [0, 0, 0], 'rounded');
-    return { backpack, crossbody, shoulder };
-  }
-
-  function itemChoices(palm, variant) {
-    const hotCoffee = joint(palm, [0, 0, 0]);
-    part(hotCoffee, variant, 'itemPaper', [0, 0.02, 0.05], [1, 1, 1], [0, 0, 0], 'avatarHotCup');
-    part(hotCoffee, variant, 'itemCoffee', [0, 0.01, 0.05], [1, 1, 1], [0, 0, 0], 'avatarCupSleeve');
-    part(hotCoffee, variant, 'itemInk', [0, 0.109, 0.05], [1, 1, 1], [0, 0, 0], 'avatarHotLid');
-    part(hotCoffee, variant, 'itemCoffee', [0, 0.130, 0.087], [0.016, 0.0015, 0.006], [0, 0, 0], 'rounded');
-    const icedCoffee = joint(palm, [0, 0, 0]);
-    part(icedCoffee, variant, 'itemGlass', [0, 0.04, 0.05], [1, 1, 1], [0, 0, 0], 'avatarColdCup');
-    part(icedCoffee, variant, 'itemCoffee', [0, 0.025, 0.05], [1, 1, 1], [0, 0, 0], 'avatarCoffeeFill');
-    part(icedCoffee, variant, 'itemGlass', [0, 0.151, 0.05], [1, 1, 1], [0, 0, 0], 'avatarColdLid');
-    for (const [x, z] of [[-0.021, 0.037], [0.019, 0.071], [0.024, 0.028]]) {
-      part(icedCoffee, variant, 'itemIce', [x, 0.113, z], [0.017, 0.018, 0.017], [0.2, x * 8, 0.3], 'rounded');
-    }
-    part(icedCoffee, variant, 'itemAccent', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'avatarStraw');
-    const book = joint(palm, [0, 0.025, 0.045]); book.rotation.y = -0.2;
-    part(book, variant, 'itemPaper', [0, 0, 0], [0.073, 0.102, 0.016], [0, 0, 0], 'rounded');
-    for (const z of [-0.022, 0.022]) part(book, variant, 'itemCover', [0, 0, z], [0.080, 0.11, 0.005], [0, 0, 0], 'rounded');
-    part(book, variant, 'itemCover', [-0.077, 0, 0], [0.008, 0.11, 0.023], [0, 0, 0], 'rounded');
-    part(book, variant, 'itemPaper', [0, 0.035, 0.029], [0.045, 0.007, 0.002], [0, 0, 0], 'rounded');
-    part(book, variant, 'itemPaper', [-0.012, 0.012, 0.029], [0.033, 0.003, 0.002], [0, 0, 0], 'rounded');
-    for (const z of [-0.009, 0, 0.009]) part(book, variant, 'sole', [0.073, 0, z], [0.0015, 0.096, 0.001], [0, 0, 0], 'rounded');
-    const phone = joint(palm, [0, 0.025, 0.055]);
-    part(phone, variant, 'itemInk', [0, 0, 0], [0.046, 0.088, 0.011], [0, 0, 0], 'rounded');
-    part(phone, variant, 'itemScreen', [0, 0, 0.012], [0.039, 0.075, 0.003], [0, 0, 0], 'rounded');
-    part(phone, variant, 'itemPaper', [0, 0.077, 0.012], [0.012, 0.002, 0.002], [0, 0, 0], 'rounded');
-    part(phone, variant, 'itemMetal', [-0.022, 0.059, -0.012], [0.016, 0.019, 0.003], [0, 0, 0], 'rounded');
-    for (const y of [0.05, 0.067]) part(phone, variant, 'itemScreen', [-0.022, y, -0.016], [0.006, 0.006, 0.002]);
-    for (const y of [0.02, -0.005, -0.030]) part(phone, variant, 'itemAccent', [-0.005, y, 0.016], [0.022, 0.005, 0.001], [0, 0, 0], 'rounded');
-    // Rest the base on one palm; the outward lid hides the keyboard from the front.
-    const laptop = joint(palm, [0, 0, 0]);
-    part(laptop, variant, 'itemMetal', [0, 0.035, 0], [0.23, 0.012, 0.15], [0, 0, 0], 'rounded');
-    part(laptop, variant, 'itemInk', [0, 0.049, 0.04], [0.19, 0.002, 0.07], [0, 0, 0], 'rounded');
-    part(laptop, variant, 'itemMetal', [0, 0.185, 0.135], [0.23, 0.14, 0.01], [0.18, 0, 0], 'rounded');
-    part(laptop, variant, 'itemScreen', [0, 0.185, 0.122], [0.207, 0.118, 0.003], [0.18, 0, 0], 'rounded');
-    part(laptop, variant, 'itemAccent', [0, 0.185, 0.149], [0.026, 0.026, 0.003]);
-    part(laptop, variant, 'itemInk', [0, 0.049, -0.085], [0.062, 0.002, 0.037], [0, 0, 0], 'rounded');
-    return { hotCoffee, icedCoffee, book, laptop, phone };
+  function buildChoices(slot, parent, variant, extra = {}) {
+    return Object.fromEntries(Object.values(AVATAR_PARTS[slot]).filter(definition => definition.build).map(definition =>
+      [definition.id, definition.build({ parent, variant, part, joint, traits: definition.traits, ...extra })]));
   }
 
   const rigs = Array.from({ length: rigCount }, (_, variant) => {
@@ -259,34 +178,14 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       part(mouths.open, variant, 'mouthInner', [0, -0.40, 0.89], [0.63, 0.28, 0.15]);
     }
     const openMouth = custom ? null : part(head, variant, 'face', [0, -0.105, 0.29], [0, 0, 0]);
-    const hairShape = custom ? { curly: 'avatarCurly', parted: 'avatarParted', bob: 'avatarBob', long: 'avatarLong', flowing: 'avatarFlowing' }[hair] : variant === 0 ? 'crewHair' : 'coachHair';
+    const hairShape = custom ? AVATAR_PARTS.hair[hair].traits.shape : variant === 0 ? 'crewHair' : 'coachHair';
     const hairNodes = {};
     if (hairShape) {
       hairNodes.normal = part(head, variant, custom ? 'avatarHair' : 'hair', [0, 0, 0], [1, 1, 1], [0, 0, 0], hairShape);
       if (custom) hairNodes.fitted = part(head, variant, 'avatarHair', [0, 0, 0], [1, 1, 1], [0, 0, 0], `${hairShape}WithHat`);
     }
-    const hats = {};
-    if (custom) for (const kind of AVATAR_OPTIONS.hat.filter(value => value !== 'none')) {
-      const group = joint(head, [0, 0, 0]); hats[kind] = group;
-      const prefix = { cap: 'Cap', bucket: 'Bucket', beanie: 'Beanie', beret: 'Beret' }[kind];
-      part(group, variant, 'hat', [0, 0, 0], [1, 1, 1], [0, 0, 0], `avatar${prefix}Crown`);
-      const trim = { cap: 'Brim', bucket: 'Brim', beanie: 'Cuff', beret: 'Band' }[kind];
-      part(group, variant, kind === 'beanie' || kind === 'beret' ? 'hatTrim' : 'hat', [0, 0, 0], [1, 1, 1], [0, 0, 0], `avatar${prefix}${trim}`);
-      if (kind === 'beret') part(group, variant, 'hatTrim', [0.035, 0.535, -0.025], [0.022, 0.045, 0.022]);
-      if (kind === 'cap') part(group, variant, 'hatTrim', [0, 0.515, -0.025], [0.035, 0.018, 0.035]);
-    }
-    const glasses = { round: [], square: [], sunglasses: [] };
-    if (custom) for (const kind of Object.keys(glasses)) {
-      for (const sign of [-1, 1]) {
-        glasses[kind].push(part(head, variant, 'face', [sign * 0.111, 0.021, 0.324], [kind === 'sunglasses' ? 1.12 : 1, 0.88, 1], [0, 0, 0], `${kind === 'sunglasses' ? 'square' : kind}Glasses`));
-        glasses[kind].push(part(head, variant, 'face', [sign * 0.202, 0.025, 0.19], [0.008, 0.008, 0.14], [0, sign * -0.10, 0], 'rounded'));
-        if (kind === 'sunglasses') {
-          glasses[kind].push(part(head, variant, 'lenses', [sign * 0.111, 0.021, 0.332], [0.076, 0.053, 0.009], [0, 0, 0], 'rounded'));
-          glasses[kind].push(part(head, variant, 'sole', [sign * 0.111 - 0.02, 0.043, 0.343], [0.025, 0.003, 0.002], [0, 0, 0.5], 'rounded'));
-        }
-      }
-      glasses[kind].push(part(head, variant, 'face', [0, 0.026, 0.33], [0.037, 0.007, 0.008], [0, 0, 0], 'rounded'));
-    }
+    const hats = custom ? buildChoices('hat', head, variant) : {};
+    const glasses = custom ? buildChoices('glasses', head, variant) : {};
     if (!custom && variant === 0) {
       part(torso, variant, 'navy', [0, 0.29, -0.245], [0.29, 0.30, 0.145], [0, 0, 0], 'soft');
       part(torso, variant, 'navy', [0, 0.15, -0.385], [0.23, 0.14, 0.04], [0, 0, 0], 'soft');
@@ -319,7 +218,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       const knee = joint(hip, [0, -THIGH, 0]);
       fabric.userData.bendJoint = knee;
       const ankle = joint(knee, [0, -SHIN, 0]);
-      const shoes = custom ? shoeChoices(ankle, variant) : {};
+      const shoes = custom ? buildChoices('shoes', ankle, variant) : {};
       if (!custom) {
         part(ankle, variant, 'sole', [0, -0.075, 0.065], [0.158, 0.03, 0.23], [0, 0, 0], 'rounded');
         part(ankle, variant, 'white', [0, -0.012, 0.064], [0.156, 0.076, 0.222]);
@@ -330,16 +229,14 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       }
       return { sign, hip, knee, ankle, shoes };
     });
-    const bags = custom ? bagChoices(torso, variant, hair) : {};
+    const bags = custom ? buildChoices('bag', torso, variant, { hairTraits: AVATAR_PARTS.hair[hair].traits }) : {};
     const palm = joint(arms[1].elbow, [0, -0.30, 0.075]);
-    const items = custom ? itemChoices(palm, variant) : {};
+    const items = custom ? buildChoices('handheld', palm, variant) : {};
     return { root, torso, head, face, eyes, eyebrows, nose, mouths, mouth: mouths.smile, openMouth, glasses, arms, legs, hairNodes, hats, bags, palm, items };
   });
 
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  const active = Array(capacity).fill(false);
   const hands = Array.from({ length: capacity }, () => ({ leftHand: new THREE.Vector3(), rightHand: new THREE.Vector3() }));
-  let visibleSlots = 0;
   const meshes = [];
   for (const bucket of buckets.values()) {
     bucket.stride = Math.max(...bucket.parts.map(parts => parts.length));
@@ -365,6 +262,8 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     mesh.count = 0;
     mesh.instanceMatrix.needsUpdate = true;
     bucket.mesh = mesh;
+    bucket.batch = createAvatarInstanceBatch(mesh, bucket.bends, bucket.stride);
+    mesh.visible = false;
     meshes.push(mesh);
     scene.add(mesh);
   }
@@ -372,20 +271,28 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
   sculpt.sleeve.dispose();
   sculpt.trouser.dispose();
 
+  const selections = Array(capacity).fill(null);
   function hide(index) {
-    active[index] = false;
-    while (visibleSlots > 0 && !active[visibleSlots - 1]) visibleSlots--;
-    for (const { mesh, stride } of buckets.values()) {
-      for (let partIndex = 0; partIndex < stride; partIndex++) mesh.setMatrixAt(index * stride + partIndex, zero);
-      mesh.count = visibleSlots * stride;
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.boundingSphere = null;
+    for (const bucket of selections[index]?.batches.keys() ?? []) bucket.batch.hide(index);
+    selections[index] = null;
+  }
+
+  function isSelected(node) {
+    for (let current = node; current; current = current.parent) {
+      if (!current.visible || current.scale.x === 0 || current.scale.y === 0 || current.scale.z === 0) return false;
     }
+    return true;
+  }
+  function updateSelectedMatrices(node) {
+    if (!node.visible || node.parent && (node.scale.x === 0 || node.scale.y === 0 || node.scale.z === 0)) return;
+    node.updateMatrix();
+    if (node.parent) node.matrixWorld.multiplyMatrices(node.parent.matrixWorld, node.matrix);
+    else node.matrixWorld.copy(node.matrix);
+    for (const child of node.children) updateSelectedMatrices(child);
   }
 
   const capsuleOffset = new THREE.Vector3();
   const color = new THREE.Color();
-  const slotAppearances = Array(capacity).fill(undefined);
   function appearanceColors(appearance) {
     if (!appearance) return { ...colors, complexion: colors.skin };
     const skin = AVATAR_PALETTE.skin[appearance.skin], clothes = AVATAR_PALETTE.outfit[appearance.outfit];
@@ -401,8 +308,6 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
   const hangPivot = new THREE.Vector3(), rotatedHangPivot = new THREE.Vector3();
   const hangRotation = new THREE.Quaternion(), hangAxis = new THREE.Vector3(0, 0, 1);
   function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
-    active[index] = true;
-    visibleSlots = Math.max(visibleSlots, index + 1);
     const appearance = readAvatarAppearance(post?.appearance);
     const appearanceKey = appearance ? JSON.stringify(appearance) : '';
     const variant = appearance ? 2 + AVATAR_OPTIONS.hair.indexOf(appearance.hair) : characterVariant(post);
@@ -412,30 +317,23 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       for (const [kind, group] of Object.entries(rig.bags)) group.scale.setScalar(appearance.bag === kind ? 1 : 0);
       for (const [kind, group] of Object.entries(rig.hats)) group.scale.setScalar(appearance.hat === kind ? 1 : 0);
       if (rig.hairNodes.normal) {
-        rig.hairNodes.normal.scale.setScalar(appearance.hat === 'none' ? 1 : 0);
-        rig.hairNodes.fitted.scale.setScalar(appearance.hat === 'none' ? 0 : 1);
+        rig.hairNodes.normal.scale.setScalar(AVATAR_PARTS.hat[appearance.hat].traits.coversUpperHair ? 0 : 1);
+        rig.hairNodes.fitted.scale.setScalar(AVATAR_PARTS.hat[appearance.hat].traits.coversUpperHair ? 1 : 0);
       }
       for (const leg of rig.legs) {
         for (const [kind, shoe] of Object.entries(leg.shoes)) shoe.scale.setScalar(appearance.shoes === kind ? 1 : 0);
       }
-      const dimensions = { round: [1.16, 1.13, 1.10], oval: [1.07, 1.22, 1.10], wide: [1.27, 1.08, 1.10] }[appearance.face];
+      const dimensions = AVATAR_PARTS.face[appearance.face].traits.scale;
       rig.head.scale.set(...dimensions);
-      for (const eye of rig.eyes) eye.scale.set(...{ round: [0.033, 0.052, 0.024], slim: [0.039, 0.025, 0.023], dot: [0.028, 0.033, 0.023] }[appearance.eyes]);
-      for (const { node } of rig.eyebrows) node.scale.set(...{ arched: [1, 1, 1], straight: [1, 0.13, 1], bold: [1.14, 1.5, 1.4] }[appearance.eyebrows]);
-      rig.nose.scale.set(...{ round: [0.047, 0.047, 0.058], small: [0.033, 0.034, 0.041], wide: [0.060, 0.039, 0.048] }[appearance.nose]);
+      for (const eye of rig.eyes) eye.scale.set(...AVATAR_PARTS.eyes[appearance.eyes].traits.scale);
+      for (const { node } of rig.eyebrows) node.scale.set(...AVATAR_PARTS.eyebrows[appearance.eyebrows].traits.scale);
+      rig.nose.scale.set(...AVATAR_PARTS.nose[appearance.nose].traits.scale);
       for (const [kind, mouth] of Object.entries(rig.mouths)) {
         if (!mouth.userData.originalScale) mouth.userData.originalScale = mouth.scale.clone();
         mouth.scale.copy(mouth.userData.originalScale).multiplyScalar(appearance.mouth === kind ? 1 : 0);
       }
-      for (const [kind, nodes] of Object.entries(rig.glasses)) {
-        for (const node of nodes) {
-          if (!node.userData.originalScale) node.userData.originalScale = node.scale.clone();
-          node.scale.copy(node.userData.originalScale).multiplyScalar(appearance.glasses === kind ? 1 : 0);
-        }
-      }
+      for (const [kind, group] of Object.entries(rig.glasses)) group.scale.setScalar(appearance.glasses === kind ? 1 : 0);
     }
-    const recolor = slotAppearances[index] !== appearanceKey;
-    const palette = recolor ? appearanceColors(appearance) : null;
     const scale = size * (pose.scale ?? 1) * (pose.shrink ?? 1);
     const seated = clamp(pose.seated ?? 0, 0, 1);
     const stride = clamp(pose.stride ?? 0, -1, 1) * (1 - seated);
@@ -507,8 +405,9 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       ankle.rotation.x = -hip.rotation.x - knee.rotation.x + .22 * hangBlend;
     }
     for (const { sign, shoulder, elbow, fingers, thumb } of rig.arms) {
-      const carrying = appearance && appearance.handheld !== 'none' && sign > 0;
-      const tray = carrying && appearance.handheld === 'laptop';
+      const holdsWith = appearance && AVATAR_PARTS.handheld[appearance.handheld].traits.holdsWith;
+      const carrying = holdsWith && sign > 0;
+      const tray = carrying && holdsWith === 'tray';
       const arm = sign < 0 ? pose.leftArm : pose.rightArm;
       const bend = sign < 0 ? pose.leftElbow : pose.rightElbow;
       const spread = sign < 0 ? pose.leftSpread : pose.rightSpread;
@@ -530,34 +429,34 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       thumb.rotation.z = -sign * (0.4 + grip * 0.65);
     }
     rig.palm.quaternion.copy(rig.arms[1].shoulder.quaternion).multiply(rig.arms[1].elbow.quaternion).invert();
-    rig.root.updateMatrixWorld(true);
+    updateSelectedMatrices(rig.root);
     if (pose.hanging) {
       // Keep the animated crown in the hand even while ducking or throwing a punch.
       hangPivot.set(0, (2.08 - 0.78 - 0.95) / 0.86, 0).applyMatrix4(rig.head.matrixWorld);
       rotatedHangPivot.copy(position).y += 2.08 * scale;
       rig.root.position.addScaledVector(rotatedHangPivot.sub(hangPivot), hangBlend);
-      rig.root.updateMatrixWorld(true);
+      updateSelectedMatrices(rig.root);
     }
     scene.updateWorldMatrix(true, false);
     for (const { sign, elbow } of rig.arms) {
       hands[index][sign < 0 ? 'leftHand' : 'rightHand'].set(0, -0.31, 0.02)
         .applyMatrix4(elbow.matrixWorld).applyMatrix4(scene.matrixWorld);
     }
-    for (const { mesh, parts, bends, materialName, stride: count } of buckets.values()) {
-      const selected = parts[variant];
-      for (let partIndex = 0; partIndex < count; partIndex++) {
-        const part = selected[partIndex];
-        mesh.setMatrixAt(index * count + partIndex, part?.visible ? part.matrixWorld : zero);
-        if (recolor) mesh.setColorAt(index * count + partIndex, color.set(palette[materialName]));
-        bends?.setX(index * count + partIndex, selected[partIndex]?.userData.bendJoint?.rotation.x ?? 0);
+    const selectionKey = `${variant}:${appearanceKey}:${scale === 0}:${appearance ? '' : [pose.anger ?? 0, pose.surprise ?? 0, pose.mouthOpen ?? 0].join(':')}`;
+    let selection = selections[index];
+    if (selection?.key !== selectionKey) {
+      const batches = new Map();
+      for (const bucket of buckets.values()) {
+        const parts = bucket.parts[variant].map((node, partIndex) => ({ node, partIndex })).filter(({ node }) => isSelected(node));
+        if (parts.length) batches.set(bucket, parts);
       }
-      if (recolor) mesh.instanceColor.needsUpdate = true;
-      if (bends) bends.needsUpdate = true;
-      mesh.count = visibleSlots * count;
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.boundingSphere = null;
+      for (const bucket of selection?.batches.keys() ?? []) if (!batches.has(bucket)) bucket.batch.hide(index);
+      selection = { key: selectionKey, batches, palette: appearanceColors(appearance) };
+      selections[index] = selection;
     }
-    slotAppearances[index] = appearanceKey;
+    for (const [bucket, parts] of selection.batches) {
+      bucket.batch.update(index, parts, color.set(selection.palette[bucket.materialName]));
+    }
     return hands[index];
   }
 

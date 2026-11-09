@@ -58,7 +58,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("V30는 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
+    @DisplayName("V30은 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
     void addAvatarAfterV29PreservesOldMemberOperations() throws SQLException {
         // Given
         String schema = "avatar_upgrade_" + UUID.randomUUID().toString().replace("-", "");

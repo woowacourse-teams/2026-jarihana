@@ -3,6 +3,7 @@ package com.project.jarihana.member.domain;
 import com.project.jarihana.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.util.EnumMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,33 +29,47 @@ class AvatarAppearanceTest {
     }
 
     @Test
-    @DisplayName("허용하지 않은 파츠와 버전은 저장하지 않는다.")
+    @DisplayName("허용하지 않은 버전·파츠와 필수 파츠 누락은 저장하지 않는다.")
     void rejectsUnknownPartsAndVersion() {
-        // Given / When / Then
-        assertThatThrownBy(() -> AvatarAppearance.of(2, "bald", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> AvatarAppearance.of(1, "unknown", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", null, "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", "sneakers", "white", "none", "ink", "none", "ink", "none"))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", "unknown", "white", "none", "ink", "none", "ink", "none"))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", "sneakers", "unknown", "none", "ink", "none", "ink", "none"))
-                .isInstanceOf(BusinessException.class);
+        // Given
+        var selections = new EnumMap<>(AvatarCatalog.basicSelections());
+        // When / Then
+        assertThatThrownBy(() -> AvatarAppearance.of(2, selections)).isInstanceOf(BusinessException.class);
+        for (AvatarCatalog slot : AvatarCatalog.values()) {
+            var invalid = new EnumMap<>(selections);
+            invalid.put(slot, "unknown");
+            assertThatThrownBy(() -> AvatarAppearance.of(1, invalid)).isInstanceOf(BusinessException.class);
+        }
+        selections.remove(AvatarCatalog.SKIN);
+        assertThatThrownBy(() -> AvatarAppearance.of(1, selections)).isInstanceOf(BusinessException.class);
     }
+
     @Test
     @DisplayName("누락된 확장 파츠는 도메인에서 기본값을 채운다.")
     void defaultsMissingExtensionPartsInDomain() {
-        // Given / When
-        AvatarAppearance appearance = AvatarAppearance.of(1, "bald", "warm", "ink", "round", "dot",
-                "straight", "small", "flat", "none", "cream", null, null, null, null, null, null, null);
+        // Given
+        var selections = new EnumMap<>(AvatarCatalog.basicSelections());
+        for (AvatarCatalog slot : AvatarCatalog.values()) {
+            if (slot.isOptional()) selections.put(slot, null);
+        }
+        // When
+        AvatarAppearance appearance = AvatarAppearance.of(1, selections);
         // Then
         assertThat(appearance).usingRecursiveComparison().isEqualTo(AvatarAppearance.basic());
     }
 
+    @Test
+    @DisplayName("같은 허용 값을 쓰는 색상도 종류별로 저장하고 입력 변경에 영향받지 않는다.")
+    void preservesNamedColorsAndCopiesSelections() {
+        // Given
+        var selections = new EnumMap<>(AvatarCatalog.basicSelections());
+        selections.put(AvatarCatalog.HAT_COLOR, "coral");
+        selections.put(AvatarCatalog.BAG_COLOR, "navy");
+        // When
+        AvatarAppearance appearance = AvatarAppearance.of(1, selections);
+        selections.put(AvatarCatalog.HAT_COLOR, "mint");
+        // Then
+        assertThat(appearance.getHatColor()).isEqualTo("coral");
+        assertThat(appearance.getBagColor()).isEqualTo("navy");
+    }
 }
