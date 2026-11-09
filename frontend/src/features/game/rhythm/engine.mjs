@@ -2,30 +2,43 @@ export const LANES = ["left", "down", "right", "up"];
 export const PERFECT_WINDOW = 0.032;
 export const HIT_WINDOW = 0.064;
 export const CAPTURE_WINDOW = 0.15;
-export const POOR_WINDOW = 0.18;
-export const POOR_PENALTY = 1000;
+// 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받는다. 그 밖의 입력은 헛공격이다.
+export const EARLY_CAPTURE_WINDOW = 0.2;
+// 헛공격은 콤보와 라이프를 건드리지 않고 점수만 깎는다. 박자에 맞춘 4키 뭉개기를 완벽 플레이의 5% 아래로 묶는다.
+export const POOR_PENALTY = 300;
 export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
   { kind: "hit", label: "HIT", window: HIT_WINDOW, score: 600, color: "#41687c" },
-  { kind: "enough", label: "ENOUGH", window: 0.1, score: 300, color: "#87702e" },
-  // 100ms를 넘겨 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
-  { kind: "uhoh", label: "Uh oh", window: CAPTURE_WINDOW, score: 0, color: "#8a5d45", whiff: true }
+  // 일찍 누른 입력은 120ms까지 잡는다. 늦게 누른 입력은 100ms를 넘기면 놓친다.
+  { kind: "enough", label: "ENOUGH", window: 0.1, earlyWindow: 0.12, score: 300, color: "#87702e" },
+  // ENOUGH 범위를 벗어나 누르면 세균을 놓친다. 판정은 받지만 점수 없이 콤보가 끊기고 세균이 돌진한다.
+  {
+    kind: "uhoh",
+    label: "Uh oh",
+    window: CAPTURE_WINDOW,
+    earlyWindow: EARLY_CAPTURE_WINDOW,
+    score: 0,
+    color: "#8a5d45",
+    whiff: true
+  }
 ];
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
 export const LEVELS = {
-  easy: { name: "Easy", lives: 10, description: "정박 위주의 단타로 리듬을 익혀요." },
+  easy: { name: "Easy", lives: 10, loopHeal: 3, description: "정박 위주의 단타로 리듬을 익혀요." },
   medium: {
     name: "Medium",
     lives: 8,
+    loopHeal: 3,
     description: "한 박 간격의 축연타와 8분 엇박 단타가 나와요."
   },
   hard: {
     name: "Hard",
     lives: 8,
+    loopHeal: 3,
     description: "2키 동시타와 16분 엇박, 박을 넘나드는 리듬에 도전해요."
   },
-  hardest: { name: "Hardest", lives: 10, description: "라이프 10개, 자신 있게 드립니다!" }
+  hardest: { name: "Hardest", lives: 10, loopHeal: 5, description: "라이프 10개, 자신 있게 드립니다!" }
 };
 
 export function rateForLoop(loopNumber) {
@@ -359,6 +372,7 @@ export class GameEngine {
     this.maxLives = LEVELS[this.level].lives;
     this.lives = this.maxLives;
     this.loopHeal = LEVELS[this.level].loopHeal;
+    this.nextLoopToHeal = 0;
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
@@ -445,9 +459,19 @@ export class GameEngine {
     return this.loops.find((loop) => time < loop.end) || this.loops[this.loops.length - 1];
   }
 
+  healCompletedLoops(time) {
+    while (this.nextLoopToHeal < this.loops.length && this.loops[this.nextLoopToHeal].end <= time) {
+      this.lives = Math.min(this.maxLives, this.lives + this.loopHeal);
+      this.nextLoopToHeal++;
+    }
+  }
+
   hit(note, at) {
     const delta = at - note.at;
-    const judgment = JUDGMENTS.find((item) => Math.abs(delta) <= item.window + 0.0000001);
+    const judgment = JUDGMENTS.find(
+      (item) =>
+        Math.abs(delta) <= (delta < 0 ? (item.earlyWindow ?? item.window) : item.window) + 0.0000001
+    );
     if (judgment.whiff) return this.whiff(note, at, delta, judgment);
     note.state = "caught";
     note.judgedAt = at;
@@ -475,23 +499,25 @@ export class GameEngine {
     if (this.dead || !LANES.includes(lane)) return null;
     let closest = null;
     let distance = Infinity;
-    let nearestDistance = Infinity;
+    let nearby = false;
     for (const note of this.notes) {
       if (note.lane !== lane) continue;
       const error = Math.abs(at - note.at);
       if ((note.state !== "waiting" && note.state !== "attack") || note.group.damaged) continue;
-      nearestDistance = Math.min(nearestDistance, error);
+      // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정한다. 이미 놓친 세균을 다시 누른 입력은 감점 없이 무시한다.
+      const early = at < note.at;
+      if (error > (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + 0.0000001) continue;
+      nearby = true;
       if (note.whiffed) continue;
-      if (error <= CAPTURE_WINDOW + 0.0000001 && error < distance) {
+      if (error < distance) {
         closest = note;
         distance = error;
       }
     }
     if (closest) return this.hit(closest, at);
-    if (nearestDistance + 0.0000001 < POOR_WINDOW) return { kind: "ignored", lane, at };
+    if (nearby) return { kind: "ignored", lane, at };
     this.score -= POOR_PENALTY;
     this.stats.poor++;
-    this.combo = 0;
     const result = { kind: "poor", lane, at };
     this.effects.push(result);
     return result;
@@ -500,8 +526,7 @@ export class GameEngine {
   tick(time) {
     if (this.dead) return;
     this.elapsed = time;
-    const last = this.loops[this.loops.length - 1];
-    if (last.end - time < 4) this.appendNextLoop();
+    while (this.loops[this.loops.length - 1].end - time < 4) this.appendNextLoop();
     if (this.autoplay) {
       for (const note of this.notes) {
         if (note.state === "waiting" && !note.whiffed && note.at <= time) this.hit(note, note.at);
@@ -516,6 +541,8 @@ export class GameEngine {
       if (group.damaged || time < group.at + CAPTURE_WINDOW + ATTACK_DURATION) continue;
       const missed = group.notes.filter((note) => note.state === "attack");
       if (!missed.length) continue;
+      // 프레임이 늦어져도 완주 보상과 피해를 실제 발생 시각 순서로 처리한다.
+      this.healCompletedLoops(group.at + CAPTURE_WINDOW + ATTACK_DURATION);
       group.damaged = true;
       for (const note of missed) note.state = "gone";
       // Uh oh로 이미 센 세균은 미스에 다시 세지 않는다.
@@ -532,6 +559,7 @@ export class GameEngine {
         break;
       }
     }
+    if (!this.dead) this.healCompletedLoops(time);
   }
 
   drainEffects() {

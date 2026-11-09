@@ -3,6 +3,8 @@
 TRUNCATE TABLE
     minigame_cut,
     minigame_run,
+    rhythm_challenge_batch,
+    rhythm_challenge,
     chat_read_state,
     chat_message,
     chat_room,

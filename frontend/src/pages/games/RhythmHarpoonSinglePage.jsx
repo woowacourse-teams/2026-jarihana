@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
+import { storeReturnTarget, useAuth } from "../../features/auth";
 import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
 import {
   LESSON_STEPS,
@@ -59,8 +60,21 @@ function SoundTutorial({ completed, onPreview }) {
   );
 }
 
+const CHALLENGE_PATH = "/games/rhythm-harpoon/challenge";
+
 export function RhythmHarpoonSinglePage() {
   useEscapeBack("/games/rhythm-harpoon");
+  const { login, status } = useAuth();
+  const navigate = useNavigate();
+  // 공식 도전은 회원 전용이다. 로그인 전이면 회원 전용 가드가 자리 둘러보기로 보내기 전에
+  // 로그인(또는 가입)으로 보내고, 마치면 공식 도전으로 돌아오게 한다.
+  function openChallenge(event) {
+    if (status === "authenticated") return;
+    event.preventDefault();
+    storeReturnTarget(CHALLENGE_PATH);
+    if (status === "signup-required") navigate("/signup");
+    else if (status === "anonymous") login();
+  }
   const [progress] = useState(() => readLessonProgress(browserStorage()));
   const preview = useRef(null);
 
@@ -134,21 +148,19 @@ export function RhythmHarpoonSinglePage() {
                 않아요.
               </span>
             </Link>
-            <button
+            <Link
               className="rhythm-mode rhythm-mode--record"
               data-ph-capture-attribute-action="rhythm_ranked_open"
-              disabled
-              type="button"
+              onClick={openChallenge}
+              to={CHALLENGE_PATH}
             >
               <span className="eyebrow">RECORD</span>
-              <strong>
-                공식 도전 <span className="rhythm-hub__badge">준비 중</span>
-              </strong>
+              <strong>공식 도전</strong>
               <span>
-                점수를 서버가 다시 계산하는 기록 기능을 만든 뒤 열어요. 시작하면 설정이 잠기고 멈출
-                수 없어요.
+                점수를 서버가 다시 계산해 난이도별 랭킹에 올려요. 로그인이 필요하고, 시작하면 멈출 수
+                없어요.
               </span>
-            </button>
+            </Link>
           </div>
         </div>
       </div>
