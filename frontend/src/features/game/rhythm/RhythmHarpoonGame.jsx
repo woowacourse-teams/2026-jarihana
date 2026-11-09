@@ -27,7 +27,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
       root: rootReference.current,
       onReady: () => setStatus("ready"),
       onError: () => setStatus("error"),
-      onPlayingChange: (playing) => playingReference.current?.(playing),
+      onPlayingChange: (playing, reason) => playingReference.current?.(playing, reason),
       keyBindings: {
         get: () => keymapReference.current,
         capturing: () => capturingReference.current
