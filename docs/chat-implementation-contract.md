@@ -6,7 +6,7 @@
 
 계정 활성 기준의 채팅 푸시 보류와 상태 저장소 선택은
 [백엔드 ADR 0030](../backend/docs/adr/0030-account-activity-and-unlogged-chat-push.md)에 기록한다.
-V31에서 `member_activity`만 UNLOGGED로 전환한다. 번호 변경 전의 로컬 적용 기록은 ADR에 남긴다.
+V32에서 `member_activity`만 UNLOGGED로 전환한다. 번호 변경 전의 로컬 적용 기록은 ADR에 남긴다.
 PostgreSQL 비정상 종료 후 재보고 전까지 잠깐 추가 푸시가 갈 수 있다는 영향은 결정자가 수용했다.
 
 ## HTTP

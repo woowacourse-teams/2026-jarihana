@@ -68,41 +68,16 @@ Refresh Token을 인증 계약에서 확정한 위치로 전달한다. Request B
 
 ```json
 {
-  "memberType": "CREW",
-  "crewName": "가온",
-  "generation": 8,
-  "course": "BACKEND"
+  "crewName": "가온"
 }
 ```
 
 - `githubId`는 Request Body가 아니라 가입 세션에서 읽는다.
-- `memberType`은 `CREW`, `COACH`, `BOOTCAMP`, `PROFESSIONAL` 중 하나다. 가입 화면은 `COACH`를 더 이상 제공하지 않지만 API는 그대로 받는다.
-- `memberType = MEMBER`(기본 멤버)는 조회 응답에만 나온다. 가입은 읽기 지원이 운영에 배포된 뒤 여는 후속 변경에서 받으며, 지금은 `INVALID_PARAMETER`로 거부한다.
-- `memberType = CREW`이면 `course`는 `BACKEND`, `FRONTEND`, `ANDROID` 중 하나이고 `generation`은 양수 필수다.
-- `memberType = COACH`이면 `course`와 `generation`을 생략한다.
-- `memberType = BOOTCAMP`이면 `bootcamp`(`name` 30자 이하, `status`는 `IN_PROGRESS` 또는 `COMPLETED`, `cohort` 선택 20자 이하)와 `field`가 필수다. 캠프 이름이 우아한테크코스(우테코)이면 거부한다.
-- `memberType = PROFESSIONAL`이면 `field`와 `career`가 필수이고 `company`(`name` 50자 이하, `visible`)는 선택이다. `company`를 보내면 `visible`도 필수다.
-- `field`는 `FRONTEND`, `BACKEND`, `ANDROID`, `IOS`, `DATA_AI`, `DESIGN`, `PRODUCT`, `ETC`, `career`는 `UNDER_1`, `YEARS_1_3`, `YEARS_4_6`, `YEARS_7_PLUS` 중 하나다.
-- 유형과 맞지 않는 소속 필드는 저장하지 않는다.
-
-```json
-{
-  "memberType": "BOOTCAMP",
-  "crewName": "도담",
-  "bootcamp": { "name": "SSAFY", "status": "IN_PROGRESS", "cohort": "12기" },
-  "field": "BACKEND"
-}
-```
-
-```json
-{
-  "memberType": "PROFESSIONAL",
-  "crewName": "하나",
-  "field": "FRONTEND",
-  "career": "YEARS_1_3",
-  "company": { "name": "자리하나", "visible": false }
-}
-```
+- 가입 화면은 닉네임(`crewName`)만 보낸다. 크루 여부는 요청 값이 아니라 [크루 명단](../../domain/model/member.md#크루-명단)에 가입 세션의 `githubId`가 있는지로 정한다.
+  - 명단에 있으면 `CREW`로 가입하고 `generation`, `course`는 명단 값을 쓴다. 닉네임은 요청 값을 그대로 쓴다.
+  - 명단에 없으면 `MEMBER`(기본 멤버)로 가입한다.
+- `memberType`은 선택이며 `COACH`일 때만 쓴다. 코치는 이전처럼 `generation`, `course` 없이 가입한다. 가입 화면은 코치 선택지를 제공하지 않는다.
+- `memberType`에 그 밖의 값(`CREW`, `BOOTCAMP`, `PROFESSIONAL`, `MEMBER`)을 보내도 위 명단 규칙으로 가입한다. 이전 가입 화면이 보내는 `generation`, `course`, `bootcamp`, `field`, `career`, `company`는 무시한다.
 
 #### 응답 201
 
@@ -140,9 +115,9 @@ Location: /api/members/12
 | 가입 세션 없음·만료 | `SIGNUP_SESSION_REQUIRED` | 401 |
 | 이미 가입한 GitHub 사용자 | `MEMBER_ALREADY_EXISTS` | 409 |
 | crewName 형식 오류 | `INVALID_PARAMETER` | 400 |
-| 같은 기수의 크루명 중복 또는 코치명·크루명 충돌 | `MEMBER_CREW_DUPLICATED` | 409 |
-| 기수가 없는 회원(코치, 부트캠프, 현직자)끼리 닉네임 중복 | `MEMBER_CREW_DUPLICATED` | 409 |
-| memberType과 소속 필드 조합 오류, 우아한테크코스를 부트캠프로 입력 | `INVALID_PARAMETER` | 400 |
+| 명단 크루의 닉네임이 같은 기수 크루와 중복, 또는 코치명과 크루명 충돌 | `MEMBER_CREW_DUPLICATED` | 409 |
+| 기수가 없는 회원(코치, 기본 멤버)끼리 닉네임 중복 | `MEMBER_CREW_DUPLICATED` | 409 |
+| 알 수 없는 memberType 값 | `INVALID_PARAMETER` | 400 |
 
 ### `GET /api/members/me`
 
@@ -238,6 +213,7 @@ Location: {frontendOrigin}/oauth/callback?signupRequired=true|false
 #### 부수 효과
 - 미가입 사용자는 `githubId`를 가입 세션에 보관한다.
 - 가입 회원은 Access Token과 Refresh Token을 발급한다.
+- 가입 회원이 기본 멤버, 부트캠프 회원, 현직자이고 [크루 명단](../../domain/model/member.md#크루-명단)에 있으면 닉네임을 유지한 채 `CREW`로 바꾸고 명단의 `generation`, `course`를 저장한다. 같은 기수에 같은 닉네임의 크루가 있으면 바꾸지 않으며, 이때도 로그인은 성공한다. 이미 `CREW`나 `COACH`인 회원은 명단과 달라도 바꾸지 않는다.
 - 요청의 `state` 쿼리와 프론트엔드가 심은 `state` 쿠키를 대조하고, 대조 후 쿠키를 만료시킨다.
 
 토큰 전달 방식은 [ADR 0002](../../../adr/0002-access-token-cookie.md)에서 확정했다. Access Token과

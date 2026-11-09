@@ -16,6 +16,7 @@
 | `COACH` 회원끼리는 `crewName`을 중복 사용할 수 없고, 코치명은 모든 `CREW` 회원의 크루명과 중복될 수 없다. |
 | 기수가 없는 `COACH`, `BOOTCAMP`, `PROFESSIONAL`, `MEMBER` 회원끼리는 `crewName`을 중복 사용할 수 없다. |
 | `BOOTCAMP` 회원의 부트캠프 이름은 우아한테크코스일 수 없다. 우테코 크루는 `CREW`로 가입한다. |
+| 새로 `CREW`가 되는 것은 크루 명단에 있는 GitHub 계정뿐이고, 기수와 과정은 명단 값을 쓴다. 명단 인증 전부터 있던 자가 신고 크루는 그대로 둔다. |
 
 ## Member · Feedback
 
