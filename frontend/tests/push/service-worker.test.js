@@ -39,9 +39,9 @@ function worker() {
 async function bind(w) { return w.message("BIND", { expectedRevision: 0, binding: { id: 8, generation: 1, memberId: 12 } }); }
 test("valid push checks binding, uses private no-store lookup and reference-only click data", async () => {
   const w = worker(); await bind(w);
-  expect((await w.message("GET_STATE")).state.clientVersion).toBe(2);
+  expect((await w.message("GET_STATE")).state.clientVersion).toBe(3);
   await w.push();
-  expect(w.fetcher).toHaveBeenCalledWith(expect.stringContaining("subscriptionId=8&generation=1"), expect.objectContaining({ credentials: "include", cache: "no-store", redirect: "error" }));
+  expect(w.fetcher).toHaveBeenCalledWith(expect.stringContaining("subscriptionId=8&generation=1&clientVersion=3"), expect.objectContaining({ credentials: "include", cache: "no-store", redirect: "error" }));
   expect(w.self.registration.showNotification).toHaveBeenCalledWith("자리하나?", expect.objectContaining({ body: "모임 신청이 승인되었어요.", tag: "jarihana:5", data: expect.objectContaining({ notificationId: 5 }) }));
 });
 test("old generation never fetches or displays detail", async () => {
@@ -56,7 +56,8 @@ test.each([
   ["REGISTRATION_APPROVED", "모임 신청이 승인되었어요."],
   ["REGISTRATION_REJECTED", "모임 신청 결과를 확인해 주세요."],
   ["REGISTRATION_SYSTEM_REJECTED", "모집 상태 변경으로 신청이 마감되었어요."],
-  ["ACTIVITY_POST_COMMENTED", "내 활동 기록에 새 댓글이 달렸어요."]
+  ["ACTIVITY_POST_COMMENTED", "내 활동 기록에 새 댓글이 달렸어요."],
+  ["CHAT_MESSAGE_RECEIVED", "모임에 새 채팅 메시지가 도착했어요."]
 ])("%s uses the app title and preserves its event body", async (eventType, body) => {
   const w = worker(); await bind(w);
   w.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true,

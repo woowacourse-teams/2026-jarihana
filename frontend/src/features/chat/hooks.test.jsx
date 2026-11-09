@@ -15,7 +15,7 @@ const key = ["chat", "2", 1, "messages", "1"];
 beforeEach(() => {
   jest.clearAllMocks();
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  socket = { activate: jest.fn(), deactivate: jest.fn().mockResolvedValue(), subscribe: jest.fn((_path, listener) => { receive = listener; }) };
+  socket = { connected: false, publish: jest.fn(), activate: jest.fn(), deactivate: jest.fn().mockResolvedValue(), subscribe: jest.fn((_path, listener) => { receive = listener; }) };
   Client.mockImplementation((options) => { config = options; return socket; });
   getMe.mockResolvedValue({ signupCompleted: true, member: { id: 2 } });
   fetchAllRooms.mockResolvedValue([{ groupId: "1", latestSequence: "10", lastReadSequence: "0", unreadCount: 2, updatedAt: "2026-10-25T12:00:00" }]);
