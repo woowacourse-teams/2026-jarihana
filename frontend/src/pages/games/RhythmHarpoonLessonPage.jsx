@@ -192,7 +192,7 @@ export function RhythmHarpoonLessonPage() {
   }
 
   return (
-    <section className="game-player" aria-labelledby="rhythm-lesson-title">
+    <section className="game-player game-player--rhythm" aria-labelledby="rhythm-lesson-title">
       <header className="game-player__toolbar">
         <Link
           aria-keyshortcuts="Escape"

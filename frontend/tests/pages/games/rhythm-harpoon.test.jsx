@@ -160,6 +160,20 @@ it("keeps difficulty above the board and hides the other practice settings while
   expect(drawer).not.toHaveClass("is-open");
 });
 
+it("keeps the practice settings closed when the run ends", () => {
+  render(<RhythmHarpoonPage />);
+  const settings = mountPracticeGame.mock.calls[0][0];
+  const drawer = screen.getByRole("complementary", { name: "연습 설정" });
+  const toggle = screen.getByRole("button", { name: "설정" });
+  act(() => settings.onPlayingChange(true));
+  act(() => settings.onPlayingChange(false, "over"));
+  expect(drawer).not.toHaveClass("is-open");
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  act(() => settings.onPlayingChange(true));
+  act(() => settings.onPlayingChange(false));
+  expect(drawer).toHaveClass("is-open");
+});
+
 it("rebinds practice keys, swaps conflicts and keeps the layout for the next visit", () => {
   const first = render(<RhythmHarpoonPage />);
   const settings = mountPracticeGame.mock.calls[0][0];
