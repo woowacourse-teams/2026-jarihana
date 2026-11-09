@@ -1,4 +1,6 @@
 import { useId } from "react";
+import { useAuth } from "../auth/index.js";
+import { shopApi } from "./api.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ownedItemsSchema,
@@ -6,6 +8,16 @@ import {
   shopCatalogSchema,
   shopPurchaseResultSchema
 } from "../../entities/shop/index.js";
+
+export function useProfileEquipment() {
+  const { member, sessionVersion, status, logoutPending } = useAuth();
+  return useQuery({
+    queryKey: ["shop-profile-equipment", member?.id, sessionVersion],
+    queryFn: ({ signal }) => shopApi.profileEquipment(signal),
+    enabled: Boolean(member?.id) && status === "authenticated" && !logoutPending,
+    retry: false
+  });
+}
 
 export function useShop(client) {
   const scope = useId();
@@ -51,6 +63,7 @@ export function useShop(client) {
     onSuccess: async (inventory) => {
       await queryClient.cancelQueries({ queryKey });
       queryClient.setQueryData(queryKey, (current) => current && { ...current, inventory });
+      if (client.isLive) void queryClient.invalidateQueries({ queryKey: ["shop-profile-equipment"] });
     }
   });
   return { query, purchase, equipment };

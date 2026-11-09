@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,11 +66,43 @@ public class ShopPurchaseRepository {
         return ShopPurchase.of(id, product.id(), product.termsVersion());
     }
 
+    public boolean ownsProfileFrame(long memberId, String itemId) {
+        return jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM shop_purchase
+                    WHERE member_id = ? AND item_id = ?
+                        AND item_snapshot->>'categoryId' = 'profile'
+                        AND item_snapshot->'grant'->>'slot' = 'frame'
+                )
+                """).params(memberId, itemId).query(Boolean.class).single();
+    }
+
+    public void equipProfileFrame(long memberId, String itemId) {
+        jdbc.sql("""
+                INSERT INTO shop_profile_equipment (member_id, item_id) VALUES (?, ?)
+                ON CONFLICT (member_id) DO UPDATE SET item_id = excluded.item_id
+                """).params(memberId, itemId).update();
+    }
+
+    public void unequipProfileFrame(long memberId, String itemId) {
+        jdbc.sql("DELETE FROM shop_profile_equipment WHERE member_id = ? AND item_id = ?")
+                .params(memberId, itemId).update();
+    }
+
     public ShopAccount account(long memberId) {
         long balance = jdbc.sql("SELECT balance FROM point_wallet WHERE member_id = ?")
                 .param(memberId).query(Long.class).single();
-        var items = jdbc.sql("SELECT item_snapshot::text FROM shop_purchase WHERE member_id = ? ORDER BY created_at, id")
-                .param(memberId).query((row, index) -> json.readValue(row.getString(1), ShopProduct.Definition.class)).list();
-        return ShopAccount.of(balance, items);
+        return ShopAccount.of(balance, ownedItems(memberId));
+    }
+
+    public List<ShopAccount.OwnedItem> ownedItems(long memberId) {
+        return jdbc.sql("""
+                SELECT p.item_snapshot::text, e.item_id IS NOT NULL AS equipped
+                FROM shop_purchase p
+                LEFT JOIN shop_profile_equipment e USING (member_id, item_id)
+                WHERE p.member_id = ?
+                ORDER BY p.created_at, p.id
+                """).param(memberId).query((row, index) -> new ShopAccount.OwnedItem(
+                        json.readValue(row.getString(1), ShopProduct.Definition.class), row.getBoolean(2))).list();
     }
 }

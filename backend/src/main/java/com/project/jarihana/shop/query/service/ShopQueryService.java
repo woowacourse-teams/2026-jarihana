@@ -20,6 +20,10 @@ public class ShopQueryService {
         return availability.isEnabled() ? repository.catalog() : List.of();
     }
 
+    public List<ShopProduct.Definition> profileEquipment(long memberId) {
+        return repository.profileEquipment(memberId);
+    }
+
     // The balance and item grants must come from the same committed purchase snapshot.
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ShopAccount account(long memberId) {

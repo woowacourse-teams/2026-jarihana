@@ -152,16 +152,6 @@ const DEMO_CATALOG = shopCatalogSchema.parse({
       "frame"
     ),
     product(
-      "title",
-      "함께하는 즐거움",
-      "이름 옆에 달 수 있는 작은 메달 모양 칭호.",
-      "profile",
-      400,
-      "title",
-      "cream",
-      "title"
-    ),
-    product(
       "glasses",
       "여름의 선글라스",
       "햇빛을 가려주는 둥근 검정 선글라스.",

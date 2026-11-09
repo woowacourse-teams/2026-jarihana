@@ -1,14 +1,17 @@
 import { useId } from "react";
+import "./product-art.css";
 
 // Small code-native illustrations; the catalog adapter can later supply approved assets.
-export function ProductArt({ art, tone = "mint" }) {
+export function ProductArt({ art, tone = "mint", portrait, label }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   const paint = `url(#shop-paint-${id})`;
   return (
     <svg
-      aria-hidden="true"
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      role={label ? "img" : undefined}
       className={`shop-art shop-art--${tone}`}
-      viewBox="0 0 240 180"
+      viewBox={portrait ? "46 17 148 145" : "0 0 240 180"}
       fill="none"
     >
       <defs>
@@ -98,8 +101,14 @@ export function ProductArt({ art, tone = "mint" }) {
           <rect x="56" y="42" width="128" height="111" rx="39" fill="var(--art-dark)" />
           <rect x="56" y="39" width="128" height="111" rx="39" fill={paint} />
           <rect x="74" y="53" width="92" height="67" rx="26" fill="var(--color-surface)" />
-          <circle cx="120" cy="77" r="13" fill="var(--color-brand-soft)" />
-          <path d="M94 110c0-24 52-24 52 0" fill="var(--color-brand-soft)" />
+          {portrait ? (
+            <foreignObject x="74" y="53" width="92" height="67">{portrait}</foreignObject>
+          ) : (
+            <>
+              <circle cx="120" cy="77" r="13" fill="var(--color-brand-soft)" />
+              <path d="M94 110c0-24 52-24 52 0" fill="var(--color-brand-soft)" />
+            </>
+          )}
           <ellipse cx="120" cy="134" rx="19" ry="12" fill="var(--art-light)" />
           <path
             d="M80 126q6 6 12 0m56 0q6 6 12 0"
@@ -259,8 +268,14 @@ export function ProductArt({ art, tone = "mint" }) {
             stroke={paint}
             strokeWidth="13"
           />
-          <circle cx="120" cy="77" r="19" fill="var(--art-light)" />
-          <path d="M88 126c1-30 63-30 64 0" fill="var(--art-light)" />
+          {portrait ? (
+            <foreignObject x="77" y="43" width="86" height="96">{portrait}</foreignObject>
+          ) : (
+            <>
+              <circle cx="120" cy="77" r="19" fill="var(--art-light)" />
+              <path d="M88 126c1-30 63-30 64 0" fill="var(--art-light)" />
+            </>
+          )}
           <path d="m169 28 6 13 14 5-14 6-6 14-5-14-14-6 14-5Z" fill="var(--color-cohort-5)" />
           <path d="m65 116 4 9 10 4-10 4-4 10-4-10-10-4 10-4Z" fill="var(--art-color)" />
         </g>

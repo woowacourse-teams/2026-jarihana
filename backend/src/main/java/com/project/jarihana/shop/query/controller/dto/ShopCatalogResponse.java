@@ -8,7 +8,10 @@ public record ShopCatalogResponse(boolean purchasingEnabled, List<CategoryRespon
                                   List<ProductResponse> products) {
     public static ShopCatalogResponse from(boolean enabled, List<ShopProduct> products) {
         return new ShopCatalogResponse(enabled,
-                List.of(new CategoryResponse("wear", "아바타 꾸미기"), new CategoryResponse("profile", "프로필 꾸미기")),
+                List.of(new CategoryResponse("wear", "아바타 꾸미기"), new CategoryResponse("profile", "프로필 꾸미기"))
+                        .stream().filter(category -> products.stream()
+                                .anyMatch(product -> category.id().equals(product.definition().categoryId())))
+                        .toList(),
                 products.stream().map(ProductResponse::from).toList());
     }
     public record CategoryResponse(String id, String label) { }

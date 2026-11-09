@@ -92,13 +92,13 @@ it("포인트 부족과 판매 종료를 구분하고 카테고리로 상품을 
   expect(details()).toHaveTextContent("600 P 더 필요해요");
   await user.click(screen.getByRole("button", { name: "여름의 선글라스 상세 보기" }));
   expect(within(details()).getByRole("button", { name: "판매 종료" })).toBeDisabled();
-  await user.click(screen.getByRole("button", { name: "프로필 꾸미기 3" }));
-  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: "프로필 꾸미기 2" }));
+  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(2);
   await user.click(screen.getByRole("button", { name: "아바타 꾸미기 9" }));
   expect(screen.getByRole("button", { name: "시원한 커피 한 잔 상세 보기" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /나의 소지품/ })).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "전체 상품 12" }));
-  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(12);
+  await user.click(screen.getByRole("button", { name: "전체 상품 11" }));
+  expect(screen.getAllByRole("button", { name: /상세 보기/ })).toHaveLength(11);
 });
 
 it("가격 변경은 창 안에 안내하고 변경된 조건을 새로 확인하게 한다", async () => {
@@ -185,7 +185,7 @@ it("모바일에서 상품을 미리 본 뒤 선택했던 상품으로 돌아간
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "상품 목록" }));
     expect(coffee).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "프로필 꾸미기 3" }));
+    await user.click(screen.getByRole("button", { name: "프로필 꾸미기 2" }));
     await user.click(screen.getByRole("button", { name: "상품 목록" }));
     expect(screen.getByRole("button", { name: "꾸벅 곰돌이 프레임 상세 보기" })).toHaveFocus();
   } finally {
@@ -221,4 +221,18 @@ it("새 비니와 버킷햇을 입어보면 지원하는 모자와 색 조합을
     hat: "bucket",
     hatColor: "cream"
   });
+});
+
+
+it("실제 상점에서 보유 프레임을 프로필에 적용하고 해제한다", async () => {
+  const client = {
+    ...createDemoShopClient({ initialItemIds: ["demo-item-sleepy-bear-frame"] }),
+    isLive: true
+  };
+  const { user } = await setup(client);
+  await user.click(screen.getByRole("button", { name: "꾸벅 곰돌이 프레임 상세 보기" }));
+  await user.click(within(details()).getByRole("button", { name: "프로필에 적용" }));
+  expect(await within(details()).findByRole("button", { name: "적용 해제" })).toBeInTheDocument();
+  await user.click(within(details()).getByRole("button", { name: "적용 해제" }));
+  expect(await within(details()).findByRole("button", { name: "프로필에 적용" })).toBeInTheDocument();
 });

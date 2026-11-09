@@ -242,47 +242,6 @@
   padding-left: var(--space-1);
   font-size: var(--text-badge);
 }
-.shop-art {
-  display: block;
-  width: 100%;
-  max-height: 100%;
-  overflow: visible;
-}
-.shop-art--mint {
-  --art-color: var(--color-brand);
-  --art-light: var(--color-brand-soft);
-  --art-dark: var(--color-brand-ink);
-}
-.shop-art--coral {
-  --art-color: var(--color-cohort-2);
-  --art-light: var(--color-danger-soft);
-  --art-dark: var(--color-danger);
-}
-.shop-art--cream {
-  --art-color: var(--color-calendar-event-soft);
-  --art-light: var(--color-warning-soft);
-  --art-dark: var(--color-cohort-5);
-}
-.shop-art--lilac {
-  --art-color: var(--color-cohort-4);
-  --art-light: var(--color-activity-club-soft);
-  --art-dark: var(--color-activity-club-ink);
-}
-.shop-art--rose {
-  --art-color: color-mix(in srgb, var(--color-cohort-2) 65%, var(--color-danger-soft));
-  --art-light: var(--color-danger-soft);
-  --art-dark: color-mix(in srgb, var(--color-danger) 58%, var(--color-danger-soft));
-}
-.shop-art--butter {
-  --art-color: color-mix(in srgb, var(--color-warning-soft) 70%, var(--color-line));
-  --art-light: var(--color-surface);
-  --art-dark: color-mix(in srgb, var(--color-warning) 30%, var(--color-line));
-}
-.shop-art--cocoa {
-  --art-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-warning-soft));
-  --art-light: var(--color-warning-soft);
-  --art-dark: color-mix(in srgb, var(--color-warning) 70%, var(--color-ink));
-}
 .shop-detail-anchor {
   min-width: 0;
   align-self: stretch;

@@ -30,8 +30,27 @@ public class ShopQueryRepository {
         }
         long balance = jdbc.sql("SELECT balance FROM point_wallet WHERE member_id = ?")
                 .param(memberId).query(Long.class).optional().orElse(0L);
-        var items = jdbc.sql("SELECT item_snapshot::text FROM shop_purchase WHERE member_id = ? ORDER BY created_at, id")
-                .param(memberId).query((row, index) -> json.readValue(row.getString(1), ShopProduct.Definition.class)).list();
-        return ShopAccount.of(balance, items);
+        return ShopAccount.of(balance, ownedItems(memberId));
+    }
+
+    public List<ShopProduct.Definition> profileEquipment(long memberId) {
+        return jdbc.sql("""
+                SELECT p.item_snapshot::text
+                FROM shop_profile_equipment e
+                JOIN shop_purchase p USING (member_id, item_id)
+                WHERE e.member_id = ?
+                """).param(memberId).query((row, index) ->
+                json.readValue(row.getString(1), ShopProduct.Definition.class)).list();
+    }
+
+    private List<ShopAccount.OwnedItem> ownedItems(long memberId) {
+        return jdbc.sql("""
+                SELECT p.item_snapshot::text, e.item_id IS NOT NULL AS equipped
+                FROM shop_purchase p
+                LEFT JOIN shop_profile_equipment e USING (member_id, item_id)
+                WHERE p.member_id = ?
+                ORDER BY p.created_at, p.id
+                """).param(memberId).query((row, index) -> new ShopAccount.OwnedItem(
+                        json.readValue(row.getString(1), ShopProduct.Definition.class), row.getBoolean(2))).list();
     }
 }

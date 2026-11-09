@@ -25,7 +25,7 @@ import { useAuth } from "../../features/auth/index.js";
 import { AvatarFrame } from "../../features/avatar/AvatarFrame.jsx";
 import { AVATAR_BASIC_APPEARANCE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { Button, Modal } from "../../shared/ui/index.js";
-import { ProductArt } from "./ProductArt.jsx";
+import { ProductArt } from "../../features/shop/ProductArt.jsx";
 import "../account/avatar.css";
 import "./shop.css";
 
@@ -87,6 +87,7 @@ function ProductDetail({
   const reason = purchaseBlockReason(product, wallet, inventory);
   const owned = reason === "ALREADY_OWNED";
   const equipped = inventory.equipped[product.grant.slot] === product.grant.itemId;
+  const profileFrame = product.categoryId === "profile" && product.grant.slot === "frame";
   const appearance = { ...BASE_APPEARANCE };
   for (const itemId of Object.values(inventory.equipped)) {
     Object.assign(
@@ -100,7 +101,7 @@ function ProductDetail({
       <div className="shop-detail__heading">
         <span>{product.preview.type === "avatar" ? "입어보기" : "미리보기"}</span>
         <span className="shop-detail__sample">
-          {product.preview.type === "avatar" ? "예시 캐릭터" : "예시 아이템"}
+          {product.preview.type === "avatar" ? "예시 캐릭터" : "프로필 장식"}
         </span>
         <button
           type="button"
@@ -139,7 +140,7 @@ function ProductDetail({
             )}
           </strong>
         </div>
-        {owned && live ? (
+        {owned && live && !profileFrame ? (
           <p className="shop-owned-confirmation">
             <Check size={18} /> 구매 완료 · 보유 중
           </p>
@@ -150,7 +151,7 @@ function ProductDetail({
             pending={pending}
             onClick={() => onEquip(product, !equipped)}
           >
-            {equipped ? "착용 해제" : "체험 캐릭터에 착용"}
+            {equipped ? (live ? "적용 해제" : "착용 해제") : live ? "프로필에 적용" : "체험 캐릭터에 착용"}
           </Button>
         ) : (
           <Button
@@ -220,7 +221,11 @@ export function ShopPreview({ client, pointsSummary }) {
     setMessage("");
     try {
       await equipment.mutateAsync({ itemId: product.grant.itemId, equipped });
-      setMessage(`${product.name} ${equipped ? "착용을 체험하고 있어요." : "착용을 해제했어요."}`);
+      if (live) {
+        setMessage(equipped ? `${product.name}을 프로필에 적용했어요.` : "프로필 프레임을 해제했어요.");
+      } else {
+        setMessage(`${product.name} ${equipped ? "착용을 체험하고 있어요." : "착용을 해제했어요."}`);
+      }
     } catch {
       /* The mutation error is rendered below. */
     } finally {

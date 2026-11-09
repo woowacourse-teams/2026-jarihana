@@ -4,6 +4,7 @@ import {
   ownedItemsSchema,
   pointBalanceSchema,
   shopCatalogSchema,
+  shopItemSchema,
   shopPurchaseResultSchema
 } from "../../entities/shop/index.js";
 
@@ -15,6 +16,14 @@ export const shopApi = {
       signal
     }),
   account: (signal) => apiClient.request("members/me/shop", { schema: accountSchema, signal }),
+  profileEquipment: (signal) =>
+    apiClient.request("members/me/shop/equipment", { schema: z.array(shopItemSchema), signal }),
+  setEquipment: ({ itemId, equipped }) =>
+    apiClient.request("members/me/shop/equipment", {
+      method: "PUT",
+      json: { itemId, equipped },
+      schema: ownedItemsSchema
+    }),
   purchase: ({ productId, termsVersion, requestId }) =>
     apiClient.request("members/me/shop/purchases", {
       method: "POST",
@@ -35,6 +44,7 @@ export function createShopClient() {
         throw Object.assign(new Error("Shop unavailable"), { code: "SHOP_UNAVAILABLE" });
       return { catalog, ...account };
     },
-    purchaseProduct: shopApi.purchase
+    purchaseProduct: shopApi.purchase,
+    setEquipment: shopApi.setEquipment
   };
 }

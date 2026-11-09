@@ -210,6 +210,39 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
                 .contentType("application/json").body(body("beanie", version)).post(PATH).then().statusCode(401);
     }
 
+    @Test
+    @DisplayName("보유한 프로필 장식을 슬롯별로 교체하고 해제한다")
+    void equipsOnlyOwnedProfileItems() {
+        // Given
+        Member buyer = member("가온", "shop-profile-buyer", 900);
+        Member other = member("다온", "shop-profile-other", 900);
+        String frame = PRODUCT.replace("\"wear\"", "\"profile\"")
+                .replace("\"avatar\"", "\"profile\"").replace("\"hat\"", "\"frame\"");
+        String first = offer("profile-first", frame.replace("test-beanie", "test-first"));
+        String second = offer("profile-second", frame.replace("test-beanie", "test-second"));
+        String equipment = "/members/me/shop/equipment";
+        var equipFirst = Map.of("itemId", "test-first", "equipped", true);
+        request(buyer).body(body("profile-first", first)).post(PATH).then().statusCode(201);
+        request(buyer).body(body("profile-second", second)).post(PATH).then().statusCode(201);
+
+        // When / Then
+        request(other).body(equipFirst).put(equipment).then().statusCode(409)
+                .body("error.code", equalTo("ITEM_NOT_OWNED"));
+        request(buyer).body(equipFirst).put(equipment).then().statusCode(200)
+                .body("data.equipped.frame", equalTo("test-first"));
+        request(buyer).body(Map.of("itemId", "test-second", "equipped", true)).put(equipment)
+                .then().statusCode(200).body("data.equipped.frame", equalTo("test-second"));
+        request(buyer).body(Map.of("itemId", "test-first", "equipped", false)).put(equipment)
+                .then().statusCode(200).body("data.equipped.frame", equalTo("test-second"));
+        request(buyer).get(equipment).then().statusCode(200).body("data[0].itemId", equalTo("test-second"));
+        request(other).get(equipment).then().statusCode(200).body("data.size()", equalTo(0));
+        request(buyer).get("/members/me/shop").then().statusCode(200)
+                .body("data.inventory.equipped.frame", equalTo("test-second"));
+        request(buyer).body(Map.of("itemId", "test-second", "equipped", false)).put(equipment)
+                .then().statusCode(200).body("data.equipped.size()", equalTo(0));
+        assertThat(balance(buyer)).isEqualTo(300);
+    }
+
     private Member member(String name, String github, long balance) {
         Member member = members.save(Member.create(name, 8, github, Course.BACKEND));
         jdbc.update("INSERT INTO point_wallet(member_id, balance) VALUES (?, ?)", member.getId(), balance);
