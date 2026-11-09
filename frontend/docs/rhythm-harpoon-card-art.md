@@ -1,11 +1,12 @@
 # 리듬 작살 게임 카드 이미지
 
 - 생성 도구: 기본 제공 image_gen, 이미지 참조를 사용한 style-transfer
-- 배포 자산: `public/images/games/rhythm-lounge-harpoon-v2.webp`
+- 배포 자산: `public/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp`
 - 크기: 1536 x 1024, WebP quality 90
 - 참조: 기존 게임방 리듬 카드의 클레이 스타일, `public/game-assets/rhythm-harpoon/assets/sprites-clay-v1.png`의 행성이와 세균 및 작살
 - 소비 위치: `src/pages/games/artworkAssets.js`의 rhythm, 게임방 카탈로그
 - 기존 원격 자산을 덮어쓰지 않고 새 버전 파일을 프론트엔드와 함께 배포한다.
+- 서비스 도메인의 `/images/games/`는 dev에서 403을 반환하므로, 기존 음악과 스프라이트처럼 `/game-assets/rhythm-harpoon/assets/`에서 전달한다.
 
 ## 생성 프롬프트
 
