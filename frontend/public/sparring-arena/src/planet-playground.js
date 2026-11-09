@@ -3,7 +3,7 @@ import { TANK } from './physics.js';
 import { COURT_COLORS, FRAME_COLOR, studioMaterial, teamMaterial } from './studio-materials.js';
 import { PLANET_COLORS } from './background-planets.js';
 
-const FLOOR = Object.freeze({ width: 80, depth: 60, y: -7.4, centerZ: 20 });
+export const PLAYGROUND_FLOOR = Object.freeze({ width: 80, depth: 60, y: -6.4, centerZ: 20 });
 
 export function createPlanetPlayground(scene) {
   const group = new THREE.Group();
@@ -31,13 +31,13 @@ export function createPlanetPlayground(scene) {
     parent.add(object);
     return object;
   };
-  const ground = () => FLOOR.y;
+  const ground = () => PLAYGROUND_FLOOR.y;
 
   // Extend past the camera edges so the court reads as a floor, not a raised platform.
-  const floorGeometry = geometry(new THREE.PlaneGeometry(FLOOR.width, FLOOR.depth, 2, 1).rotateX(-Math.PI / 2).toNonIndexed());
+  const floorGeometry = geometry(new THREE.PlaneGeometry(PLAYGROUND_FLOOR.width, PLAYGROUND_FLOOR.depth, 2, 1).rotateX(-Math.PI / 2).toNonIndexed());
   const colors = new THREE.Float32BufferAttribute(new Float32Array(floorGeometry.attributes.position.count * 3), 3);
   floorGeometry.setAttribute('color', colors);
-  mesh(floorGeometry, grass, [0, FLOOR.y, FLOOR.centerZ]).name = 'playground-floor';
+  mesh(floorGeometry, grass, [0, PLAYGROUND_FLOOR.y, PLAYGROUND_FLOOR.centerZ]).name = 'playground-floor';
 
   const markingVertices = [];
   function ribbon(points, width, closed = false) {
@@ -80,7 +80,7 @@ export function createPlanetPlayground(scene) {
   for (const x of [-6.2, 6.2]) {
     const bench = new THREE.Group();
     bench.name = 'playground-bench';
-    bench.position.set(x, FLOOR.y, 2.9);
+    bench.position.set(x, PLAYGROUND_FLOOR.y, 2.9);
     bench.rotation.y = x < 0 ? -0.12 : 0.12;
     group.add(bench);
     mesh(seat, ivory, [0, 0.65, 0], [1, 1, 2.2], bench);
@@ -93,7 +93,7 @@ export function createPlanetPlayground(scene) {
   for (const [x, z] of [[-5.1, 5.1], [5.2, 4.8], [5.9, 5.3]]) {
     const marker = new THREE.Group();
     marker.name = 'playground-court-marker';
-    marker.position.set(x, FLOOR.y, z);
+    marker.position.set(x, PLAYGROUND_FLOOR.y, z);
     group.add(marker);
     mesh(cylinder, ivory, [0, 0.04, 0], [0.32, 0.08, 0.32], marker);
     mesh(cone, x < 0 ? mint : coral, [0, 0.29, 0], [1, 1, 1], marker);
