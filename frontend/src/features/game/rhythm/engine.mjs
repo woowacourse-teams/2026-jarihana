@@ -2,11 +2,10 @@ export const LANES = ["left", "down", "right", "up"];
 export const PERFECT_WINDOW = 0.032;
 export const HIT_WINDOW = 0.064;
 export const CAPTURE_WINDOW = 0.15;
-export const POOR_WINDOW = 0.18;
-// 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받고, 그 뒤 30ms는 무시하며 230ms부터 헛공격이다.
+// 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받는다. 그 밖의 입력은 헛공격이다.
 export const EARLY_CAPTURE_WINDOW = 0.2;
-export const EARLY_POOR_WINDOW = 0.23;
-export const POOR_PENALTY = 1000;
+// 헛공격은 콤보와 라이프를 건드리지 않고 점수만 깎는다. 박자에 맞춘 4키 뭉개기를 완벽 플레이의 5% 아래로 묶는다.
+export const POOR_PENALTY = 300;
 export const JUDGMENTS = [
   { kind: "perfect", label: "PERFECT", window: PERFECT_WINDOW, score: 1000, color: "#416d36" },
   { kind: "hit", label: "HIT", window: HIT_WINDOW, score: 600, color: "#41687c" },
@@ -505,14 +504,12 @@ export class GameEngine {
       if (note.lane !== lane) continue;
       const error = Math.abs(at - note.at);
       if ((note.state !== "waiting" && note.state !== "attack") || note.group.damaged) continue;
-      // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정하고 무시한다.
+      // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정한다. 이미 놓친 세균을 다시 누른 입력은 감점 없이 무시한다.
       const early = at < note.at;
-      if (error + 0.0000001 < (early ? EARLY_POOR_WINDOW : POOR_WINDOW)) nearby = true;
+      if (error > (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + 0.0000001) continue;
+      nearby = true;
       if (note.whiffed) continue;
-      if (
-        error <= (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + 0.0000001 &&
-        error < distance
-      ) {
+      if (error < distance) {
         closest = note;
         distance = error;
       }
@@ -521,7 +518,6 @@ export class GameEngine {
     if (nearby) return { kind: "ignored", lane, at };
     this.score -= POOR_PENALTY;
     this.stats.poor++;
-    this.combo = 0;
     const result = { kind: "poor", lane, at };
     this.effects.push(result);
     return result;

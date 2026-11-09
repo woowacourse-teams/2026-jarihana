@@ -20,15 +20,14 @@ public final class RhythmEngine {
     // 일찍 누른 입력은 ENOUGH를 120ms까지 준다. 늦게 누른 입력은 100ms를 넘기면 놓친다.
     static final double ENOUGH_EARLY_WINDOW = 0.12;
     static final double CAPTURE_WINDOW = 0.15;
-    static final double POOR_WINDOW = 0.18;
-    // 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받고, 그 뒤 30ms는 무시하며 230ms부터 헛공격이다.
+    // 일찍 누른 입력은 200ms까지 판정(Uh oh 포함)을 받는다. 그 밖의 입력은 헛공격이다.
     static final double EARLY_CAPTURE_WINDOW = 0.2;
-    static final double EARLY_POOR_WINDOW = 0.23;
     static final double ATTACK_DURATION = 0.18;
     static final double APPROACH_SECONDS = 1.25;
-    static final long POOR_PENALTY = 1000;
+    // 헛공격은 콤보와 라이프를 건드리지 않고 점수만 깎는다.
+    static final long POOR_PENALTY = 300;
     private static final double EPSILON = 0.0000001;
-    // 헛공격 판단은 EARLY_POOR_WINDOW 안의 노트만 보므로 이보다 넓게 훑으면 전체를 훑은 결과와 같다.
+    // 판정은 EARLY_CAPTURE_WINDOW 안의 노트만 보므로 이보다 넓게 훑으면 전체를 훑은 결과와 같다.
     private static final double SEARCH_WINDOW = 0.3;
     private static final double APPEND_AHEAD_SECONDS = 4;
     private static final List<RhythmLane> LANES = List.of(RhythmLane.values());
@@ -182,15 +181,16 @@ public final class RhythmEngine {
             if ((note.state != NoteState.WAITING && note.state != NoteState.ATTACK) || note.group.damaged) {
                 continue;
             }
-            // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정하고 무시한다.
+            // 노트보다 일찍 누른 입력은 더 넓은 범위로 판정한다. 이미 놓친 세균을 다시 누른 입력은 감점 없이 무시한다.
             boolean early = at < note.at;
-            if (error + EPSILON < (early ? EARLY_POOR_WINDOW : POOR_WINDOW)) {
-                nearby = true;
+            if (error > (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + EPSILON) {
+                continue;
             }
+            nearby = true;
             if (note.whiffed) {
                 continue;
             }
-            if (error <= (early ? EARLY_CAPTURE_WINDOW : CAPTURE_WINDOW) + EPSILON && error < distance) {
+            if (error < distance) {
                 closest = note;
                 distance = error;
             }
@@ -204,7 +204,6 @@ public final class RhythmEngine {
         }
         score -= POOR_PENALTY;
         poor++;
-        combo = 0;
     }
 
     private static int firstAtOrAfter(List<Note> candidates, double time) {

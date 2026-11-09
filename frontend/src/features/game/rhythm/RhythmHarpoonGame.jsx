@@ -399,16 +399,16 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               <div>
                 <b>헛공격</b>
                 <span>
-                  빠름 230ms, 늦음 180ms 이상 <em>-1,000</em>
+                  빠름 200ms, 늦음 150ms 밖 <em>-300</em>
                 </span>
               </div>
               <p className="small muted">
-                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 1,000점이 깎이고 콤보가
-                끊겨요.
+                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 300점이 깎이지만 콤보와
+                라이프는 그대로예요.
               </p>
               <p className="small muted">
                 빠르게 누르면 120ms, 늦게 누르면 100ms까지 포획돼요. 그보다 벗어나 빠르면 200ms, 늦으면
-                150ms까지는 Uh oh로 세균을 놓치고 콤보가 끊겨요. 그 바깥 30ms는 입력만 무시해요.
+                150ms까지는 Uh oh로 세균을 놓치고 콤보가 끊겨요. 그보다 더 벗어난 입력은 헛공격이에요.
                 <br />
                 포획 시기를 놓치면 세균이 돌진해요.
               </p>

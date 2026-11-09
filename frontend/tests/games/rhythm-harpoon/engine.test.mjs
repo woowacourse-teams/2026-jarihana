@@ -79,28 +79,26 @@ test("every successful judgment catches the germ, continues the combo and awards
   }
 });
 
-test("late 150-180ms and early 200-230ms are ignored; beyond them and empty lanes are Poor", () => {
-  for (const delta of [-0.229, -0.201, 0.151, 0.179]) {
-    const run = engine();
-    const note = run.notes[0];
-    assert.equal(run.input(note.lane, note.at + delta).kind, "ignored", String(delta));
-    assert.equal(note.state, "waiting");
-    assert.equal(run.score, 0);
-  }
+test("inputs beyond early 200ms or late 150ms and empty lanes are Poor without breaking the combo", () => {
+  assert.equal(POOR_PENALTY, 300);
   for (const delta of [-0.2, -0.151]) {
     const run = engine();
     const note = run.notes[0];
     assert.equal(run.input(note.lane, note.at + delta).kind, "uhoh", String(delta));
   }
-  for (const delta of [-0.23, 0.18]) {
+  for (const delta of [-0.229, -0.201, 0.151, 0.179]) {
     const run = engine();
     const note = run.notes[0];
-    assert.equal(run.input(note.lane, note.at + delta).kind, "poor");
+    run.combo = 5;
+    assert.equal(run.input(note.lane, note.at + delta).kind, "poor", String(delta));
     assert.equal(run.score, -POOR_PENALTY);
+    assert.equal(run.combo, 5);
+    assert.equal(run.lives, 10);
     assert.equal(note.state, "waiting");
   }
   const empty = engine();
   assert.equal(empty.input("left", -10).kind, "poor");
+  assert.equal(empty.stats.poor, 1);
 });
 
 test("100-150ms inputs are Uh oh: the germ escapes, the combo breaks and its attack costs a life", () => {
@@ -231,12 +229,12 @@ test("invalid scroll speeds are rejected before scheduling audio", () => {
   }
 });
 
-test("early or empty inputs deduct score, break the combo and preserve the approaching note", () => {
+test("early or empty inputs deduct score but keep the combo and the approaching note", () => {
   const run = engine();
   const note = run.notes[0];
   run.combo = 5;
   assert.equal(run.input(note.lane, note.at - 0.231).kind, "poor");
-  assert.equal(run.combo, 0);
+  assert.equal(run.combo, 5);
   assert.equal(run.score, -POOR_PENALTY);
   assert.equal(note.state, "waiting");
   assert.equal(run.lives, 10);
@@ -252,7 +250,7 @@ test("late notes become uncatchable and a whole missed chord costs one life", ()
   assert.equal(group.notes.length, 4);
   run.tick(group.at + CAPTURE_WINDOW + 0.001);
   assert(group.notes.every((note) => note.state === "attack"));
-  assert.equal(run.input(group.notes[0].lane, group.at + CAPTURE_WINDOW + 0.001).kind, "ignored");
+  assert.equal(run.input(group.notes[0].lane, group.at + CAPTURE_WINDOW + 0.001).kind, "poor");
   assert.equal(run.lives, 10);
   run.tick(group.at + CAPTURE_WINDOW + ATTACK_DURATION + 0.001);
   assert.equal(run.lives, 9);

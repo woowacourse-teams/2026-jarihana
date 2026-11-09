@@ -26,7 +26,9 @@
 - 실제 루프 종료 시점에 Hardest는 하트 5개, Easy, Medium, Hard는 3개를 충전하며 최대 라이프를 넘지 않는다.
   다음 루프를 미리 배치할 때는 충전하지 않는다. 완주 전에 라이프를 모두 잃으면 부활하지 않는다.
   입력 묶음이 경계를 넘어 도착해도 피해와 충전을 발생 시각 순으로 처리하고, 저장된 묶음을 다시 계산해도 중복 지급하지 않는다.
-  이 규칙은 `rhythm-harpoon-ranked-2`이며 이전 판본과 랭킹을 구분한다.
+  완주 충전은 `rhythm-harpoon-ranked-2`부터 적용했다.
+- 판정 범위 밖의 입력은 헛공격으로 300점을 깎고 콤보와 라이프는 그대로 둔다. 따로 무시하던 구간(일찍 200~230ms, 늦게 150~180ms)은 없앴다.
+  이 규칙은 `rhythm-harpoon-ranked-3`이며 판본마다 랭킹을 구분한다.
 - 난이도별 단순화 채보와 계단 회전표는 프론트엔드 엔진이 만든 `rhythm-harpoon/ranked-chart.json`을 읽는다.
   채보, 판정, 라이프를 바꾸면 `frontend/scripts/export-rhythm-ranked-fixtures.mjs`로 채보와 대조 입력(`golden-replays.json`)을
   다시 만들고 규칙 판본(`rulesVersion`)을 올린다. 두 엔진이 대조 입력에서 같은 결과를 내는지 양쪽 테스트가 확인한다.

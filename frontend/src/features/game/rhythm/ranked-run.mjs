@@ -1,7 +1,7 @@
 import { GameEngine, LANES, LEVELS } from "./engine.mjs";
 
 // 서버 재계산 규칙과 채보 판본이다. 판정, 라이프, 채보를 바꾸면 서버 채보와 대조 데이터를 다시 만들고 판본을 올린다.
-export const RANKED_RULES_VERSION = "rhythm-harpoon-ranked-2";
+export const RANKED_RULES_VERSION = "rhythm-harpoon-ranked-3";
 export const RANKED_CHART_VERSION = "bars-13-16-1";
 export const RANKED_BATCH_SECONDS = 2;
 
