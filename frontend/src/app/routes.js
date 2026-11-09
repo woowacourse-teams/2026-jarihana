@@ -2,7 +2,18 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "GamesPage", path: "/games" },
   { access: "public", page: "GomokuLobbyPage", path: "/games/gomoku" },
   { access: "member", page: "GomokuRoomPage", path: "/games/gomoku/rooms/:roomId" },
+  { access: "member", page: "GomokuObservationPage", path: "/games/gomoku/rooms/:roomId/watch" },
   { access: "public", page: "GomokuInvitationPage", path: "/games/gomoku/invite/:token" },
+  { access: "public", page: "StickHalvingRoomPage", path: "/games/stick-halving" },
+  { access: "public", page: "RhythmHarpoonEntryPage", path: "/games/rhythm-harpoon" },
+  { access: "public", page: "RhythmHarpoonSinglePage", path: "/games/rhythm-harpoon/single" },
+  { access: "public", page: "RhythmHarpoonLessonPage", path: "/games/rhythm-harpoon/learn" },
+  { access: "public", page: "RhythmHarpoonPage", path: "/games/rhythm-harpoon/practice" },
+  {
+    access: "member",
+    page: "RhythmHarpoonChallengePage",
+    path: "/games/rhythm-harpoon/challenge"
+  },
   { access: "member", page: "ChatPage", path: "/chat" },
   { access: "member", page: "ChatPage", path: "/chat/:roomId" },
   { access: "public", page: "HomePage", path: "/" },
@@ -16,6 +27,7 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "ProposalDetailPage", path: "/board/:proposalId" },
   { access: "public", page: "SparringPage", path: "/sparring" },
   { access: "public", page: "SparringDetailPage", path: "/sparring/:topicId" },
+  { access: "public", page: "PeperoDayEventPage", path: "/events/pepero-day" },
   { access: "public", page: "GroupDetailPage", path: "/groups/:groupId" },
   {
     access: "public",

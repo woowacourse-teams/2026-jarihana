@@ -58,6 +58,20 @@ afterEach(() => {
 function send(data) {
   act(() => streams[0].listeners.snapshot({ data: JSON.stringify(data) }));
 }
+
+test("observation uses its participation for REST and SSE and cannot run player commands", async () => {
+  const participation = "11111111-1111-4111-8111-111111111111";
+  const { result, unmount } = renderHook(() => useGomokuRoom("1", participation));
+  await waitFor(() => expect(streams).toHaveLength(1));
+  expect(gomokuApi.room).toHaveBeenCalledWith("1", expect.any(AbortSignal), participation);
+  expect(streams[0].url).toBe(`/api/games/gomoku/rooms/1/events?participationId=${participation}`);
+  send(room);
+  const command = jest.fn();
+  await act(async () => expect(await result.current.act(command)).toBe(false));
+  expect(command).not.toHaveBeenCalled();
+  unmount();
+  expect(streams[0].close).toHaveBeenCalled();
+});
 test("auth check precedes SSE, first snapshot unlocks, stale events are rejected, unmount closes", async () => {
   const { result, unmount } = renderHook(() => useGomokuRoom("1"));
   await waitFor(() => expect(streams).toHaveLength(1));

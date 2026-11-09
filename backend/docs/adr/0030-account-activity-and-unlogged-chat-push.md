@@ -125,7 +125,7 @@ UNLOGGED의 복구·복제 특성은 [PostgreSQL 17 공식 문서](https://www.p
 | 서버 프로세스의 메모리 Map | 로컬 조회·갱신은 가볍지만 다른 백엔드와 워커에 공유되지 않는다. 별도 공유·동기화 없이 사용하지 않는다. |
 | Redis 등 TTL 저장소 | 공유 상태·만료에 적합한 대안이다. 현재는 기존 PostgreSQL을 재사용하고 추가 저장소 운영을 피한다. |
 | PostgreSQL TEMP 테이블 | DB 세션별 상태이므로 여러 서버·연결 풀·워커가 공유할 계정 상태 저장소로 사용하지 않는다. |
-| PostgreSQL LOGGED 테이블 | 내구성이 필요하면 적합하며 V22까지는 이 방식이었다. 짧게 유효한 상태의 내구성보다 WAL 절감을 선택한다. |
+| PostgreSQL LOGGED 테이블 | 내구성이 필요하면 적합하며 V30에서 이 방식으로 테이블을 만든다. 짧게 유효한 상태의 내구성보다 WAL 절감을 선택한다. |
 | 연결 heartbeat만으로 활성 판단 | 포커스·화면 표시·최근 사용자 활동을 구분하지 못한다. 연결 유지와 활성 보고를 분리한다. |
 | 활성 중 푸시 영구 취소 | 마지막 보고 직후 종료한 사용자의 미읽음 푸시가 영구 누락될 수 있어 보류 후 재판정한다. |
 | 유효기간 30초 | 지연 여유가 늘지만 이탈 뒤 보류도 길어진다. 결정자가 지연·유실 가능성을 알고 15초를 선택했다. |
@@ -154,8 +154,8 @@ UNLOGGED만 0행이 됐다. 별도 영구 데이터 대조 테이블은 1행을 
 ## 구현과 적용 경계
 
 기준 커밋 `8712bcc0`에는 계정 활성 보고·보류·읽음 취소·묶음 처리와 관련 테스트가 있다.
-V22는 LOGGED 테이블을 만들고, 새 [V23 마이그레이션](../../src/main/resources/db/migration/V23__member_activity_unlogged.sql)이
-`ALTER TABLE member_activity SET UNLOGGED`로 전환한다. 이미 적용된 V20·V21·V22는 수정하지 않는다.
+V30은 LOGGED 테이블을 만들고, [V31 마이그레이션](../../src/main/resources/db/migration/V31__member_activity_unlogged.sql)이
+`ALTER TABLE member_activity SET UNLOGGED`로 전환한다. 기존 V20과 develop의 V21~V28 SQL은 유지한다.
 테이블과 PK 인덱스의 저장 방식만 바꾸며 회원 FK·활성 시각·계정당 한 행 계약은 유지한다.
 
 전환은 테이블 재작성을 수반하고 `ACCESS EXCLUSIVE` 잠금을 요구하므로, 적용 중 활성 보고와
@@ -163,19 +163,20 @@ V22는 LOGGED 테이블을 만들고, 새 [V23 마이그레이션](../../src/mai
 확인하고, 다른 DDL과 겹치지 않는 배포 순서로 실행한다. 로컬 적용 시간은 운영 잠금 시간을
 보장하지 않는다. [PostgreSQL 17 ALTER TABLE 문서](https://www.postgresql.org/docs/17/sql-altertable.html)를 따른다.
 
-V23 자체는 V22 애플리케이션의 조회·쓰기 계약을 유지한다. 되돌릴 필요가 있다면 후속
+V31은 V30 스키마의 조회·쓰기 계약을 유지한다. 되돌릴 필요가 있다면 후속
 마이그레이션에서 `SET LOGGED`를 사용하되 다시 잠금·재작성 비용이 들며 이미 유실된 상태는
-복구되지 않는다. 새 알림 사건·계약 3과 V22의 `chat_views` 제거에 관한 구버전 호환 배포 문제는
+복구되지 않는다. 새 알림 사건·계약 3과 V30의 `chat_views` 제거에 관한 구버전 호환 배포 문제는
 기존 [배포 경계](../context/api/endpoints/notifications.md#채팅-알림-배포-경계)를 별도로 따른다.
 
-2026-11-06 로컬 `jarihana_chat_push`에 애플리케이션 기동 시 Flyway로 V23을 적용했다.
+2026-11-06 로컬 `jarihana_chat_push`에 애플리케이션 기동 시 Flyway로 당시 V23을 적용했다.
+이후 develop의 V21~V28과 번호가 겹쳐 PR의 V21~V23을 V29~V31로 옮겼다. 아래 로컬 기록은 이전 번호를 따른다.
 `member_activity`와 PK 인덱스의 `relpersistence=u`, 회원·메시지·읽음·알림·전송 테이블의
 `p`, V20~V22 체크섬 유지와 `GET /api/groups?size=1` HTTP 200을 확인했다.
 Flyway의 V23 실행 기록은 27ms였으며 로컬 상태 테이블은 비어 있었다. 데이터가 있는 전환은
 별도 격리 스키마에 회원·활성 행을 넣은 테스트로 검증했다. 실제 운영 데이터 규모에서의
 전환 시간이나 운영 DB 적용을 확인했다는 뜻은 아니다. 기동 검증 때 외부 푸시·워커는 껐다.
 
-`FlywayBaselineTest`는 V22→V23의 회원·활성 행, 기존 이력, 다른 테이블·인덱스 저장 방식,
+`FlywayBaselineTest`는 V30→V31의 회원·활성 행, 기존 이력, 다른 테이블·인덱스 저장 방식,
 PK/FK/NOT NULL/cascade 보존과 재실행 0건을 검증한다. `MemberActivityPersistenceTest`는
 UNLOGGED 상태에서 여러 연결의 보고·단조 시각·중복 갱신 생략을 검증한다.
 `ChatActivityPushTest`는 15초 만료와 보류·읽음·묶음을, `ChatWebSocketTest`는 인증된 활성

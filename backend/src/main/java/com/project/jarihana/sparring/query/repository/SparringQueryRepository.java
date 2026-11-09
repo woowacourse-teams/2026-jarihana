@@ -68,11 +68,20 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
                     POST_SELECT
                             + """
                             where p.topic_id=:topicId and (cast(:beforeId as bigint) is null or p.id < :beforeId)
-                              and (:mine = false or p.member_id=:memberId) order by p.id desc
+                              and (:mine = false or p.member_id=:memberId)
+                              and (cast(:side as varchar) is null or p.side=:side)
+                              and (cast(:throughId as bigint) is null or p.id <= :throughId)
+                            order by p.id desc
                             """,
             nativeQuery = true)
     List<SparringPostProjection> posts(
-            long topicId, Long memberId, boolean mine, Long beforeId, Pageable pageable);
+            long topicId,
+            Long memberId,
+            boolean mine,
+            Long beforeId,
+            String side,
+            Long throughId,
+            Pageable pageable);
 
     @Query(
             value = POST_SELECT + " where p.topic_id=:topicId and p.id>:afterId order by p.id asc",

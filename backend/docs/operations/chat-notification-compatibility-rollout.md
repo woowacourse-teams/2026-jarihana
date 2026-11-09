@@ -18,8 +18,8 @@
   #579의 V20과 파일 내용·체크섬을 동일하게 유지한다. 이미 적용한 migration을 고치지 않는다.
 - 기존 행과 기본값은 그대로다. `NOT VALID` CHECK 교체로 기존 행 전체 검사를 하지 않지만
   DDL 잠금은 필요하다. 5초 `lock_timeout`을 유지한다. 운영 동시 트래픽의 잠금 대기는 미검증이다.
-- V21~V23은 선행 호환 버전(#586)의 운영 jar에 들어가지 않는다. 후속 스키마에서 시작하는 테스트의 fixture로만 보관한다. 현재 기능 PR #579의 운영 jar에는 V21~V23이 포함된다.
-- 후속 스키마에서 돌아올 때 V21~V23과 저장 데이터를 유지한다. Flyway repair·baseline 변경·검증 비활성화를 하지 않는다.
+- 선행 호환 버전(#586)은 후속 스키마를 테스트 fixture로 검증한다. 기능 PR #579는 운영 jar에 실제 마이그레이션 V29~V31을 포함한다.
+- 후속 스키마에서 돌아올 때 V29~V31과 저장 데이터를 유지한다. Flyway repair·baseline 변경·검증 비활성화를 하지 않는다.
 
 ## 두 단계 배포
 
@@ -56,7 +56,7 @@
 
 ## 검증
 
-`ChatReadCompatibilityAcceptanceTest`는 실제 PostgreSQL에 V21~V23을 먼저 적용한 뒤
+`ChatReadCompatibilityAcceptanceTest`는 실제 PostgreSQL에 후속 스키마를 먼저 적용한 뒤
 앱의 기본 Flyway 설정으로 시작한다. #586에서는 fixture를, 현재 #579에서는 운영 migration을 사용해
 같은 번호를 중복 로딩하지 않는다. 새 채팅 알림을 SQL로 직접 저장해 읽기 호환성을 검증한다.
 

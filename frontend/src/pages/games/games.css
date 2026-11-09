@@ -189,6 +189,12 @@
   font-size: var(--text-caption);
   margin-left: var(--space-1);
 }
+.games-room-spectators {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
 .games-room-join[data-other-room] {
   background: var(--color-surface-sunken);
   border-color: transparent;
@@ -1466,4 +1472,21 @@
   bottom: calc(50% - 0.5em - var(--border-thin) - var(--space-1) / 2);
   border-bottom: var(--border-thin) solid currentColor;
   pointer-events: none;
+}
+
+/* 공평하게 반띵: 카드 그림과 게임방 안 화면 */
+.games-card__visual--stick .stick-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stick-room {
+  display: grid;
+  gap: var(--space-5);
+}
+.stick-room .games-heading {
+  margin-block-end: 0;
+}
+.stick-room__loading {
+  block-size: 24rem;
 }

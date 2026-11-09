@@ -49,9 +49,9 @@ export function createSpeechCue(button, action) {
       if (current === undefined) return;
       button.dataset.replySelected = 'true';
     },
-    layout(width, height, tail, tip = tail, tailHeight = 10) {
+    layout(width, height, tail, tip = tail, tailHeight = 10, tailAbove = false) {
       if (!(width > 0 && height > 0)) return;
-      const key = `${width}:${height}:${tail}:${tip}:${tailHeight}`;
+      const key = `${width}:${height}:${tail}:${tip}:${tailHeight}:${tailAbove}`;
       if (key === lastLayout) return;
       lastLayout = key;
       const r = Math.min(18, width / 4, height / 2);
@@ -70,7 +70,11 @@ export function createSpeechCue(button, action) {
       shadow.setAttribute('width', width - 2);
       shadow.setAttribute('height', height - 2);
       shadow.setAttribute('rx', r);
-      for (const path of [body, outline]) path.setAttribute('d', d);
+      for (const path of [body, outline]) {
+        path.setAttribute('d', d);
+        if (tailAbove) path.setAttribute('transform', `translate(0 ${height}) scale(1 -1)`);
+        else path.removeAttribute('transform');
+      }
     },
   };
 }

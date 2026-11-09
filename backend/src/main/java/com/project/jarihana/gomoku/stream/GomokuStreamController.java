@@ -6,6 +6,7 @@ import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.auth.LoginMember;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -29,7 +31,8 @@ public class GomokuStreamController {
             value = "/games/gomoku/rooms/{id}/events",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> subscribe(
-            @PathVariable long id, @LoginMember long memberId, HttpServletRequest request) {
+            @PathVariable long id, @LoginMember long memberId, HttpServletRequest request,
+            @ModelAttribute GomokuRoomRequest options) {
         String raw =
                 AuthCookieReader.read(request, cookies.accessTokenName())
                         .orElseThrow(
@@ -39,6 +42,6 @@ public class GomokuStreamController {
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store, no-transform")
                 .header("X-Accel-Buffering", "no")
-                .body(streams.subscribe(id, memberId, tokens.parseExpiresAt(raw).toEpochMilli()));
+                .body(streams.subscribe(id, memberId, tokens.parseExpiresAt(raw).toEpochMilli(), options.participationId()));
     }
 }

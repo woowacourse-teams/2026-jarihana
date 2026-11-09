@@ -3,9 +3,14 @@
 .history-conversation-speech::before, .duel-speech::after { display: none; }
 .speech-cue-outline { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); overflow: visible; pointer-events: none; z-index: -1; }
 .speech-cue-body, .speech-cue-shadow { stroke: var(--speech-cue-color); stroke-width: 2; stroke-linejoin: miter; stroke-miterlimit: 8; vector-effect: non-scaling-stroke; }
-.speech-cue-body { fill: var(--history-wash, var(--duel-wash)); stroke: var(--speech-outline, var(--mint-outline)); }
+.speech-cue-body { fill: var(--history-wash, var(--duel-wash)); fill-opacity: .8; stroke: var(--speech-outline, var(--mint-outline)); }
 .history-conversation-speech[data-side="b"], .duel-contender[data-side="b"] { --speech-outline: var(--coral-outline); }
-.speech-cue-shadow { fill: var(--speech-cue-color); }
+/* The solid underlay would otherwise block the translucent background. */
+.speech-cue-shadow { fill: var(--speech-cue-color); visibility: hidden; }
+.history-conversation-speech:is(:hover, :focus-visible, [data-reply-selected="true"], [data-grabbed="true"], [data-focused="true"]) .speech-cue-body,
+.duel-speech:is(:hover, :focus-visible, [data-reply-selected="true"]) .speech-cue-body { fill-opacity: 1; }
+.history-conversation-speech:is(:hover, :focus-visible, [data-reply-selected="true"], [data-grabbed="true"], [data-focused="true"]) .speech-cue-shadow,
+.duel-speech:is(:hover, :focus-visible, [data-reply-selected="true"]) .speech-cue-shadow { visibility: visible; }
 .speech-cue-wave { fill: none; stroke: var(--speech-cue-color); stroke-width: 2.5; vector-effect: non-scaling-stroke; transform-box: view-box; transform-origin: center; opacity: 0; }
 .speech-cue-label { position: absolute; z-index: 5; left: 50%; top: -27px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; opacity: 0; color: var(--speech-cue-color); font-size: 24px; font-weight: 950; line-height: 1.1; letter-spacing: -1px; text-shadow: 3px 3px #fff, -2px -2px #fff; }
 .speech-reply-action { display: inline-flex; align-items: center; gap: 3px; }

@@ -44,7 +44,7 @@ function openCreation() {
   return screen.getByRole("dialog", { name: "방 만들기" });
 }
 
-test.each([null, 8])("lobby shows waiting and playing rooms with membership %s", async (roomId) => {
+test.each([null, 8, 99])("lobby shows waiting and playing rooms with membership %s", async (roomId) => {
   const originalQuery = useQuery.getMockImplementation();
   const refetch = jest.fn().mockResolvedValue({ data: { roomId } });
   const join = jest.spyOn(gomokuApi, "join");
@@ -70,16 +70,18 @@ test.each([null, 8])("lobby shows waiting and playing rooms with membership %s",
     expect(within(waiting).getByRole("button", { name: "참여하기" })).toBeEnabled();
     expect(playing).toHaveTextContent("게임 중");
     expect(playing).toHaveTextContent("2 / 2");
-    const button = within(playing).getByRole("button", { name: roomId ? "돌아가기" : "게임 중" });
-    if (roomId) {
+    const button = within(playing).getByRole("button", { name: roomId === 8 ? "돌아가기" : "관전하기" });
+    if (roomId === 8) {
       expect(button).toBeEnabled();
       expect(button).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_my_room_open");
       fireEvent.click(button);
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/games/gomoku/rooms/8"));
     } else {
-      expect(button).toBeDisabled();
+      expect(button).toBeEnabled();
+      expect(button).not.toHaveAttribute("data-other-room");
+      expect(button).toHaveAttribute("data-ph-capture-attribute-action", "gomoku_observation_open");
       fireEvent.click(button);
-      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith("/games/gomoku/rooms/8/watch");
     }
     expect(join).not.toHaveBeenCalled();
   } finally {

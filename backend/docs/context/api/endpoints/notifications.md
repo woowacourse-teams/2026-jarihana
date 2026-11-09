@@ -801,10 +801,9 @@ WebSocket을 재사용해도 DB 갱신 비용은 남는다.
 
 ### 활성 상태 마이그레이션
 
-로컬 DB에 이미 적용된 `V20__chat_message_notifications.sql`, `V21__chat_views.sql`은 수정하지 않는다.
-`V22__member_activity_and_deferred_chat_push.sql`에서 `member_activity`와 묶음 조회 인덱스를 만들고 사용하지 않는 `chat_views`를 제거한다.
-`V23__member_activity_unlogged.sql`은 적용된 V22를 수정하지 않고 `member_activity`와 그 인덱스를 UNLOGGED로 전환한다.
-로컬 Flyway 적용과 `relpersistence=u`를 확인했다. 회원·메시지·읽음·알림·전송 대기는 LOGGED를 유지하며 운영 배포는 별도다.
+알림 읽기 호환 마이그레이션은 `V20__chat_message_notifications.sql`을 유지한다.
+`V29__chat_views.sql`은 `chat_views`를 만든다. `V30__member_activity_and_deferred_chat_push.sql`은 `member_activity`와 묶음 조회 인덱스를 만들고 `chat_views`를 제거한다.
+`V31__member_activity_unlogged.sql`은 `member_activity`와 그 인덱스를 UNLOGGED로 전환한다. 회원·메시지·읽음·알림·전송 대기는 LOGGED를 유지한다.
 전환은 테이블 재작성·ACCESS EXCLUSIVE 잠금을 수반한다. PostgreSQL 비정상 종료 뒤 재보고 전까지 일시적인 추가 푸시가 갈 수 있다는 영향은 ADR 결정자가 수용했다.
 기존 `chat_views`를 조회하는 구버전 워커와 새 스키마를 동시에 운영할 수 없으므로,
 전환 시 이전 워커를 먼저 중단하고 새 서버·프론트를 함께 적용해야 한다.

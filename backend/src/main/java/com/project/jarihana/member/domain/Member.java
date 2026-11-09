@@ -197,6 +197,10 @@ public class Member extends BaseEntity {
         return new Member(null, crewName, null, githubId, MemberType.PROFESSIONAL, null, affiliation, null);
     }
 
+    public static Member createBasic(String crewName, String githubId) {
+        return new Member(null, crewName, null, githubId, MemberType.MEMBER, null, Affiliation.NONE, null);
+    }
+
     public LocalDateTime getJoinedAt() {
         return getCreatedAt();
     }
