@@ -68,3 +68,43 @@ it("shows the time left until the server deadline instead of a fresh 30 seconds"
   expect(await screen.findByText("12초 남음")).toBeInTheDocument();
   expect(screen.queryByText("30초 남음")).not.toBeInTheDocument();
 });
+
+it("counts the time the response spent on the way, so the screen never shows more than the server allows", async () => {
+  // Given: 다음 막대 응답이 5초 늦게 온다. 서버는 요청을 받은 때부터 30초를 잰다.
+  const adapter = rankedAdapter(30_000);
+  adapter.next.mockImplementation(
+    () => new Promise((resolve) => {
+      setTimeout(() => resolve({ remainingMillis: 30_000, round: 2, stick: secondStick }), 5_000);
+    })
+  );
+  const nextButton = await cutFirstStickAndWaitOnResult(adapter, 1_000);
+
+  // When
+  fireEvent.click(nextButton);
+  await act(async () => {
+    jest.advanceTimersByTime(5_000);
+  });
+
+  // Then: 응답을 기다린 5초가 빠진 25초만 보여 준다.
+  expect(await screen.findByText("25초 남음")).toBeInTheDocument();
+  expect(screen.queryByText("30초 남음")).not.toBeInTheDocument();
+});
+
+it("counts the first stick from when the run was requested too", async () => {
+  // Given: 판 시작 응답이 4초 늦게 온다.
+  const adapter = rankedAdapter(30_000);
+  adapter.start.mockImplementation(
+    () => new Promise((resolve) => {
+      setTimeout(() => resolve({ remainingMillis: 30_000, round: 1, stick: firstStick }), 4_000);
+    })
+  );
+
+  // When
+  render(<StickHalvingGame adapter={adapter} />);
+  await act(async () => {
+    jest.advanceTimersByTime(4_000);
+  });
+
+  // Then
+  expect(await screen.findByText("26초 남음")).toBeInTheDocument();
+});

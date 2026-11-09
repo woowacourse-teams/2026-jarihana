@@ -179,6 +179,25 @@ it("lets a game in progress finish when the event closes mid-play", async () => 
   expect(await screen.findByRole("button", { name: "다음 막대" })).toBeInTheDocument();
 });
 
+it("keeps the game in progress when refreshing the status fails around closing time", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  getPeperoDayStatus.mockResolvedValue(status());
+  mount(client);
+
+  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+  fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
+  const next = await screen.findByRole("button", { name: "다음 막대" });
+
+  getPeperoDayStatus.mockRejectedValue(new Error("network"));
+  await act(() => client.invalidateQueries());
+
+  expect(client.getQueryState(["pepero-day", "status", "anonymous"]).status).toBe("error");
+  expect(screen.queryByText("이벤트를 불러오지 못했어요")).not.toBeInTheDocument();
+  fireEvent.click(next);
+  expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\s*\/ 5/);
+});
+
 it("tells when the game moves to the game room, then links there once it has", async () => {
   getPeperoDayStatus.mockResolvedValue(status({ serverTime: "2026-11-12T11:00:00", status: "CLOSED" }));
   const { unmount } = mount();

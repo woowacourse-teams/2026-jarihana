@@ -369,7 +369,9 @@ export function PeperoDayEventPage() {
     );
   }
 
-  if (status.isError) {
+  // 이미 받은 상태가 있으면 다시 받기가 실패해도 그 상태로 계속 그린다. 에러 화면으로 바꾸면 하던 판이 사라지고,
+  // 다시 그릴 때 새 판이 시작되어 마감 전에 시작한 순위 도전을 끝낼 수 없다.
+  if (status.isError && !status.data) {
     return (
       <PageContainer className="pepero-day">
         <ErrorState

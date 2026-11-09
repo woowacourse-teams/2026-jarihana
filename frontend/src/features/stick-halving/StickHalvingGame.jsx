@@ -32,6 +32,8 @@ function Timer({ deadline, now, limitSeconds }) {
 // 막대 5개를 차례로 자르는 한 판이다. 막대를 받아오고 판정하는 방법은 adapter가 정한다.
 // 연습은 브라우저에서, 순위 도전은 서버에서 막대를 만들고 판정한다. 다음 막대는 결과를 본 회원이
 // "다음 막대"를 눌렀을 때 받고, adapter가 remainingMillis를 주면 서버 마감 기준으로 남은 시간을 센다.
+// 서버는 요청을 받은 뒤에 막대를 내주므로, 요청을 보낸 시각부터 remainingMillis를 세면 응답이 늦게 와도
+// 화면이 서버 마감보다 긴 시간을 보여 주지 않는다.
 export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish, timeLimitSeconds = ROUND_TIME_LIMIT_SECONDS }) {
   const [phase, setPhase] = useState("starting");
   const [round, setRound] = useState(1);
@@ -55,12 +57,12 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     phaseReference.current = phase;
   }, [phase]);
 
-  const begin = useCallback(({ remainingMillis, round: nextRound, stick: nextStick }) => {
+  const begin = useCallback(({ remainingMillis, round: nextRound, stick: nextStick }, requestedAt) => {
     setRound(nextRound);
     setStick(nextStick);
     setPosition(clampPosition(nextStick.startPosition));
     setOutcome(null);
-    setDeadline(Date.now() + (remainingMillis ?? timeLimitSeconds * 1000));
+    setDeadline(remainingMillis == null ? Date.now() + timeLimitSeconds * 1000 : requestedAt + remainingMillis);
     setNow(Date.now());
     setPhase("play");
   }, [timeLimitSeconds]);
@@ -68,8 +70,9 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
   useEffect(() => {
     if (startedReference.current) return;
     startedReference.current = true;
+    const requestedAt = Date.now();
     Promise.resolve(adapter.start())
-      .then(begin)
+      .then((started) => begin(started, requestedAt))
       .catch((startError) => {
         setError(startError);
         setPhase("error");
@@ -146,8 +149,9 @@ export function StickHalvingGame({ adapter, errorMessage, finalActions, onFinish
     }
     phaseReference.current = "issuing";
     setPhase("issuing");
+    const requestedAt = Date.now();
     Promise.resolve(adapter.next(round + 1))
-      .then(begin)
+      .then((issued) => begin(issued, requestedAt))
       .catch((nextError) => {
         setError(nextError);
         setPhase("error");

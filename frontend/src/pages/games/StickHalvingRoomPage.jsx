@@ -107,7 +107,8 @@ export function StickHalvingRoomPage() {
     );
   }
 
-  if (status.isError) {
+  // 이미 받은 상태가 있으면 다시 받기가 실패해도 그 상태로 계속 그려 하던 판을 지킨다.
+  if (status.isError && !status.data) {
     return (
       <PageContainer>
         <div className="games-page">

@@ -72,3 +72,25 @@ it("opens and closes on time even when the first boundary was more than a day aw
   // Then
   expect(result.current.data.status).toBe("CLOSED");
 });
+
+it("keeps the last status when a refresh fails and tries again 30 seconds later", async () => {
+  // Given: 열린 상태를 받은 뒤 다시 받기가 한 번 실패한다.
+  jest.setSystemTime(new Date("2026-11-12T09:59:00+09:00"));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const { result } = renderHook(() => usePeperoDayStatus(), {
+    wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  });
+  await advance(0);
+  expect(result.current.data.status).toBe("OPEN");
+  // 훅은 한 번 더 시도하므로 두 번 연달아 실패하게 한다.
+  getPeperoDayStatus.mockRejectedValueOnce(new Error("network")).mockRejectedValueOnce(new Error("network"));
+
+  // When: 닫는 시각에 맞춰 다시 받다가 실패한다.
+  await advance(60_000 + 3_000);
+
+  // Then: 마지막 상태를 그대로 두고, 30초 뒤에 다시 받아 닫힌 상태를 반영한다.
+  expect(result.current.isError).toBe(true);
+  expect(result.current.data.status).toBe("OPEN");
+  await advance(30_000 + 3_000);
+  expect(result.current.data.status).toBe("CLOSED");
+});
