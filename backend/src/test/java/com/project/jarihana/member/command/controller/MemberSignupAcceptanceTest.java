@@ -490,6 +490,24 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).isEmpty();
     }
 
+    @DisplayName("기본 멤버 가입은 읽기 지원이 배포되기 전까지 받지 않는다.")
+    @Test
+    void rejectBasicMemberSignupBeforeReadSupportIsDeployed() {
+        // Given
+        String sessionId = signupSessionFixture.create(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = signup(
+                sessionId,
+                Map.of("crewName", "도담", "memberType", "MEMBER")
+        );
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).isEmpty();
+    }
+
     @DisplayName("지원하지 않는 코스는 거부한다.")
     @Test
     void rejectUnsupportedCourse() {
