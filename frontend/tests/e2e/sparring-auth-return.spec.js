@@ -87,12 +87,7 @@ test("shared discussion returns after new signup and remains usable after browse
   await page.evaluate(() => window.location.replace("http://127.0.0.1:4174/oauth/callback"));
   await expect(page).toHaveURL(/\/signup$/);
   expect(await page.evaluate(() => sessionStorage.getItem("jarihana:auth:return-target"))).toBe(path);
-  await page.getByRole("radio", { name: /부트캠프/ }).click();
-  await page.getByRole("radio", { name: "우아한테크코스" }).click();
-  await page.getByRole("button", { name: "우테코 크루 인증" }).click();
-  await page.getByRole("textbox", { name: "크루 이름" }).fill("자리");
-  await page.getByRole("combobox", { name: "과정" }).selectOption("FRONTEND");
-  await page.getByRole("combobox", { name: "기수" }).selectOption("3");
+  await page.getByRole("textbox", { name: "닉네임" }).fill("자리");
   await page.getByRole("button", { name: "가입 완료하기" }).click();
   await page.getByRole("button", { name: "확인", exact: true }).click();
   await expect(page).toHaveURL(new RegExp("/sparring/91\\?view=compact#discussion$"));
