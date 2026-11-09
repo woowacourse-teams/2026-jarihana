@@ -25,7 +25,7 @@
 - `MEMBER`는 `course`, `generation`과 부트캠프, 분야, 연차, 회사 정보를 모두 저장하지 않는다. [크루 명단](#크루-명단)에 있으면 가입이나 GitHub 로그인 때 `CREW`가 된다.
 - 크루와 코치는 부트캠프, 분야, 연차, 회사 정보를 저장하지 않는다. DB의 `ck_member_profile_fields`가 유형별 조합을 함께 강제한다.
 - 가입은 닉네임만 받는다. 크루 명단에 있으면 `CREW`, 없으면 `MEMBER`로 가입한다. 사용자가 크루 여부나 기수, 과정을 직접 정할 수 없다. 코치 선택지는 없지만 가입 API는 `COACH`를 그대로 받는다.
-- `BOOTCAMP`, `PROFESSIONAL`은 더 이상 새로 만들지 않는다. 기존 회원은 V27에서 `MEMBER`로 옮겼고, 소속 컬럼은 Contract 단계에서 지울 때까지 비워 둔다.
+- `BOOTCAMP`, `PROFESSIONAL`은 더 이상 새로 만들지 않는다. 기존 회원은 V28에서 `MEMBER`로 옮겼고, 소속 컬럼은 Contract 단계에서 지울 때까지 비워 둔다.
 
 ## 크루 명단
 

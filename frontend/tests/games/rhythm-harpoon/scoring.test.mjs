@@ -39,7 +39,7 @@ test("legitimate four-note chords keep their full award without an empty-hit pen
   assert.equal(run.lives, run.maxLives);
 });
 
-test("four-key repeated input has negative whole-loop scores across 1280 cadence and phase cases", () => {
+test("four-key repeated input stays at or below 5% of a perfect loop across 1280 cadence and phase cases", () => {
   for (const startLoop of [1, 6, 10, 20, 40]) {
     const rate = rateForLoop(startLoop);
     for (const level of Object.keys(LEVELS)) {
@@ -66,12 +66,11 @@ test("four-key repeated input has negative whole-loop scores across 1280 cadence
             for (const lane of LANES) run.input(lane, at);
           }
           run.tick(end);
-          assert(run.score < 0, JSON.stringify({ level, startLoop, hz, phase, score: run.score }));
-          // 헛공격과 Uh oh가 콤보를 끊으므로 뭉개기로는 콤보를 길게 이어갈 수 없다.
-          assert(run.bestCombo < 40, JSON.stringify({ level, startLoop, hz, phase, combo: run.bestCombo }));
+          // 빈 입력마다 헛공격 감점이 붙으므로 박자에 맞춰 뭉개도 라이프가 다할 때까지 완벽한 플레이 점수의 5%를 넘지 못한다.
+          const perfect = run.notes.filter((note) => note.at < end).length * 1000;
           assert(
-            (scoreAtLifeLimit ?? run.score) < 0,
-            JSON.stringify({ level, startLoop, hz, phase, scoreAtLifeLimit })
+            (scoreAtLifeLimit ?? run.score) <= perfect * 0.05,
+            JSON.stringify({ level, startLoop, hz, phase, scoreAtLifeLimit, perfect })
           );
         }
       }

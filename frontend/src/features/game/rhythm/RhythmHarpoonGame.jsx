@@ -4,6 +4,7 @@ import { KeyBindings } from "./KeyBindings.jsx";
 import { browserStorage } from "./lesson.mjs";
 import { mountPracticeGame } from "./mount-practice-game.mjs";
 import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
+import { SyncDialog } from "./SyncDialog.jsx";
 import { keyLabel, readKeymap, writeKeymap } from "./preferences.mjs";
 import "./rhythm-game.css";
 
@@ -386,28 +387,28 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               <div>
                 <b>ENOUGH</b>
                 <span>
-                  ±100ms <em>+300</em>
+                  빠름 120ms, 늦음 100ms <em>+300</em>
                 </span>
               </div>
               <div>
                 <b>Uh oh</b>
                 <span>
-                  ±150ms <em>놓침</em>
+                  빠름 200ms, 늦음 150ms <em>놓침</em>
                 </span>
               </div>
               <div>
                 <b>헛공격</b>
                 <span>
-                  180ms 이상 <em>-1,000</em>
+                  빠름 200ms, 늦음 150ms 밖 <em>-300</em>
                 </span>
               </div>
               <p className="small muted">
-                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 1,000점이 깎이고 콤보가
-                끊겨요.
+                세균이 판정선에 왔을 때 해당 방향을 눌러요. 헛공격하면 300점이 깎이지만 콤보와
+                라이프는 그대로예요.
               </p>
               <p className="small muted">
-                ±100ms까지 포획돼요. 100ms 초과~150ms는 Uh oh로 세균을 놓치고 콤보가 끊겨요.
-                150ms 초과~180ms 미만은 입력만 무시해요.
+                빠르게 누르면 120ms, 늦게 누르면 100ms까지 포획돼요. 그보다 벗어나 빠르면 200ms, 늦으면
+                150ms까지는 Uh oh로 세균을 놓치고 콤보가 끊겨요. 그보다 더 벗어난 입력은 헛공격이에요.
                 <br />
                 포획 시기를 놓치면 세균이 돌진해요.
               </p>
@@ -485,104 +486,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
           <span>매 루프 방향 랜덤 / 계단은 진행 방향을 유지하고 시작점만 회전</span>
         </footer>
       </div>
-      <dialog
-        id="sync-dialog"
-        className="sync-dialog"
-        aria-labelledby="sync-title"
-        aria-describedby="sync-description"
-      >
-        <div className="sync-heading">
-          <span className="eyebrow">SYNC CHECK</span>
-          <h2 id="sync-title">소리에 맞춰 싱크 맞추기</h2>
-        </div>
-        <p id="sync-description">
-          클릭음을 4박 들은 뒤, 이어지는 20박에 맞춰 눌러요. 화면의 움직임 대신 소리에만 집중해요.
-        </p>
-        <p className="small muted">
-          기기 지연과 개인의 입력 습관이 함께 반영되는 추천값이에요. 리듬감 점수나 기기 자체의 지연
-          측정값은 아니에요.
-        </p>
-        <div className="sync-volume">
-          <label htmlFor="sync-volume">
-            진단 음량 <output id="sync-volume-value">50%</output>
-          </label>
-          <input
-            id="sync-volume"
-            data-ph-capture-attribute-action="rhythm_sync_volume_change"
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            defaultValue="50"
-          />
-        </div>
-        <p className="sync-current">
-          현재 보정 <strong id="sync-current">0ms</strong>
-        </p>
-        <p id="sync-status" className="sync-status" role="status">
-          측정 시작을 누르면 클릭음이 나와요.
-        </p>
-        <button
-          id="sync-tap"
-          data-ph-capture-attribute-action="rhythm_sync_tap"
-          className="sync-tap"
-          type="button"
-          disabled
-        >
-          클릭음에 맞춰 누르기<small>Space / 방향키 / WASD / 터치</small>
-        </button>
-        <div className="sync-progress">
-          <progress id="sync-progress" value="0" max="20" aria-label="입력한 박 수"></progress>
-          <output id="sync-count">0 / 20</output>
-        </div>
-        <div id="sync-result" className="sync-result" hidden>
-          <dl>
-            <div>
-              <dt>추천 보정</dt>
-              <dd id="sync-recommendation">측정 전</dd>
-            </div>
-            <div>
-              <dt>입력 편차</dt>
-              <dd id="sync-spread">측정 전</dd>
-            </div>
-            <div>
-              <dt>반영한 입력</dt>
-              <dd id="sync-samples">0 / 20</dd>
-            </div>
-          </dl>
-          <p className="small muted">
-            몇 번의 큰 오차는 제외해요. 입력 편차가 크면 다시 측정해요. 이어폰이나 키보드를 바꾸면
-            다시 진단하는 게 좋아요.
-          </p>
-        </div>
-        <div className="sync-actions">
-          <button
-            id="sync-start"
-            data-ph-capture-attribute-action="rhythm_sync_start"
-            className="button primary"
-            type="button"
-          >
-            측정 시작
-          </button>
-          <button
-            id="sync-apply"
-            data-ph-capture-attribute-action="rhythm_sync_apply"
-            className="button"
-            type="button"
-            disabled
-          >
-            추천값 적용
-          </button>
-          <button
-            id="sync-close"
-            data-ph-capture-attribute-action="rhythm_sync_close"
-            className="button subtle"
-            type="button"
-          >
-            닫기
-          </button>
-        </div>
-      </dialog>
+      <SyncDialog />
 
       {status === "error" ? (
         <p className="rhythm-game-error" role="alert">
