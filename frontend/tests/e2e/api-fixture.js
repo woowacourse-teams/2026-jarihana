@@ -389,14 +389,10 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
 
-    if (path === "/members/me/points/first-join-claim" && method === "POST") {
-      return json(route, success({ queued: false }));
-    }
     if (path === "/members/me/points" && method === "GET") {
-      const quota = (limit) => ({ limit, completed: 0, pending: 0, remaining: limit });
       return json(route, success({
         enabled: false, balance: 0, processing: false, resetsAt: "2026-11-09T00:00:00",
-        gomokuWeekly: quota(3), activityPostWeekly: quota(2)
+        weeklyQuotas: []
       }));
     }
     if (path === "/members/me" && method === "GET") {

@@ -14,7 +14,6 @@
 | --- | --- | --- | --- | --- |
 | 포인트 | `GET` | `/api/members/me/points` | `MEMBER` | 잔액, 처리 상태와 주간 한도 조회 |
 | 포인트 | `GET` | `/api/members/me/points/transactions` | `MEMBER` | 본인 적립 내역 커서 조회 |
-| 포인트 | `POST` | `/api/members/me/points/first-join-claim` | `MEMBER` | 기존 소속의 첫 모임 합류 보상 요청 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
@@ -152,7 +151,7 @@
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
-| 포인트 | [points.md](points.md) | 잔액, 주간 한도, 적립 내역과 기존 소속 보상 |
+| 포인트 | [points.md](points.md) | 잔액, 주간 한도와 적립 내역 |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
 | 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |

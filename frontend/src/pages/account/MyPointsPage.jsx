@@ -18,9 +18,7 @@ const descriptions = {
   GOMOKU_WIN: { label: "오목 승리", icon: Trophy }
 };
 const exclusions = {
-  ALREADY_REWARDED: "이 보상은 이미 등록됐어요.",
   WEEKLY_LIMIT: "활동한 주의 적립 한도에 도달했어요.",
-  SAME_OPPONENT: "대국한 날 같은 상대와의 적립 한도에 도달했어요.",
   SAME_ACTIVITY_DATE: "같은 모임과 활동 날짜에 이미 보상을 받았어요.",
   TOO_FEW_MOVES: "기권과 시간초과 승리는 두 사람이 각각 5수 이상 놓아야 적립돼요."
 };

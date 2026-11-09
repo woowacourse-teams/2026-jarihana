@@ -10,17 +10,9 @@ const summary = z.object({
   enabled: z.boolean(),
   balance: count,
   processing: z.boolean(),
-  gomokuWeekly: quota,
-  activityPostWeekly: quota,
-  weeklyQuotas: z.array(weeklyQuota).optional(),
+  weeklyQuotas: z.array(weeklyQuota),
   resetsAt: localTime
-}).transform((data) => ({
-  ...data,
-  weeklyQuotas: data.weeklyQuotas ?? [
-    { reason: "GOMOKU_WIN", label: "오목 승리", quota: data.gomokuWeekly },
-    { reason: "ACTIVITY_POST", label: "사진 활동기록", quota: data.activityPostWeekly }
-  ]
-}));
+});
 const item = z.object({
   id: z.string(),
   reason: z.string(),
@@ -38,8 +30,5 @@ export const pointsApi = {
     schema: z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() }),
     searchParams: cursor ? { cursor } : {},
     signal
-  }),
-  claim: (signal) => apiClient.request(`${endpoint}/first-join-claim`, {
-    method: "POST", schema: z.object({ queued: z.boolean() }), authRetry: false, signal
   })
 };

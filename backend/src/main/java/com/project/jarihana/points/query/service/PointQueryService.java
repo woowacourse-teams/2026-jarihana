@@ -39,7 +39,7 @@ public class PointQueryService {
                 .map(rule -> new WeeklyQuota(rule.code(), rule.label(), quota(counts, rule)))
                 .toList();
         return new SummaryResult(policy.isActiveAt(now), repository.balance(memberId),
-                repository.hasUnsettledRewards(memberId), quotas, week.plusWeeks(1));
+                repository.hasPendingRewards(memberId), quotas, week.plusWeeks(1));
     }
 
     public HistoryResult history(long memberId, String cursor, int size) {
@@ -95,11 +95,6 @@ public class PointQueryService {
 
     public record SummaryResult(boolean enabled, long balance, boolean processing, List<WeeklyQuota> weeklyQuotas,
                                 LocalDateTime resetsAt) {
-        public Quota quotaFor(String reason) {
-            return weeklyQuotas.stream()
-                    .filter(weekly -> weekly.reason().equals(reason))
-                    .findFirst().orElseThrow().quota();
-        }
     }
 
     public record HistoryResult(List<HistoryItem> items, String nextCursor, boolean hasNext) {

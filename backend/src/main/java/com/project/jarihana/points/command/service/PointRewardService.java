@@ -94,20 +94,6 @@ public class PointRewardService {
                 playedEnough ? null : SkipReason.TOO_FEW_MOVES));
     }
 
-    @Transactional
-    public boolean claimFirstJoin(long memberId) {
-        LocalDateTime now = LocalDateTime.now(clock);
-        if (!policy.isActiveAt(now) || !repository.hasOlderMembership(memberId, policy.startsAt())) {
-            return false;
-        }
-        repository.lockWallet(memberId);
-        if (repository.hasAward(memberId, FIRST_GROUP_JOIN.code())) {
-            return false;
-        }
-        recordLocked(PointReward.of(FIRST_GROUP_JOIN, memberId, "legacy:" + memberId, now));
-        return true;
-    }
-
     private void recordLocked(PointReward reward) {
         if (repository.hasSource(reward)) {
             return;
