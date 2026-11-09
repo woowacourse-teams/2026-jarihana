@@ -2,6 +2,8 @@
   display: grid;
   gap: var(--space-4);
   min-width: 0;
+  /* 다음 막대로 넘어갈 때 이 영역으로 스크롤한다. 헤더 아래에 카드 테두리가 보이도록 여유를 둔다. */
+  scroll-margin-top: var(--space-8);
 }
 
 .stick-game__head {
