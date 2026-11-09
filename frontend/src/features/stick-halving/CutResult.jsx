@@ -1,0 +1,156 @@
+import { useEffect, useId, useState } from "react";
+
+import { composition, leftMilligrams, toGrams } from "./puzzle";
+import { STICK_BOTTOM, STICK_WIDTH, STICK_X0, StickArt, toStickX } from "./StickArt";
+
+const PIVOT_X = 500;
+const PIVOT_Y = 96;
+const BEAM_HALF = 300;
+const PAN_DROP = 120;
+const PIECE_SCALE = 0.34;
+const MAX_TILT_DEGREES = 15;
+
+export const formatGrams = (milligrams) => `${toGrams(milligrams).toFixed(3).replace(/0$/, "")}g`;
+export const formatPercent = (rate) => `${(rate * 100 < 1 ? (rate * 100).toFixed(2) : (rate * 100).toFixed(1))}%`;
+export const formatCm = (position) => `${position.toFixed(2)}cm`;
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+// 저울이 기우는 모습을 흔들리다 멈추게 그린다. 움직임 줄이기 설정에서는 바로 기운 상태를 보여 준다.
+function useTilt(target) {
+  const still = prefersReducedMotion() || typeof requestAnimationFrame !== "function";
+  const [angle, setAngle] = useState(0);
+  useEffect(() => {
+    if (still) return undefined;
+    let frame = 0;
+    const startedAt = performance.now();
+    const step = (time) => {
+      const seconds = (time - startedAt) / 1000;
+      if (seconds > 2.2) {
+        setAngle(target);
+        return;
+      }
+      setAngle(target * (1 - Math.exp(-3 * seconds) * Math.cos(7 * seconds)));
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [still, target]);
+  return still ? target : angle;
+}
+
+function Balance({ position, stick, tiltDegrees }) {
+  const id = useId().replace(/:/g, "");
+  const angle = (useTilt(tiltDegrees) * Math.PI) / 180;
+  const cutX = toStickX(position);
+  const leftEnd = { x: PIVOT_X - BEAM_HALF * Math.cos(angle), y: PIVOT_Y - BEAM_HALF * Math.sin(angle) };
+  const rightEnd = { x: PIVOT_X + BEAM_HALF * Math.cos(angle), y: PIVOT_Y + BEAM_HALF * Math.sin(angle) };
+  const pans = [
+    { clip: `${id}-left`, end: leftEnd, middle: (STICK_X0 + cutX) / 2, side: "left" },
+    { clip: `${id}-right`, end: rightEnd, middle: (cutX + STICK_X0 + STICK_WIDTH) / 2, side: "right" }
+  ];
+
+  return (
+    <svg aria-hidden="true" className="cut-result__balance" viewBox="0 0 1000 320">
+      <defs>
+        <clipPath id={`${id}-left`}>
+          <rect height="170" width={cutX} x="0" y="0" />
+        </clipPath>
+        <clipPath id={`${id}-right`}>
+          <rect height="170" width={1000 - cutX} x={cutX} y="0" />
+        </clipPath>
+      </defs>
+      <line className="cut-result__post" x1={PIVOT_X} x2={PIVOT_X} y1={PIVOT_Y} y2="302" />
+      <rect className="cut-result__base" height="14" rx="7" width="140" x="430" y="298" />
+      {pans.map(({ clip, end, middle, side }) => {
+        const panY = end.y + PAN_DROP;
+        return (
+          <g key={side}>
+            <line className="cut-result__string" x1={end.x} x2={end.x - 110} y1={end.y} y2={panY} />
+            <line className="cut-result__string" x1={end.x} x2={end.x + 110} y1={end.y} y2={panY} />
+            <g transform={`translate(${end.x} ${panY})`}>
+              <g transform={`scale(${PIECE_SCALE}) translate(${-middle} ${-STICK_BOTTOM})`}>
+                <g clipPath={`url(#${clip})`}>
+                  <StickArt stick={stick} />
+                </g>
+              </g>
+              <path className="cut-result__pan" d="M-120 0 L120 0 L100 14 L-100 14 Z" />
+            </g>
+          </g>
+        );
+      })}
+      <line className="cut-result__beam" x1={leftEnd.x} x2={rightEnd.x} y1={leftEnd.y} y2={rightEnd.y} />
+      <circle className="cut-result__pivot" cx={PIVOT_X} cy={PIVOT_Y} r="11" />
+    </svg>
+  );
+}
+
+const PARTS = [
+  ["biscuit", "cut-result__segment--biscuit", "과자"],
+  ["thin", "cut-result__segment--thin", "얇은 초코"],
+  ["thick", "cut-result__segment--thick", "두꺼운 초코"],
+  ["almond", "cut-result__segment--almond", "아몬드"]
+];
+
+function MixRow({ label, mix, scale, total }) {
+  const chocolate = mix.thin + mix.thick;
+  const details = [`과자 ${formatGrams(mix.biscuit)}`];
+  if (chocolate > 1e-9) details.push(`초코 ${formatGrams(chocolate)}`);
+  if (mix.almond > 1e-9) details.push(`아몬드 ${formatGrams(mix.almond)}`);
+  return (
+    <>
+      <div className="cut-result__mix-row">
+        <span className="cut-result__mix-side">{label}</span>
+        <div aria-hidden="true" className="cut-result__mix-bar">
+          {PARTS.filter(([key]) => mix[key] > 1e-9).map(([key, className, partLabel]) => (
+            <span
+              className={`cut-result__segment ${className}`}
+              key={key}
+              style={{ width: `${((mix[key] / scale) * 100).toFixed(2)}%` }}
+              title={`${partLabel} ${formatGrams(mix[key])}`}
+            />
+          ))}
+        </div>
+        <span className="cut-result__mix-total">{formatGrams(total)}</span>
+      </div>
+      <p className="cut-result__mix-detail">{details.join(", ")}</p>
+    </>
+  );
+}
+
+// 자른 뒤의 결과다. 저울, 양쪽 무게, 재료별 무게 구성으로 왜 한쪽이 무거웠는지 보여 준다.
+export function CutResult({ comment, position, result, stick }) {
+  const total = stick.totalMilligrams;
+  const left = leftMilligrams(stick, position);
+  const right = total - left;
+  const tilt = Math.max(-MAX_TILT_DEGREES, Math.min(MAX_TILT_DEGREES, ((right - left) / total) * 150));
+  const scale = Math.max(left, right);
+
+  return (
+    <div aria-live="polite" className="cut-result">
+      <div className="cut-result__legend">
+        <span><i className="cut-result__swatch" />내가 자른 곳</span>
+        <span><i className="cut-result__swatch cut-result__swatch--answer" />정답</span>
+      </div>
+      <p className="cut-result__positions">
+        왼쪽 끝부터 정답 <b>{formatCm(result.answerPosition)}</b>, 내가 자른 곳 {formatCm(position)}
+      </p>
+      <Balance position={position} stick={stick} tiltDegrees={tilt} />
+      <div className="cut-result__weights">
+        <div><span>왼쪽</span><strong>{formatGrams(left)}</strong></div>
+        <div className="cut-result__error"><span>오차</span><strong>{formatPercent(result.errorRate)}</strong></div>
+        <div><span>오른쪽</span><strong>{formatGrams(right)}</strong></div>
+      </div>
+      <div aria-label="양쪽 조각의 무게 구성" className="cut-result__mix">
+        <MixRow label="왼쪽" mix={composition(stick, 0, position)} scale={scale} total={left} />
+        <MixRow label="오른쪽" mix={composition(stick, position, stick.lengthCm ?? 12)} scale={scale} total={right} />
+      </div>
+      <p className="cut-result__verdict">
+        <span className="cut-result__points">+{result.score.toLocaleString("ko-KR")}</span>
+        <span className="cut-result__comment">{comment}</span>
+      </p>
+    </div>
+  );
+}

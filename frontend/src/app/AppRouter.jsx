@@ -42,6 +42,7 @@ export const lazyPageRegistry = Object.freeze({
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
   GomokuObservationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuObservationPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
+  StickHalvingRoomPage: lazyNamed(() => import("../pages/games/StickHalvingRoomPage.jsx"), "StickHalvingRoomPage"),
   RhythmHarpoonEntryPage: lazyNamed(
     () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
     "RhythmHarpoonEntryPage"
@@ -83,6 +84,7 @@ export const lazyPageRegistry = Object.freeze({
   MyRegistrationsPage: lazyNamed(loadAccountPages, "MyRegistrationsPage"),
   NotFoundPage: lazyNamed(() => import("../pages/index.js"), "NotFoundPage"),
   OAuthCallbackPage: lazyNamed(loadAccountPages, "OAuthCallbackPage"),
+  PeperoDayEventPage: lazyNamed(() => import("../pages/events/PeperoDayEventPage.jsx"), "PeperoDayEventPage"),
   ProposalBoardPage: lazyNamed(loadProposalPages, "ProposalBoardPage"),
   ProposalCreatePage: lazyNamed(loadProposalPages, "ProposalCreatePage"),
   ProposalDetailPage: lazyNamed(loadProposalPages, "ProposalDetailPage"),

@@ -60,6 +60,22 @@
   --color-cohort-3: #63bd7c;
   --color-cohort-4: #8d80d9;
   --color-cohort-5: #d4a62a;
+  /* 반 나누기 게임의 막대과자 재료색. 막대 그림과 무게표가 같은 색을 쓴다. */
+  --color-game-biscuit: #e3b877;
+  --color-game-biscuit-low: #d29f58;
+  --color-game-biscuit-edge: #b07f3d;
+  --color-game-choco-thin: #8a5638;
+  --color-game-choco-thick: #4a2617;
+  --color-game-choco-highlight: #a8714f;
+  --color-game-almond: #e0ae78;
+  --color-game-almond-edge: #7d4e24;
+  /* 막대를 자르는 칼. 칼날은 밝은 강철, 손잡이는 짙은 나무색이다. */
+  --color-game-knife-steel: #eef1f4;
+  --color-game-knife-steel-shade: #b4bcc4;
+  --color-game-knife-edge: #5b6470;
+  --color-game-knife-bolster: #8a939c;
+  --color-game-knife-handle: #3a271c;
+  --color-game-knife-rivet: #d4d9de;
   --color-overlay: rgb(0 0 0 / 58%);
   --color-shadow: rgb(29 29 31 / 10%);
   --color-text-brand: var(--color-brand-ink);

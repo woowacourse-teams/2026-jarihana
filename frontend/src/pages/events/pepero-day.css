@@ -1,0 +1,187 @@
+.pepero-day {
+  display: grid;
+  gap: var(--space-5);
+  padding-block: var(--space-8) var(--space-12);
+}
+
+.pepero-day__loading {
+  block-size: 24rem;
+}
+
+.pepero-day__period {
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  margin: calc(var(--space-3) * -1) 0 0;
+}
+
+.pepero-day__card {
+  background: var(--color-surface);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg, 1.25rem);
+  min-width: 0;
+  padding: var(--space-5);
+}
+
+.pepero-day__countdown {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.pepero-day__countdown-label {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__countdown-time {
+  font-size: 2.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  margin: 0;
+}
+
+.pepero-day__closed h2,
+.pepero-day__mode h2 {
+  font-size: var(--text-h3);
+  margin: 0;
+}
+
+.pepero-day__closed p,
+.pepero-day__mode p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__closed {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.pepero-day__modes {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+}
+
+.pepero-day__mode {
+  align-content: start;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.pepero-day__mode--ranked {
+  background: var(--color-brand-soft);
+  border-color: transparent;
+}
+
+.pepero-day__game {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pepero-day__game-mode {
+  color: var(--color-text-brand);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.pepero-day__ranking {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pepero-day__ranking-loading {
+  block-size: 12rem;
+}
+
+.pepero-day__me {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.pepero-day__me strong {
+  color: var(--color-text-brand);
+}
+
+.pepero-day__ranking-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pepero-day__ranking-list li {
+  align-items: center;
+  border-block-end: var(--border-thin) solid var(--color-line);
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-3);
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto 3.25rem;
+  padding-block: var(--space-2);
+}
+
+.pepero-day__ranking-list .pepero-day__ranking-item--me {
+  background: var(--color-brand-soft);
+}
+
+.pepero-day__rank {
+  font-weight: var(--font-weight-extrabold);
+  text-align: center;
+}
+
+.pepero-day__nickname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pepero-day__score {
+  font-weight: var(--font-weight-bold);
+}
+
+.pepero-day__duration {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  text-align: end;
+}
+
+.pepero-day__ranking-list .pepero-day__ranking-gap {
+  border-block-end: 0;
+  color: var(--color-text-muted);
+  display: block;
+  padding-block: 0;
+  text-align: center;
+}
+
+.pepero-day__dialog .ui-dialog__content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pepero-day__dialog-loading {
+  block-size: 16rem;
+}
+
+.pepero-day__dialog-standing {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.pepero-day__dialog-standing strong {
+  color: var(--color-text-brand);
+  font-size: var(--text-h3);
+}
+
+@media (max-width: 480px) {
+  .pepero-day__card {
+    padding: var(--space-4);
+  }
+
+  .pepero-day__countdown-time {
+    font-size: 2rem;
+  }
+}
