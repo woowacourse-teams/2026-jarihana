@@ -17,6 +17,8 @@
     "activityPostWeekly": { "limit": 2, "completed": 1, "pending": 0, "remaining": 1 },
     "resetsAt": "2026-11-09T00:00:00",
     "weeklyQuotas": [
+      { "reason": "GROUP_CREATED", "label": "모임 만들기",
+        "quota": { "limit": 2, "completed": 1, "pending": 0, "remaining": 1 } },
       { "reason": "GOMOKU_WIN", "label": "오목 승리",
         "quota": { "limit": 3, "completed": 2, "pending": 1, "remaining": 0 } },
       { "reason": "ACTIVITY_POST", "label": "사진 활동기록",

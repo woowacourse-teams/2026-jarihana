@@ -102,7 +102,7 @@ function PointHistory({ history }) {
       <div className="points-history-empty">
         <span><ReceiptText aria-hidden="true" size={22} /></span>
         <strong>아직 적립 내역이 없어요.</strong>
-        <p className="points-muted">첫 모임을 만들거나 오목에서 이기면 적립돼요.</p>
+        <p className="points-muted">모임을 만들거나 오목에서 이기면 적립돼요.</p>
       </div>
     );
   }

@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 @Component
 public class PointRewardRules {
     public static final PointRewardRule MEMBER_SIGNUP = PointRewardRule.once("MEMBER_SIGNUP", "서비스 가입", 200);
-    public static final PointRewardRule GROUP_CREATED = PointRewardRule.once("GROUP_CREATED", "모임 만들기", 200);
+    public static final PointRewardRule GROUP_CREATED = PointRewardRule.weekly("GROUP_CREATED", "모임 만들기", 200, 2);
     public static final PointRewardRule GROUP_FIRST_MEMBER =
             PointRewardRule.once("GROUP_FIRST_MEMBER", "만든 모임에 첫 구성원 합류", 400);
     public static final PointRewardRule FIRST_GROUP_JOIN =

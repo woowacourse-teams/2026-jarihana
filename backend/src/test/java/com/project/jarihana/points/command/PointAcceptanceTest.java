@@ -14,6 +14,7 @@ import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.points.config.PointPolicy;
 import com.project.jarihana.points.domain.PointReward;
 import com.project.jarihana.points.domain.PointReward.SkipReason;
 import com.project.jarihana.points.domain.PointRewardRule;
@@ -350,6 +351,39 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         }
     }
 
+    @DisplayName("모임은 계속 만들 수 있고 생성 보상은 한 주에 두 번만 적립한다.")
+    @Test
+    void rewardsTwoGroupCreationsPerWeek() {
+        long creator = member("가온", "21001").getId();
+        String quota = "data.weeklyQuotas.find { it.reason == 'GROUP_CREATED' }.quota";
+
+        createGroup(creator, "첫 번째 모임");
+        createGroup(creator, "두 번째 모임");
+        createGroup(creator, "세 번째 모임");
+
+        request(creator).get(POINTS).then().statusCode(200)
+                .body(quota + ".limit", equalTo(2))
+                .body(quota + ".pending", equalTo(2))
+                .body(quota + ".remaining", equalTo(0));
+        worker.processDue();
+
+        request(creator).get(POINTS).then().statusCode(200)
+                .body("data.balance", equalTo(400))
+                .body(quota + ".completed", equalTo(2));
+        request(creator).get(POINTS + "/transactions").then().statusCode(200)
+                .body("data.items.findAll { it.reason == 'GROUP_CREATED' && it.status == 'COMPLETED' }.amount",
+                        equalTo(List.of(200, 200)))
+                .body("data.items.findAll { it.reason == 'GROUP_CREATED' && it.status == 'SKIPPED' }.skipReason",
+                        equalTo(List.of("WEEKLY_LIMIT")));
+
+        LocalDateTime nextMonday = LocalDateTime.of(2026, 8, 24, 0, 0);
+        Group nextGroup = groups.save(Group.createClub("다음 주 모임", "함께해요", null, null, null, nextMonday));
+        transaction.executeWithoutResult(status -> rewards.groupCreated(nextGroup.getId(), creator, nextMonday));
+        worker.processDue();
+
+        request(creator).get(POINTS).then().statusCode(200).body("data.balance", equalTo(600));
+    }
+
     @Test
     void creditsCreatorAndJoinerOnceEvenAfterGroupIsDeleted() {
         long creator = member("가온", "21001").getId();
@@ -438,7 +472,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         request(winner).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items.amount", equalTo(List.of(50, 5)));
         assertThat(jdbc.queryForObject("select policy_version from point_reward where source_key = 'game:2'",
-                Integer.class)).isEqualTo(3);
+                Integer.class)).isEqualTo(PointPolicy.VERSION);
     }
 
     @DisplayName("동시에 적립을 예약해도 대국이 끝난 주의 3회 한도와 대국별 중복 방지를 지킨다.")
@@ -649,7 +683,11 @@ class PointAcceptanceTest extends IntegrationTestSupport {
     }
 
     private long createGroup(long creator) {
-        return request(creator).body(Map.of("name", "함께 공부", "type", "CLUB",
+        return createGroup(creator, "함께 공부");
+    }
+
+    private long createGroup(long creator, String name) {
+        return request(creator).body(Map.of("name", name, "type", "CLUB",
                         "introduction", "함께해요", "meetingType", "ONLINE"))
                 .post("/groups").then().statusCode(201).extract().jsonPath().getLong("data.id");
     }

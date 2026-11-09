@@ -39,13 +39,19 @@ async function setup(page, { claimFailures = 0 } = {}) {
       const first = settled ? { ...events[0], status: "COMPLETED", completedAt: "2026-11-06T14:00:00" } : events[0];
       return reply({ items: next ? events.slice(3) : [first, ...events.slice(1, 3)], hasNext: !next, nextCursor: next ? null : "next" });
     }
+    const gomokuWeekly = { limit: 3, completed: settled ? 3 : 2, pending: settled ? 0 : 1, remaining: 0 };
     return reply({
       enabled: true,
       processing: !settled,
       balance: (settled ? 700 : 650) + (claimed ? 150 : 0),
-      gomokuWeekly: { limit: 3, completed: settled ? 3 : 2, pending: settled ? 0 : 1, remaining: 0 },
+      gomokuWeekly,
       activityPostWeekly,
-      resetsAt: "2026-11-09T00:00:00"
+      resetsAt: "2026-11-09T00:00:00",
+      weeklyQuotas: [
+        { reason: "GROUP_CREATED", label: "모임 만들기", quota: { limit: 2, completed: 1, pending: 0, remaining: 1 } },
+        { reason: "GOMOKU_WIN", label: "오목 승리", quota: gomokuWeekly },
+        { reason: "ACTIVITY_POST", label: "사진 활동기록", quota: activityPostWeekly }
+      ]
     });
   });
   return { state, settle: () => { settled = true; }, claimAttempts: () => claimAttempts };
@@ -87,6 +93,7 @@ for (const width of [390, 896, 1440, 1920]) {
       await expect(page).toHaveURL(/\/my\/points$/);
       await expect(page.getByText("650 P", { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "이번 주 적립 한도" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "모임 만들기", exact: true })).toBeVisible();
       await expect(page.getByText("3회 중 2회 적립, 1회 처리 중")).toBeVisible();
       await expect(page.getByText("처리 중", { exact: true })).toBeVisible();
       await expect(page.getByText("+50 P", { exact: true })).toBeVisible();
