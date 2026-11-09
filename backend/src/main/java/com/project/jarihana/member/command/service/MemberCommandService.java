@@ -4,13 +4,10 @@ import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.member.command.repository.CrewRosterRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.command.service.dto.MemberSignupCommand;
-import com.project.jarihana.member.command.service.dto.MemberSignupCommand.BootcampCommand;
-import com.project.jarihana.member.command.service.dto.MemberSignupCommand.CompanyCommand;
 import com.project.jarihana.member.command.service.dto.MemberSignupResult;
-import com.project.jarihana.member.domain.Bootcamp;
-import com.project.jarihana.member.domain.Company;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.points.command.service.PointRewardService;
@@ -23,20 +20,22 @@ public class MemberCommandService {
     private static final String SIGNUP_SESSION_MESSAGE = "가입 절차를 다시 시작해 주세요.";
     private static final String ALREADY_EXISTS_MESSAGE = "이미 가입한 사용자입니다.";
     private static final String CREW_DUPLICATED_MESSAGE = "이미 사용 중인 크루명입니다.";
-    private static final String BASIC_MEMBER_SIGNUP_CLOSED_MESSAGE = "아직 지원하지 않는 회원 유형입니다.";
 
     private final MemberRepository memberRepository;
+    private final CrewRosterRepository crewRosterRepository;
     private final AccessTokenProvider accessTokenProvider;
     private final RefreshTokenIssuer refreshTokenIssuer;
     private final PointRewardService pointRewards;
 
     public MemberCommandService(
             MemberRepository memberRepository,
+            CrewRosterRepository crewRosterRepository,
             AccessTokenProvider accessTokenProvider,
             RefreshTokenIssuer refreshTokenIssuer,
             PointRewardService pointRewards
     ) {
         this.memberRepository = memberRepository;
+        this.crewRosterRepository = crewRosterRepository;
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenIssuer = refreshTokenIssuer;
         this.pointRewards = pointRewards;
@@ -72,38 +71,17 @@ public class MemberCommandService {
         );
     }
 
-    private static Member createMember(MemberSignupCommand command, String githubId) {
-        MemberType memberType = command.memberType();
-        if (memberType == MemberType.MEMBER) {
-            // 구버전 앱이 MEMBER를 읽지 못하므로, 읽기 지원이 운영에 배포된 뒤 가입을 연다.
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, BASIC_MEMBER_SIGNUP_CLOSED_MESSAGE);
+    /**
+     * 코치는 요청한 대로 만들고, 그 밖에는 크루 명단에 있으면 명단의 기수와 과정으로 크루를, 없으면 기본 멤버를 만든다.
+     * 요청에 담긴 크루 기수, 과정, 소속 정보는 쓰지 않는다.
+     */
+    private Member createMember(MemberSignupCommand command, String githubId) {
+        if (command.memberType() == MemberType.COACH) {
+            return Member.create(command.crewName(), null, githubId, MemberType.COACH, null);
         }
-        if (memberType == MemberType.BOOTCAMP) {
-            return Member.createBootcamp(command.crewName(), githubId, toBootcamp(command.bootcamp()), command.field());
-        }
-        if (memberType == MemberType.PROFESSIONAL) {
-            return Member.createProfessional(
-                    command.crewName(), githubId, command.field(), command.career(), toCompany(command.company())
-            );
-        }
-        return Member.create(command.crewName(), command.generation(), githubId, memberType, command.course());
-    }
-
-    private static Bootcamp toBootcamp(BootcampCommand bootcamp) {
-        if (bootcamp == null) {
-            return null;
-        }
-        return Bootcamp.of(bootcamp.name(), bootcamp.status(), bootcamp.cohort());
-    }
-
-    private static Company toCompany(CompanyCommand company) {
-        if (company == null) {
-            return null;
-        }
-        if (company.visible() == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "회사명 공개 여부는 필수입니다.");
-        }
-        return Company.of(company.name(), company.visible());
+        return crewRosterRepository.findByGithubId(githubId)
+                .map(entry -> Member.create(command.crewName(), entry.getGeneration(), githubId, entry.getCourse()))
+                .orElseGet(() -> Member.createBasic(command.crewName(), githubId));
     }
 
     private String requireSignupSession(String githubId) {
@@ -126,7 +104,7 @@ public class MemberCommandService {
     }
 
     /**
-     * 크루는 같은 기수 안에서, 코치는 모든 회원과, 부트캠프 회원과 현직자는 기수가 없는 회원(코치 포함)끼리 닉네임이 겹치면 안 된다.
+     * 크루는 같은 기수 안에서, 코치는 모든 회원과, 기본 멤버는 기수가 없는 회원(코치 포함)끼리 닉네임이 겹치면 안 된다.
      */
     private boolean isCrewNameTaken(Member member) {
         String crewName = member.getCrewName();

@@ -94,7 +94,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         long memberId = given().contentType("application/json")
                 .cookie("SESSION", signupSession.cookieValue(sessionId))
                 .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .body(Map.of("crewName", "가온", "generation", 8, "course", "BACKEND", "memberType", "CREW"))
+                .body(Map.of("crewName", "가온"))
                 .post("/members").then().statusCode(201).extract().jsonPath().getLong("data.id");
 
         // Then

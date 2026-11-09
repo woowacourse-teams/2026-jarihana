@@ -138,28 +138,11 @@ test(
     );
 
     await page.goto("/signup");
-    const bootcampOption = page.getByRole("radio", { name: /부트캠프/ });
-    await expect(bootcampOption).toBeVisible();
-    await expect(page.getByRole("radio", { name: /회사/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /코치/ })).toHaveCount(0);
-    await expect(page.getByText("안녕하세요. 어떤 분이신가요?")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "자리하나에서 쓸 닉네임을 알려주세요" })).toBeVisible();
+    await expect(page.getByRole("radio")).toHaveCount(0);
+    await expect(page.getByRole("combobox")).toHaveCount(0);
 
-    await bootcampOption.click();
-    await expect(page.getByRole("heading", { name: "어느 부트캠프인가요?" })).toBeVisible();
-    await page.getByRole("radio", { name: "우아한테크코스" }).click();
-    const crewVerification = page.getByRole("button", { name: "우테코 크루 인증" });
-    await expect(crewVerification).toBeVisible();
-    await crewVerification.click();
-    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
-
-    await page.getByRole("button", { name: "이전" }).click();
-    await expect(crewVerification).toBeVisible();
-    await crewVerification.click();
-    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
-
-    await page.getByLabel("크루 이름").fill("자리");
-    await page.getByLabel("과정").selectOption("FRONTEND");
-    await page.getByLabel("기수").selectOption("8");
+    await page.getByRole("textbox", { name: "닉네임" }).fill("자리");
     await page.getByRole("button", { name: "가입 완료하기" }).click();
     await page.getByRole("button", { name: "확인" }).click();
 
@@ -167,12 +150,7 @@ test(
     const signupRequest = state.requests.find(
       (request) => request.method === "POST" && request.path === "/members"
     );
-    expect(signupRequest?.postData).toEqual({
-      course: "FRONTEND",
-      crewName: "자리",
-      generation: 8,
-      memberType: "CREW"
-    });
+    expect(signupRequest?.postData).toEqual({ crewName: "자리" });
     expect(browserFailures).toEqual([]);
     expect(state.unexpectedResponses).toEqual([]);
   }

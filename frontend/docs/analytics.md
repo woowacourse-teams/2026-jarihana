@@ -53,20 +53,14 @@ DB 테이블·스키마는 추가하지 않는다.
 
 ## 회원가입 UI의 고정 식별자
 
-가입 화면은 첫 화면에서 부트캠프 또는 회사를 고른 뒤 한 화면에 질문 하나씩 묻는다. 단계별 action으로 어느 질문에서 이탈하는지 구분한다. 닉네임, 캠프 이름, 회사명 같은 입력값은 action에 넣지 않는다.
+가입 화면은 닉네임 한 단계만 묻는다. 우아한테크코스 크루 여부와 기수, 과정은 서버가 GitHub 계정을 크루 명단과 대조해 정하므로 화면에서 고르는 동작이 없다. 닉네임 같은 입력값은 action에 넣지 않는다.
 
 | 동작 | action |
 | --- | --- |
-| 첫 화면에서 부트캠프, 회사 선택 | `signup_member_type_select` |
-| 이전 단계, 다음 단계 | `signup_step_back`, `signup_step_next` |
-| 부트캠프 선택, 직접 입력한 캠프 이름, 캠프 기수 | `signup_bootcamp_select`, `signup_bootcamp_name_input`, `signup_bootcamp_cohort_input` |
-| 우아한테크코스를 고른 뒤 크루 인증 시작 | `signup_crew_verification_start` |
-| 수강 상태, 공부 분야, 직무, 연차 선택 | `signup_bootcamp_status_select`, `signup_field_select`, `signup_job_select`, `signup_career_select` |
-| 닉네임, 크루 과정, 크루 기수 | `signup_name_input`, `signup_course_select`, `signup_generation_select` |
-| 회사명, 회사명 공개 여부 | `signup_company_input`, `signup_company_public_toggle` |
+| 닉네임 입력 | `signup_name_input` |
 | 가입 완료하기, 확인, 확인 창 닫기와 취소 | `signup_submit`, `signup_confirm`, `signup_confirmation_dismiss` |
 
-가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 크루 인증 방법이 정해지기 전까지 `signup_crew_verification_start`는 크루 프로필 입력으로 바로 넘어가는 클릭이며, 인증 성공을 뜻하지 않는다.
+가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 이전 단계형 가입 화면의 `signup_member_type_select`, `signup_step_back`, `signup_step_next`, `signup_bootcamp_*`, `signup_crew_verification_start`, `signup_field_select`, `signup_job_select`, `signup_career_select`, `signup_course_select`, `signup_generation_select`, `signup_company_*`는 더 이상 수집되지 않는다. 이전 기간 데이터를 볼 때만 쓴다.
 
 ## 자유게시판 모임 제안
 

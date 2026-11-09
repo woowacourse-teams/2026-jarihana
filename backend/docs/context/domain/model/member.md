@@ -5,7 +5,7 @@
 | `id` | Long | PK | 회원 식별자 |
 | `crewName` | String | NOT NULL, 한글 2–4자, 공백·특수문자 불가 | 우테코 크루 닉네임 |
 | `memberType` | Enum | NOT NULL | `CREW`, `COACH`, `BOOTCAMP`(부트캠프 수강생, 수료생), `PROFESSIONAL`(IT 현직자), `MEMBER`(소속을 묻지 않고 가입한 기본 멤버) |
-| `generation` | Integer | `CREW`는 NOT NULL·수정 불가, `COACH`는 null | 기수 |
+| `generation` | Integer | `CREW`는 NOT NULL, 그 외는 null. 사용자가 바꿀 수 없고 크루 명단 인증 때만 채워진다 | 기수 |
 | `githubId` | String | NOT NULL, UNIQUE | 변경되지 않는 GitHub 사용자 숫자 ID |
 | `course` | Enum | `CREW`는 NOT NULL, 그 외는 null | `BACKEND`, `FRONTEND`, `ANDROID` |
 | `bootcamp` | Embedded `Bootcamp` | `BOOTCAMP`는 NOT NULL, 그 외는 null | 캠프 이름(30자 이하, 우아한테크코스 불가), 수강 상태(`IN_PROGRESS`, `COMPLETED`), 기수(선택, 20자 이하) |
@@ -17,14 +17,15 @@
 | `updatedAt` | LocalDateTime | NOT NULL | 최종 수정 시각 |
 
 ## Member 모델 규칙
-- `generation`은 사용자가 수정할 수 없다. 일반 회원은 양수 기수가 필수이고, `COACH` 회원은 기수를 저장하지 않는다.
+- `generation`은 사용자가 수정할 수 없다. 크루는 양수 기수가 필수이고, 그 외 회원은 기수를 저장하지 않는다. 기수는 크루 명단 인증 때만 명단 값으로 채워진다.
 - 별도 `OauthAccount` 엔티티를 두지 않는다. GitHub 인증 정보 중 사용자 식별에 필요한 `githubId`를 `Member`가 직접 보유한다.
 - GitHub 프로필 이미지는 저장하지 않고 `githubId`로 아바타 URL을 구성한다.
 - `memberType = CREW`이면 `course`와 양수 `generation`을 저장하고, `memberType = COACH`이면 둘 다 저장하지 않는다.
 - `BOOTCAMP`는 부트캠프 정보와 분야를, `PROFESSIONAL`은 직무와 연차를 저장하고 회사 정보는 선택이다. 두 유형 모두 `course`와 `generation`을 저장하지 않는다.
-- `MEMBER`는 `course`, `generation`과 부트캠프, 분야, 연차, 회사 정보를 모두 저장하지 않는다. 가입과 GitHub 로그인 때 [크루 명단](#크루-명단)으로 `CREW`가 되는 흐름은 후속 변경에서 연다.
+- `MEMBER`는 `course`, `generation`과 부트캠프, 분야, 연차, 회사 정보를 모두 저장하지 않는다. [크루 명단](#크루-명단)에 있으면 가입이나 GitHub 로그인 때 `CREW`가 된다.
 - 크루와 코치는 부트캠프, 분야, 연차, 회사 정보를 저장하지 않는다. DB의 `ck_member_profile_fields`가 유형별 조합을 함께 강제한다.
-- 가입 화면은 우테코 크루를 부트캠프 목록의 우아한테크코스와 크루 인증 단계로만 받는다. 코치 선택지는 없지만 가입 API는 `COACH`를 그대로 받는다.
+- 가입은 닉네임만 받는다. 크루 명단에 있으면 `CREW`, 없으면 `MEMBER`로 가입한다. 사용자가 크루 여부나 기수, 과정을 직접 정할 수 없다. 코치 선택지는 없지만 가입 API는 `COACH`를 그대로 받는다.
+- `BOOTCAMP`, `PROFESSIONAL`은 더 이상 새로 만들지 않는다. 기존 회원은 V29에서 `MEMBER`로 옮겼고, 소속 컬럼은 Contract 단계에서 지울 때까지 비워 둔다.
 
 ## 크루 명단
 
@@ -37,8 +38,8 @@
 | `generation` | Integer | NOT NULL, 양수 | 기수 |
 | `course` | Enum | NOT NULL | `BACKEND`, `FRONTEND`, `ANDROID` |
 
-- 명단은 운영자가 저장소 밖 CSV를 [명단 적재 절차](../../../operations/crew-roster.md)로 넣는다. 애플리케이션은 명단을 저장하지 않는다.
+- 명단은 운영자가 저장소 밖 CSV를 [명단 적재 절차](../../../operations/crew-roster.md)로 넣는다. 애플리케이션은 명단을 읽기만 한다.
 - 명단 인증은 기본 멤버, 부트캠프 회원, 현직자에게만 적용한다. 닉네임은 유지하고 `generation`, `course`는 명단 값을 쓰며 소속 정보는 비운다.
-- 같은 기수에 같은 닉네임의 크루가 이미 있으면 인증하지 않는다.
+- 같은 기수에 같은 닉네임의 크루가 이미 있으면 인증하지 않는다. 가입이면 닉네임 중복(409)으로 다시 입력받고, 로그인이면 기본 멤버로 둔 채 로그인을 계속한다.
 - 이미 `CREW`나 `COACH`인 회원은 명단과 기수, 과정이 달라도 바꾸지 않는다.
-- 지금은 명단 적재 스크립트를 실행할 때만 인증한다. 가입과 GitHub 로그인 때의 인증은 후속 변경에서 연다.
+- 인증 시점은 가입, GitHub 로그인, 명단 적재 스크립트 실행 세 곳이다. Refresh Token으로 Access Token만 다시 받을 때는 대조하지 않는다.
