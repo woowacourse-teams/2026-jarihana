@@ -6,13 +6,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.Repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 public interface AnnouncementCommandRepository extends Repository<Announcement, Long> {
 
     Announcement save(Announcement announcement);
-
-    Optional<Announcement> findByGroupIdAndAuthorIdAndRequestId(long groupId, long authorId, UUID requestId);
 
     @Query("""
             select announcement

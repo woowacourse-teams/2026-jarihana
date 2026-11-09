@@ -41,7 +41,8 @@ public class PointQueryRepository {
     public List<HistoryItem> history(long memberId, LocalDateTime before, long beforeId, int size) {
         return jdbc.sql("""
                 SELECT id, reason, amount, occurred_at, status, skip_reason, completed_at
-                FROM point_reward WHERE member_id = ? AND (occurred_at, id) < (?, ?)
+                FROM point_reward WHERE member_id = ?
+                    AND skip_reason IS DISTINCT FROM 'ALREADY_REWARDED' AND (occurred_at, id) < (?, ?)
                 ORDER BY occurred_at DESC, id DESC LIMIT ?
                 """).params(memberId, before, beforeId, size)
                 .query((row, index) -> new HistoryItem(row.getLong("id"), row.getString("reason"),

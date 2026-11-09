@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { toUserMessage } from "../../shared/api/index.js";
 import { Button, Modal, Radio, Textarea, TextField, useToast } from "../../shared/ui/index.js";
@@ -14,7 +14,6 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
   const [content, setContent] = useState(announcement?.content ?? "");
   const [scope, setScope] = useState(announcement?.scope ?? "MEMBERS");
   const [formError, setFormError] = useState("");
-  const requestIds = useRef(new Map());
   const actionPrefix = isEditing ? "group_announcement_edit" : "group_announcement_create";
   const fieldActionPrefix = isEditing ? "group_announcement_edit" : "group_announcement";
 
@@ -33,16 +32,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
 
     setFormError("");
     try {
-      const payload = { title: cleanTitle, content: cleanContent, scope };
-      if (isEditing) {
-        await mutation.mutateAsync(payload);
-      } else {
-        const signature = JSON.stringify(payload);
-        const requestId = requestIds.current.get(signature) ?? crypto.randomUUID();
-        requestIds.current.set(signature, requestId);
-        await mutation.mutateAsync({ ...payload, requestId });
-        requestIds.current.clear();
-      }
+      await mutation.mutateAsync({ title: cleanTitle, content: cleanContent, scope });
       onOpenChange(false);
       toast.success({ title: isEditing ? "공지를 수정했어요" : "공지를 등록했어요" });
     } catch (error) {

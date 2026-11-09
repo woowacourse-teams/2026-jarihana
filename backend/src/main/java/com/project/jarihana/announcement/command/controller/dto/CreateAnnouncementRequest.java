@@ -6,16 +6,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
 public record CreateAnnouncementRequest(
         @NotBlank @Size(max = 100) String title,
         @NotBlank @Size(max = 10_000) String content,
-        @NotNull AnnouncementScope scope,
-        UUID requestId
+        @NotNull AnnouncementScope scope
 ) {
 
     public CreateAnnouncementCommand toCommand() {
-        return new CreateAnnouncementCommand(title, content, scope, requestId);
+        return new CreateAnnouncementCommand(title, content, scope);
     }
 }

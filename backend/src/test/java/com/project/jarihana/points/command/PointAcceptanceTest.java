@@ -2,7 +2,6 @@ package com.project.jarihana.points.command;
 
 import com.project.jarihana.points.command.service.PointRewardService;
 import com.project.jarihana.points.command.service.PointRewardWorker;
-import com.project.jarihana.announcement.domain.event.AnnouncementCreatedEvent;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.exception.BusinessException;
@@ -14,6 +13,7 @@ import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import com.project.jarihana.points.config.PointPolicy;
 import com.project.jarihana.points.domain.PointReward;
 import com.project.jarihana.points.domain.PointReward.SkipReason;
@@ -37,8 +37,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.sql.SQLException;
@@ -47,7 +45,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -72,8 +69,6 @@ import static org.hamcrest.Matchers.nullValue;
 class PointAcceptanceTest extends IntegrationTestSupport {
     private static final String POINTS = "/members/me/points";
     private static final String GOMOKU_ROOMS = "/games/gomoku/rooms";
-    private static final PointRewardRule ANNOUNCEMENT_REWARD =
-            PointRewardRule.weekly("TEST_ANNOUNCEMENT_CREATED", "모임 공지 등록", 7, 2);
     @Autowired private PointRewardService rewards;
     @Autowired private PointRewardWorker worker;
     @Autowired private TransactionTemplate transaction;
@@ -86,6 +81,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
     @Autowired private AuthCookieProperties cookies;
     @Autowired private SignupSessionFixture signupSession;
     @Autowired private PointRewardRule challengeClearReward;
+    @Autowired private WorkerAdmissionController admission;
 
     @DisplayName("서비스 가입을 완료하면 신규 회원에게 가입 보상 200P를 예약한다.")
     @Test
@@ -116,6 +112,8 @@ class PointAcceptanceTest extends IntegrationTestSupport {
     void backfillsSignupPointsOnceForExistingMember() throws Exception {
         // Given
         long memberId = member("가온", "21001").getId();
+        long withdrawnId = member("해솔", "21002").getId();
+        jdbc.update("update member set withdrawn_at = ? where id = ?", FIXED_NOW, withdrawnId);
         assertThat(jdbc.queryForObject("select count(*) from point_wallet", Long.class)).isZero();
 
         // When
@@ -132,6 +130,31 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         request(memberId).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items.reason", equalTo(List.of("MEMBER_SIGNUP")))
                 .body("data.items.label", equalTo(List.of("서비스 가입")));
+        assertThat(jdbc.queryForObject("select count(*) from point_wallet where member_id = ?", Long.class, withdrawnId))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("배포로 중지된 동안 지급과 가입 보상 예약을 멈추고 재개 후 처리한다.")
+    void pausesAndResumesPointWorkerWithDeploymentControl() {
+        long memberId = member("가온", "21001").getId();
+        transaction.executeWithoutResult(status -> rewards.gomokuWon(1, memberId, true, FIXED_NOW));
+
+        admission.pause();
+        try {
+            worker.backfillSignupRewards();
+            worker.processDue();
+            assertThat(admission.drainStatus().isDrained()).isTrue();
+            request(memberId).get(POINTS).then().statusCode(200).body("data.balance", equalTo(0));
+            assertThat(jdbc.queryForObject("select count(*) from point_reward where reason = 'MEMBER_SIGNUP'", Long.class))
+                    .isZero();
+        } finally {
+            admission.resume();
+        }
+
+        worker.backfillSignupRewards();
+        worker.processDue();
+        request(memberId).get(POINTS).then().statusCode(200).body("data.balance", equalTo(250));
     }
 
     @DisplayName("등록한 보상 규칙은 지급 조건, 금액, 주간 한도와 조회에 공통 흐름을 사용한다.")
@@ -176,66 +199,6 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         PointRewardRule challengeClearReward() {
             return PointRewardRule.weekly("TEST_CHALLENGE_CLEAR", "테스트 챌린지", 7, 2);
         }
-
-        @Bean
-        PointRewardRule announcementReward() {
-            return ANNOUNCEMENT_REWARD;
-        }
-
-        @Bean
-        AnnouncementRewardListener announcementRewardListener(PointRewardService points) {
-            return new AnnouncementRewardListener(points);
-        }
-    }
-
-    static class AnnouncementRewardListener {
-        private final PointRewardService points;
-
-        AnnouncementRewardListener(PointRewardService points) {
-            this.points = points;
-        }
-
-        @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-        public void onCreated(AnnouncementCreatedEvent event) {
-            points.register(PointReward.of(ANNOUNCEMENT_REWARD, event.authorMemberId(),
-                    "announcement:" + event.announcementId(), event.occurredAt()));
-        }
-    }
-
-    @DisplayName("같은 공지 등록 요청을 동시에 재전송해도 공지와 적립이 한 건만 생성된다.")
-    @Test
-    void replaysAnnouncementCreationWithoutDuplicatingPoints() throws Exception {
-        // Given
-        Member leader = member("공지방장", "21001");
-        Group group = groups.save(Group.createClub("공지 모임", "함께해요", null, null, null, FIXED_NOW));
-        memberships.save(GroupMember.createLeader(group, leader, FIXED_NOW));
-        String endpoint = "/groups/" + group.getId() + "/announcements";
-        UUID requestId = UUID.randomUUID();
-        var payload = Map.of("title", "모임 공지", "content", "다음 일정 안내", "scope", "MEMBERS",
-                "requestId", requestId);
-        CountDownLatch start = new CountDownLatch(1);
-
-        // When
-        try (var pool = Executors.newFixedThreadPool(2)) {
-            var submissions = IntStream.range(0, 2).mapToObj(index -> pool.submit(() -> {
-                await(start);
-                return request(leader.getId()).body(payload).post(endpoint).then().statusCode(201)
-                        .extract().jsonPath().getLong("data.id");
-            })).toList();
-            start.countDown();
-            assertThat(submissions.get(0).get(10, TimeUnit.SECONDS))
-                    .isEqualTo(submissions.get(1).get(10, TimeUnit.SECONDS));
-        }
-
-        // Then
-        request(leader.getId()).body(Map.of("title", "다른 공지", "content", "다음 일정 안내",
-                        "scope", "MEMBERS", "requestId", requestId))
-                .post(endpoint).then().statusCode(409).body("error.code", equalTo("ANNOUNCEMENT_REQUEST_CONFLICT"));
-        worker.processDue();
-        worker.processDue();
-        assertThat(jdbc.queryForObject("select count(*) from announcements", Long.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(1);
-        request(leader.getId()).get(POINTS).then().statusCode(200).body("data.balance", equalTo(7));
     }
 
     @DisplayName("오래된 스냅샷의 동시 요청은 주간 한도를 넘겨 적립할 수 없다.")
@@ -606,8 +569,15 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         LocalDateTime older = FIXED_NOW.minusMonths(1);
         Member member = member("가온", "21001");
         Group group = groups.save(Group.createClub("기존 모임", "함께해요", null, null, null, older));
+        jdbc.update("update groups set created_at = ? where id = ?", older.plusSeconds(1), group.getId());
         memberships.save(GroupMember.createLeader(group, member, older));
 
+        request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
+                .body("data.queued", equalTo(false));
+
+        Group joinedGroup = groups.save(Group.createClub("위임받은 모임", "함께해요", null, null, null, older));
+        jdbc.update("update groups set created_at = ? where id = ?", older.plusSeconds(1), joinedGroup.getId());
+        memberships.save(GroupMember.createLeader(joinedGroup, member, older.plusDays(1)));
         request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
                 .body("data.queued", equalTo(true));
         request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
@@ -617,6 +587,10 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         worker.processDue();
 
         request(member.getId()).get(POINTS).then().body("data.balance", equalTo(150));
+        assertThat(jdbc.queryForObject("select count(*) from point_reward where skip_reason = 'ALREADY_REWARDED'",
+                Long.class)).isEqualTo(1);
+        request(member.getId()).get(POINTS + "/transactions").then().statusCode(200)
+                .body("data.items.status", equalTo(List.of("COMPLETED")));
     }
 
     @Test

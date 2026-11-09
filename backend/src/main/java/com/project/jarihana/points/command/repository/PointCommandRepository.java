@@ -47,7 +47,7 @@ public class PointCommandRepository {
     public List<Long> findMembersWithoutAward(String reason, int limit) {
         return jdbc.sql("""
                 SELECT member.id FROM member
-                WHERE NOT EXISTS (
+                WHERE member.withdrawn_at IS NULL AND NOT EXISTS (
                     SELECT 1 FROM point_reward
                     WHERE member_id = member.id AND reason = ? AND status <> 'SKIPPED'
                 )
@@ -56,7 +56,17 @@ public class PointCommandRepository {
     }
 
     public boolean hasOlderMembership(long memberId, LocalDateTime startsAt) {
-        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM group_member WHERE member_id = ? AND joined_at < ?)")
+        return jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM group_member membership
+                    JOIN groups ON groups.id = membership.group_id
+                    LEFT JOIN point_group_origin origin ON origin.group_id = groups.id
+                    WHERE membership.member_id = ? AND membership.joined_at < ?
+                      AND (CASE WHEN origin.group_id IS NOT NULL
+                           THEN origin.creator_member_id <> membership.member_id
+                           ELSE membership.joined_at > groups.created_at END)
+                )
+                """)
                 .params(memberId, startsAt).query(Boolean.class).single();
     }
 

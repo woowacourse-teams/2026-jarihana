@@ -1,6 +1,7 @@
 package com.project.jarihana.points.command.service;
 
 import com.project.jarihana.common.deployment.ApplicationActivity;
+import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
 import com.project.jarihana.points.command.repository.PointCommandRepository.DueReward;
 import com.project.jarihana.points.command.repository.PointCommandRepository;
 import com.project.jarihana.points.config.PointPolicy;
@@ -17,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
@@ -29,6 +31,7 @@ public class PointRewardWorker {
     private final TransactionTemplate transaction;
     private final Clock clock;
     private final ApplicationActivity activity;
+    private final WorkerAdmissionController admission;
     private final PointPolicy policy;
     private final PointRewardService rewards;
 
@@ -38,8 +41,8 @@ public class PointRewardWorker {
         if (!policy.isActiveAt(LocalDateTime.now(clock))) {
             return;
         }
-        try (var running = activity.beginBackground()) {
-            for (int index = 0; index < BATCH_SIZE && processOne(); index++) {
+        try {
+            for (int index = 0; index < BATCH_SIZE && withWorkerPermit(this::processOne); index++) {
                 // Each reward commits independently.
             }
         } catch (RuntimeException failure) {
@@ -55,11 +58,29 @@ public class PointRewardWorker {
         if (!policy.isActiveAt(now)) {
             return;
         }
-        try (var running = activity.beginBackground()) {
-            transaction.executeWithoutResult(status -> rewards.backfillSignupRewards(now, SIGNUP_BACKFILL_BATCH_SIZE));
+        try {
+            withWorkerPermit(() -> {
+                transaction.executeWithoutResult(status -> rewards.backfillSignupRewards(now, SIGNUP_BACKFILL_BATCH_SIZE));
+                return true;
+            });
         } catch (RuntimeException failure) {
             log.atWarn().addKeyValue("error.type", failure.getClass().getSimpleName())
                     .log("points.signup.backfill.failed");
+        }
+    }
+
+    private boolean withWorkerPermit(BooleanSupplier work) {
+        var acquired = admission.tryAcquire();
+        if (acquired.isEmpty()) {
+            return false;
+        }
+        try (var permit = acquired.get(); var running = activity.beginBackground()) {
+            try {
+                return work.getAsBoolean();
+            } finally {
+                // DB transactions keep the reward retryable even if the worker fails.
+                permit.complete();
+            }
         }
     }
 
