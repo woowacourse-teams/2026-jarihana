@@ -9,8 +9,10 @@ import { RhythmHarpoonLessonPage } from "../../../src/pages/games/RhythmHarpoonL
 import { mountPracticeGame } from "../../../src/features/game/rhythm/mount-practice-game.mjs";
 import { mountLessonGame } from "../../../src/features/game/rhythm/mount-lesson-game.mjs";
 import { playLessonPreview } from "../../../src/features/game/rhythm/lesson-audio.mjs";
+import { storeReturnTarget } from "../../../src/features/auth";
 
 const mockNavigate = jest.fn();
+const mockLogin = jest.fn();
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...properties }) => (
     <a href={to} {...properties}>
@@ -22,7 +24,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../../src/features/auth", () => ({
   storeReturnTarget: jest.fn(),
-  useAuth: () => ({ status: "anonymous" })
+  useAuth: () => ({ status: "anonymous", login: mockLogin })
 }));
 jest.mock("@tanstack/react-query", () => ({
   useQuery: jest.fn(() => ({ data: undefined, isPending: false, isError: false })),
@@ -95,7 +97,12 @@ it("shows the sound tutorial open until it is finished, then folds it away", () 
     "href",
     "/games/rhythm-harpoon/practice"
   );
-  expect(screen.getByRole("button", { name: /공식 도전/ })).toBeDisabled();
+  const challenge = screen.getByRole("link", { name: /공식 도전/ });
+  expect(challenge).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
+  expect(challenge).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
+  fireEvent.click(challenge);
+  expect(mockLogin).toHaveBeenCalledTimes(1);
+  expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
   first.unmount();
 
   localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, true] }));
