@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { bootcampStatusSchema, careerSchema, memberFieldSchema } from "../../entities/member/index.js";
 
-export const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL"]);
+export const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL", "MEMBER"]);
 export const courseSchema = z.enum(["BACKEND", "FRONTEND", "ANDROID"]);
 
 const bootcampSchema = z

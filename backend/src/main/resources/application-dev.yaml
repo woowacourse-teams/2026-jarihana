@@ -62,3 +62,9 @@ logging:
     ecs:
       service:
         environment: dev
+
+jarihana:
+  minigame:
+    pepero-day:
+      # 공유 개발 환경은 기간과 관계없이 이벤트를 열어 둔다.
+      always-open: true

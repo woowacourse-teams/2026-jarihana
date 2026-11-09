@@ -1,6 +1,55 @@
 import { placeSpeechBubbles } from '../../public/sparring-arena/src/speech-layout.js';
 
 describe('캐릭터 말풍선 배치', () => {
+  it.each([358, 607, 800, 1440])('%ipx 화면에서 16개 말풍선과 주제 영역이 서로 겹치지 않는다', stageWidth => {
+    const width = Math.min(stageWidth <= 700 ? 150 : 240, (stageWidth - 46) / (stageWidth < 600 ? 2 : 4));
+    const height = 44, stageHeight = 640;
+    const bubbles = Array.from({ length: 16 }, (_, index) => ({
+      headX: stageWidth / 2 + (index < 8 ? -25 : 25), headY: 320, width, height,
+      direction: index < 8 ? -1 : 1,
+      region: index < 8 ? { left: 8, right: stageWidth / 2 - 5 } : { left: stageWidth / 2 + 5, right: stageWidth - 8 },
+    }));
+    const obstacles = [{ left: 8, right: stageWidth - 8, top: 8, bottom: 110 }];
+    const positions = placeSpeechBubbles(bubbles, stageWidth, obstacles, { stageHeight });
+    expect(positions).toHaveLength(16);
+    const boxes = [...obstacles];
+    for (const position of positions) {
+      const box = { left: position.center - width / 2, right: position.center + width / 2, top: position.bottom - height, bottom: position.bottom };
+      expect(box.left).toBeGreaterThanOrEqual(8);
+      expect(box.right).toBeLessThanOrEqual(stageWidth - 8);
+      expect(box.top).toBeGreaterThanOrEqual(8);
+      expect(box.bottom).toBeLessThanOrEqual(stageHeight - 8);
+      for (const other of boxes) expect(box.left >= other.right || box.right <= other.left || box.bottom <= other.top || box.top >= other.bottom).toBe(true);
+      boxes.push(box);
+    }
+    expect(placeSpeechBubbles(bubbles, stageWidth, obstacles, { stageHeight })).toEqual(positions);
+  });
+  it('겹침 허용이면 충돌을 피하지 않고 캐릭터 머리 곁에 둔다', () => {
+    const bubble = { headX: 200, headY: 300, width: 160, height: 44, direction: -1 };
+    const [first, second] = placeSpeechBubbles([bubble, bubble], 800, [], { allowOverlap: true });
+    expect(first).toEqual(second);
+    expect(first.bottom).toBe(300);
+    expect(first.center - 80 + first.tailTip).toBe(200);
+    expect(placeSpeechBubbles([bubble, bubble], 800)[1]).not.toEqual(first);
+  });
+  it.each([false, true])('말풍선이 많아도 집게 영역을 먼저 비운다: 겹침 허용=%s', allowOverlap => {
+    const claw = { left: 167, right: 223, top: 180, bottom: 242, blocking: true };
+    const bubbles = Array.from({ length: 16 }, (_, index) => ({
+      headX: 195, headY: 230, width: 150, height: 44, direction: index < 8 ? -1 : 1,
+    }));
+    const positions = placeSpeechBubbles(bubbles, 390, [claw], { allowOverlap, stageHeight: 640 });
+    for (const position of positions) {
+      const left = position.center - 75;
+      expect(left >= claw.right || left + 150 <= claw.left || position.bottom <= claw.top || position.bottom - 44 >= claw.bottom).toBe(true);
+      expect(Number.isFinite(position.tailHeight)).toBe(true);
+    }
+  });
+  it('위쪽을 집게가 막으면 높이 제한이 없어도 아래쪽 빈 공간을 쓴다', () => {
+    const claw = { left: 8, right: 182, top: 8, bottom: 80, blocking: true };
+    const [position] = placeSpeechBubbles([{ headX: 95, headY: 60, width: 174, height: 44, direction: 1 }], 190, [claw], { allowOverlap: true });
+    expect(position.bottom - 44).toBeGreaterThanOrEqual(90);
+    expect(Number.isFinite(position.tailHeight)).toBe(true);
+  });
   it('가까운 네 인물의 말풍선이 반대편을 차지해 세 층으로 밀려나지 않는다', () => {
     const bubbles = [165.207, 128.911, 192.793, 229.089].map((headX, index) => ({
       headX, headY: 214, width: 150, height: 47, direction: index < 2 ? -1 : 1,

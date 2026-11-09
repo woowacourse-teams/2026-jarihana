@@ -10,12 +10,12 @@ afterEach(() => {
 test.each([
   ["development", "jarihana-dev"],
   ["production", "jarihana"]
-])("%s uses its own S3 artwork prefix", (environment, prefix) => {
+])("%s uses its own Gomoku S3 prefix and the bundled rhythm harpoon artwork", (environment, prefix) => {
   process.env.APP_DEPLOY_ENV = environment;
   jest.isolateModules(() => {
     const { gameArtwork } = require("./artworkAssets");
     expect(gameArtwork.gomoku).toContain(`/${prefix}/images/games/gomoku-lounge-`);
-    expect(gameArtwork.rhythm).toContain(`/${prefix}/images/games/rhythm-lounge-`);
+    expect(gameArtwork.rhythm).toBe("/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp");
   });
 });
 

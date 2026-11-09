@@ -232,7 +232,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       part(head, variant, 'skin', [sign * 0.327, -0.034, 0.015], custom ? [0.075, 0.087, 0.063] : [0.067, 0.081, 0.063]);
       part(head, variant, 'ear', [sign * 0.346, -0.032, 0.062], [0.031, 0.045, 0.011]);
       eyes.push(part(head, variant, 'face', [sign * 0.111, custom ? 0.025 : 0.018, custom ? 0.287 : 0.284], [0.026, 0.041, 0.019]));
-      eyebrows.push(part(head, variant, 'face', [sign * 0.112, 0.126, 0.265], [1, 1, 1], [0, 0, sign * -0.08], 'eyebrow'));
+      eyebrows.push({ sign, node: part(head, variant, 'face', [sign * 0.112, 0.126, 0.265], [1, 1, 1], [0, 0, sign * -0.08], 'eyebrow') });
     }
     const nose = part(head, variant, 'skin', [0, -0.049, 0.296], [0.039, 0.042, 0.052]);
     const mouths = { smile: part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], custom ? 'avatarSmile' : 'smile') };
@@ -240,6 +240,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       mouths.flat = part(head, variant, 'face', [0, 0, 0], [1, 1, 1], [0, 0, 0], 'flatMouth');
       mouths.open = part(head, variant, 'face', [0, -0.105, 0.287], [0.037, 0.045, 0.016]);
     }
+    const openMouth = custom ? null : part(head, variant, 'face', [0, -0.105, 0.29], [0, 0, 0]);
     const hairShape = custom ? { curly: 'avatarCurly', parted: 'avatarParted', bob: 'avatarBob', long: 'avatarLong', flowing: 'avatarFlowing' }[hair] : variant === 0 ? 'crewHair' : 'coachHair';
     const hairNodes = {};
     if (hairShape) {
@@ -289,11 +290,10 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       fabric.userData.bendJoint = elbow;
       part(elbow, variant, rib, [0, -0.20, 0], [0.108, 0.034, 0.109], [0, 0, 0], 'soft');
       part(elbow, variant, 'skin', [0, -0.283, 0.009], custom ? [0.096, 0.108, 0.070] : [0.082, 0.103, 0.056]);
-      for (const offset of [-0.048, -0.016, 0.016, 0.048]) {
-        part(elbow, variant, 'skin', [offset, -0.357 + Math.abs(offset) * 0.32, 0.029], custom ? [0.024, 0.046, 0.031] : [0.020, 0.046, 0.025]);
-      }
-      part(elbow, variant, 'skin', [-sign * 0.068, -0.282, 0.042], [0.029, 0.057, 0.030], [0, 0, -sign * 0.4]);
-      return { sign, shoulder, elbow };
+      const fingers = [-0.048, -0.016, 0.016, 0.048].map(offset =>
+        part(elbow, variant, 'skin', [offset, -0.357 + Math.abs(offset) * 0.32, 0.029], custom ? [0.024, 0.046, 0.031] : [0.020, 0.046, 0.025]));
+      const thumb = part(elbow, variant, 'skin', [-sign * 0.068, -0.282, 0.042], [0.029, 0.057, 0.030], [0, 0, -sign * 0.4]);
+      return { sign, shoulder, elbow, fingers, thumb };
     });
     const legs = [-1, 1].map(sign => {
       const hip = joint(root, [sign * 0.18, 0.74, 0]);
@@ -315,7 +315,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     const bags = custom ? bagChoices(torso, variant, hair) : {};
     const palm = joint(arms[1].elbow, [0, -0.30, 0.075]);
     const items = custom ? itemChoices(palm, variant) : {};
-    return { root, torso, head, face, eyes, eyebrows, nose, mouths, glasses, arms, legs, hairNodes, hats, bags, palm, items };
+    return { root, torso, head, face, eyes, eyebrows, nose, mouths, mouth: mouths.smile, openMouth, glasses, arms, legs, hairNodes, hats, bags, palm, items };
   });
 
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -379,6 +379,8 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       bagTrim: new THREE.Color(AVATAR_PALETTE.bagColor[appearance.bagColor]).multiplyScalar(0.80),
       charcoal: new THREE.Color(clothes).multiplyScalar(0.86), knit: new THREE.Color(clothes).multiplyScalar(0.86) };
   }
+  const hangPivot = new THREE.Vector3(), rotatedHangPivot = new THREE.Vector3();
+  const hangRotation = new THREE.Quaternion(), hangAxis = new THREE.Vector3(0, 0, 1);
   function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
     active[index] = true;
     visibleSlots = Math.max(visibleSlots, index + 1);
@@ -400,7 +402,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       const dimensions = { round: [1.16, 1.13, 1.10], oval: [1.07, 1.22, 1.10], wide: [1.27, 1.08, 1.10] }[appearance.face];
       rig.head.scale.set(...dimensions);
       for (const eye of rig.eyes) eye.scale.set(...{ round: [0.033, 0.052, 0.024], slim: [0.039, 0.025, 0.023], dot: [0.028, 0.033, 0.023] }[appearance.eyes]);
-      for (const brow of rig.eyebrows) brow.scale.set(...{ arched: [1, 1, 1], straight: [1, 0.13, 1], bold: [1.14, 1.5, 1.4] }[appearance.eyebrows]);
+      for (const { node } of rig.eyebrows) node.scale.set(...{ arched: [1, 1, 1], straight: [1, 0.13, 1], bold: [1.14, 1.5, 1.4] }[appearance.eyebrows]);
       rig.nose.scale.set(...{ round: [0.047, 0.047, 0.058], small: [0.033, 0.034, 0.041], wide: [0.060, 0.039, 0.048] }[appearance.nose]);
       for (const [kind, mouth] of Object.entries(rig.mouths)) {
         if (!mouth.userData.originalScale) mouth.userData.originalScale = mouth.scale.clone();
@@ -418,27 +420,51 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     const scale = size * (pose.scale ?? 1) * (pose.shrink ?? 1);
     const seated = clamp(pose.seated ?? 0, 0, 1);
     const stride = clamp(pose.stride ?? 0, -1, 1) * (1 - seated);
+    const hangBlend = pose.hanging ? clamp(pose.hangBlend ?? 1, 0, 1) : 0;
     const crouch = clamp(pose.crouch ?? (pose.stage === 'packed' || pose.stage === 'bracing' ? 0.9 : 0), 0, 1) * (1 - seated);
     const time = pose.time ?? 0;
     const talk = pose.speaking ? Math.sin(time * 7) : 0;
     const gaitSettle = Math.abs(stride) * 0.04;
     capsuleOffset.set(0, (pose.lift ?? 0) * size, 0);
-    rig.root.rotation.set(0, yaw, 0);
+    rig.root.rotation.set(pose.fallPitch ?? 0, yaw, pose.fallRoll ?? 0, 'YXZ');
     if (capsuleRotation) {
       capsuleOffset.applyQuaternion(capsuleRotation);
       rig.root.quaternion.premultiply(capsuleRotation);
     }
     rig.root.position.copy(position).add(capsuleOffset);
     rig.root.scale.setScalar(scale);
+    if (pose.hanging) {
+      hangRotation.setFromAxisAngle(hangAxis, (pose.hangAngle ?? 0) * hangBlend);
+      rig.root.quaternion.premultiply(hangRotation);
+    }
     rig.torso.position.y = 0.78 - crouch * 0.14 - gaitSettle - seated * 0.20;
-    rig.torso.rotation.set(crouch * 0.15, stride * 0.04, pose.lean ?? 0);
+    rig.torso.rotation.set(crouch * 0.15 + (pose.forwardLean ?? 0), stride * 0.04 + (pose.torsoTwist ?? 0), pose.lean ?? 0);
     rig.head.rotation.set((pose.head ?? 0) + talk * 0.035, talk * 0.04, -stride * 0.025);
+    if (!appearance) {
+      const anger = clamp(pose.anger ?? 0, 0, 1);
+      const surprise = clamp(pose.surprise ?? 0, 0, 1);
+      for (const { sign, node } of rig.eyebrows) {
+        node.rotation.z = sign * (-0.08 + anger * 0.5 - surprise * 0.12);
+        node.position.y = 0.126 - anger * 0.015 + surprise * 0.05;
+      }
+      for (const eye of rig.eyes) {
+        eye.scale.x = 0.026 * (1 + surprise * 0.2);
+        eye.scale.y = 0.041 * (1 - anger * 0.6 + surprise * 0.4);
+      }
+      const mouthOpen = clamp(pose.mouthOpen ?? 0, 0, 1);
+      rig.mouth.scale.set(1 - mouthOpen * 0.5, (1 - anger * 2) * (1 - mouthOpen), 1);
+      rig.mouth.position.y = -0.105 * (1 - rig.mouth.scale.y);
+      rig.mouth.visible = surprise === 0 || mouthOpen === 0;
+      rig.openMouth.scale.set(0.085 * (1 - surprise * 0.22) * mouthOpen,
+        0.09 * (1 - surprise * 0.26) * mouthOpen, 0.018 * mouthOpen);
+      rig.openMouth.visible = mouthOpen > 0;
+    }
 
     for (const { sign, hip, knee, ankle } of rig.legs) {
       const travel = stride * sign;
       const lift = Math.max(0, travel) * (0.07 + (pose.stepLift ?? 0));
       const down = THIGH + SHIN - crouch * 0.14 - gaitSettle - lift;
-      const forward = travel * 0.19 + crouch * 0.10;
+      const forward = travel * 0.19 + crouch * 0.10 + sign * (pose.lunge ?? 0) * 0.3;
       const reach = clamp(Math.hypot(down, forward), 0.1, THIGH + SHIN - 0.001);
       const hipBend = Math.acos(clamp((THIGH * THIGH + reach * reach - SHIN * SHIN) / (2 * THIGH * reach), -1, 1));
       hip.position.y = 0.74 - crouch * 0.14 - gaitSettle;
@@ -451,9 +477,17 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
         hip.position.y = THIGH * Math.cos(hip.rotation.x) + SHIN * Math.cos(hip.rotation.x + knee.rotation.x)
           + THREE.MathUtils.lerp(footHeight, 0.11, seated);
       }
-      ankle.rotation.x = -hip.rotation.x - knee.rotation.x;
+      const kick = clamp((sign < 0 ? pose.leftKick : pose.rightKick) ?? 0, 0, 1) * (1 - seated);
+      hip.rotation.x = THREE.MathUtils.lerp(hip.rotation.x, -1.65, kick);
+      knee.rotation.x = THREE.MathUtils.lerp(knee.rotation.x, 0.18, kick);
+      if (pose.hanging && pose.airRun !== undefined) {
+        const pedal = clamp(pose.airRun, -1, 1) * sign;
+        hip.rotation.x = THREE.MathUtils.lerp(hip.rotation.x, -.15 - pedal * .95, hangBlend);
+        knee.rotation.x = THREE.MathUtils.lerp(knee.rotation.x, .55 + Math.max(0, -pedal) * 1.25, hangBlend);
+      }
+      ankle.rotation.x = -hip.rotation.x - knee.rotation.x + .22 * hangBlend;
     }
-    for (const { sign, shoulder, elbow } of rig.arms) {
+    for (const { sign, shoulder, elbow, fingers, thumb } of rig.arms) {
       const carrying = appearance && appearance.handheld !== 'none' && sign > 0;
       const tray = carrying && appearance.handheld === 'laptop';
       const arm = sign < 0 ? pose.leftArm : pose.rightArm;
@@ -463,9 +497,28 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       shoulder.rotation.set(arm ?? (carrying ? -0.18 : stride * sign * 0.48 - gesture * (0.6 + talk * 0.12)), 0,
         spread ?? (tray ? 0.22 : carrying ? -sign * 0.18 : sign * (0.10 + gesture * 0.16 + crouch * 0.04)));
       elbow.rotation.x = bend ?? (tray ? -1.35 : carrying ? -1.10 : -0.12 - crouch * 0.42 - gesture * (0.45 + talk * 0.16) - Math.abs(pose.wave ?? 0));
+      const grip = clamp((sign < 0 ? pose.leftGrip : pose.rightGrip) ?? 0, 0, 1);
+      const point = clamp((sign < 0 ? pose.leftPoint : pose.rightPoint) ?? 0, 0, 1);
+      fingers.forEach((finger, index) => {
+        const curl = grip * (index === (sign < 0 ? 3 : 0) ? 1 - point : 1);
+        finger.position.y = -0.357 + Math.abs(finger.position.x) * 0.32 + curl * 0.065;
+        finger.position.z = 0.029 + curl * 0.045;
+        finger.scale.y = 0.046 - curl * 0.018;
+        finger.rotation.x = -curl * 1.3;
+      });
+      thumb.position.x = -sign * (0.068 - grip * 0.024);
+      thumb.position.z = 0.042 + grip * 0.03;
+      thumb.rotation.z = -sign * (0.4 + grip * 0.65);
     }
     rig.palm.quaternion.copy(rig.arms[1].shoulder.quaternion).multiply(rig.arms[1].elbow.quaternion).invert();
     rig.root.updateMatrixWorld(true);
+    if (pose.hanging) {
+      // Keep the animated crown in the hand even while ducking or throwing a punch.
+      hangPivot.set(0, (2.08 - 0.78 - 0.95) / 0.86, 0).applyMatrix4(rig.head.matrixWorld);
+      rotatedHangPivot.copy(position).y += 2.08 * scale;
+      rig.root.position.addScaledVector(rotatedHangPivot.sub(hangPivot), hangBlend);
+      rig.root.updateMatrixWorld(true);
+    }
     scene.updateWorldMatrix(true, false);
     for (const { sign, elbow } of rig.arms) {
       hands[index][sign < 0 ? 'leftHand' : 'rightHand'].set(0, -0.31, 0.02)
@@ -474,7 +527,8 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     for (const { mesh, parts, bends, materialName, stride: count } of buckets.values()) {
       const selected = parts[variant];
       for (let partIndex = 0; partIndex < count; partIndex++) {
-        mesh.setMatrixAt(index * count + partIndex, selected[partIndex]?.matrixWorld ?? zero);
+        const part = selected[partIndex];
+        mesh.setMatrixAt(index * count + partIndex, part?.visible ? part.matrixWorld : zero);
         if (recolor) mesh.setColorAt(index * count + partIndex, color.set(palette[materialName]));
         bends?.setX(index * count + partIndex, selected[partIndex]?.userData.bendJoint?.rotation.x ?? 0);
       }

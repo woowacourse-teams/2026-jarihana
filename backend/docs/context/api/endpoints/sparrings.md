@@ -17,9 +17,15 @@
 `filter=all|active|mine|open|closed|open_active|closed_active`(기본all), `cursor`. active는 의견이 한 개 이상 있는 주제,
 mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open은 마감이 없거나 마감 전인 주제, closed는 마감 시각에 도달한 주제다. open_active와 closed_active는 각각 해당 상태 중 의견이 있는 주제다. 생성 시각/ID 내림차순이다.
 
-의견: `size` 1..100(기본20), `cursor`, `mine`(기본false).
+의견: `size` 1..100(기본20), `cursor`, `mine`(기본false), `side`(선택, `MINT|CORAL`),
+`throughId`(선택, 0 이상).
 이전 대화는 ID 내림차순, 재접속 복구 `afterId=0..`는 ID 오름차순이다.
-`afterId`는 `cursor` 또는 `mine=true`와 병용할 수 없다.
+`side`는 작성 당시 편으로 필터링하며 페이지 크기 제한 전에 적용한다. 편별로 받은
+`nextCursor`를 같은 `side`와 함께 사용하면 한쪽 글 수와 무관하게 다른 편의 과거 글을 이어 조회한다.
+`throughId`를 지정하면 해당 ID 이하의 글만 반환한다. 순회 시작 때 확인한 최대 글 ID를
+양쪽 조회와 후속 페이지에 동일하게 유지하면 이후 새 글이 현재 순회에 끼어들지 않는다.
+`throughId=0`은 빈 목록이며, 생략하면 상한 없이 기존처럼 조회한다.
+`afterId`는 `cursor`, `mine=true`, `side`, `throughId`와 병용할 수 없다.
 응답은 `{items, nextCursor, hasNext}`, 더 없으면 nextCursor는 null이다.
 원문 `replyTo`에는 ID/작성자ID/이름/회원유형/진영/내용이 포함되어,
 부모 글이 현재 페이지 밖에 있어도 두 주장을 함께 표시할 수 있다.

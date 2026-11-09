@@ -22,7 +22,7 @@ bg_github() { echo '{"jobs":[{"name":"candidate-worker-observation","conclusion"
 sleep() { echo "$(( $(bg_now)+300 ))" >"$CASE_DIR/clock"; }
 aws() { :; }
 fe_aws() {
-  local service=${1:-} operation=${2:-} key='' body='' condition='' expected='' output='' arg file etag
+  local service=${1:-} operation=${2:-} key='' body='' condition='' expected='' output='' arg file etag checksum=''
   [[ $service != --version ]] || { echo aws-cli/2.38.5; return; }
   shift 2
   while (( $# )); do
@@ -31,11 +31,13 @@ fe_aws() {
       --key) key=$1; shift;; --body) body=$1; shift;;
       --if-match) condition=match; expected=$1; shift;;
       --if-none-match) condition=absent; expected=$1; shift;;
+      --checksum-sha256) checksum=$1; shift;;
       --bucket|--content-type|--cache-control|--range|--prefix|--max-keys|--id|--name|--stage) shift;;
       --no-paginate) :;; *) output=$arg;;
     esac
   done
   file="$CASE_DIR/s3/$key"
+  printf '%s\t%s\n' "$service/$operation" "$key" >>"$CASE_DIR/requests"
   case "$service/$operation" in
     cloudfront/get-distribution-config)
       jq -cn --arg edge "${EDGE_FUNCTION:-none}" '{DistributionConfig:{Enabled:true,Aliases:{Items:["jarihana.com"]},DefaultCacheBehavior:{TargetOriginId:"frontend",CachePolicyId:"disabled",FunctionAssociations:(if $edge=="none" then {Quantity:0} else {Quantity:1,Items:[{EventType:"viewer-request",FunctionARN:"arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview"}]} end)},Origins:{Items:[{Id:"frontend",OriginPath:"/jarihana/frontend",DomainName:"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"}]}}} |
@@ -61,6 +63,9 @@ fe_aws() {
       jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" '{ETag:$etag}';;
     s3api/put-object)
       if [[ ${FAIL_KEY:-} == "$key" ]]; then echo 'Simulated upload failure' >&2; return 1; fi
+      if [[ -n $checksum ]]; then
+        [[ $checksum == "$(fe_checksum_base64 "$(sha256sum "$body" | cut -d' ' -f1)")" ]] || { echo BadDigest >&2; return 1; }
+      fi
       if [[ $condition == absent && -e $file ]]; then echo 'PreconditionFailed' >&2; return 1; fi
       if [[ $condition == match ]]; then
         [[ -f $file ]] || return 1
@@ -78,7 +83,7 @@ fe_aws() {
         jq '.reason="external change"' "$STATE_FILE" >"$CASE_DIR/tampered"
         cp "$CASE_DIR/tampered" "$STATE_FILE"
       fi
-      jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" '{ETag:$etag}';;
+      jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" --arg checksum "${BAD_CHECKSUM_RECEIPT:-$checksum}" --argjson omit "${OMIT_CHECKSUM_RECEIPT:-false}" '{ETag:$etag,ChecksumSHA256:$checksum} | if $omit then del(.ChecksumSHA256) else . end';;
     *) echo "Unexpected AWS operation $service/$operation" >&2; return 1;;
   esac
 }
@@ -92,6 +97,7 @@ curl() {
       *) shift;;
     esac
   done
+  printf 'public\t%s\n' "$path" >>"$CASE_DIR/requests"
   if [[ ${BAD_PUBLIC:-} == "$path" ]]; then path=index.html; fi
   [[ -f "$CASE_DIR/s3/$FE_LIVE/$path" ]] || return 1
   cp "$CASE_DIR/s3/$FE_LIVE/$path" "$output"
@@ -120,7 +126,7 @@ setup() {
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
-  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC
+  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
 }
 rejects() {
   local status=0
@@ -132,6 +138,9 @@ write_count() { if [[ -f $CASE_DIR/writes ]]; then wc -l <"$CASE_DIR/writes"; el
 manifest_file() { echo "$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/release.json"; }
 github_read_count() { wc -l <"$CASE_DIR/github-reads"; }
 file_operation_fixture() {
+  local i
+  # More than two batches, so cancellation must stop untouched later assets too.
+  for i in {1..10}; do echo "$i" >"$BG_FRONTEND_DIST/assets/extra-$i.js"; done
   fe_stage; fe_temp; fe_owned_pointer
   FILE_MANIFEST="$(manifest_file)"
   FILE_COUNT=$(jq '.files|length' "$FILE_MANIFEST")
@@ -161,7 +170,8 @@ cancellation_stops_next_file() {
   REVOKE_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   ADVANCE_AFTER_WRITE=$REVOKE_AFTER_WRITE
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   grep -q 'Parent run revoked' "$CASE_DIR/rejection.log"
 }
 cancellation_after_last_public_file() {
@@ -183,14 +193,16 @@ local_lease_checked_after_file() {
   file_operation_fixture
   EXPIRE_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   grep -q 'Journal lease expired' "$CASE_DIR/rejection.log"
 }
 local_state_change_preserved_after_file() {
   file_operation_fixture
   TAMPER_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   jq -e '.reason=="external change"' "$STATE_FILE" >/dev/null
   grep -q 'Journal changed' "$CASE_DIR/rejection.log"
 }

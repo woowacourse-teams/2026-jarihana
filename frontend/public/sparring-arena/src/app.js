@@ -115,6 +115,10 @@ function changeView(event) {
   if (event.source !== window.parent || event.origin !== location.origin) return;
   if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'view') arena?.setView(event.data.value);
   if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'clash-camera' && typeof event.data.value === 'boolean') arena?.setClashCamera(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'brawl' && typeof event.data.value === 'boolean') arena?.setBrawl(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'speech-overlap' && typeof event.data.value === 'boolean') arena?.setSpeechOverlap(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'character-limits'
+    && ['a', 'b'].every(side => event.data.value?.[side] === null || Number.isInteger(event.data.value?.[side]) && event.data.value[side] >= 1 && event.data.value[side] <= 8)) arena?.setCharacterLimits(event.data.value);
   if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'composer-open'
     && ['a', 'b'].includes(event.data.side) && event.data.side === mySide() && !isClosed()) {
     expandedSide = event.data.side;
