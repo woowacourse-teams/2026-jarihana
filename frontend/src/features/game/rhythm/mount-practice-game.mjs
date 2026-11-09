@@ -254,7 +254,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
 
   function endRun() {
     state = "over";
-    onPlayingChange?.(false);
+    onPlayingChange?.(false, "over");
     transport.stop();
     pauseButton.disabled = true;
     updateHud(engine.elapsed, true);

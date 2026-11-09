@@ -14,12 +14,15 @@ export function RhythmHarpoonPage() {
   useEscapeBack("/games/rhythm-harpoon/single");
   const [attempt, setAttempt] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(true);
-  // 플레이가 시작되면 설정 서랍을 닫고, 멈추거나 끝나면 다시 연다.
-  const handlePlayingChange = useCallback((playing) => setSettingsOpen(!playing), []);
+  // 플레이가 시작되면 설정 서랍을 닫고, 멈추면 다시 연다. 판이 끝났을 때는 결과를 가리지 않도록 닫아 둔다.
+  const handlePlayingChange = useCallback((playing, reason) => {
+    if (playing) setSettingsOpen(false);
+    else if (reason !== "over") setSettingsOpen(true);
+  }, []);
   // 플레이 중 버튼을 누르면 포커스가 판을 떠나 먼저 일시정지(서랍 열림)가 된다. 누르기 직전 상태로 토글한다.
   const openBeforePress = useRef(null);
   return (
-    <section className="game-player" aria-labelledby="rhythm-harpoon-title">
+    <section className="game-player game-player--rhythm" aria-labelledby="rhythm-harpoon-title">
       <header className="game-player__toolbar">
         <Link
           aria-keyshortcuts="Escape"
