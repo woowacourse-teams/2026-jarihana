@@ -73,6 +73,7 @@ test("the input log keeps inputs in order and never sends one past its batch end
   assert.deepEqual(log.take(3).inputs, []);
   assert.equal(log.take(5).sequence, 3);
   assert.equal(log.take(4.99).playedUntil, 5, "a later batch never reports an earlier time");
+  assert.equal(log.clamp(4.98), 5, "an input handled after a batch is never earlier than the time already sent");
 });
 
 test("the batch sender sends one batch at a time in order and retries a failed one with the same sequence", async () => {

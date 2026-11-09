@@ -54,6 +54,13 @@
 | 자유게시판 | `GET` | `/api/proposals/{proposalId}/comments` | `PUBLIC` | 모임 제안 코멘트를 작성 순서대로 조회 |
 | 자유게시판 | `POST` | `/api/proposals/{proposalId}/comments` | `MEMBER` | 모임 제안 코멘트 작성 |
 | 자유게시판 | `DELETE` | `/api/proposal-comments/{commentId}` | `MEMBER` | 코멘트 작성자 또는 제안한 회원이 코멘트 숨김 |
+| 미니게임 | `GET` | `/api/events/pepero-day` | `PUBLIC` | 빼빼로데이 반 나누기 이벤트 진행 상태, 기간, 게임방으로 옮기는 시각, 서버 시각 |
+| 미니게임 | `POST` | `/api/events/pepero-day/runs` | `MEMBER` | 진행 중인 이벤트의 순위 도전 판 시작, 횟수 제한 없음 |
+| 미니게임 | `POST` | `/api/events/pepero-day/runs/{runId}/cuts` | `MEMBER + 본인 판` | 지금 차례 막대를 자르고 서버가 판정 |
+| 미니게임 | `GET` | `/api/events/pepero-day/rankings` | `PUBLIC` | 회원별 가장 좋은 끝난 판으로 매긴 상위 50명과 내 순위 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs` | `MEMBER` | 게임방으로 옮긴 반띵의 순위 도전 판 시작, 횟수 제한 없음 |
+| 미니게임 | `POST` | `/api/games/stick-halving/runs/{runId}/cuts` | `MEMBER` | 게임방 판의 막대 자르기와 판정 |
+| 미니게임 | `GET` | `/api/games/stick-halving/rankings` | `PUBLIC` | 게임방 판만으로 매긴 상위 50명과 내 순위 |
 | 피드백 | `POST` | `/api/feedbacks` | `MEMBER` | 피드백 작성 |
 | 가입 신청 | `GET` | `/api/groups/{groupId}/registrations/summary` | `LEADER` | 그룹의 미확인·처리 대기 신청 요약 조회 |
 | 가입 신청 | `PATCH` | `/api/recruitments/{recruitmentId}/registrations/read` | `LEADER` | 확인한 마지막 신청까지 읽음 처리 |
@@ -157,6 +164,7 @@
 | 이미지 | [images.md](images.md) | 이미지 업로드·접근 엔드포인트 |
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
 | 자유게시판 | [proposals.md](proposals.md) | 모임 제안 조회, 작성, 숨김과 함께하고 싶어요 응답, 코멘트 |
+| 미니게임 | [minigames.md](minigames.md) | 빼빼로데이 반 나누기 이벤트 상태, 순위 도전 판 시작과 막대 판정, 순위 |
 | 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |
 

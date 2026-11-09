@@ -15,7 +15,7 @@ test.each([
   jest.isolateModules(() => {
     const { gameArtwork } = require("./artworkAssets");
     expect(gameArtwork.gomoku).toContain(`/${prefix}/images/games/gomoku-lounge-`);
-    expect(gameArtwork.rhythm).toBe("/images/games/rhythm-lounge-harpoon-v2.webp");
+    expect(gameArtwork.rhythm).toBe("/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp");
   });
 });
 
