@@ -52,6 +52,7 @@ export function buildRankedChart(chart) {
     levels[level] = {
       lives: LEVELS[level].lives,
       loopHeal: LEVELS[level].loopHeal,
+      speedUpFromLoop: LEVELS[level].speedUpFromLoop,
       events: simplifyChart(chart, level).map(({ step, sample, keys }) => [step, sample, keys]),
       staircases: staircaseTable(chart, level)
     };
@@ -122,11 +123,12 @@ const masher = (hz) => (engine, from, until) => {
   return presses;
 };
 
-// 각 루프 초반에만 일부러 놓치고 나머지는 정확히 눌러 두 번의 완주 충전을 대조한다.
+// 처음 두 루프의 초반에만 일부러 놓치고 나머지는 정확히 눌러 두 번의 완주 충전을 대조한다.
+// Easy와 Medium은 2루프부터 빨라져 182초 안에 3루프로 넘어가므로, 3루프는 놓치지 않고 빨라진 판정만 대조한다.
 const loopRechargePlayer = (engine, from, until) => {
   const skipped = new Set();
   const count = engine.level === "hardest" ? 6 : 5;
-  for (const loop of engine.loops) {
+  for (const loop of engine.loops.filter((loop) => loop.number <= 2)) {
     for (const group of engine.groups.filter((group) => group.notes[0].loop === loop.number).slice(0, count)) {
       skipped.add(group);
     }

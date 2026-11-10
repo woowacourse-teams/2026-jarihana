@@ -61,12 +61,18 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     choices.forEach((choice) =>
       choice.setAttribute("aria-pressed", String(choice.dataset.level === level))
     );
-    $("difficulty-copy").textContent = LEVELS[level].description;
+    showLevelCopy();
     $("rate").value = String(saved.rate);
     $("volume").value = String(saved.volume);
     $("volume-value").textContent = saved.volume + "%";
     $("timing-feedback").checked = saved.timingFeedback;
     $("note-labels").checked = saved.labels;
+  }
+
+  function showLevelCopy() {
+    $("difficulty-copy").textContent = LEVELS[level].description;
+    $("speed-up-copy").textContent =
+      LEVELS[level].speedUpFromLoop + "루프부터 곡 배속이 매 루프 +0.05 / 음높이도 함께 상승";
   }
 
   function saveSettings() {
@@ -345,7 +351,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     listen(button, "click", () => {
       level = button.dataset.level;
       choices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
-      $("difficulty-copy").textContent = LEVELS[level].description;
+      showLevelCopy();
       setLife(LEVELS[level].lives, LEVELS[level].lives);
       saveSettings();
       restartFromSettings();

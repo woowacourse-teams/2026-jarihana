@@ -482,7 +482,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
         </div>
 
         <footer>
-          <span>6루프부터 곡 배속이 매 루프 +0.05 / 음높이도 함께 상승</span>
+          <span id="speed-up-copy">2루프부터 곡 배속이 매 루프 +0.05 / 음높이도 함께 상승</span>
           <span>매 루프 방향 랜덤 / 계단은 진행 방향을 유지하고 시작점만 회전</span>
         </footer>
       </div>

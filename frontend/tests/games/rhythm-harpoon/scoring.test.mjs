@@ -41,8 +41,8 @@ test("legitimate four-note chords keep their full award without an empty-hit pen
 
 test("four-key repeated input stays at or below 5% of a perfect loop across 1280 cadence and phase cases", () => {
   for (const startLoop of [1, 6, 10, 20, 40]) {
-    const rate = rateForLoop(startLoop);
     for (const level of Object.keys(LEVELS)) {
+      const rate = rateForLoop(startLoop, level);
       for (const hz of [
         2,
         (128 / 60) * rate,
