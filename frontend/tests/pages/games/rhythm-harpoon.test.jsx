@@ -134,13 +134,56 @@ it("runs the lesson with a slower default tempo and records passed steps", () =>
   );
   expect(screen.getByText(/16개 중 15개를 잡았어요/)).toBeInTheDocument();
   expect(drawer).toHaveClass("is-open");
-  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, false, false]);
+  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, false, false, false]);
   fireEvent.click(screen.getByRole("button", { name: "다음 소리: 착" }));
   expect(screen.getByRole("heading", { name: "착 = 파랑, 쿵과 쿵 사이" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("link", { name: "건너뛰기" }));
   expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).skipped).toBe(true);
   view.unmount();
   expect(player.dispose).toHaveBeenCalledTimes(1);
+});
+
+it("offers the extra 따 step after the three core sounds without counting it toward completion", () => {
+  localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, false], skipped: false }));
+  const player = { play: jest.fn(), stop: jest.fn(), dispose: jest.fn() };
+  mountLessonGame.mockReturnValue(player);
+  render(<RhythmHarpoonLessonPage />);
+  const settings = mountLessonGame.mock.calls[0][0];
+  act(() => settings.onReady());
+  fireEvent.click(screen.getByRole("button", { name: /3\. 치/ }));
+  act(() =>
+    settings.onFinish({ stepIndex: 2, auto: false, total: 32, caught: 30, missed: 2, poor: 0, passed: true })
+  );
+  expect(screen.getByText(/세 소리를 다 익혔어요/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "싱글 플레이로" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "번외: 따 익히기" }));
+  expect(screen.getByRole("heading", { name: "따 = 초록, 스윙 엇박" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "스윙 144" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "원곡 128" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "스윙 144" }));
+  fireEvent.click(screen.getByRole("button", { name: "해보기" }));
+  expect(player.play).toHaveBeenLastCalledWith({ stepIndex: 3, bpm: 144, scrollSpeed: 1, auto: false });
+  act(() =>
+    settings.onFinish({ stepIndex: 3, auto: false, total: 32, caught: 32, missed: 0, poor: 0, passed: true })
+  );
+  expect(screen.getByText(/ANOTHER에서 초록 세균을 만나 봐요/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "번외: 따 익히기" })).not.toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, true, true, true]);
+});
+
+it("sets the shared input offset in the lesson drawer and applies it to the next attempt", () => {
+  localStorage.setItem("haengseong-input-offset-v1", "-12");
+  const player = { play: jest.fn(), stop: jest.fn(), dispose: jest.fn(), setOffset: jest.fn() };
+  mountLessonGame.mockReturnValue(player);
+  const { container } = render(<RhythmHarpoonLessonPage />);
+  const slider = container.querySelector("#lesson-offset");
+  expect(slider).toHaveValue("-12");
+  expect(slider).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_lesson_offset_change");
+  expect(screen.getByRole("button", { name: "싱크 진단 / 보정" })).toBeInTheDocument();
+  fireEvent.change(slider, { target: { value: "20" } });
+  expect(player.setOffset).toHaveBeenLastCalledWith(20);
+  expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("20");
+  expect(screen.getByText(/연습과 공식 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
 });
 
 it("keeps difficulty above the board and hides the other practice settings while playing", () => {
