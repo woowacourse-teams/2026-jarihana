@@ -5,8 +5,10 @@ import { LEVELS } from "./engine.mjs";
 import { useRhythmRanking } from "./useRhythmRanking.js";
 
 const number = (value) => value.toLocaleString("ko-KR");
+// 1, 2, 3위 줄은 금, 은, 동 색 카드로 보여 준다. 같은 점수로 순위가 같으면 같은 색이다.
+const MEDAL_CLASS = { 1: "is-gold", 2: "is-silver", 3: "is-bronze" };
 
-// 결과 화면 오른쪽의 난이도별 랭킹이다. 회원마다 가장 높은 기록 한 판으로 줄을 세운다.
+// 옵션과 결과 화면 오른쪽의 난이도별 랭킹이다. 회원마다 가장 높은 기록 한 판으로 줄을 세운다.
 export function RhythmRanking({ level }) {
   const query = useRhythmRanking(level);
   const { member } = useAuth();
@@ -56,8 +58,11 @@ export function RhythmRanking({ level }) {
           <ol className="rhythm-ranking__list">
             {rows.map((row) => {
               const mine = row.memberId === member?.id;
+              const className = [MEDAL_CLASS[row.rank], mine ? "is-mine" : null]
+                .filter(Boolean)
+                .join(" ");
               return (
-                <li className={mine ? "is-mine" : undefined} key={row.memberId}>
+                <li className={className || undefined} key={row.memberId}>
                   <span className="rhythm-ranking__rank">
                     {row.rank}
                     <span className="sr-only">위</span>

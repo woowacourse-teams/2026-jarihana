@@ -1,4 +1,4 @@
-/* 공식 도전: 옵션 설정과 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
+/* 공식 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
 .rhythm-challenge-steps {
   display: flex;
   gap: var(--space-2);
@@ -107,16 +107,44 @@
   gap: 10px;
 }
 
-/* 결과(왼쪽)와 랭킹(오른쪽)을 나란히 둔다. 좁은 화면에서는 결과 아래에 랭킹을 쌓는다. */
-.rhythm-game .rhythm-challenge__result {
+/* 옵션 또는 결과(왼쪽)와 같은 난이도의 랭킹(오른쪽)을 나란히 둔다. 좁은 화면에서는 랭킹을 아래에 쌓는다. */
+.rhythm-game .rhythm-challenge__pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
   inline-size: min(1080px, 100%);
   align-items: start;
 }
-.rhythm-game .rhythm-challenge__result .rhythm-challenge__panel {
+.rhythm-game .rhythm-challenge__pair .rhythm-challenge__panel {
   inline-size: 100%;
+}
+/* 옵션 단계는 옵션이 중심이라 랭킹을 좁은 열(옵션 560px, 랭킹 360px 비율)로 둔다.
+   랭킹은 옵션 카드 높이에 맞추고 목록만 안에서 스크롤한다. 난이도를 바꿔도 카드 크기가 흔들리지 않는다. */
+@media (min-width: 768px) {
+  .rhythm-game .rhythm-challenge__options {
+    grid-template-columns: minmax(0, 14fr) minmax(280px, 9fr);
+    inline-size: min(940px, 100%);
+    align-items: stretch;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking {
+    display: flex;
+    flex-direction: column;
+    contain: size;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking__list {
+    flex: 0 1 auto;
+    min-block-size: 0;
+    /* 내 줄 테두리가 스크롤 영역 가장자리에서 잘리지 않게 여백을 두고 같은 만큼 바깥으로 넓힌다. */
+    margin: -2px;
+    padding: 2px;
+    overflow-y: auto;
+    scrollbar-color: #2c434d transparent;
+    scrollbar-width: thin;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking__state {
+    flex: 1 1 auto;
+    align-content: center;
+  }
 }
 .rhythm-game .rhythm-result__score {
   display: grid;
@@ -190,6 +218,31 @@
 .rhythm-game .rhythm-ranking__list li.is-mine {
   outline: 2px solid var(--mint);
 }
+/* 1, 2, 3위 줄은 금, 은, 동 색 카드다. 내 줄 표시(outline)와 겹쳐도 보이도록 테두리는 안쪽 그림자로 그린다. */
+.rhythm-game .rhythm-ranking__list li.is-gold {
+  background: linear-gradient(135deg, #6a5316, #3b3114);
+  box-shadow: inset 0 0 0 1px #d9b44a;
+}
+.rhythm-game .rhythm-ranking__list li.is-silver {
+  background: linear-gradient(135deg, #4d5860, #2c353b);
+  box-shadow: inset 0 0 0 1px #b9c4cc;
+}
+.rhythm-game .rhythm-ranking__list li.is-bronze {
+  background: linear-gradient(135deg, #5f3b22, #362417);
+  box-shadow: inset 0 0 0 1px #c98552;
+}
+.rhythm-game .rhythm-ranking__list li.is-gold .rhythm-ranking__rank {
+  color: #ffd95e;
+}
+.rhythm-game .rhythm-ranking__list li.is-silver .rhythm-ranking__rank {
+  color: #e6edf2;
+}
+.rhythm-game .rhythm-ranking__list li.is-bronze .rhythm-ranking__rank {
+  color: #f1a670;
+}
+.rhythm-game .rhythm-ranking__list li:is(.is-gold, .is-silver, .is-bronze) .rhythm-ranking__score small {
+  color: rgb(255 255 255 / 72%);
+}
 .rhythm-game .rhythm-ranking__rank {
   font-family: ui-monospace, Consolas, monospace;
   font-weight: 700;
@@ -229,7 +282,7 @@
     order: 3;
     flex-basis: 100%;
   }
-  .rhythm-game .rhythm-challenge__result {
+  .rhythm-game .rhythm-challenge__pair {
     grid-template-columns: minmax(0, 1fr);
   }
   .rhythm-game .rhythm-challenge__panel,
