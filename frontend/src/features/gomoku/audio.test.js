@@ -52,6 +52,49 @@ test("failed loading or blocked resume does not throw or queue a stale cue", asy
   audio.dispose();
 });
 
+test("the start cue waits for the context to resume from a click", async () => {
+  let finishResume;
+  context.resume.mockImplementation(() => new Promise((resolve) => {
+    finishResume = () => {
+      context.state = "running";
+      resolve();
+    };
+  }));
+  const audio = createGomokuAudio({ start: "/start.wav" });
+  try {
+    await loaded();
+    document.dispatchEvent(new Event("click"));
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    audio.play("start");
+    expect(source.start).not.toHaveBeenCalled();
+    finishResume();
+    await loaded();
+    expect(source.start).toHaveBeenCalledTimes(1);
+  } finally {
+    audio.dispose();
+  }
+});
+
+test.each([[250, 1], [1500, 0]])("a decode finishing after %dms starts playback %d times", async (delay, calls) => {
+  let finishDecode;
+  context.decodeAudioData.mockImplementation(() => new Promise((resolve) => { finishDecode = resolve; }));
+  const clock = jest.spyOn(performance, "now").mockReturnValue(0);
+  const audio = createGomokuAudio({ start: "/start.wav" });
+  try {
+    await loaded();
+    document.dispatchEvent(new Event("click"));
+    audio.play("start");
+    expect(source.start).not.toHaveBeenCalled();
+    clock.mockReturnValue(delay);
+    finishDecode({ duration: 1 });
+    await loaded();
+    expect(source.start).toHaveBeenCalledTimes(calls);
+  } finally {
+    clock.mockRestore();
+    audio.dispose();
+  }
+});
+
 test("unavailable Web Audio is a silent no-op", () => {
   delete window.AudioContext;
   const audio = createGomokuAudio({ start: "/start.wav" });

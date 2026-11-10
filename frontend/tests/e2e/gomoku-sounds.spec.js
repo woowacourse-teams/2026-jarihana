@@ -2,14 +2,18 @@ import { test, expect } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 import { installGomokuAudioFixture } from "./gomoku-audio-fixture.js";
 
-async function setup(page) {
+async function setup(page, { holdDecode = false } = {}) {
   await installApiFixture(page);
   await installGomokuAudioFixture(page);
-  await page.addInitScript(() => {
+  await page.addInitScript((holdDecode) => {
     window.__gomokuAudio = { decoded: [], played: [] };
+    const decodeGate = holdDecode
+      ? new Promise((resolve) => { window.__gomokuReleaseDecode = resolve; })
+      : Promise.resolve();
     const NativeContext = window.AudioContext;
     window.AudioContext = class extends NativeContext {
       async decodeAudioData(data) {
+        await decodeGate;
         const buffer = await super.decodeAudioData(data);
         window.__gomokuAudio.decoded.push(buffer.duration);
         return buffer;
@@ -37,7 +41,7 @@ async function setup(page) {
       }
       close() { streams.delete(this); }
     };
-  });
+  }, holdDecode);
   const room = {
     id: 1, hostMemberId: 1, hostName: "테스트 크루", guestMemberId: 2, guestName: "상대",
     visibility: "PUBLIC", rule: "RENJU", status: "WAITING", hostReady: true, guestReady: true,
@@ -58,9 +62,23 @@ async function setup(page) {
   });
   await page.goto("/games/gomoku/rooms/1");
   await expect(page.getByRole("button", { name: "시작하기", exact: true })).toBeEnabled();
-  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.decoded)).toContainEqual(expect.closeTo(1, 3));
+  if (!holdDecode) {
+    await expect.poll(() => page.evaluate(() => window.__gomokuAudio.decoded)).toContainEqual(expect.closeTo(1, 3));
+  }
   return room;
 }
+
+test("a confirmed start still plays when the WAV finishes decoding just after start", async ({ page }) => {
+  await setup(page, { holdDecode: true });
+  await page.getByRole("button", { name: "시작하기", exact: true }).click();
+  await expect(page.locator(".gomoku-board")).toBeVisible();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => window.__gomokuAudio.played)).toEqual([]);
+  await page.evaluate(() => window.__gomokuReleaseDecode());
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played)).toEqual([
+    { duration: expect.closeTo(1, 3), state: "running" }
+  ]);
+});
 
 test("a one-second WAV plays once on confirmed start and rematch", async ({ page }) => {
   const room = await setup(page);
