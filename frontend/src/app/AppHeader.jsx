@@ -19,6 +19,7 @@ import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
+import { GroupMusicHeaderSlot } from "../features/group-music/index.js";
 import { PeperoStickIcon } from "./PeperoStickIcon";
 import { ProfileMenu } from "./ProfileMenu";
 import { GroupNavigation, isGroupNavigationActive } from "./GroupNavigation";
@@ -300,6 +301,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>
+            <GroupMusicHeaderSlot />
           </div>
 
           <nav

@@ -1,0 +1,83 @@
+.group-clubhouse__scene > .clubhouse-loading {
+  display: none;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-1);
+  padding-block-start: 32px;
+  pointer-events: none;
+}
+
+.group-clubhouse--web .group-clubhouse__scene:has(.route-loading, [data-canvas-status="loading"]) > .clubhouse-loading {
+  display: grid;
+}
+
+.group-clubhouse--web .group-clubhouse__scene > .route-loading,
+.group-clubhouse--web .group-clubhouse__scene .space-studio__scene-state[role="status"] {
+  display: none;
+}
+
+.clubhouse-loading__art {
+  display: block;
+  width: min(410px, 84vw);
+  max-height: clamp(118px, 23vw, 208px);
+  height: auto;
+}
+
+.clubhouse-loading p {
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid #d9c9bd;
+  border-radius: var(--radius-pill);
+  background: var(--studio-panel);
+  color: var(--studio-ink);
+  box-shadow: 0 3px 0 #674c7933;
+  font-size: var(--text-label);
+  font-weight: 700;
+}
+
+.clubhouse-loading__spark { opacity: .55; }
+
+@media (max-width: 767px) {
+  .group-clubhouse__scene > .clubhouse-loading { padding-block-start: 0; }
+
+  .group-clubhouse--web .group-clubhouse__scene:has(.route-loading, [data-canvas-status="loading"]) + .group-clubhouse__hero {
+    .group-clubhouse__identity { right: calc(var(--clubhouse-side-gap) + 12px); }
+    .group-clubhouse__hero-actions { visibility: hidden; }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .clubhouse-loading__hammer {
+    transform-box: fill-box;
+    transform-origin: 6px calc(100% - 3px);
+    animation: clubhouse-hammer 1.25s ease-in-out infinite;
+  }
+  .clubhouse-loading__spark { animation: clubhouse-spark 1.25s ease-out infinite; }
+  .clubhouse-loading__carrier { animation: clubhouse-carry 1.8s ease-in-out infinite; }
+  .clubhouse-loading__planner {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: clubhouse-plan 2.1s ease-in-out infinite;
+  }
+
+  @keyframes clubhouse-hammer {
+    0%, 55%, 100% { transform: rotate(-26deg); }
+    30% { transform: rotate(39deg); }
+  }
+  @keyframes clubhouse-spark {
+    0%, 23%, 58%, 100% { opacity: 0; }
+    30% { opacity: 1; }
+  }
+  @keyframes clubhouse-carry {
+    0%, 100% { transform: translate(-7px, 0); }
+    25%, 75% { transform: translate(0, -3px); }
+    50% { transform: translate(7px, 0); }
+  }
+  @keyframes clubhouse-plan {
+    0%, 100% { transform: rotate(-3deg); }
+    45%, 65% { transform: rotate(9deg) translateY(2px); }
+  }
+}

@@ -1,0 +1,133 @@
+.clubhouse-play-hud {
+  --clubhouse-hud-top: max(var(--group-hero-top-gap, 12px), env(safe-area-inset-top));
+  --clubhouse-hud-left: max(var(--clubhouse-side-gap, 16px), env(safe-area-inset-left));
+  --clubhouse-hud-right: max(var(--clubhouse-side-gap, 16px), env(safe-area-inset-right));
+  --clubhouse-hud-bottom: var(--studio-bottom, max(12px, env(safe-area-inset-bottom)));
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+}
+
+.clubhouse-play-hud,
+.space-studio__scene-ui > .clubhouse-play-hud { pointer-events: none; }
+
+.clubhouse-play-hud__group,
+.clubhouse-play-hud__intro-card {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 2px solid var(--studio-ink);
+  border-radius: 14px;
+  background: var(--studio-panel);
+  box-shadow: var(--studio-shadow);
+  color: var(--detail-ink);
+}
+
+.clubhouse-play-hud__group { pointer-events: auto; }
+
+.clubhouse-play-hud__group button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--detail-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.clubhouse-play-hud__group button:hover,
+.clubhouse-play-hud__group button[aria-expanded="true"] { background: var(--studio-accent-soft); color: var(--studio-ink); }
+.clubhouse-play-hud__group button[aria-pressed="true"],
+.clubhouse-play-hud__group .clubhouse-play-hud__decorate { background: var(--studio-accent); color: var(--studio-ink); }
+.clubhouse-play-hud__group button:focus-visible { outline: 2px solid var(--studio-ink); outline-offset: -3px; }
+.clubhouse-play-hud__group button:disabled { opacity: .55; cursor: default; }
+.clubhouse-play-hud__group button svg { flex: 0 0 auto; }
+
+.clubhouse-play-hud__view-tools {
+  position: absolute;
+  top: var(--clubhouse-hud-top);
+  right: var(--clubhouse-hud-right);
+  z-index: 2;
+}
+
+.clubhouse-play-hud__perspectives {
+  display: flex;
+  gap: 2px;
+  padding-right: 3px;
+  border-right: 1px solid var(--detail-line);
+}
+
+.clubhouse-play-hud__group .clubhouse-play-hud__icon-button { width: 44px; padding-inline: 0; }
+
+.clubhouse-play-hud__more {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  align-items: stretch;
+  width: 172px;
+  max-height: calc(100dvh - var(--header-height, 0px) - var(--clubhouse-hud-top) - 72px);
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.clubhouse-play-hud__more[hidden] { display: none; }
+.clubhouse-play-hud__more button { justify-content: flex-start; }
+.clubhouse-play-hud__more small { margin-left: auto; font-size: 11px; }
+
+.clubhouse-play-hud__dismiss-layer { position: absolute; inset: 0; z-index: 1; pointer-events: auto; }
+
+.clubhouse-play-hud__chat,
+.clubhouse-play-hud__actions { position: absolute; bottom: var(--clubhouse-hud-bottom); }
+.clubhouse-play-hud__chat { left: var(--clubhouse-hud-left); }
+.clubhouse-play-hud__actions { right: var(--clubhouse-hud-right); }
+
+.clubhouse-play-hud__unread {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 4px;
+  border-radius: 99px;
+  background: var(--studio-coral);
+  color: var(--studio-ink);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.clubhouse-play-hud__intro {
+  position: absolute;
+  top: calc(var(--clubhouse-hud-top) + 63px);
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.clubhouse-play-hud__intro-card { flex-direction: column; gap: 4px; padding: 8px 12px; font-size: 13px; }
+.clubhouse-play-hud__intro-card span { color: var(--detail-muted); }
+.clubhouse-play-hud__touch-copy { display: none; }
+
+.clubhouse-play-help { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 12px 16px; margin: 0; }
+.clubhouse-play-help dt { font-weight: 700; }
+.clubhouse-play-help dd { margin: 0; color: var(--color-muted-ink); }
+
+@media (max-width: 767px) {
+  .clubhouse-play-hud__group button { gap: 5px; padding-inline: 8px; font-size: 13px; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .clubhouse-play-hud__touch-copy { display: inline; }
+  .clubhouse-play-hud__keyboard-copy { display: none; }
+}

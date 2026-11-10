@@ -453,6 +453,28 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(route, success({ id: group.id, status: "ACTIVE" }), 201);
     }
     if (match(path, "/groups/:groupId") && method === "GET") return json(route, success(group));
+    if (match(path, "/groups/:groupId/space") && method === "GET") {
+      return json(route, success({ room: null, revision: 0, canEdit: state.auth === "authenticated", updatedAt: null }));
+    }
+    if (path === "/group-spaces/weather" && method === "GET") {
+      return json(route, success({ weatherCode: 0, sunrise: "2026-08-21T06:00:00", sunset: now }));
+    }
+    if (match(path, "/groups/:groupId/music/events") && method === "GET") {
+      return route.fulfill({ status: 204 });
+    }
+    if (match(path, "/groups/:groupId/music") && method === "GET") {
+      return json(route, success({
+        music: { enabled: false, autoplay: false, title: "모임 음악", url: "" },
+        revision: 0,
+        canEdit: false,
+        updatedAt: null,
+        serverTime: `${now}Z`,
+        playback: { state: "PAUSED", playlistIndex: 0, positionSeconds: 0, anchorTime: `${now}Z`, revision: 0 }
+      }));
+    }
+    if (method === "GET" && (match(path, "/groups/:groupId/activity-posts") || match(path, "/groups/:groupId/announcements"))) {
+      return json(route, success(page([])));
+    }
     if (match(path, "/groups/:groupId") && method === "PUT") return json(route, success(group));
     if (match(path, "/groups/:groupId") && method === "DELETE")
       return route.fulfill({ status: 204 });

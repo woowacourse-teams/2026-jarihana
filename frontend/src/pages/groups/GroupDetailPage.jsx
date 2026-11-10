@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft, MessageCircle, Plus, Settings, Users } from "lucide-react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, ChevronLeft, Home, Image, MapPin, Megaphone, MessageCircle, Plus, Settings, Share2, Users } from "lucide-react";
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import {
   compareMemberCohortKeys,
@@ -11,8 +11,9 @@ import {
 import { useAuth } from "../../features/auth/index.js";
 import { ChatLink } from "../../features/chat/ChatLink";
 import { useGroup } from "../../features/group/index.js";
+import GroupClubhouse, { GroupPhotoDetail } from "./GroupClubhouse.jsx";
 import { GroupAnnouncementTab } from "./GroupAnnouncementTab.jsx";
-import { isDefaultGroupImageUrl } from "../../features/image-upload/index.js";
+import { GroupRecentActivities, GroupScheduleSummary } from "./GroupDetailOverview.jsx";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { InviteMembersDialog } from "../../features/invitation/InviteMembersDialog.jsx";
 import { ShareInvitationButton } from "../../features/invitation/ShareInvitationButton.jsx";
@@ -24,9 +25,6 @@ import { ActivityPostBoard } from "../activity-posts/ActivityPostBoard.jsx";
 import { GroupCalendarTab } from "./GroupCalendarTab.jsx";
 import { toUserMessage } from "../../shared/api/index.js";
 import { captureEvent, getPromotionAttribution } from "../../shared/analytics/index.js";
-import scheduleIcon from "../../shared/assets/figma/edit-05.svg";
-import placeIcon from "../../shared/assets/figma/edit-06.svg";
-import kindIcon from "../../shared/assets/figma/edit-04.svg";
 import recruitmentEmptyIllustration from "../../shared/assets/illustrations/group-recruitment-empty.webp";
 import recruitmentOpenIllustration from "../../shared/assets/illustrations/group-recruitment-open.webp";
 import {
@@ -35,7 +33,6 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
-  GroupImage,
   Modal,
   PageContainer,
   Skeleton,
@@ -52,80 +49,22 @@ import {
   meetingTypeLabel,
   publicErrorCopy,
   recruitmentCountdownLabel,
-  scheduleLines,
-  typeBadgeTone,
-  typeLabel
+  scheduleLines
 } from "./pageUtils.js";
 import { groupTransitionOrigin, isPlainLinkClick } from "./GroupTransition.jsx";
 import "./groups.css";
+import "./group-detail-web.css";
 
 const tabs = [
-  { label: "소개", value: "intro" },
-  { label: "캘린더", value: "calendar" },
-  { label: "활동 기록", value: "activities" },
-  { label: "참여자", value: "members" },
-  { label: "공지", value: "announcements", dataAction: "group_announcement_tab_open" }
+  { label: "소개", value: "intro", icon: Home, dataAction: "group_info_open" },
+  { label: "공지사항", value: "announcements", icon: Megaphone, dataAction: "group_announcement_tab_open" },
+  { label: "일정", value: "calendar", icon: CalendarDays, dataAction: "group_schedule_open" },
+  { label: "활동 기록", value: "activities", icon: Image, dataAction: "group_activities_open" },
+  { label: "참여자", value: "members", icon: Users, dataAction: "space_members_open" }
 ];
 
 /* 도착한 화면을 먼저 보여 준 뒤 묻는 정도의 짧은 간격이다. */
 const RECRUITMENT_PROMPT_DELAY = 500;
-
-function DetailFact({ icon, label, unavailable = false, value }) {
-  return (
-    <div className={unavailable ? "group-fact group-fact--unavailable" : "group-fact"}>
-      {icon}
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    </div>
-  );
-}
-
-function GroupDetailRail({ children, matchProfileHeight, profileReference }) {
-  const railReference = useRef(null);
-
-  useLayoutEffect(() => {
-    const rail = railReference.current;
-    const profile = matchProfileHeight ? profileReference.current : null;
-
-    function updateHeight() {
-      if (profile) {
-        rail.style.setProperty(
-          "--group-profile-height",
-          `${profile.getBoundingClientRect().height}px`
-        );
-      }
-      rail.style.setProperty(
-        "--group-rail-height",
-        `${Math.ceil(rail.getBoundingClientRect().height)}px`
-      );
-    }
-
-    updateHeight();
-    let animationFrame;
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(animationFrame);
-      animationFrame = requestAnimationFrame(updateHeight);
-    });
-    observer.observe(rail, { box: "border-box" });
-    if (profile) observer.observe(profile, { box: "border-box" });
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(animationFrame);
-    };
-  }, [matchProfileHeight, profileReference]);
-
-  return (
-    <aside
-      aria-label="운영자와 모집 정보"
-      className={`group-rail group-rail--desktop${matchProfileHeight ? " group-rail--empty" : ""}`}
-      ref={railReference}
-    >
-      {children}
-    </aside>
-  );
-}
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
@@ -133,7 +72,7 @@ export function GroupDetailPage() {
   const navigate = useNavigate();
   const origin = groupTransitionOrigin(location.state);
   const justCreatedReference = useRef(location.state?.justCreated === true);
-  const profileReference = useRef(null);
+  const toast = useToast();
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [invitationOpenScope, setInvitationOpenScope] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -144,14 +83,13 @@ export function GroupDetailPage() {
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
   const loadedGroupId = group?.id;
+  const photoDetail = group?.type === "SESSION";
+  const redirectSpace = photoDetail && /\/space\/?$/i.test(location.pathname);
   useEffect(() => {
-    if (loadedGroupId) document.getElementById("group-title")?.focus({ preventScroll: true });
-  }, [loadedGroupId]);
+    if (loadedGroupId && !redirectSpace) document.getElementById("group-title")?.focus({ preventScroll: true });
+  }, [loadedGroupId, redirectSpace]);
   const currentMember = auth.member ?? auth.user;
   const isLeader = currentMember?.id === group?.leader?.memberId;
-  const usesDefaultImage =
-    !group?.representativeImageUrl ||
-    isDefaultGroupImageUrl(group.representativeImageUrl);
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
@@ -166,13 +104,13 @@ export function GroupDetailPage() {
    * 자리를 잡은 뒤에 띄운다. state는 history에 남아 새로고침해도 살아 있어 한 번 쓰고 지운다.
    */
   useEffect(() => {
-    if (!justCreatedReference.current || !group || !currentMember) return;
+    if (redirectSpace || !justCreatedReference.current || !group || !currentMember) return;
     justCreatedReference.current = false;
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     if (!isLeader || group.activeRecruitment) return;
     const timer = setTimeout(() => setRecruitmentPromptOpen(true), RECRUITMENT_PROMPT_DELAY);
     return () => clearTimeout(timer);
-  }, [currentMember, group, isLeader, location.pathname, location.search, navigate]);
+  }, [currentMember, group, isLeader, location.pathname, location.search, navigate, redirectSpace]);
 
   if (groupQuery.isLoading) {
     return (
@@ -203,195 +141,80 @@ export function GroupDetailPage() {
     );
   }
 
-  return (
-    <PageContainer className="group-detail-page">
-      <div className="group-detail-grid">
-        <div>
-          <section
-            className={`group-profile${usesDefaultImage ? " group-profile--default-image" : ""}`}
-            aria-labelledby="group-title"
-            ref={profileReference}
-          >
-            <Link
-              className="group-back group-back--hero"
-              data-ph-capture-attribute-action="group_list_return"
-              to={origin ?? "/groups"}
-              viewTransition
-              onClick={(event) => {
-                if (!origin || !isPlainLinkClick(event)) return;
-                event.preventDefault();
-                navigate(-1);
-              }}
-            >
-              <ChevronLeft aria-hidden="true" size={18} strokeWidth={2.25} />
-              <span>목록으로</span>
-            </Link>
-            <div className="group-profile__copy">
-              <div className="group-profile__type-tag">
-                <StatusBadge tone={typeBadgeTone(group.type)}>
-                  {typeLabel(group.type)}
-                </StatusBadge>
-              </div>
-              <h1 id="group-title" tabIndex={-1}>{group.name}</h1>
-              <p>{group.introduction}</p>
-              <LeaderSummary leader={group.leader} variant="hero" />
-              <div className="group-info">
-                <h2 className="group-info-title">모임 정보</h2>
-                <dl className="group-facts">
-                  <DetailFact
-                    icon={<img alt="" aria-hidden="true" src={kindIcon} />}
-                    label="진행"
-                    value={meetingTypeLabel(group.meetingType)}
-                  />
-                  <DetailFact
-                    icon={<img alt="" aria-hidden="true" src={scheduleIcon} />}
-                    label="일정"
-                    value={
-                      <span className="group-facts__schedule">
-                        {scheduleLines(group).map((line) => (
-                          <span key={line}>{line}</span>
-                        ))}
-                      </span>
-                    }
-                  />
-                  <DetailFact
-                    icon={<img alt="" aria-hidden="true" src={placeIcon} />}
-                    label="장소"
-                    value={group.location || "장소 미정"}
-                  />
-                  <DetailFact
-                    icon={<Users aria-hidden="true" />}
-                    label="참여"
-                    value={`${group.memberCount}명`}
-                  />
-                </dl>
-              </div>
-            </div>
-            <div className="group-profile__art">
-              <GroupImage
-                alt={`${group.name} 대표 이미지`}
-                className="group-profile__image"
-                group={group}
-              />
-              <span aria-hidden="true" className="group-transition-shade group-profile__shade" />
-            </div>
-            <div className="group-profile__invitation-actions">
-            {isLeader ? (
-              <Link
-                aria-label="모임 수정"
-                className="group-profile__edit ui-button ui-icon-button"
-                data-ph-capture-attribute-action="group_edit"
-                title="모임 수정"
-                to={`/groups/${groupId}/manage`}
-              >
-                <Settings aria-hidden="true" size={20} strokeWidth={2.25} />
-              </Link>
-            ) : null}
-            {canInvite ? <ShareInvitationButton key={invitationScope} groupId={groupId} /> : null}
-            </div>
-            <div className="group-recruitment-entry group-recruitment-action">
-              <Modal
-                closeAction="group_recruitment_info_dismiss"
-                title="모집 정보"
-                trigger={
-                  <Button
-                    className="group-apply-button"
-                    data-ph-capture-attribute-action="recruitment_details_open"
-                    variant="primary"
-                  >
-                    모집 정보
-                  </Button>
-                }
-              >
-                <div className="group-recruitment-modal">
-                  <RecruitmentSummary
-                    auth={auth}
-                    group={group}
-                    createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
-                    hasExistingRegistration={hasExistingRegistration}
-                    isApprovedMember={isApprovedMember}
-                    isArchived={isArchived}
-                    isLeader={isLeader}
-                  />
-                </div>
-              </Modal>
-              {auth.status === "authenticated" && isApprovedMember ? (
-                <ChatLink className="group-detail-chat ui-button ui-button--secondary" roomId={group.id} data-ph-capture-attribute-action="group_chat_open">
-                  <MessageCircle aria-hidden="true" /> 모임 채팅
-                </ChatLink>
-              ) : null}
-            </div>
-          </section>
+  if (redirectSpace) {
+    return <Navigate replace state={location.state}
+      to={{ pathname: `/groups/${groupId}`, search: location.search, hash: location.hash }} />;
+  }
 
-          <div className="group-detail-tabs">
-            <Tabs
-              animated
-              value={selectedTab}
-              onValueChange={(value) => {
-                const nextSearchParams = new URLSearchParams(searchParams);
-                nextSearchParams.set("tab", value);
-                setSearchParams(nextSearchParams, {
-                  replace: true,
-                  state: location.state,
-                  preventScrollReset: true
-                });
-              }}
-              items={[
-                {
-                  label: tabs[0].label,
-                  value: tabs[0].value,
-                  content: <Introduction group={group} />
-                },
-                {
-                  label: tabs[1].label,
-                  value: tabs[1].value,
-                  content: selectedTab === "calendar" ? <GroupCalendarTab groupId={groupId} groupType={group.type} isLeader={isLeader && !isArchived} isMember={isApprovedMember} sessionSchedule={group.sessionSchedule} /> : null
-                },
-                {
-                  label: tabs[2].label,
-                  value: tabs[2].value,
-                  content:
-                    selectedTab === "activities" ? <ActivityTab group={group} /> : null
-                },
-                {
-                  label: tabs[3].label,
-                  value: tabs[3].value,
-                  content: selectedTab === "members" ? <MemberTab groupId={groupId} leader={group.leader} canInvite={canInvite} onInvite={() => setInvitationOpenScope(invitationScope)} /> : null
-                },
-                {
-                  label: tabs[4].label,
-                  value: tabs[4].value,
-                  dataAction: tabs[4].dataAction,
-                  content: selectedTab === "announcements"
-                    ? <GroupAnnouncementTab group={group} isLeader={isLeader} />
-                    : null
-                }
-              ]}
-            />
-          </div>
-        </div>
+  function selectTab(value) {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    if (value !== "activities") next.delete("post");
+    setSearchParams(next, { replace: true, state: location.state, preventScrollReset: true });
+  }
 
-        <GroupDetailRail
-          matchProfileHeight={!group.activeRecruitment && !isArchived}
-          profileReference={profileReference}
-        >
-          <LeaderSummary leader={group.leader} variant="card" />
-          <RecruitmentSummary
-            auth={auth}
-            group={group}
-            createRecruitmentHref={isLeader ? `/groups/${groupId}/manage/recruitments` : null}
-            hasExistingRegistration={hasExistingRegistration}
-            isApprovedMember={isApprovedMember}
-            isArchived={isArchived}
-            isLeader={isLeader}
-          />
-          {auth.status === "authenticated" && isApprovedMember ? (
-            <ChatLink className="group-detail-chat ui-button ui-button--secondary" roomId={group.id} data-ph-capture-attribute-action="group_chat_open">
-              <MessageCircle aria-hidden="true" /> 모임 채팅
-            </ChatLink>
-          ) : null}
-        </GroupDetailRail>
-      </div>
+  async function shareGroup() {
+    try {
+      await navigator.clipboard.writeText(new URL(`/groups/${group.id}`, window.location.origin).href);
+      toast.success({ title: "모임 링크를 복사했어요." });
+    } catch {
+      toast.danger({ title: "링크를 복사하지 못했어요. 주소창의 모임 주소를 복사해 주세요." });
+    }
+  }
+
+  const recruitmentProps = {
+    auth, group, hasExistingRegistration, isApprovedMember, isArchived, isLeader,
+    createRecruitmentHref: isLeader ? `/groups/${groupId}/manage/recruitments` : null
+  };
+  const toolbar = <div className="group-detail-web__actions">
+    {auth.status === "authenticated" && isApprovedMember && (
+      <ChatLink roomId={group.id} aria-label="모임 채팅" title="모임 채팅" data-ph-capture-attribute-action="group_chat_open">
+        <MessageCircle size={20} aria-hidden="true" />
+      </ChatLink>
+    )}
+    <button type="button" aria-label="모임 링크 복사" title="모임 링크 복사" data-ph-capture-attribute-action="group_share"
+      onClick={shareGroup}><Share2 size={19} aria-hidden="true" /></button>
+    {canInvite && <ShareInvitationButton key={invitationScope} groupId={groupId} />}
+    {isLeader && <Link to={`/groups/${groupId}/manage`} aria-label="모임 수정" title="모임 수정"
+      data-ph-capture-attribute-action="group_edit"><Settings size={20} aria-hidden="true" /></Link>}
+    <div className="group-recruitment-entry">
+      <Modal closeAction="group_recruitment_info_dismiss" title="모집 정보"
+        trigger={<Button data-ph-capture-attribute-action="recruitment_details_open"><Users size={19} aria-hidden="true" />모집 정보</Button>}>
+        <div className="group-recruitment-modal"><RecruitmentSummary {...recruitmentProps} /></div>
+      </Modal>
+    </div>
+  </div>;
+
+  const tabContent = {
+    intro: <Introduction group={group} />,
+    calendar: <GroupCalendarTab groupId={groupId} groupType={group.type} isLeader={isLeader && !isArchived}
+      isMember={isApprovedMember} sessionSchedule={group.sessionSchedule} />,
+    activities: <ActivityPostBoard group={group} />,
+    members: <MemberTab groupId={groupId} leader={group.leader} canInvite={canInvite} onInvite={() => setInvitationOpenScope(invitationScope)} />,
+    announcements: <GroupAnnouncementTab group={group} isLeader={isLeader} />
+  };
+  const detail = (
+    <div className="group-detail-web">
+      <Tabs value={selectedTab} onValueChange={selectTab} actions={toolbar}
+        items={tabs.map(({ icon: Icon, label, value, dataAction }) => ({
+          label: <><Icon size={20} aria-hidden="true" />{label}</>, value, dataAction,
+          content: selectedTab === value ? <div className="group-detail-web__grid" data-overview={value === "intro"}>
+            <div className="group-detail-web__main">{tabContent[value]}</div>
+            {value === "intro" && <GroupRecentActivities auth={auth} groupId={groupId} onOpenActivities={() => selectTab("activities")} />}
+            <aside className="group-detail-web__rail" aria-label="모집 정보와 일정">
+              <RecruitmentSummary {...recruitmentProps} compact />
+              <GroupScheduleSummary group={group} onOpenSchedule={() => selectTab("calendar")} />
+            </aside>
+          </div> : null
+        }))} />
+      <Link className="group-detail-web__back" data-ph-capture-attribute-action="group_list_return" to={origin ?? "/groups"} viewTransition
+        onClick={(event) => {
+          if (!origin || !isPlainLinkClick(event)) return;
+          event.preventDefault();
+          navigate(-1);
+        }}>
+        <ChevronLeft aria-hidden="true" size={18} />목록으로
+      </Link>
 
       {canInvite ? <InviteMembersDialog key={invitationScope} groupId={groupId} open={invitationOpenScope === invitationScope} onClose={() => setInvitationOpenScope(null)} /> : null}
 
@@ -416,21 +239,35 @@ export function GroupDetailPage() {
           </Button>
         </div>
       </Modal>
-    </PageContainer>
+    </div>
+  );
+  if (photoDetail) return <GroupPhotoDetail group={group}>{detail}</GroupPhotoDetail>;
+
+  return (
+    <GroupClubhouse
+      auth={auth}
+      group={group}
+      groupId={groupId}
+      isMember={Boolean(currentMember && (isApprovedMember || isLeader))}
+      key={invitationScope}
+    >
+      {detail}
+    </GroupClubhouse>
   );
 }
 
 function Introduction({ group }) {
-  return (
-    <div className="group-introduction">
-      <h2>모임 소개</h2>
-      <MarkdownContent value={group.description || group.introduction} />
-    </div>
-  );
-}
-
-function ActivityTab({ group }) {
-  return <ActivityPostBoard group={group} />;
+  return <section className="group-introduction" aria-labelledby="group-detail-intro-title">
+    <h2 id="group-detail-intro-title">모임 소개</h2>
+    <MarkdownContent value={group.description || group.introduction} />
+    <dl className="group-detail-web__facts">
+      <div><dt><CalendarDays size={19} aria-hidden="true" />활동 일정</dt>
+        <dd>{scheduleLines(group).map((line) => <span key={line}>{line}</span>)}</dd></div>
+      <div><dt><MapPin size={19} aria-hidden="true" />모임 장소</dt><dd>{group.location || "아직 정해지지 않았어요"}</dd></div>
+      <div><dt><Users size={19} aria-hidden="true" />모임 방식</dt><dd>{meetingTypeLabel(group.meetingType)}</dd></div>
+    </dl>
+    <LeaderSummary leader={group.leader} variant="card" />
+  </section>;
 }
 
 function RecruitmentSummary({
@@ -440,9 +277,11 @@ function RecruitmentSummary({
   hasExistingRegistration,
   isApprovedMember,
   isArchived,
-  isLeader
+  isLeader,
+  compact = false
 }) {
   const recruitment = group.activeRecruitment;
+  const className = `group-recruitment-summary group-rail-card${compact ? " group-recruitment-summary--compact" : ""}`;
   const registration = useCreateRegistration(recruitment?.id, group.id);
   const withdrawal = useWithdrawRegistration(recruitment?.id);
   const toast = useToast();
@@ -458,7 +297,7 @@ function RecruitmentSummary({
 
   if (isArchived) {
     return (
-      <section className="group-recruitment-summary group-rail-card">
+      <section className={className}>
         <div className="group-recruitment-empty">
           <h3>아카이빙된 모임입니다</h3>
         </div>
@@ -581,14 +420,15 @@ function RecruitmentSummary({
 
   if (!recruitment) {
     return (
-      <section className="group-recruitment-summary group-rail-card">
+      <section className={className}>
         <div className="group-recruitment-info">
-          <RecruitmentHero empty />
+          <RecruitmentHero empty compact={compact} />
         </div>
         {createRecruitmentHref ? (
           <div className="group-recruitment-empty group-recruitment-action">
             <Link
               className="group-recruitment-empty__action ui-button ui-button--primary ui-button--md"
+              data-ph-capture-attribute-action="recruitment_start"
               to={createRecruitmentHref}
             >
               새 모집 만들기
@@ -599,13 +439,13 @@ function RecruitmentSummary({
     );
   }
   return (
-    <section className="group-recruitment-summary group-rail-card">
+    <section className={className}>
       <div
         aria-label="모집 상세 정보"
         className="group-recruitment-info"
         role="region"
       >
-        <RecruitmentHero />
+        <RecruitmentHero compact={compact} closed={!isOpen} />
         <dl className="group-recruitment-meta">
           <div>
             <dt>모집일정</dt>
@@ -614,7 +454,7 @@ function RecruitmentSummary({
                 {recruitmentCountdownLabel(recruitment.startsAt, recruitment.endsAt)}
               </strong>
               <details className="group-recruitment-details">
-                <summary>일정 자세히</summary>
+                <summary data-ph-capture-attribute-action="recruitment_period_open">일정 자세히</summary>
                 <span className="group-recruitment-period">
                   <span>
                     <span className="group-recruitment-period__label">시작</span>
@@ -679,7 +519,12 @@ function RecruitmentSummary({
   );
 }
 
-function RecruitmentHero({ empty = false }) {
+function RecruitmentHero({ empty = false, compact = false, closed = false }) {
+  if (compact) return <div className="group-recruitment-compact-heading">
+    <h2>모집 정보</h2>
+    <StatusBadge tone={empty || closed ? "neutral" : "brand"}>{empty ? "모집 준비 중" : closed ? "모집 마감" : "모집 중"}</StatusBadge>
+  </div>;
+
   const illustration = empty ? recruitmentEmptyIllustration : recruitmentOpenIllustration;
   const title = empty ? "자리없음" : "자리하나?";
 

@@ -1,0 +1,36 @@
+.room-canvas__reticle {
+  position: absolute;
+  z-index: 7;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(20, 30, 34, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.room-canvas__reticle[data-aimed="true"] {
+  background: #fff4cf;
+  box-shadow: 0 0 0 3px rgba(255, 244, 207, 0.35), 0 0 0 4px rgba(20, 30, 34, 0.4);
+}
+
+.space-studio__interaction.room-canvas__play-interaction { top: calc(50% + 52px); }
+
+.room-canvas__play-interaction .space-studio__interaction-prompt {
+  min-height: 34px;
+  padding: 4px 9px 4px 5px;
+  gap: 6px;
+  border-width: 1px;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(20, 30, 34, 0.18);
+  font-size: 13px;
+}
+
+.room-canvas__play-interaction .space-studio__interaction-prompt kbd {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+}
