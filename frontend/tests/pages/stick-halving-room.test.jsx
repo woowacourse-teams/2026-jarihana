@@ -110,7 +110,7 @@ it("offers unlimited game room ranked runs to members and a login to visitors", 
   useAuth.mockReturnValue({ login, member: null, status: "anonymous" });
   const { unmount } = mount(<StickHalvingRoomPage />);
 
-  expect(await screen.findByText(/횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 게임방 순위를 매겨요/)).toBeInTheDocument();
+  expect(await screen.findByText("몇 번이든 도전하고, 가장 좋은 판으로 게임방 순위를 매겨요.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" }));
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/stick-halving");
   expect(login).toHaveBeenCalled();

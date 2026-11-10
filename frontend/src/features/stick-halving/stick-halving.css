@@ -7,7 +7,7 @@
 }
 
 .stick-game__head {
-  align-items: baseline;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -29,15 +29,29 @@
 
 .stick-game__round-of,
 .stick-game__running,
-.stick-game__hint,
-.stick-game__nudge-label,
-.stick-game__muted {
+.stick-game__keys,
+.stick-game__comment {
   color: var(--color-text-muted);
 }
 
 .stick-game__round-name {
   font-size: 1.125rem;
   font-weight: var(--font-weight-extrabold);
+}
+
+.stick-game__meta {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.stick-game__mode {
+  background: var(--color-brand-soft);
+  border-radius: 999px;
+  color: var(--color-text-brand);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  padding: var(--space-1) var(--space-3);
 }
 
 .stick-game__running {
@@ -48,40 +62,40 @@
 
 .stick-game__running strong {
   color: var(--color-ink);
+  font-size: 1.125rem;
 }
 
-.stick-game__hint {
-  font-size: var(--text-label);
-  margin: calc(var(--space-2) * -1) 0 0;
-}
-
+/* 남은 시간은 막대 바로 위의 가는 막대와 오른쪽 숫자로 보여 준다. */
 .stick-game__timer {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.stick-game__timer-track {
   background: var(--color-surface-sunken);
   border-radius: 999px;
-  block-size: 1.875rem;
+  block-size: 0.5rem;
+  flex: 1;
   overflow: hidden;
-  position: relative;
 }
 
 .stick-game__timer-fill {
-  background: var(--color-brand-soft);
-  inset: 0;
-  position: absolute;
+  background: var(--color-brand);
+  block-size: 100%;
   transform-origin: left center;
 }
 
 .stick-game__timer--low .stick-game__timer-fill {
-  background: var(--color-danger-soft);
+  background: var(--color-danger);
 }
 
 .stick-game__timer-text {
-  display: block;
-  font-size: var(--text-caption);
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.875rem;
-  position: relative;
-  text-align: center;
+  font-weight: var(--font-weight-bold);
+  min-inline-size: 4.5rem;
+  text-align: end;
 }
 
 .stick-game__timer--low .stick-game__timer-text {
@@ -100,6 +114,144 @@
   justify-content: flex-end;
 }
 
+/* 자를 때: 왼쪽 무게표, 오른쪽 막대 전체 무게 */
+.stick-game__info {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+/* 전체 무게 아래에 가운데를 나눈 띠와 한쪽 무게를 두어 반띵 목표 무게를 바로 보여 준다. */
+.stick-game__total {
+  align-content: center;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md, 0.875rem);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.stick-game__total-label {
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stick-game__total-value {
+  color: var(--color-ink);
+  font-size: 2.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.stick-game__half-bar {
+  background: var(--color-brand);
+  border-radius: 999px;
+  block-size: 0.875rem;
+  margin-block-start: var(--space-2);
+  position: relative;
+}
+
+.stick-game__half-bar::after {
+  background: var(--color-ink);
+  content: "";
+  inline-size: 2px;
+  inset-block: -4px;
+  inset-inline-start: calc(50% - 1px);
+  position: absolute;
+}
+
+.stick-game__half {
+  color: var(--color-text-brand);
+  display: flex;
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  justify-content: space-between;
+  margin: 0;
+}
+
+.stick-game__cutting,
+.stick-game__outcome {
+  align-content: start;
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+/* 자른 뒤: 왼쪽 자른 막대, 오른쪽 점수와 저울. 좁은 화면에서는 위아래로 쌓는다. */
+.stick-game__result {
+  align-items: start;
+  display: grid;
+  gap: var(--space-5);
+}
+
+@media (min-width: 720px) {
+  .stick-game__result {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .stick-game--result .stick-board__labels .stick-board__label--odd {
+    display: none;
+  }
+}
+
+/* 무게표와 전체 무게를 나란히 둘 폭이 안 되면 무게표 아래에 전체 무게 카드를 둔다. */
+@media (max-width: 719px) {
+  .stick-game__info {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 자르기와 다음 막대는 같은 자리, 같은 크기로 둔다. */
+.stick-game__primary {
+  margin-inline-start: auto;
+  min-inline-size: 9rem;
+}
+
+.stick-game__keys {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  gap: var(--space-1);
+  margin: 0 0 0 var(--space-2);
+}
+
+.stick-game__keys kbd {
+  background: var(--color-surface);
+  border: var(--border-thin) solid var(--color-line);
+  border-block-end-width: 2px;
+  border-radius: 0.375rem;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  padding: 0 0.375rem;
+}
+
+.stick-game__keys kbd + kbd {
+  margin-inline-start: -0.125rem;
+}
+
+.stick-game__verdict-text {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.stick-game__points {
+  color: var(--color-text-brand);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
 .stick-game__nudge {
   background: var(--color-surface);
   border: var(--border-thin) solid var(--color-line);
@@ -115,14 +267,6 @@
 .stick-board:focus-visible {
   outline: var(--border-strong) solid var(--color-brand);
   outline-offset: 2px;
-}
-
-.stick-game__nudge-label {
-  font-size: var(--text-caption);
-}
-
-.stick-game__cut {
-  margin-inline-start: auto;
 }
 
 .stick-game__loading {
@@ -192,103 +336,66 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.weight-table__head {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: space-between;
-}
-
-.weight-table__total {
+.weight-table__title {
   font-size: var(--text-label);
-  font-variant-numeric: tabular-nums;
-}
-
-.weight-table__total b {
-  color: var(--color-text-brand);
-  font-size: 1rem;
 }
 
 .weight-table__rows {
   display: grid;
-  gap: var(--space-2) var(--space-6);
-  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+/* 이름, 무게 비례 막대, 무게 순서로 칸을 맞춰 위아래 줄의 무게가 한 열에 오게 한다. */
 .weight-table__rows li {
   align-items: center;
-  display: flex;
-  font-size: var(--text-caption);
-  gap: var(--space-2);
+  display: grid;
+  font-size: var(--text-label);
+  gap: var(--space-3);
+  grid-template-columns: 6.75rem minmax(0, 1fr) 3rem;
   min-inline-size: 0;
   white-space: nowrap;
 }
 
 .weight-table__rows b {
   font-variant-numeric: tabular-nums;
-  margin-inline-start: auto;
+  text-align: end;
 }
 
-.weight-table__piece {
-  block-size: 1.5rem;
-  flex: none;
-  inline-size: 1.75rem;
+.weight-table__track {
+  display: flex;
 }
 
-.weight-table__name {
-  min-inline-size: 6rem;
+.weight-table__bar {
+  block-size: 0.75rem;
+  border-radius: 3px;
+  box-sizing: border-box;
 }
 
-.weight-table__equals {
-  color: var(--color-text-muted);
+.weight-table__bar--biscuit {
+  background: var(--color-game-biscuit);
+  border: 1px solid var(--color-game-biscuit-edge);
 }
 
-.weight-table__coins {
-  align-items: center;
-  display: inline-flex;
-  gap: 3px;
+.weight-table__bar--thin {
+  background: var(--color-game-choco-thin);
 }
 
-.weight-table__coin {
-  background: var(--color-text-muted);
-  border-radius: 50%;
-  block-size: 10px;
-  display: inline-block;
-  flex: none;
-  inline-size: 10px;
+.weight-table__bar--thick {
+  background: var(--color-game-choco-thick);
+}
+
+.weight-table__bar--almond {
+  background: var(--color-game-almond);
+  border: 1px solid var(--color-game-almond-edge);
 }
 
 .weight-table__note {
-  align-items: center;
   color: var(--color-text-muted);
-  display: flex;
   font-size: var(--text-caption);
-  gap: var(--space-2);
   margin: 0;
-}
-
-.weight-table__biscuit {
-  fill: var(--color-game-biscuit);
-  stroke: var(--color-game-biscuit-edge);
-  stroke-width: 1;
-}
-
-.weight-table__thin {
-  fill: var(--color-game-choco-thin);
-}
-
-.weight-table__thick {
-  fill: var(--color-game-choco-thick);
-}
-
-.weight-table__almond {
-  fill: var(--color-game-almond);
-  stroke: var(--color-game-almond-edge);
-  stroke-width: 1;
 }
 
 /* 막대 */
@@ -491,24 +598,41 @@
   stroke-width: 1.5;
 }
 
-/* 결과 */
+/* 결과. 점수 아래에 저울과 양쪽 무게를 가운데의 좁은 열로 모아 보여 준다. */
 .cut-result {
+  border-block-start: var(--border-thin) solid var(--color-line);
   display: grid;
   gap: var(--space-3);
+  justify-items: center;
+  padding-block-start: var(--space-4);
+}
+
+.cut-result > * {
+  inline-size: min(100%, 28rem);
 }
 
 .cut-result__legend {
   color: var(--color-text-muted);
   display: flex;
   flex-wrap: wrap;
-  font-size: var(--text-caption);
-  gap: var(--space-4);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-2) var(--space-5);
+  justify-content: center;
 }
 
 .cut-result__legend span {
   align-items: center;
   display: inline-flex;
   gap: var(--space-2);
+}
+
+.cut-result__legend b {
+  color: var(--color-ink);
+}
+
+.cut-result__legend span:last-child b {
+  color: var(--color-text-brand);
 }
 
 .cut-result__swatch {
@@ -522,24 +646,9 @@
   border-block-start-style: dashed;
 }
 
-.cut-result__positions,
-.cut-result__mix-detail {
-  font-variant-numeric: tabular-nums;
-  margin: 0;
-}
-
-.cut-result__positions {
-  font-size: var(--text-label);
-}
-
-.cut-result__positions b {
-  color: var(--color-text-brand);
-}
-
 .cut-result__balance {
   block-size: auto;
   display: block;
-  inline-size: 100%;
 }
 
 .cut-result__beam {
@@ -607,7 +716,7 @@
   display: grid;
   font-size: var(--text-caption);
   gap: var(--space-3);
-  grid-template-columns: 2.5rem 1fr 4rem;
+  grid-template-columns: 2.5rem 1fr;
 }
 
 .cut-result__mix-side {
@@ -642,34 +751,11 @@
   background: var(--color-game-almond);
 }
 
-.cut-result__mix-total {
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-bold);
-  text-align: end;
-}
-
-.cut-result__mix-detail {
-  color: var(--color-text-muted);
-  font-size: var(--text-caption);
-}
-
-.cut-result__verdict {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.cut-result__points {
-  color: var(--color-text-brand);
-  font-size: 2rem;
-  font-weight: var(--font-weight-extrabold);
-  line-height: 1;
-}
-
-.cut-result__comment {
-  color: var(--color-text-muted);
+/* 터치 화면에는 키보드 안내를 보여 주지 않는다. */
+@media (hover: none) {
+  .stick-game__keys {
+    display: none;
+  }
 }
 
 @media (max-width: 520px) {
@@ -677,26 +763,22 @@
     display: none;
   }
 
-  .stick-game__cut {
+  .stick-game__keys {
+    display: none;
+  }
+
+  .stick-game__primary {
     flex: 1 1 100%;
     margin-inline-start: 0;
   }
 
+  .stick-game__controls .stick-game__primary {
+    flex: 1 1 auto;
+  }
+
   .weight-table__rows li {
-    gap: var(--space-1);
-  }
-
-  .weight-table__name {
-    min-inline-size: 0;
-  }
-
-  .weight-table__coins {
-    gap: 2px;
-  }
-
-  .weight-table__coin {
-    block-size: 8px;
-    inline-size: 8px;
+    gap: var(--space-2);
+    grid-template-columns: 6.5rem minmax(0, 1fr) 3rem;
   }
 }
 
