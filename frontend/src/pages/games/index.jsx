@@ -23,6 +23,7 @@ import { gomokuApi, turnMemberId } from "../../features/gomoku/api";
 import { STICK_HALVING_ROOM_PATH, usePeperoDayStatus } from "../../features/pepero-day";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 import { useGomokuObservation } from "../../features/gomoku/useGomokuObservation";
+import { useGomokuSounds } from "../../features/gomoku/useGomokuSounds";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { useGomokuChat } from "../../features/gomoku/useGomokuChat";
 import { GomokuChat } from "../../features/gomoku/GomokuChat";
@@ -740,6 +741,7 @@ function GomokuRoom({ roomId, observation = null }) {
     roomId,
     observation?.participationId
   );
+  useGomokuSounds(room);
   const chat = useGomokuChat(roomId, {
     connected,
     closed: room?.status === "CLOSED",
