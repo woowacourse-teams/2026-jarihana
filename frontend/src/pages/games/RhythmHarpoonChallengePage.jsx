@@ -169,7 +169,10 @@ export function RhythmHarpoonChallengePage() {
         <div className="rhythm-game">
           <div className="rhythm-game__body rhythm-challenge">
             {step === "options" ? (
-              <OptionsStep onChange={setOptions} onNext={confirm} options={options} />
+              <div className="rhythm-challenge__pair rhythm-challenge__options">
+                <OptionsStep onChange={setOptions} onNext={confirm} options={options} />
+                <RhythmRanking level={options.level} />
+              </div>
             ) : null}
             {step === "confirm" ? (
               <ConfirmStep
@@ -347,7 +350,7 @@ function ResultStep({ level, result, onRetry, onOptions }) {
     ["헛공격", result.poor, null]
   ];
   return (
-    <div className="rhythm-challenge__result">
+    <div className="rhythm-challenge__pair rhythm-challenge__result">
       <section className="rhythm-challenge__panel rhythm-result" aria-labelledby="rhythm-result-title">
         <span className="eyebrow">STEP 4 / RESULT</span>
         <h2 id="rhythm-result-title">{LEVELS[level].name} 도전 결과</h2>
