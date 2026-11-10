@@ -531,7 +531,8 @@ test("frontage shows the exterior and restores the open interior and full yard o
   const ceiling = scene.getObjectByName("building-ceiling");
   const wall = scene.getObjectByName("cutaway-wall");
   const updateLighting = createRoomLighting.mock.results.at(-1).value;
-  const lighting = { generalLighting: true, building: getRoomLayout(furnishedRoom).building };
+  const { building, terrace } = getRoomLayout(furnishedRoom);
+  const lighting = { generalLighting: true, building, terrace };
   let outdoor;
   scene.traverse((object) => { if (object.userData.itemId === outdoorItem.id) outdoor = object; });
   expect(island.visible).toBe(false);

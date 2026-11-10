@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getDioramaBounds } from "./islandLayout";
 import { DEFAULT_ATMOSPHERE } from "./roomState";
 
 const directLighting = THREE.ShaderChunk.lights_fragment_begin.replace(
@@ -55,29 +56,43 @@ export function createRoomLighting(scene) {
   const roomMin = { value: new THREE.Vector3() };
   const roomMax = { value: new THREE.Vector3() };
   const warmWhite = new THREE.Color("#fff1de");
+  const terraceFill = { value: new THREE.Color(0) };
+  const terraceBounds = { value: new THREE.Vector4() };
   const landscapeFill = { value: new THREE.Color() };
   const noLandscapeFill = { value: new THREE.Color(0) };
 
   function addDiffuseFill(shader, material) {
-    Object.assign(shader.uniforms, { roomFill, roomMin, roomMax,
+    Object.assign(shader.uniforms, { roomFill, roomMin, roomMax, terraceFill, terraceBounds,
       islandFill: material.userData.islandLandscape ? landscapeFill : noLandscapeFill });
-    // Add the same diffuse irradiance to every facing direction, inside the building only.
-    shader.fragmentShader = `uniform vec3 roomFill, roomMin, roomMax, islandFill;\n${shader.fragmentShader}`
+    shader.fragmentShader = `uniform vec3 roomFill, roomMin, roomMax, terraceFill, islandFill;
+uniform vec4 terraceBounds;\n${shader.fragmentShader}`
       .replace("#include <lights_fragment_begin>", directLighting)
       .replace(
         "#include <lights_fragment_end>",
         `#include <lights_fragment_end>
         reflectedLight.indirectDiffuse += islandFill * BRDF_Lambert(material.diffuseColor);
-        if (roomFill.r > 0.0) {
+        if (roomFill.r > 0.0 || terraceFill.r > 0.0) {
           vec3 roomPosition = cameraPosition - vViewPosition * mat3(viewMatrix);
           if (all(greaterThanEqual(roomPosition, roomMin)) && all(lessThanEqual(roomPosition, roomMax))) {
             reflectedLight.indirectDiffuse += roomFill * BRDF_Lambert(material.diffuseColor);
+          }
+          if (terraceFill.r > 0.0 && roomPosition.z >= terraceBounds.z - 0.4 &&
+              roomPosition.z <= terraceBounds.w + 1.0 && roomPosition.y < 4.0) {
+            float width = smoothstep(terraceBounds.x, terraceBounds.x + 1.2, roomPosition.x) *
+              (1.0 - smoothstep(terraceBounds.y - 1.2, terraceBounds.y, roomPosition.x));
+            float depth = smoothstep(terraceBounds.z - 0.4, terraceBounds.z, roomPosition.z) *
+              (1.0 - smoothstep(terraceBounds.w, terraceBounds.w + 1.0, roomPosition.z));
+            float height = 1.0 - smoothstep(2.6, 4.0, roomPosition.y);
+            vec3 lightDirection = mat3(viewMatrix) * vec3(0.0, 0.38, 0.925);
+            float facing = 0.24 + 0.76 * max(dot(normal, lightDirection), 0.0);
+            reflectedLight.indirectDiffuse += terraceFill * (width * depth * height * facing) *
+              BRDF_Lambert(material.diffuseColor);
           }
         }`
       );
   }
 
-  return function update(atmosphere = DEFAULT_ATMOSPHERE, shell, front = false, template, { generalLighting = true, building } = {}) {
+  return function update(atmosphere = DEFAULT_ATMOSPHERE, shell, front = false, template, { generalLighting = true, building, terrace } = {}) {
     const band = template === "band";
     if (band || template === "photo") {
       // The band's dark finishes need a stronger floor and wall wash.
@@ -113,6 +128,7 @@ export function createRoomLighting(scene) {
     let bulbStrength = 0.75 * lampStrength;
     let generalStrength = 0.8;
     const outdoors = atmosphere.outdoorLight;
+    terraceFill.value.setHex(0);
     if (outdoors) {
       const night = outdoors.phase === "night";
       const twilight = outdoors.phase === "dawn" || outdoors.phase === "dusk";
@@ -131,13 +147,11 @@ export function createRoomLighting(scene) {
       ambient.color.set(night ? "#899bc5" : twilight ? "#d9a5a0" : overcast ? "#b9c9d4" : "#d1e5ff");
       ambient.groundColor.set(night ? "#4b4c64" : twilight ? "#9b756b" : "#a6aa91");
       ambient.intensity *= night ? 0.42 : twilight ? 0.72 : overcast ? 0.88 : 1;
-      if (night && front) {
-        fill.color.set("#dfc9ae");
-        fill.intensity *= 1.18;
-      } else {
-        fill.color.set(night ? "#8a9ec7" : twilight ? "#eed3bb" : "#e6edfa");
-        fill.intensity *= night ? 0.32 : twilight ? 0.65 : 0.85;
-      }
+      fill.color.set(night ? "#8a9ec7" : twilight ? "#eed3bb" : "#e6edfa");
+      if (night) {
+        fill.position.set(8, 7, -4);
+        fill.intensity = 0.85 * 0.32 * atmosphere.ambient / 100;
+      } else fill.intensity *= twilight ? 0.65 : 0.85;
       lampColor.lerp(warm, 0.55);
       lampStrength *= night ? 1.45 : twilight ? 1.15 : overcast ? 0.8 : 0.4;
       bulbStrength = (night ? 1.25 : 0.85) * lampStrength;
@@ -148,6 +162,12 @@ export function createRoomLighting(scene) {
       roomMin.value.set(building.minX, -0.025, building.minZ);
       roomMax.value.set(building.maxX, building.height + 0.025, building.maxZ);
       roomFill.value.copy(warmWhite).multiplyScalar(generalLighting ? generalStrength * 3.35 : 0);
+      if (outdoors?.phase === "night") {
+        // Keep warm light on the facade and greeters through camera changes without lighting the whole lawn.
+        const bounds = getDioramaBounds({ building, terrace });
+        terraceBounds.value.set(bounds.minX, bounds.maxX, building.maxZ, bounds.maxZ);
+        terraceFill.value.set("#dfc9ae").multiplyScalar(0.68 * lampStrength);
+      }
     }
     landscapeFill.value.set("#c1d4ff").multiplyScalar(
       outdoors?.phase === "night" ? 0.85 : outdoors?.phase === "dawn" || outdoors?.phase === "dusk" ? 0.28 : 0

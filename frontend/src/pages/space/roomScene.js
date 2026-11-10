@@ -952,8 +952,9 @@ export function createRoomScene(container, callbacks) {
     const atmosphere = room.atmosphere || DEFAULT_ATMOSPHERE;
     const atmosphereKey = JSON.stringify([atmosphere, presentedFrontage, outdoorLight, generalLighting]);
     if (force || lastAtmosphere !== atmosphereKey) {
+      const { building, terrace } = getRoomLayout(room);
       updateLighting(outdoorLight ? { ...atmosphere, outdoorLight } : atmosphere, scene, presentedFrontage, room.template,
-        { generalLighting, building: getRoomLayout(room).building });
+        { generalLighting, building, terrace });
       skyOrb.update(outdoorLight, outdoorLightSource.position, presentedFrontage);
       renderer.shadowMap.needsUpdate = true;
       lastAtmosphere = atmosphereKey;
@@ -1191,7 +1192,12 @@ export function createRoomScene(container, callbacks) {
       if (room && !templateFrame) updateScene(room, selectedId, view, zoom, floorView, cameraReset, flight?.job);
     },
     setSpeech(messages) { speechMessages = messages; rebuildSpeech(); render(); },
-    setGreetingMembers(memberIds = []) { greetingMembers = memberIds; rebuildGreetings(); renderer.shadowMap.needsUpdate = true; render(); },
+    setGreetingMembers(memberIds = []) {
+      greetingMembers = memberIds;
+      rebuildGreetings();
+      if (room) updateRoomLighting(true);
+      render();
+    },
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,
     setWalkInputBlocked: walkthrough.setInputBlocked,
     chooseWalkInteraction: walkthrough.chooseInteraction,

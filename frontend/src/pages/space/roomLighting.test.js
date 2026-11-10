@@ -131,6 +131,34 @@ test("outdoor night turns sunlight blue and makes installed warm lamps stand out
   rig.dispose();
 });
 
+test.each(["climbing", "boardgame"])("%s terrace lighting stays warm when entering at night", (template) => {
+  const rig = setup();
+  const { building, terrace } = getRoomLayout(template);
+  const layout = { building, terrace };
+  const atmosphere = { ...TEMPLATE_ATMOSPHERES[template], outdoorLight: { phase: "night", weather: "clear" } };
+  const shader = { uniforms: {}, fragmentShader: "#include <lights_fragment_end>" };
+  rig.update(atmosphere, rig.shell, true, template, layout);
+  rig.bulb.material.onBeforeCompile(shader);
+  const { terraceFill, terraceBounds, roomFill } = shader.uniforms;
+  const preview = terraceFill.value.clone();
+  const bounce = rig.scene.getObjectByName("room-bounce-light");
+  const previewBounce = { position: bounce.position.clone(), intensity: bounce.intensity };
+  expect(preview.r).toBeGreaterThan(preview.b);
+  expect(terraceBounds.value.z).toBe(building.maxZ);
+  expect(terraceBounds.value.w).toBe(terrace.maxZ);
+
+  rig.update(atmosphere, rig.shell, false, template, { ...layout, generalLighting: false });
+  expect(terraceFill.value).toEqual(preview);
+  expect(bounce.position).toEqual(previewBounce.position);
+  expect(bounce.intensity).toBe(previewBounce.intensity);
+  expect(roomFill.value.r).toBe(0);
+  rig.update({ ...atmosphere, lamps: 0 }, rig.shell, false, template, layout);
+  expect(terraceFill.value.r).toBe(0);
+  rig.update({ ...atmosphere, outdoorLight: { phase: "day", weather: "clear" } }, rig.shell, false, template, layout);
+  expect(terraceFill.value.r).toBe(0);
+  rig.dispose();
+});
+
 test("the daylight path moves with time and overcast weather softens direct light", () => {
   const rig = setup();
   const atmosphere = { ...DEFAULT_ATMOSPHERE, shadowSoftness: 0,
