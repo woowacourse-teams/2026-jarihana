@@ -127,8 +127,10 @@ fe_preflight() {
     fi
     edge_sha=$(sha256sum "$edge_code" | cut -d ' ' -f1)
     rm -f -- "$edge_code"
-    # Reviewed LIVE bytes: repository group-share-preview.js without its opening doc comment or final LF.
-    [[ $edge_sha == 43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828 ]] || bg_die 'Frontend edge function code differs'
+    # Allow the previous LIVE bytes during rollout and the exact repository file for the User-Agent version.
+    [[ $edge_sha == 43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828 ||
+       $edge_sha == 18f942abb779972ea4ff5df57201cf41561b69834d38837f6a5169311ead1b81 ]] ||
+      bg_die 'Frontend edge function code differs'
   fi
   policy=$(fe_aws cloudfront get-cache-policy --id "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")") || bg_die 'Cannot verify frontend cache policy'
   jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'

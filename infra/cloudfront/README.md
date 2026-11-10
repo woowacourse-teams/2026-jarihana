@@ -80,19 +80,24 @@ S3의 `/index.html`을 받는다.
 현황은 넣지 않는다. 사용자 업로드 사진은 `/api/images/sparrings/...`의 안정된 주소를
 메타데이터에 넣고, 이미지 접근 API가 그때 유효한 CDN 서명 URL로 연결한다.
 
-CloudFront에서 다음을 한 번 설정한다.
+운영 프론트 배포는 이 함수의 LIVE 코드 해시를 검사한다. 기존 함수에서 User-Agent 분기로
+전환할 때는 두 해시를 허용하는 [제어 릴리스](../blue-green-deploy/docs/control-upgrade.md)를 먼저
+적용한다. 새 버전의 승인 해시는 `group-share-preview.js` 파일 전체의 바이트를 기준으로 한다.
+게시 전에 DEVELOPMENT 코드를 내려받아 주석과 마지막 줄바꿈을 포함한 원본 파일과 일치하는지
+확인한다.
 
-1. `Functions`에서 함수를 만들고 코드를 붙여 넣는다. Runtime은 **2.0**을 선택한다.
-2. 개발(Development) 상태에서 저장한 뒤 **Publish**한다.
-3. 배포판 `E1YDHL1SDC4C1C`의 기본 캐시 동작(Default `*`)에 Viewer request 단계로 연결한다.
-4. 코드의 `BACKEND_ORIGIN_ID`가 Origins 탭의 백엔드 Origin name인
+CloudFront 함수는 다음 순서로 적용한다.
+
+1. 백엔드의 `/api/share/groups/{groupId}`와 `/api/share/sparrings/{topicId}`를 먼저 배포하고
+   공개 GET 요청에 HTML을 반환하는지 확인한다. 기본 토론 사진도 공개 접근되는지 확인한다.
+2. `Functions`에서 기존 `jarihana-group-share-preview`를 열고 Runtime **2.0**에서
+   새 코드를 DEVELOPMENT에 저장한 뒤 테스트한다. 처음 설정하는 배포판이라면 함수를 생성한다.
+3. 코드의 `BACKEND_ORIGIN_ID`가 Origins 탭의 백엔드 Origin name인
    `jarihana-backend`인지 확인한다. 이 함수는 URI만 바꾸는 대신 해당 origin도 명시적으로
    선택한다. CloudFront에서 URI만 바꾸면 기본 S3 origin이 그대로 선택되기 때문이다.
-5. 함수 연결·갱신 전에 백엔드의 `/api/share/groups/{groupId}`와 `/api/share/sparrings/{topicId}`가
-   먼저 배포되어 공개 GET 요청에서 HTML을 반환하는지 확인한다. 기본 토론 사진도 공개 접근되는지
-   확인한다. 그 뒤 함수를 게시하고 배포판이 완료되면 `/groups/*`, `/sparring/*` 캐시 무효화를
-   실행한다. 기존 `/index.html`로 처리된 토론 캐시와 메타데이터 캐시가 남아 있지 않게 한다.
-6. 같은 모임·토론 URL에 브라우저와 공유 봇 User-Agent로 각각 요청해 SPA와 메타데이터가
+4. 함수를 **Publish**한다. 배포판 `E1YDHL1SDC4C1C`의 기본 캐시 동작(Default `*`)에 이미
+   Viewer request로 연결돼 있다면 배포 완료 후 갱신된 함수가 적용된다. 최초 설정 시 이 단계에 연결한다.
+5. 같은 모임·토론 URL에 브라우저와 공유 봇 User-Agent로 각각 요청해 SPA와 메타데이터가
    올바르게 분리되는지 확인한다. 이전에 공유된 `?preview=1` 링크에도 같은 분기가 적용된다.
 
 함수는 두 분기 모두 원본으로 전달하는 쿼리를 비운다. 브라우저 주소는 유지되므로 React가
