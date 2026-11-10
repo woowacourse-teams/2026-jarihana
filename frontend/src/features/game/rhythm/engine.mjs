@@ -420,7 +420,9 @@ export class GameEngine {
 
   appendLoop(number, start, offset, map) {
     const rate = rateForLoop(number, this.level);
-    const travelDuration = APPROACH_SECONDS / this.scrollSpeed / rate;
+    // 세균이 다가오는 시간은 고른 이동 배속으로만 정한다. 루프마다 곡이 빨라져도 세균의 이동 속도는 그대로다.
+    // 화면 표시에만 쓰는 값이라 판정과 서버 재계산(RhythmEngine)에는 영향이 없다.
+    const travelDuration = APPROACH_SECONDS / this.scrollSpeed;
     const duration = (this.chart.durationSeconds - offset) / rate;
     const stairRotations = staircaseRotations(this.chart, this.sourceEvents, this.level, map);
     const loop = {

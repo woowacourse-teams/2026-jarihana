@@ -192,7 +192,7 @@ test("overlapping same-lane windows retain the nearest-note matching rule", () =
   }
 });
 
-test("scroll multipliers change travel while preserving musical timing and loop rate", () => {
+test("scroll multipliers set travel that stays fixed as loops speed up, preserving musical timing and loop rate", () => {
   for (const scrollSpeed of [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3]) {
     const run = engine({ scrollSpeed, startLoop: 6 });
     const reference = engine({ startLoop: 6 });
@@ -201,7 +201,10 @@ test("scroll multipliers change travel while preserving musical timing and loop 
     assert.equal(run.loops[1].rate, 1.1);
     assert.equal(run.loops[0].duration, reference.loops[0].duration);
     const note = run.notes[0];
-    assert(Math.abs(note.travelDuration - 1.25 / scrollSpeed / 1.05) < 0.000001);
+    assert(Math.abs(note.travelDuration - 1.25 / scrollSpeed) < 0.000001);
+    const fasterLoopNote = run.notes.find((candidate) => candidate.loop === run.loops[1].number);
+    assert.equal(fasterLoopNote.rate, 1.1);
+    assert.equal(fasterLoopNote.travelDuration, note.travelDuration);
     for (let index = 0; index < 30; index++) {
       const relative = run.notes[index].at - run.loops[0].start;
       const expected = reference.notes[index].at - reference.loops[0].start;
