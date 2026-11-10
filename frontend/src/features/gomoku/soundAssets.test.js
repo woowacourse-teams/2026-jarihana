@@ -14,6 +14,6 @@ test.each([
   jest.isolateModules(() => {
     const { gomokuSounds } = require("./soundAssets");
     expect(gomokuSounds.stone).toBe(`https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/${prefix}/sounds/gomoku/stone-e83122800fe1.wav`);
-    expect(gomokuSounds.start).toBe(`https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/${prefix}/sounds/gomoku/start-1s-90628cac3b08.wav`);
+    expect(gomokuSounds.start).toBe(`https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/${prefix}/sounds/gomoku/start-1500ms-725a2f7fce07.wav`);
   });
 });

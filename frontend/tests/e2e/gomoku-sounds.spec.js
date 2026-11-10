@@ -75,7 +75,7 @@ async function setup(page, { holdDecode = false } = {}) {
   await page.goto("/games/gomoku/rooms/1");
   await expect(page.getByRole("button", { name: "시작하기", exact: true })).toBeEnabled();
   if (!holdDecode) {
-    await expect.poll(() => page.evaluate(() => window.__gomokuAudio.decoded)).toContainEqual(expect.closeTo(1, 3));
+    await expect.poll(() => page.evaluate(() => window.__gomokuAudio.decoded)).toContainEqual(expect.closeTo(1.5, 3));
   }
   return room;
 }
@@ -88,15 +88,15 @@ test("a confirmed start still plays when the WAV finishes decoding just after st
   expect(await page.evaluate(() => window.__gomokuAudio.played)).toEqual([]);
   await page.evaluate(() => window.__gomokuReleaseDecode());
   await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played)).toEqual([
-    { duration: expect.closeTo(1, 3), state: "running" }
+    { duration: expect.closeTo(1.5, 3), state: "running" }
   ]);
 });
 
-test("a one-second WAV plays once on confirmed start and rematch", async ({ page }) => {
+test("a 1.5-second WAV plays once on confirmed start and rematch", async ({ page }) => {
   const room = await setup(page);
   expect(await page.evaluate(() => window.__gomokuAudio.played)).toEqual([]);
   await page.getByRole("button", { name: "시작하기", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played)).toEqual([{ duration: expect.closeTo(1, 3), state: "running" }]);
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played)).toEqual([{ duration: expect.closeTo(1.5, 3), state: "running" }]);
   await page.evaluate((value) => window.__gomokuEmit(value), room);
   expect(await page.evaluate(() => window.__gomokuAudio.played)).toHaveLength(1);
   Object.assign(room, { status: "FINISHED", revision: room.revision + 1, ply: 15, endReason: "RESIGN" });

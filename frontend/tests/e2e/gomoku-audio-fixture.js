@@ -25,7 +25,7 @@ export async function installGomokuAudioFixture(page) {
     const name = new URL(route.request().url()).pathname.split("/").pop();
     const body = process.env.GOMOKU_SOUND_DIR
       ? await readFile(join(process.env.GOMOKU_SOUND_DIR, name))
-      : silentWav(name.startsWith("stone-") ? 0.24 : 1);
+      : silentWav(name.startsWith("stone-") ? 0.24 : 1.5);
     await route.fulfill({ body, contentType: "audio/wav", headers: { "access-control-allow-origin": "*" } });
   });
 }
