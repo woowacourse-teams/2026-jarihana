@@ -162,17 +162,18 @@ export default (_, arguments_) => {
       ],
       setupMiddlewares: (middlewares) => {
         middlewares.unshift({
-          name: "group-share-preview",
+          name: "share-preview",
           middleware: async (request, response, next) => {
-            const groupPath = request.path.match(/^\/groups\/([1-9][0-9]*)\/?$/);
-            if (request.method !== "GET" || !groupPath || request.query.preview === "1") {
+            const sharePath = request.path.match(/^\/(groups|sparring)\/([1-9][0-9]*)\/?$/);
+            if (request.method !== "GET" || !sharePath || request.query.preview === "1") {
               next();
               return;
             }
 
             try {
+              const resource = sharePath[1] === "groups" ? "groups" : "sparrings";
               const previewResponse = await fetch(
-                `http://localhost:8080/api/share/groups/${groupPath[1]}`
+                `http://localhost:8080/api/share/${resource}/${sharePath[2]}`
               );
               response.status(previewResponse.status);
               response.setHeader("Content-Type", "text/html; charset=UTF-8");

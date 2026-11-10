@@ -9,6 +9,7 @@ import com.project.jarihana.sparring.query.service.dto.SparringListQuery;
 import com.project.jarihana.sparring.query.service.dto.SparringPageResult;
 import com.project.jarihana.sparring.query.service.dto.SparringPostResult;
 import com.project.jarihana.sparring.query.service.dto.SparringPostsQuery;
+import com.project.jarihana.sparring.query.service.dto.SparringShareResult;
 import com.project.jarihana.sparring.query.service.dto.SparringTopicResult;
 
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,16 @@ public class SparringQueryService {
     private final SparringQueryRepository repository;
     private final ImageAccessService images;
     private final Clock clock;
+
+    public SparringShareResult shareTopic(long id) {
+        return repository.shareTopic(id)
+                .map(topic -> new SparringShareResult(
+                        topic.getTitle(), topic.getClaimA(), topic.getClaimB(),
+                        topic.getRepresentativeImageKey() == null
+                                ? null : images.publicUrl(topic.getRepresentativeImageKey())))
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.SPARRING_NOT_FOUND, "스파링을 찾을 수 없어요."));
+    }
 
     public SparringTopicResult topic(long id, Long memberId) {
         return repository

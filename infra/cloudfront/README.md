@@ -66,13 +66,19 @@ PWA 설치 안내 이미지는 사용자 업로드가 아닌 공개 정적 자�
 가리키도록 연결하고, trusted key group 없이 공개 GET/HEAD가 가능한지 확인해야 한다. 사용자 업로드를
 전달하는 `/images/groups/*`에는 계속 trusted key group을 요구하며 두 경로의 접근 정책을 합치지 않는다.
 
-## 그룹 공유 미리보기
+## 그룹·토론 공유 미리보기
 
 `group-share-preview.js`는 `/groups/{groupId}` 요청을 백엔드의
 `/api/share/groups/{groupId}`로 연결하는 CloudFront viewer-request 함수다.
+같은 함수가 `/sparring/{topicId}`를 `/api/share/sparrings/{topicId}`로 연결한다.
 백엔드 응답에는 그룹 이름·소개·대표 이미지의 Open Graph와 Twitter 메타태그가
 포함되어 있어 카카오톡, Slack, Facebook 같은 크롤러가 React 실행 없이 미리보기를
 만들 수 있다.
+
+토론 카드는 토론명·양쪽 편명·대표사진만 제공한다. 사진이 없으면 기존 프론트 공개
+자산 `/sparring-arena/assets/entry-rivals.webp`를 사용한다. 우세·표수·비율처럼 달라지는
+현황은 넣지 않는다. 사용자 업로드 사진은 `/api/images/sparrings/...`의 안정된 주소를
+메타데이터에 넣고, 이미지 접근 API가 그때 유효한 CDN 서명 URL로 연결한다.
 
 CloudFront에서 다음을 한 번 설정한다.
 
@@ -82,20 +88,37 @@ CloudFront에서 다음을 한 번 설정한다.
 4. 코드의 `BACKEND_ORIGIN_ID`가 Origins 탭의 백엔드 Origin name인
    `jarihana-backend`인지 확인한다. 이 함수는 URI만 바꾸는 대신 해당 origin도 명시적으로
    선택한다. CloudFront에서 URI만 바꾸면 기본 S3 origin이 그대로 선택되기 때문이다.
-5. 백엔드의 `/api/share/groups/{groupId}`가 운영에 먼저 배포되어 공개 GET 요청에서 HTML을
-   반환하는지 확인한다. 그 뒤 배포판이 완료되면 `/groups/*` 캐시 무효화를 한 번 실행한다.
+5. 함수 연결·갱신 전에 백엔드의 `/api/share/groups/{groupId}`와 `/api/share/sparrings/{topicId}`가
+   먼저 배포되어 공개 GET 요청에서 HTML을 반환하는지 확인한다. 기본 토론 사진도 공개 접근되는지
+   확인한다. 그 뒤 함수를 게시하고 배포판이 완료되면 `/groups/*`, `/sparring/*` 캐시 무효화를
+   실행한다. 기존 `/index.html`로 처리된 토론 캐시와 메타데이터 캐시가 남아 있지 않게 한다.
 6. `?preview=1` 쿼리를 포함한 요청은 캐시 정책에서 원본 경로와 충돌하지 않도록 확인한다.
 
-함수는 그룹 메타데이터와 SPA 요청 모두에서 원본으로 전달하는 쿼리를 비운다. 브라우저에
+함수는 그룹·토론 메타데이터와 해당 SPA 요청 모두에서 원본으로 전달하는 쿼리를 비운다. 브라우저에
 남아 있는 원래 주소와 SPA의 JavaScript가 `promotion_id`를 하나만 읽고, 허용된 형식일 때만
 `?preview=1&promotion_id=...`으로 SPA를 연다. 따라서 임의의 쿼리나 개인정보가 백엔드·PostHog로
 전달되지 않으며, 프로모션마다 메타데이터 HTML 캐시를 나눌 필요도 없다. 함수가 쿼리를 원본으로
-전달하도록 바뀌는 경우에는 `/groups/*` 동작의 캐시 키가 `promotion_id`를 포함하거나 해당
+전달하도록 바뀌는 경우에는 해당 공유 경로의 캐시 키가 `promotion_id`를 포함하거나 해당
 메타데이터 응답을 캐시하지 않도록 별도 정책을 적용해야 한다.
 
 일반 사용자가 `/groups/13`을 열면 메타 페이지의 브라우저 전용 스크립트가 `?preview=1`로
 이동시키고, 이 쿼리가 붙은 요청은 rewrite를 건너뛰어 기존 S3의 React 앱을 표시한다.
-공유 크롤러는 첫 HTML의 메타태그를 읽으므로 그룹별 미리보기를 얻는다.
+공유 크롤러는 첫 HTML의 메타태그를 읽으므로 그룹별 미리보기를 얻는다. 토론도
+`/sparring/13` → 메타데이터 HTML → `/sparring/13?preview=1` 순서로 동일하게 동작한다.
+토론 화면에 진입하면 React Router가 `preview=1`만 history replace로 제거한다. 브라우저 주소를
+복사해 다시 공유할 때도 토론 메타데이터를 제공하고 다른 쿼리·hash·navigation state는 보존한다.
+백엔드는 메타데이터에 5분 캐시를 허용하지만 실제 CDN 캐시 정책은 별도로 확인해야 한다.
+외부 공유 서비스의 캐시는 CDN 무효화와 별개이며 이미 게시된 카드의 자동 갱신을 보장하지 않는다.
+
+개발 배포판이 아래 `spa-fallback.js`만 사용하는 상태라면 토론별 공유 미리보기는 제공하지 않는다.
+개발에서 검증하려면 먼저 두 공유 API와 기본 사진을 준비하고, 개발 배포판의 백엔드 Origin ID에 맞춘
+`group-share-preview.js`를 기본 동작에 연결한다. 운영 Origin ID를 개발에 그대로 적용하지 않는다.
+
+로컬 경로·리다이렉트 검증:
+
+```bash
+node --test infra/cloudfront/group-share-preview.test.mjs infra/cloudfront/share-preview-redirect.test.mjs
+```
 
 ## 개발 SPA 경로 fallback
 

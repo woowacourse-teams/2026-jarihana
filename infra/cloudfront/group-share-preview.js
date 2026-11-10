@@ -1,5 +1,5 @@
 /**
- * CloudFront viewer-request function for group social previews and SPA routes.
+ * CloudFront viewer-request function for group/debate social previews and SPA routes.
  *
  * Attach this function to the default (S3) behavior at Viewer request using
  * CloudFront Functions runtime 2.0. A URI rewrite alone does not change the
@@ -8,7 +8,7 @@
  * behavior so the browser can load the normal SPA shell after the metadata
  * response's redirect. Extensionless frontend routes are rewritten to the SPA
  * entry point; API paths and static files are left unchanged. Query strings
- * are removed from group preview origin requests; metadata HTML reads the
+ * are removed from preview origin requests; metadata HTML reads the
  * browser-visible URL and carries only one validated promotion_id into that
  * redirect, so origin responses remain safe to cache.
  */
@@ -20,7 +20,7 @@ var BACKEND_ORIGIN_ID = "jarihana-backend";
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  var match = uri.match(/^\/groups\/([1-9][0-9]*)\/?$/);
+  var match = uri.match(/^\/(groups|sparring)\/([1-9][0-9]*)\/?$/);
   var preview = request.querystring && request.querystring.preview;
   var isPreview = preview && !preview.multiValue && preview.value === "1";
 
@@ -30,7 +30,8 @@ function handler(event) {
     // origin or create cache variants for them.
     request.querystring = {};
     if (!isPreview) {
-      request.uri = "/api/share/groups/" + match[1];
+      var resource = match[1] === "groups" ? "groups" : "sparrings";
+      request.uri = "/api/share/" + resource + "/" + match[2];
       cf.selectRequestOriginById(BACKEND_ORIGIN_ID);
       return request;
     }
