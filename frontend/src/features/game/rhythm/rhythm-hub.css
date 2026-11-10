@@ -5,43 +5,18 @@
   display: grid;
   gap: 18px;
 }
+/* 밝은 따라 하기 카드 제목 옆의 "처음이라면" 배지 */
 .rhythm-game .rhythm-hub__badge {
-  justify-self: start;
   display: inline-block;
-  border: 1px solid #5b5236;
+  border: 1px solid #d9b45a;
   border-radius: 999px;
   padding: 2px 10px;
-  color: #ffd27a;
+  background: #fff4d2;
+  color: #7a5200;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0;
 }
-.rhythm-game .rhythm-hub__panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #16252d;
-}
-.rhythm-game .rhythm-hub__title {
-  margin: 0;
-  font-size: 1.45rem;
-  letter-spacing: -0.04em;
-}
-.rhythm-game .rhythm-hub__copy {
-  margin: 0;
-  color: var(--muted);
-}
-.rhythm-game .rhythm-hub__field {
-  display: grid;
-  gap: 8px;
-}
-.rhythm-game .rhythm-hub__panel > .button {
-  justify-self: start;
-  text-decoration: none;
-}
-
 /* 첫 화면 카드 그림: 게임방 카드의 그림 칸 안에 판을 맞춘다. */
 .rhythm-entry__visual {
   position: relative;
@@ -97,116 +72,93 @@
   stroke-linecap: round;
 }
 
-/* 싱글 플레이: 소리 버튼, 악보, 모드 */
-.rhythm-game .rhythm-sounds,
-.rhythm-game .rhythm-scores {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.rhythm-game .rhythm-sound {
-  display: grid;
-  gap: 2px;
-  padding: 12px 14px;
-  border: 0;
-  border-radius: 12px;
-  color: #ffffff;
-  text-align: left;
-}
-.rhythm-game .rhythm-sound strong {
-  font-size: 1.7rem;
-  font-weight: 900;
-  line-height: 1.1;
-}
-.rhythm-game .rhythm-sound span {
-  font-size: 0.78rem;
-}
-.rhythm-game .rhythm-sound--kung {
-  background: #d93a33;
-}
-.rhythm-game .rhythm-sound--chak {
-  background: #2f6fe0;
-}
-.rhythm-game .rhythm-sound--chi {
-  background: #ffd21f;
-  color: #3a2c00;
+/* 싱글 플레이: 위 줄에 혼자 연습과 공식 도전을 크게, 아래 줄에 따라 하기를 전체 너비로 둔다.
+   카드는 밝은 색이며 혼자 연습은 파랑, 공식 도전은 노랑, 따라 하기는 초록 계열로 구분한다.
+   어두운 바탕은 도구 막대 아래 화면 높이를 채워 바닥글 앞에 흰 빈칸이 생기지 않게 한다. */
+.rhythm-game--hub {
+  min-block-size: calc(100dvh - var(--header-height) - var(--game-toolbar-height));
 }
 .rhythm-game .rhythm-modes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 .rhythm-game .rhythm-mode {
   display: grid;
-  gap: 6px;
-  align-content: start;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #16252d;
-  color: inherit;
+  gap: 8px;
+  align-content: center;
+  justify-items: center;
+  min-block-size: clamp(180px, 34vh, 300px);
+  padding: 24px;
+  border: 1px solid var(--mode-line);
+  border-bottom: 3px solid var(--mode-edge);
+  border-radius: 16px;
+  background: var(--mode-bg);
+  color: #1b2e37;
   font: inherit;
-  text-align: left;
+  text-align: center;
   text-decoration: none;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
 }
-.rhythm-game a.rhythm-mode:hover,
+.rhythm-game a.rhythm-mode:hover {
+  border-color: var(--mode-hover-line);
+  background: var(--mode-hover-bg);
+}
 .rhythm-game a.rhythm-mode:focus-visible {
-  border-color: var(--mint);
+  outline: 3px solid var(--mint);
+  outline-offset: 2px;
 }
 .rhythm-game .rhythm-mode strong {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 1.1rem;
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
 }
 .rhythm-game .rhythm-mode > span:last-child {
-  color: var(--muted);
-  font-size: 0.82rem;
+  max-inline-size: 28em;
+  color: #4a5b62;
+  word-break: keep-all;
+  font-size: 0.88rem;
   line-height: 1.6;
 }
 .rhythm-game .rhythm-mode .eyebrow {
-  color: var(--mint);
+  color: var(--mode-ink);
 }
-.rhythm-game .rhythm-mode--record .eyebrow {
-  color: #ffd27a;
+.rhythm-game .rhythm-mode--practice {
+  --mode-bg: #e3edfb;
+  --mode-hover-bg: #eef4fd;
+  --mode-line: #a9c1e6;
+  --mode-edge: #8eaad6;
+  --mode-hover-line: #4f74b3;
+  --mode-ink: #2459c4;
 }
-
-/* 따라 하기를 마친 뒤 접히는 튜토리얼 */
-.rhythm-game .rhythm-fold {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #16252d;
+.rhythm-game .rhythm-mode--record {
+  --mode-bg: #fdf3cf;
+  --mode-hover-bg: #fff8e0;
+  --mode-line: #e2cc85;
+  --mode-edge: #d0b768;
+  --mode-hover-line: #a8862a;
+  --mode-ink: #855600;
 }
-.rhythm-game .rhythm-fold > summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 18px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  list-style: none;
+.rhythm-game .rhythm-mode--lesson {
+  --mode-bg: #e4f2df;
+  --mode-hover-bg: #eef8ea;
+  --mode-line: #a8c9a0;
+  --mode-edge: #8fb486;
+  --mode-hover-line: #4f8a4a;
+  --mode-ink: #276a35;
+  grid-column: 1 / -1;
+  min-block-size: 0;
+  padding: 16px 24px;
 }
-.rhythm-game .rhythm-fold > summary::-webkit-details-marker {
-  display: none;
+.rhythm-game .rhythm-mode--lesson strong {
+  font-size: 1.2rem;
 }
-.rhythm-game .rhythm-fold__action {
-  color: var(--mint);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.rhythm-game .rhythm-fold__open,
-.rhythm-game .rhythm-fold[open] .rhythm-fold__closed {
-  display: none;
-}
-.rhythm-game .rhythm-fold[open] .rhythm-fold__open {
-  display: inline;
-}
-.rhythm-game .rhythm-fold > .rhythm-hub__panel {
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 16px 16px;
+.rhythm-game .rhythm-mode--lesson > span:last-child {
+  max-inline-size: none;
 }
 
 /* 한 마디 악보 */
@@ -380,14 +332,20 @@
 }
 
 @media (max-width: 700px) {
-  .rhythm-game .rhythm-sounds,
-  .rhythm-game .rhythm-scores,
   .rhythm-game .rhythm-modes,
   .rhythm-game .rhythm-lesson__side {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* 한 열에서는 위 두 카드를 낮춰 따라 하기 카드가 첫 화면에서 멀어지지 않게 한다. */
+  .rhythm-game .rhythm-mode {
+    min-block-size: 140px;
+  }
+  .rhythm-game .rhythm-mode--lesson {
+    min-block-size: 0;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
+  .rhythm-game .rhythm-mode,
   .rhythm-score__head {
     transition: none;
   }

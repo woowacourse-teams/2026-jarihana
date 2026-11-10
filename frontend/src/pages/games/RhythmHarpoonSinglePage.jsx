@@ -1,64 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../../features/auth";
-import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
-import {
-  LESSON_STEPS,
-  browserStorage,
-  readLessonProgress
-} from "../../features/game/rhythm/lesson.mjs";
-import { playLessonPreview } from "../../features/game/rhythm/lesson-audio.mjs";
+import { browserStorage, readLessonProgress } from "../../features/game/rhythm/lesson.mjs";
 import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./rhythm-harpoon.css";
-
-const SOUND_CUES = ["빨강 / 박마다 오는 큰 북", "파랑 / 쿵과 쿵 사이", "노랑 / 더 잘게 쪼갠 소리"];
-
-function SoundTutorial({ completed, onPreview }) {
-  return (
-    <>
-      <h2 className="rhythm-hub__title">박자부터 귀로 익혀요</h2>
-      <p className="rhythm-hub__copy">색마다 소리 이름이 있어요. 눌러서 한 마디씩 들어 보세요.</p>
-      <div className="rhythm-sounds">
-        {LESSON_STEPS.map((step, index) => (
-          <button
-            key={step.key}
-            className={`rhythm-sound rhythm-sound--${step.key}`}
-            data-ph-capture-attribute-action={`rhythm_sound_demo_${step.key}`}
-            onClick={() => onPreview(index)}
-            type="button"
-          >
-            <strong>{step.syllable}</strong>
-            <span>{SOUND_CUES[index]}</span>
-          </button>
-        ))}
-      </div>
-      <div className="rhythm-hub__field">
-        <span className="eyebrow">악보로 보면 (음악을 안다면 이쪽이 빨라요)</span>
-        <div className="rhythm-scores">
-          {LESSON_STEPS.map((step, index) => (
-            <RhythmScore
-              key={step.key}
-              caption={(index ? "쿵 " + step.syllable : step.syllable) + ": " + step.notation}
-              columns={step.pattern}
-              label={step.syllable + " 패턴 악보"}
-            />
-          ))}
-        </div>
-      </div>
-      <Link
-        className={completed ? "button" : "button primary"}
-        data-ph-capture-attribute-action="rhythm_lesson_open"
-        to="/games/rhythm-harpoon/learn"
-      >
-        {completed ? "따라 하기 다시 하기" : "따라 하기 시작 (1분)"}
-      </Link>
-    </>
-  );
-}
 
 const CHALLENGE_PATH = "/games/rhythm-harpoon/challenge";
 
@@ -76,32 +25,7 @@ export function RhythmHarpoonSinglePage() {
     else if (status === "anonymous") login();
   }
   const [progress] = useState(() => readLessonProgress(browserStorage()));
-  const preview = useRef(null);
 
-  useEffect(
-    () => () => {
-      if (preview.current && preview.current.state !== "closed")
-        void preview.current.close().catch(() => {});
-      preview.current = null;
-    },
-    []
-  );
-
-  function playPreview(stepIndex) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    if (preview.current && preview.current.state !== "closed")
-      void preview.current.close().catch(() => {});
-    const context = new AudioContextClass();
-    preview.current = context;
-    const seconds = playLessonPreview(context, stepIndex);
-    window.setTimeout(() => {
-      if (preview.current === context) preview.current = null;
-      if (context.state !== "closed") void context.close().catch(() => {});
-    }, seconds * 1000);
-  }
-
-  const tutorial = <SoundTutorial completed={progress.completed} onPreview={playPreview} />;
   return (
     <section className="game-player" aria-labelledby="rhythm-single-title">
       <header className="game-player__toolbar">
@@ -116,28 +40,11 @@ export function RhythmHarpoonSinglePage() {
         </Link>
         <h1 id="rhythm-single-title">싱글 플레이</h1>
       </header>
-      <div className="rhythm-game">
+      <div className="rhythm-game rhythm-game--hub">
         <div className="rhythm-game__body rhythm-hub">
-          {progress.completed ? (
-            <details className="rhythm-fold">
-              <summary data-ph-capture-attribute-action="rhythm_tutorial_toggle">
-                <span>조작법을 다시 보고 싶다면?</span>
-                <span className="rhythm-fold__action">
-                  <span className="rhythm-fold__closed">펼치기 ▼</span>
-                  <span className="rhythm-fold__open">접기 ▲</span>
-                </span>
-              </summary>
-              <div className="rhythm-hub__panel">{tutorial}</div>
-            </details>
-          ) : (
-            <section className="rhythm-hub__panel" aria-label="처음이라면 박자부터">
-              <span className="rhythm-hub__badge">처음이라면</span>
-              {tutorial}
-            </section>
-          )}
           <div className="rhythm-modes">
             <Link
-              className="rhythm-mode"
+              className="rhythm-mode rhythm-mode--practice"
               data-ph-capture-attribute-action="rhythm_practice_open"
               to="/games/rhythm-harpoon/practice"
             >
@@ -160,6 +67,18 @@ export function RhythmHarpoonSinglePage() {
                 점수를 서버가 다시 계산해 난이도별 랭킹에 올려요. 로그인이 필요하고, 시작하면 멈출 수
                 없어요.
               </span>
+            </Link>
+            <Link
+              className="rhythm-mode rhythm-mode--lesson"
+              data-ph-capture-attribute-action="rhythm_lesson_open"
+              to="/games/rhythm-harpoon/learn"
+            >
+              <span className="eyebrow">TUTORIAL</span>
+              <strong>
+                따라 하기
+                {progress.completed ? null : <span className="rhythm-hub__badge">처음이라면</span>}
+              </strong>
+              <span>빨강 쿵, 파랑 착, 노랑 치를 듣고 따라 쳐요. 1분이면 끝나요.</span>
             </Link>
           </div>
         </div>
