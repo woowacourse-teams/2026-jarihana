@@ -171,6 +171,21 @@ it("offers the extra 따 step after the three core sounds without counting it to
   expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, true, true, true]);
 });
 
+it("sets the shared input offset in the lesson drawer and applies it to the next attempt", () => {
+  localStorage.setItem("haengseong-input-offset-v1", "-12");
+  const player = { play: jest.fn(), stop: jest.fn(), dispose: jest.fn(), setOffset: jest.fn() };
+  mountLessonGame.mockReturnValue(player);
+  const { container } = render(<RhythmHarpoonLessonPage />);
+  const slider = container.querySelector("#lesson-offset");
+  expect(slider).toHaveValue("-12");
+  expect(slider).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_lesson_offset_change");
+  expect(screen.getByRole("button", { name: "싱크 진단 / 보정" })).toBeInTheDocument();
+  fireEvent.change(slider, { target: { value: "20" } });
+  expect(player.setOffset).toHaveBeenLastCalledWith(20);
+  expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("20");
+  expect(screen.getByText(/연습과 공식 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
+});
+
 it("keeps difficulty above the board and hides the other practice settings while playing", () => {
   render(<RhythmHarpoonPage />);
   const settings = mountPracticeGame.mock.calls[0][0];

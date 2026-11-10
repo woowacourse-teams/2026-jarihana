@@ -3,7 +3,9 @@ import { Link } from "react-router";
 import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "../../shared/ui";
+import { RhythmOffsetSettings } from "../../features/game/rhythm/RhythmOffsetSettings.jsx";
 import { RhythmScore } from "../../features/game/rhythm/RhythmScore.jsx";
+import { readOffset } from "../../features/game/rhythm/calibration.mjs";
 import {
   CORE_LESSON_STEPS,
   LESSON_SPEEDS,
@@ -154,6 +156,8 @@ export function RhythmHarpoonLessonPage() {
   const [savedSettings] = useState(() => readLessonSettings(browserStorage()));
   const [bpm, setBpm] = useState(savedSettings.bpm);
   const [scrollSpeed, setScrollSpeed] = useState(savedSettings.scrollSpeed);
+  // 입력 지연 보정은 연습, 공식 도전과 같은 저장값을 쓰고 여기서 바꾸면 다음 시도부터 판정에 쓴다.
+  const [offset, setOffset] = useState(() => readOffset(browserStorage()));
   const [progress, setProgress] = useState(() => readLessonProgress(browserStorage()));
   const [phase, setPhase] = useState("loading");
   const [result, setResult] = useState(null);
@@ -377,6 +381,14 @@ export function RhythmHarpoonLessonPage() {
                   ))}
                 </div>
               </div>
+              <RhythmOffsetSettings
+                offset={offset}
+                onChange={(value) => {
+                  setOffset(value);
+                  playerReference.current?.setOffset?.(value);
+                }}
+                place="lesson"
+              />
             </aside>
           </div>
           <div className="touch-controls" aria-label="터치 방향키">

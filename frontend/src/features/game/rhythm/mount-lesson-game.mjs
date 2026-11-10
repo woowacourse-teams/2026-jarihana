@@ -242,6 +242,10 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
 
   return {
     play,
+    // 따라 하기 설정에서 바꾼 보정값(ms)을 다음 입력부터 쓴다.
+    setOffset: (milliseconds) => {
+      offset = milliseconds / 1000;
+    },
     stop: () => {
       if (state === "running" || state === "starting") stopRun();
     },
