@@ -2,7 +2,9 @@
 
 ## 배포와 활성화
 
-신버전 전환이 끝난 뒤 `JARIHANA_POINTS_STARTS_AT`에 모든 인스턴스가 공유하는 한국 시간 시작 시각을 `YYYY-MM-DDTHH:mm:ss` 형식으로 설정한다. GitHub Actions 배포는 배포 대상 Environment의 변수에서, 직접 실행하는 Compose는 실행 환경에서 이 값을 가져온다. 값이 비어 있으면 적립을 비활성화한다. 활성화 이후 이벤트에 보상 정책 버전과 금액을 기록한다. 오목 전적의 대국 기록 저장이 먼저 배포되어야 한다.
+운영에서는 [Blue/Green 릴리스 Compose 지원](../../../infra/blue-green-deploy/docs/deployment.md)을 준비한 뒤 포인트 백엔드를 배포한다. 오목 전적의 대국 기록 저장이 먼저 배포되어야 한다.
+
+처음 배포할 때는 `POINTS_STARTS_AT`을 비워 적립을 끈다. 신버전 전환이 끝나면 배포 대상 GitHub Environment의 Variables에 모든 인스턴스가 공유할 한국 시간 시작 시각을 `YYYY-MM-DDTHH:mm:ss` 형식으로 설정하고 백엔드를 다시 배포한다. Compose를 직접 실행할 때는 실행 환경의 `POINTS_STARTS_AT`에 같은 값을 설정한다. 시작 시각 이후에는 이벤트에 보상 정책 버전과 금액을 기록한다.
 
 `V33`에서 포인트 테이블과 적립 사유 형식, 모임별 중복 및 주간 한도 조회에 필요한 인덱스를 만든다.
 
@@ -22,11 +24,11 @@ WHERE id = :reward_id AND status = 'NEEDS_REVIEW';
 
 ## 기존 회원의 첫 모임 합류 보상
 
-포인트 도입 후 운영진은 확인한 대상 회원 ID마다 [수동 지급 SQL](../../db/operations/points-first-join-grant.sql)을 실행한다. `points_starts_at`에는 배포에 설정한 `JARIHANA_POINTS_STARTS_AT` 값을 그대로 넣는다.
+포인트 도입 후 운영진은 확인한 대상 회원 ID마다 [수동 지급 SQL](../../db/operations/points-first-join-grant.sql)을 실행한다. `points_starts_at`에는 배포에 설정한 `POINTS_STARTS_AT` 값을 그대로 넣는다.
 
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -v member_id="$TARGET_MEMBER_ID" -v points_starts_at="$JARIHANA_POINTS_STARTS_AT" \
+  -v member_id="$TARGET_MEMBER_ID" -v points_starts_at="$POINTS_STARTS_AT" \
   -f backend/db/operations/points-first-join-grant.sql
 ```
 
