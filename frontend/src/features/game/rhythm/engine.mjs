@@ -389,6 +389,8 @@ export class GameEngine {
     this.lives = this.maxLives;
     this.loopHeal = LEVELS[this.level].loopHeal;
     this.nextLoopToHeal = 0;
+    // 루프 완주로 하트가 찰 때마다 화면에 "Loop n / ♥ +k / SPEED UP"을 띄우려고 남기는 기록이다. 점수와 판정에는 쓰지 않는다.
+    this.loopHeals = [];
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
@@ -477,7 +479,17 @@ export class GameEngine {
 
   healCompletedLoops(time) {
     while (this.nextLoopToHeal < this.loops.length && this.loops[this.nextLoopToHeal].end <= time) {
+      const before = this.lives;
       this.lives = Math.min(this.maxLives, this.lives + this.loopHeal);
+      const completed = this.loops[this.nextLoopToHeal];
+      const rate = rateForLoop(completed.number + 1, this.level);
+      this.loopHeals.push({
+        at: completed.end,
+        loop: completed.number + 1,
+        amount: this.lives - before,
+        rate,
+        speedUp: rate > completed.rate
+      });
       this.nextLoopToHeal++;
     }
   }

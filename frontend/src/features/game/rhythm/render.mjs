@@ -15,6 +15,25 @@ const FEEDBACK_COLORS = {
   uhoh: "#9a3412",
   poor: "#991b1b"
 };
+// 루프 완주 표시("Loop n / ♥ +k / SPEED UP")를 판 위에 남겨 두는 시간(초)이다.
+export const LOOP_BANNER_SECONDS = 1.6;
+
+// 루프 완주로 하트가 찰 때 보여 줄 줄들. 이미 가득 차 있어 더 차지 않았으면 MAX로 표시하고,
+// 다음 루프에서 곡이 빨라지면 바뀐 곡 배속을 한 줄 더 보여 준다.
+export function loopHealLabels(heal) {
+  return {
+    loop: "Loop " + heal.loop,
+    hearts: heal.amount > 0 ? "♥ +" + heal.amount : "♥ MAX",
+    speed: heal.speedUp ? "SPEED UP ×" + heal.rate.toFixed(2) : null
+  };
+}
+
+// 화면 읽기 프로그램에 같은 내용을 알리는 문장이다.
+export function loopHealAnnouncement(heal) {
+  const hearts = heal.amount > 0 ? "라이프 " + heal.amount + "개 회복." : "라이프 가득.";
+  const speed = heal.speedUp ? " 곡 배속 ×" + heal.rate.toFixed(2) + "로 빨라짐." : "";
+  return "Loop " + heal.loop + ", " + hearts + speed;
+}
 
 export function beatTiming(time, engine) {
   if (!engine) return { beatIndex: 0, phase: 0, pulse: 0, strength: 0 };
@@ -165,6 +184,28 @@ export class Renderer {
     }
     ctx.fillText(value, x, y);
     ctx.restore();
+  }
+
+  // 루프를 완주해 하트가 차면 캐릭터 바로 위(세균이 지나는 네 축과 겹치지 않는 자리)에 잠깐 띄운다.
+  loopBanner(time, engine) {
+    const heal = engine?.loopHeals?.findLast((item) => item.at <= time);
+    if (!heal) return;
+    const age = time - heal.at;
+    // 0.12초 동안 나타나고 마지막 0.5초 동안 사라진다. 거의 보이지 않는 프레임은 그리지 않는다.
+    const alpha = Math.min(1, age / 0.12, (LOOP_BANNER_SECONDS - age) / 0.5);
+    if (alpha <= 0.001) return;
+    const labels = loopHealLabels(heal);
+    const rise = this.reducedMotion ? 0 : Math.min(1, age / 0.3) * 10;
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    // 배속 줄이 있으면 세 줄 모두 캐릭터(위 끝 384) 위에 들어가도록 묶음을 위로 올린다.
+    const top = labels.speed ? 264 : 306;
+    this.text(labels.loop, CENTER, top - rise, 36, "#154734", "center", true);
+    this.text(labels.hearts, CENTER, top + 44 - rise, 30, "#d6334f", "center", true);
+    if (labels.speed) {
+      this.text(labels.speed, CENTER, top + 84 - rise, 24, "#b45309", "center", true);
+    }
+    this.ctx.restore();
   }
 
   countdown(value) {
@@ -551,6 +592,7 @@ export class Renderer {
         this.text(timing + " " + Math.abs(error) + "ms", 450, 608, 28, color, "center", true);
       }
     }
+    this.loopBanner(time, engine);
     if (engine && time < engine.loops[0].start) {
       const remaining = engine.loops[0].start - time;
       const interval = 60 / engine.chart.bpm / engine.loops[0].rate;
