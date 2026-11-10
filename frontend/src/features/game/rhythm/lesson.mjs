@@ -17,8 +17,14 @@ export const TRILL_PAIRS = Object.freeze([
   Object.freeze(["left", "right"]),
   Object.freeze(["up", "down"])
 ]);
-// 세균 색 순서(빨강, 파랑, 노랑, 초록)에 맞춘 소리 이름. 초록은 본편 채보에 나오지 않는다.
-export const NOTE_SYLLABLES = Object.freeze(["쿵", "착", "치", ""]);
+// 세균 색 순서(빨강, 파랑, 노랑, 초록)에 맞춘 소리 이름. 초록(따)은 ANOTHER 스윙 채보에만 나온다.
+export const NOTE_SYLLABLES = Object.freeze(["쿵", "착", "치", "따"]);
+// 스윙 단계는 원곡 대신 ANOTHER의 빠르기(144)로 칠 수 있다.
+const SWING_TEMPOS = Object.freeze([
+  LESSON_TEMPOS[0],
+  LESSON_TEMPOS[1],
+  Object.freeze({ bpm: 144, label: "스윙 144", action: "rhythm_lesson_tempo_swing" })
+]);
 
 export const LESSON_STEPS = Object.freeze([
   Object.freeze({
@@ -53,8 +59,46 @@ export const LESSON_STEPS = Object.freeze([
     notation: "점8분 + 16분",
     pattern: Object.freeze([0, 3, 4, 7, 8, 11, 12, 15]),
     mix: Object.freeze({ kick: 1, openHat: 0.5, closedHat: 1.6, bass: 1 })
+  }),
+  // 번외 단계: ANOTHER를 위한 스윙 엇박. 따라 하기 완료 여부에는 세지 않는다.
+  // 박을 셋으로 나눈 마지막 자리(2/3 박)라 위치가 16분 단위로 8/3, 20/3 같은 실수다.
+  Object.freeze({
+    key: "tta",
+    syllable: "따",
+    color: 3,
+    extra: true,
+    swing: true,
+    title: "따 = 초록, 스윙 엇박",
+    body: '박을 셋으로 나눈 마지막 자리에 오는 소리예요. "쿵 . 따 쿵 . 따"처럼 다음 쿵에 바짝 붙여 쳐요. ANOTHER에서 초록 세균으로 나와요.',
+    hint: "착보다 조금 늦게, 다음 쿵 바로 앞에서 쳐요.",
+    notation: "스윙(셋잇단 4분 + 8분)",
+    pattern: Object.freeze([0, 4, 8, 12].flatMap((beat) => [beat, beat + 8 / 3])),
+    mix: Object.freeze({ kick: 1, openHat: 0, closedHat: 1.6, bass: 1 })
   })
 ]);
+
+// 완료 여부를 세는 기본 단계(쿵, 착, 치)다.
+export const CORE_LESSON_STEPS = Object.freeze(
+  LESSON_STEPS.map((step, index) => (step.extra ? -1 : index)).filter((index) => index >= 0)
+);
+
+export function lessonTempos(stepIndex) {
+  return lessonStep(stepIndex).swing ? SWING_TEMPOS : LESSON_TEMPOS;
+}
+
+// 고른 빠르기가 이 단계에 없으면 가장 가까운 빠르기(원곡 128과 스윙 144는 서로)로 바꿔 쓴다.
+export function lessonBpm(stepIndex, bpm) {
+  const tempos = lessonTempos(stepIndex);
+  if (tempos.some((tempo) => tempo.bpm === bpm)) return bpm;
+  return tempos.reduce((best, tempo) => (Math.abs(tempo.bpm - bpm) < Math.abs(best.bpm - bpm) ? tempo : best)).bpm;
+}
+
+// 지금 위치(16분 단위)에서 0.5칸 안에 있는 패턴 음표를 돌려준다. 악보에서 그 음표를 굵게 표시한다.
+export function scoreStepAt(pattern, position) {
+  if (position < -0.5) return -1;
+  const column = ((position % 16) + 16) % 16;
+  return pattern.find((step) => Math.min(Math.abs(column - step), 16 - Math.abs(column - step)) < 0.5) ?? -1;
+}
 
 function lessonStep(stepIndex) {
   const step = LESSON_STEPS[stepIndex];
@@ -62,15 +106,18 @@ function lessonStep(stepIndex) {
   return step;
 }
 
-function validBpm(bpm) {
-  if (!LESSON_TEMPOS.some((tempo) => tempo.bpm === bpm))
-    throw new RangeError("따라 하기 빠르기는 72, 96, 128 BPM 중에서 골라요.");
+function validBpm(bpm, stepIndex = 0) {
+  const tempos = lessonTempos(stepIndex);
+  if (!tempos.some((tempo) => tempo.bpm === bpm))
+    throw new RangeError(
+      "따라 하기 빠르기는 " + tempos.map((tempo) => tempo.bpm).join(", ") + " BPM 중에서 골라요."
+    );
   return bpm;
 }
 
 export function createLessonChart(stepIndex, { bpm = DEFAULT_LESSON_SETTINGS.bpm, bars = LESSON_BARS.attempt } = {}) {
   const step = lessonStep(stepIndex);
-  validBpm(bpm);
+  validBpm(bpm, stepIndex);
   if (!Number.isInteger(bars) || bars < 1 || bars > 8) throw new RangeError("따라 하기는 1~8마디예요.");
   const samplesPerSixteenth = (LESSON_SAMPLE_RATE * 60) / bpm / 4;
   const events = [];
@@ -132,7 +179,9 @@ export function readLessonSettings(storage) {
   try {
     const parsed = JSON.parse(storage?.getItem(SETTINGS_KEY) ?? "null");
     return {
-      bpm: LESSON_TEMPOS.some((tempo) => tempo.bpm === parsed?.bpm) ? parsed.bpm : DEFAULT_LESSON_SETTINGS.bpm,
+      bpm: [...LESSON_TEMPOS, ...SWING_TEMPOS].some((tempo) => tempo.bpm === parsed?.bpm)
+        ? parsed.bpm
+        : DEFAULT_LESSON_SETTINGS.bpm,
       scrollSpeed: LESSON_SPEEDS.includes(parsed?.scrollSpeed)
         ? parsed.scrollSpeed
         : DEFAULT_LESSON_SETTINGS.scrollSpeed
@@ -153,6 +202,7 @@ export function writeLessonSettings(storage, settings) {
 }
 
 const PROGRESS_KEY = "haengseong-lesson-v1";
+const coreDone = (done) => CORE_LESSON_STEPS.every((index) => done[index]);
 const emptyProgress = () => ({ done: LESSON_STEPS.map(() => false), skipped: false, completed: false });
 
 export function readLessonProgress(storage) {
@@ -162,7 +212,7 @@ export function readLessonProgress(storage) {
     const parsed = JSON.parse(raw);
     const done = LESSON_STEPS.map((_, index) => Array.isArray(parsed?.done) && parsed.done[index] === true);
     const skipped = parsed?.skipped === true;
-    return { done, skipped, completed: skipped || done.every(Boolean) };
+    return { done, skipped, completed: skipped || coreDone(done) };
   } catch {
     return emptyProgress();
   }
@@ -184,7 +234,7 @@ export function writeLessonProgress(storage, progress) {
 export function markLessonStep(progress, stepIndex) {
   lessonStep(stepIndex);
   const done = progress.done.map((value, index) => value || index === stepIndex);
-  return { done, skipped: progress.skipped, completed: progress.skipped || done.every(Boolean) };
+  return { done, skipped: progress.skipped, completed: progress.skipped || coreDone(done) };
 }
 
 export function skipLesson(progress) {
@@ -196,8 +246,9 @@ const BASS_COLUMNS = new Set([0, 3, 6, 10, 12]);
 
 // 마디 안 16분 위치별 드럼: 킥은 정박, 오픈 하이햇은 반박, 클로즈드 하이햇은 16분 엇박에 친다.
 export function lessonDrumHits(stepIndex, { bpm = DEFAULT_LESSON_SETTINGS.bpm, bars = LESSON_BARS.attempt } = {}) {
-  const { mix } = lessonStep(stepIndex);
-  const sixteenth = 60 / validBpm(bpm) / 4;
+  const { mix, swing } = lessonStep(stepIndex);
+  const sixteenth = 60 / validBpm(bpm, stepIndex) / 4;
+  if (swing) return swingDrumHits(mix, sixteenth, bars);
   const hits = [];
   for (let position = 0; position < bars * 16; position++) {
     const at = position * sixteenth;
@@ -214,6 +265,23 @@ export function lessonDrumHits(stepIndex, { bpm = DEFAULT_LESSON_SETTINGS.bpm, b
         volume: mix.bass * LESSON_GAIN,
         frequency: BASS_ROOTS[bar % BASS_ROOTS.length] * (column === 10 ? 2 : 1)
       });
+  }
+  return hits;
+}
+
+// 스윙 단계의 셔플 비트: 킥은 정박, 클로즈드 하이햇은 박의 2/3(따) 자리, 베이스는 1, 3박과 그 앞 따에 친다.
+function swingDrumHits(mix, sixteenth, bars) {
+  const hits = [];
+  for (let beat = 0; beat < bars * 4; beat++) {
+    const bar = Math.floor(beat / 4);
+    const at = beat * 4 * sixteenth;
+    const offbeat = at + (8 / 3) * sixteenth;
+    if (mix.kick) hits.push({ voice: "kick", at, volume: mix.kick * LESSON_GAIN });
+    if (mix.closedHat) hits.push({ voice: "closedHat", at: offbeat, volume: mix.closedHat * LESSON_GAIN });
+    const root = BASS_ROOTS[bar % BASS_ROOTS.length];
+    if (mix.bass && beat % 2 === 0) hits.push({ voice: "bass", at, volume: mix.bass * LESSON_GAIN, frequency: root });
+    if (mix.bass && beat % 4 === 1)
+      hits.push({ voice: "bass", at: offbeat, volume: mix.bass * LESSON_GAIN, frequency: root * 2 });
   }
   return hits;
 }

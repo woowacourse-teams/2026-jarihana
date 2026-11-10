@@ -360,7 +360,7 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                   <i className="dot yellow"></i>치 / 16분
                 </span>
                 <span id="legend-triplet" hidden>
-                  <i className="dot green"></i>셋잇단 / 스윙 엇박
+                  <i className="dot green"></i>따 / 셋잇단, 스윙 엇박
                 </span>
               </div>
               <label className="check">

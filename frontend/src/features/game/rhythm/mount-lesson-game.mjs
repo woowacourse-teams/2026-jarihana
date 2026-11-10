@@ -5,9 +5,11 @@ import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { readOffset } from "./calibration.mjs";
 import {
   LESSON_BARS,
+  LESSON_STEPS,
   NOTE_SYLLABLES,
   createLessonChart,
   lessonEndOffset,
+  scoreStepAt,
   summarizeLesson
 } from "./lesson.mjs";
 import { renderLessonTrack } from "./lesson-audio.mjs";
@@ -100,7 +102,8 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
         stepIndex,
         auto,
         endAt: engine.loops[0].start + lessonEndOffset(chart),
-        sixteenth: 60 / bpm / 4
+        sixteenth: 60 / bpm / 4,
+        pattern: LESSON_STEPS[stepIndex].pattern
       };
       renderer.effects = [];
       renderer.lastHit = null;
@@ -160,9 +163,7 @@ export function mountLessonGame({ root, onReady, onError, onFinish, onUpcoming }
         renderer.draw(time, engine);
         reportUpcoming(time);
         const songTime = time - engine.loops[0].start;
-        highlight(
-          songTime >= -run.sixteenth / 2 ? Math.floor(songTime / run.sixteenth + 0.5) % 16 : -1
-        );
+        highlight(scoreStepAt(run.pattern, songTime / run.sixteenth));
         if (engine.dead || time >= run.endAt) finish();
       }
     } else if (renderer) {
