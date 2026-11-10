@@ -59,6 +59,46 @@ function send(data) {
   act(() => streams[0].listeners.snapshot({ data: JSON.stringify(data) }));
 }
 
+test("presence updates independently of board revision and ignores invalid or stale streams", async () => {
+  jest.useFakeTimers();
+  const { result } = renderHook(() => useGomokuRoom("1"));
+  await act(async () => {});
+  send(room);
+  const emit = (people, source = streams.at(-1), roomId = 1) =>
+    act(() =>
+      source.listeners.spectators_changed({ data: JSON.stringify({ roomId, spectators: people }) })
+    );
+  const first = { memberId: 30, name: "관객", avatarUrl: null };
+  const second = {
+    memberId: 40,
+    name: "관객",
+    avatarUrl: "https://avatars.githubusercontent.com/u/40"
+  };
+  emit([first]);
+  expect(result.current.spectatorsSignal.spectators).toHaveLength(1);
+  emit([first, second]);
+  expect(result.current.spectatorsSignal.spectators).toEqual([first, second]);
+  expect(result.current.room.revision).toBe(2);
+  expect(result.current.connected).toBe(true);
+  emit([], streams[0], 2);
+  emit([first, first]);
+  act(() => streams[0].listeners.spectators_changed({ data: "not json" }));
+  expect(result.current.spectatorsSignal.spectators).toEqual([first, second]);
+  expect(result.current.connected).toBe(true);
+
+  act(() => streams[0].onerror());
+  await act(async () => jest.advanceTimersByTimeAsync(2000));
+  emit([], streams[0]);
+  expect(result.current.spectatorsSignal).toBeNull();
+  emit([first, second, { memberId: 50, name: "여름" }]);
+  expect(result.current.spectatorsSignal.spectators).toHaveLength(3);
+  expect(result.current.spectatorsSignal.spectators[2].avatarUrl).toBeNull();
+  emit([second]);
+  expect(result.current.spectatorsSignal.spectators).toEqual([second]);
+  emit([first, second]);
+  expect(result.current.spectatorsSignal.spectators).toEqual([first, second]);
+});
+
 test("observation uses its participation for REST and SSE and cannot run player commands", async () => {
   const participation = "11111111-1111-4111-8111-111111111111";
   const { result, unmount } = renderHook(() => useGomokuRoom("1", participation));
