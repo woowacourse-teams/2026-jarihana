@@ -1,6 +1,6 @@
 import { LEVELS } from "./engine.mjs";
 import { MusicTransport } from "./audio.mjs";
-import { Renderer } from "./render.mjs";
+import { Renderer, loopHealAnnouncement } from "./render.mjs";
 import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { NOTE_SYLLABLES } from "./lesson.mjs";
 import { laneForKey } from "./preferences.mjs";
@@ -54,6 +54,7 @@ export function mountRankedGame({
   let batchTimer = null;
   let lastFrame = 0;
   let lastHud = -Infinity;
+  let announcedHeal = null;
   let disposed = false;
 
   const sender = new RankedBatchSender({
@@ -94,6 +95,11 @@ export function mountRankedGame({
     $("score").textContent = engine.score.toLocaleString("ko-KR");
     $("combo").textContent = engine.combo;
     setLife(engine.lives, engine.maxLives);
+    const heal = engine.loopHeals.at(-1);
+    if (heal && heal !== announcedHeal) {
+      announcedHeal = heal;
+      $("announcer").textContent = loopHealAnnouncement(heal);
+    }
     const loop = engine.currentLoop(time);
     $("loop-info").textContent =
       "LOOP " + String(loop.number).padStart(2, "0") + " / 곡 ×" + loop.rate.toFixed(2);

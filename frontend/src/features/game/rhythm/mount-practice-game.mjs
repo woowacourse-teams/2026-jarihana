@@ -1,7 +1,7 @@
 import { LEVELS } from "./engine.mjs";
 import { createPracticeRun, summarizePracticeRun } from "./practice-session.mjs";
 import { MusicTransport } from "./audio.mjs";
-import { Renderer } from "./render.mjs";
+import { Renderer, loopHealAnnouncement } from "./render.mjs";
 import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
@@ -38,6 +38,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   let transport = null;
   let chart = null;
   let lastHud = -1;
+  let announcedHeal = null;
   let lastFrame = 0;
   let actionPending = false;
   let restartRequested = false;
@@ -150,6 +151,11 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     scoreText.textContent = engine.score.toLocaleString("ko-KR");
     comboText.textContent = engine.combo;
     setLife(engine.lives, engine.maxLives);
+    const heal = engine.loopHeals.at(-1);
+    if (heal && heal !== announcedHeal) {
+      announcedHeal = heal;
+      $("announcer").textContent = loopHealAnnouncement(heal);
+    }
     const loop = engine.currentLoop(time);
     const inCount = time < engine.loops[0].start;
     const songTime = Math.max(0, (time - loop.start) * loop.rate + loop.offset);
