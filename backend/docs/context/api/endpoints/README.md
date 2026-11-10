@@ -24,6 +24,7 @@
 | 채팅 | `POST` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 멱등 메시지 저장 |
 | 채팅 | `PUT` | `/api/groups/{groupId}/chat/read` | `MEMBER + 현재 소속` | 단조 읽음 갱신 |
 | 채팅 | `GET Upgrade` | `/api/ws/chat` | `MEMBER` | 인증된 개인 STOMP 경로 |
+| 채팅 활성 | `STOMP SEND` | `/app/presence/active` | `MEMBER` | 기존 채팅 소켓의 계정 활성 보고, 빈 본문 |
 | 초대 | `POST` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 활성 모임의 지정/공유 초대 발급과 요청 재시도 처리 |
 | 초대 | `GET` | `/api/groups/{groupId}/invitation-candidates` | `MEMBER + 현재 소속` | 활성 모임의 지정 초대 후보를 제한된 회원 정보로 검색 |
 | 초대 | `GET` | `/api/invitations/received` | `MEMBER` | 본인에게 온 지정 초대와 현재 상태 조회 |

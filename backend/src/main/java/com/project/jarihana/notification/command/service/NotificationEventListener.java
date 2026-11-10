@@ -4,6 +4,7 @@ import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.activitypost.domain.event.ActivityPostCommentedEvent;
 import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.announcement.domain.event.AnnouncementCreatedEvent;
+import com.project.jarihana.chat.domain.ChatMessageCreatedEvent;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
@@ -72,6 +73,22 @@ public class NotificationEventListener {
         recordAll(recipients, "announcement:" + event.announcementId() + ":created",
                 NotificationEventType.GROUP_ANNOUNCEMENT_CREATED,
                 NotificationPayload.announcement(event.groupId(), event.announcementId()), event.occurredAt(), activeByMember);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
+    public void onChatMessageCreated(ChatMessageCreatedEvent event) {
+        List<Member> recipients = groupMembers.findNotificationRecipients(event.groupId(), event.senderMemberId());
+        if (recipients.isEmpty()) {
+            return;
+        }
+        Map<Long, List<PushSubscription>> activeByMember = new LinkedHashMap<>();
+        recipients.forEach(member -> activeByMember.put(member.getId(), new ArrayList<>()));
+        List<Long> recipientIds = recipients.stream().map(Member::getId).toList();
+        subscriptions.findChatCapableByMemberIds(recipientIds).forEach(subscription ->
+                activeByMember.get(subscription.getMember().getId()).add(subscription));
+        recordAll(recipients, "chat-message:" + event.messageId() + ":created",
+                NotificationEventType.CHAT_MESSAGE_RECEIVED, NotificationPayload.forGroup(event.groupId()),
+                event.occurredAt(), activeByMember);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
