@@ -20,11 +20,11 @@ export const CELL_MILLIGRAMS = Object.freeze({ NONE: 100, THIN: 150, THICK: 200 
 export const ALMOND_MILLIGRAMS = Object.freeze({ SMALL: 50, LARGE: 100 });
 
 export const ROUNDS = Object.freeze([
-  { name: "기본", hint: "초코가 한 덩어리예요. 무게표로 전체의 절반이 어디서 채워지는지 세어 보세요." },
-  { name: "얼룩", hint: "초코 덩어리가 여러 개예요. 두께마다 1cm 무게가 달라요." },
-  { name: "두께 섞임", hint: "얇은 초코와 두꺼운 초코가 이어져 있어요." },
-  { name: "토핑", hint: "아몬드 무게도 더해야 해요. 크기마다 무게가 달라요." },
-  { name: "종합", hint: "두께, 빈 구간, 아몬드가 모두 섞였어요." }
+  { name: "기본" },
+  { name: "얼룩" },
+  { name: "두께 섞임" },
+  { name: "토핑" },
+  { name: "종합" }
 ]);
 
 export const almondPosition = (almond) => (almond.cell + 0.5) * CELL_CM;

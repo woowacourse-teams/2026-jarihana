@@ -982,6 +982,20 @@ img.profile-card__avatar {
   font-weight: var(--font-weight-extrabold);
 }
 
+.profile-card__shop-frame {
+  width: 140px;
+  margin: var(--space-4) auto;
+}
+
+.profile-card__shop-frame .profile-card__avatar {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 30px;
+  font-size: 22px;
+}
+
 .profile-card h2,
 .profile-card p {
   margin: var(--space-0);

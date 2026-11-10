@@ -94,34 +94,27 @@ const PARTS = [
   ["almond", "cut-result__segment--almond", "아몬드"]
 ];
 
-function MixRow({ label, mix, scale, total }) {
-  const chocolate = mix.thin + mix.thick;
-  const details = [`과자 ${formatGrams(mix.biscuit)}`];
-  if (chocolate > 1e-9) details.push(`초코 ${formatGrams(chocolate)}`);
-  if (mix.almond > 1e-9) details.push(`아몬드 ${formatGrams(mix.almond)}`);
+// 한쪽 조각의 재료 구성 막대다. 재료별 무게는 막대 조각에 마우스를 올리면 보인다.
+function MixRow({ label, mix, scale }) {
   return (
-    <>
-      <div className="cut-result__mix-row">
-        <span className="cut-result__mix-side">{label}</span>
-        <div aria-hidden="true" className="cut-result__mix-bar">
-          {PARTS.filter(([key]) => mix[key] > 1e-9).map(([key, className, partLabel]) => (
-            <span
-              className={`cut-result__segment ${className}`}
-              key={key}
-              style={{ width: `${((mix[key] / scale) * 100).toFixed(2)}%` }}
-              title={`${partLabel} ${formatGrams(mix[key])}`}
-            />
-          ))}
-        </div>
-        <span className="cut-result__mix-total">{formatGrams(total)}</span>
+    <div className="cut-result__mix-row">
+      <span className="cut-result__mix-side">{label}</span>
+      <div aria-hidden="true" className="cut-result__mix-bar">
+        {PARTS.filter(([key]) => mix[key] > 1e-9).map(([key, className, partLabel]) => (
+          <span
+            className={`cut-result__segment ${className}`}
+            key={key}
+            style={{ width: `${((mix[key] / scale) * 100).toFixed(2)}%` }}
+            title={`${partLabel} ${formatGrams(mix[key])}`}
+          />
+        ))}
       </div>
-      <p className="cut-result__mix-detail">{details.join(", ")}</p>
-    </>
+    </div>
   );
 }
 
 // 자른 뒤의 결과다. 저울, 양쪽 무게, 재료별 무게 구성으로 왜 한쪽이 무거웠는지 보여 준다.
-export function CutResult({ comment, position, result, stick }) {
+export function CutResult({ position, result, stick }) {
   const total = stick.totalMilligrams;
   const left = leftMilligrams(stick, position);
   const right = total - left;
@@ -129,14 +122,11 @@ export function CutResult({ comment, position, result, stick }) {
   const scale = Math.max(left, right);
 
   return (
-    <div aria-live="polite" className="cut-result">
+    <div className="cut-result">
       <div className="cut-result__legend">
-        <span><i className="cut-result__swatch" />내가 자른 곳</span>
-        <span><i className="cut-result__swatch cut-result__swatch--answer" />정답</span>
+        <span><i className="cut-result__swatch" />내가 자른 곳 <b>{formatCm(position)}</b></span>
+        <span><i className="cut-result__swatch cut-result__swatch--answer" />정답 <b>{formatCm(result.answerPosition)}</b></span>
       </div>
-      <p className="cut-result__positions">
-        왼쪽 끝부터 정답 <b>{formatCm(result.answerPosition)}</b>, 내가 자른 곳 {formatCm(position)}
-      </p>
       <Balance position={position} stick={stick} tiltDegrees={tilt} />
       <div className="cut-result__weights">
         <div><span>왼쪽</span><strong>{formatGrams(left)}</strong></div>
@@ -144,13 +134,9 @@ export function CutResult({ comment, position, result, stick }) {
         <div><span>오른쪽</span><strong>{formatGrams(right)}</strong></div>
       </div>
       <div aria-label="양쪽 조각의 무게 구성" className="cut-result__mix">
-        <MixRow label="왼쪽" mix={composition(stick, 0, position)} scale={scale} total={left} />
-        <MixRow label="오른쪽" mix={composition(stick, position, stick.lengthCm ?? 12)} scale={scale} total={right} />
+        <MixRow label="왼쪽" mix={composition(stick, 0, position)} scale={scale} />
+        <MixRow label="오른쪽" mix={composition(stick, position, stick.lengthCm ?? 12)} scale={scale} />
       </div>
-      <p className="cut-result__verdict">
-        <span className="cut-result__points">+{result.score.toLocaleString("ko-KR")}</span>
-        <span className="cut-result__comment">{comment}</span>
-      </p>
     </div>
   );
 }
