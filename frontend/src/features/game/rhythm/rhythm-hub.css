@@ -127,7 +127,7 @@
 .rhythm-game .rhythm-mode .eyebrow {
   color: var(--mode-ink);
 }
-/* 카드 그림: 카드 색보다 진한 원 위에 lucide 아이콘(사람 한 명, 트로피, 드럼)을 둔다. */
+/* 카드 그림(RhythmModeArt): 카드 색보다 진한 원 위에 안을 칠한 사람 한 명, 트로피, 드럼을 둔다. */
 .rhythm-game .rhythm-mode__art {
   display: grid;
   place-items: center;
@@ -142,6 +142,12 @@
   inline-size: 46px;
   block-size: 46px;
 }
+.rhythm-game .rhythm-mode__fill {
+  fill: var(--mode-art-fill);
+}
+.rhythm-game .rhythm-mode__skin {
+  fill: var(--mode-art-skin, #ffffff);
+}
 .rhythm-game .rhythm-mode--practice {
   --mode-bg: #e3edfb;
   --mode-hover-bg: #eef4fd;
@@ -150,6 +156,7 @@
   --mode-hover-line: #4f74b3;
   --mode-ink: #2459c4;
   --mode-art-bg: #c8dbf7;
+  --mode-art-fill: #7aa7ee;
 }
 .rhythm-game .rhythm-mode--record {
   --mode-bg: #fdf3cf;
@@ -159,6 +166,7 @@
   --mode-hover-line: #a8862a;
   --mode-ink: #855600;
   --mode-art-bg: #f7e3a2;
+  --mode-art-fill: #f5c533;
 }
 .rhythm-game .rhythm-mode--lesson {
   --mode-bg: #e4f2df;
@@ -168,6 +176,8 @@
   --mode-hover-line: #4f8a4a;
   --mode-ink: #276a35;
   --mode-art-bg: #c9e6c0;
+  --mode-art-fill: #6fbf72;
+  --mode-art-skin: #f6fbf3;
   grid-column: 1 / -1;
   /* 낮은 카드라 그림을 글 왼쪽에 두고, 그림과 글 묶음을 가운데에 놓는다. */
   grid-template-columns: auto minmax(0, max-content);

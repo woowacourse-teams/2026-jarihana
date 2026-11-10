@@ -9,7 +9,7 @@
   초대 링크, 준비, 방장 시작으로 이어 가고 1:1이라 인원 수는 표시하지 않는다.
 - `/games/rhythm-harpoon/single`은 싱글 플레이 화면이다. 위 줄에 혼자 연습과 공식 도전 카드를 크게 두고,
   아래 줄에 따라 하기 카드를 전체 너비로 둔다(휴대폰에서는 한 열). 카드는 밝은 색이며 혼자 연습은 파랑,
-  공식 도전은 노랑, 따라 하기는 초록 계열로 구분하고, 각 카드에 lucide 아이콘(사람 한 명, 트로피, 드럼)을 둔다.
+  공식 도전은 노랑, 따라 하기는 초록 계열로 구분하고, 각 카드에 안을 칠한 그림(사람 한 명, 트로피, 드럼)을 둔다.
   소리 이름(빨강 쿵, 파랑 착, 노랑 치)과 패턴 악보는 따라 하기 화면의 서랍에서 보여 주므로 여기에는 두지 않는다.
   따라 하기를 마치거나 건너뛰기 전에는 따라 하기 카드에 "처음이라면" 배지를 붙인다.
   공식 도전은 `/games/rhythm-harpoon/challenge`로 이동한다(아래 공식 도전 절).
@@ -70,6 +70,7 @@ Easy와 Medium은 첫 루프를 버티기 쉬워서 일찍 빨라지게 했고, 
 | `mount-lesson-game.mjs` | 따라 하기의 판, 입력, 음악 시계 실행 수명 |
 | `notation.mjs`, `RhythmScore.jsx` | 한 마디 리듬 악보 배치와 그리기 |
 | `RhythmBoardArt.jsx` | 첫 화면 카드의 판 그림 |
+| `RhythmModeArt.jsx` | 싱글 플레이 카드의 사람, 트로피, 드럼 그림(lucide 모양을 바탕으로 안을 칠함) |
 | `pages/games/RhythmHarpoonEntryPage.jsx`, `RhythmHarpoonSinglePage.jsx`, `RhythmHarpoonLessonPage.jsx` | 첫 화면, 싱글 플레이, 따라 하기 |
 | `ranked-run.mjs` | 공식 도전의 시드 랜덤, 서버와 같은 순서의 입력 처리, 입력 묶음과 순차 전송 |
 | `mount-ranked-game.mjs`, `RhythmRankedBoard.jsx` | 공식 도전 판의 실행 수명, 묶음 전송, 이탈 시 무효 |
