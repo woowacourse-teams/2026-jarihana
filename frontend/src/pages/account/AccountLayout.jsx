@@ -1,12 +1,13 @@
 import { Link } from "react-router";
 
-export function AccountLayout({ eyebrow, title, description, children, compact = false }) {
+export function AccountLayout({ eyebrow, title, visuallyHideTitle = false, description, headingAside, children, compact = false, className = "" }) {
   return (
-    <div className={`account-page${compact ? " account-page--compact" : ""}`}>
-      <header className="account-heading">
+    <div className={["account-page", compact && "account-page--compact", className].filter(Boolean).join(" ")}>
+      <header className={`account-heading${headingAside ? " account-heading--split" : ""}`}>
         {eyebrow ? <p className="account-eyebrow">{eyebrow}</p> : null}
-        <h1 className="account-heading__title">{title}</h1>
-        {description ? <p>{description}</p> : null}
+        <h1 className={`account-heading__title${visuallyHideTitle ? " ui-sr-only" : ""}`}>{title}</h1>
+        {description ? <p className="account-heading__description">{description}</p> : null}
+        {headingAside ? <div className="account-heading__aside">{headingAside}</div> : null}
       </header>
       <div className={compact ? "account-page__content account-page__content--compact" : "account-page__content"}>
         {children}

@@ -1,10 +1,12 @@
 -- 비동기 조회와 잠금 순서가 뒤집히지 않도록 참조 테이블을 CASCADE에 맡기지 않는다.
 -- SSE는 주제 revision을 먼저 읽으므로 sparring_topic을 의견·투표보다 먼저 잠근다.
 TRUNCATE TABLE
+    point_group_origin,
     minigame_cut,
     minigame_run,
     rhythm_challenge_batch,
     rhythm_challenge,
+    member_activity,
     chat_read_state,
     chat_message,
     chat_room,

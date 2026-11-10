@@ -57,6 +57,26 @@ frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 
 운영에서는 `tree-<backend 트리 해시>` 또는 지정 SHA를 실제 `sha256` digest로 해석해 고정한다.
 프론트엔드는 릴리스와 같은 소스 SHA로 빌드하고 같은 실행에서 반환한 artifact ID로 전달한다.
 
+### 운영 백엔드의 Compose 선택
+
+릴리스 Compose 지원을 설치한 뒤 운영 백엔드 배포의 `prepare` 단계는 배포 대상 `main` 커밋의
+`app-compose.yml`을 사용한다.
+앱 runner는 체크아웃 SHA를 배포 요청과 대조하고, 해당 커밋의 Git 객체에서 파일을 읽는다.
+이미지 digest는 배포 저널에, Compose의 커밋과 파일 SHA-256은 prepare 로그에 기록한다.
+
+릴리스에서 자동으로 적용할 수 있는 변경은 backend의 `environment`에서 허용 목록에 등록한
+선택 환경변수 전달 줄이다. 현재는 `POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"`만 허용한다.
+이미지, DB 주소 구성, 포트, 워커 시작 상태 등 나머지 내용은 승인된 제어 태그의 템플릿과 같아야 한다.
+운영 배포의 `resolve`는 대기 EC2를 켜기 전에 두 파일을 비교한다. 앱 runner의 `prepare`도
+같은 규칙으로 배포 커밋의 파일을 다시 비교하고, Compose 파싱까지 통과한 뒤 대기 컨테이너를 바꾼다.
+GitHub Variables와 Secrets는 기존 앱 작업 workflow에서 전달한다.
+
+이 workflow를 `main`에 반영하기 전에 `APP_RELEASE_COMPOSE_CAPABILITY=1`과 공통 비교 스크립트
+`release-compose.sh`가 들어 있는 제어 태그를 [제어 버전 교체 절차](control-upgrade.md)에 따라
+설치한다. 구형 제어 태그로는 운영 백엔드 배포가 이미지 선택 단계에서 중단된다.
+이후 보호 설정을 바꾸는 Compose 변경은 그 변경을 포함한 제어 태그의 설치와 함께 반영한다.
+허용 목록의 앱 환경변수 전달 줄은 릴리스와 함께 자동으로 적용된다.
+
 ### 정상 배포 순서
 
 ```text

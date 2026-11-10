@@ -1,9 +1,4 @@
-import {
-  DEFAULT_LESSON_SETTINGS,
-  LESSON_SAMPLE_RATE,
-  LESSON_TAIL_BARS,
-  lessonDrumHits
-} from "./lesson.mjs";
+import { LESSON_SAMPLE_RATE, LESSON_TAIL_BARS, lessonDrumHits } from "./lesson.mjs";
 
 // 따라 하기 배경음은 녹음된 곡 없이 Web Audio로 만든 드럼 비트다.
 function noiseBuffer(context) {
@@ -98,11 +93,4 @@ export function renderLessonTrack(createOfflineContext, stepIndex, { bpm, bars }
   const context = createOfflineContext(1, Math.ceil(duration * LESSON_SAMPLE_RATE), LESSON_SAMPLE_RATE);
   scheduleHits(context, masterBus(context, 0.9), lessonDrumHits(stepIndex, { bpm, bars }), 0);
   return context.startRendering();
-}
-
-// 시작 화면의 소리 버튼: 한 마디만 바로 들려주고 끝나는 시각(초)을 돌려준다.
-export function playLessonPreview(context, stepIndex, bpm = DEFAULT_LESSON_SETTINGS.bpm) {
-  const start = context.currentTime + 0.06;
-  scheduleHits(context, masterBus(context, 0.6), lessonDrumHits(stepIndex, { bpm, bars: 1 }), start);
-  return (60 / bpm) * 4 + 0.4;
 }

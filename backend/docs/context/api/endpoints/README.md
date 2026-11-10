@@ -15,6 +15,8 @@
 | 회원 아바타 | `GET` | `/api/members/me/avatar` | `MEMBER` | [내 저장 외형 또는 기본형 조회](member-avatar.md) |
 | 회원 아바타 | `PUT` | `/api/members/me/avatar` | `MEMBER` | 내 외형 전체 생성·교체 |
 | 회원 아바타 | `DELETE` | `/api/members/me/avatar` | `MEMBER` | 저장 조합 삭제, 기본형 복귀 |
+| 포인트 | `GET` | `/api/members/me/points` | `MEMBER` | 잔액, 처리 상태와 주간 한도 조회 |
+| 포인트 | `GET` | `/api/members/me/points/transactions` | `MEMBER` | 본인 적립 내역 커서 조회 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
@@ -25,6 +27,7 @@
 | 채팅 | `POST` | `/api/groups/{groupId}/chat/messages` | `MEMBER + 현재 소속` | 멱등 메시지 저장 |
 | 채팅 | `PUT` | `/api/groups/{groupId}/chat/read` | `MEMBER + 현재 소속` | 단조 읽음 갱신 |
 | 채팅 | `GET Upgrade` | `/api/ws/chat` | `MEMBER` | 인증된 개인 STOMP 경로 |
+| 채팅 활성 | `STOMP SEND` | `/app/presence/active` | `MEMBER` | 기존 채팅 소켓의 계정 활성 보고, 빈 본문 |
 | 초대 | `POST` | `/api/groups/{groupId}/invitations` | `MEMBER + 현재 소속` | 활성 모임의 지정/공유 초대 발급과 요청 재시도 처리 |
 | 초대 | `GET` | `/api/groups/{groupId}/invitation-candidates` | `MEMBER + 현재 소속` | 활성 모임의 지정 초대 후보를 제한된 회원 정보로 검색 |
 | 초대 | `GET` | `/api/invitations/received` | `MEMBER` | 본인에게 온 지정 초대와 현재 상태 조회 |
@@ -152,6 +155,7 @@
 
 | 분류 | 문서 | 내용 |
 | --- | --- | --- |
+| 포인트 | [points.md](points.md) | 잔액, 주간 한도와 적립 내역 |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
 | 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |

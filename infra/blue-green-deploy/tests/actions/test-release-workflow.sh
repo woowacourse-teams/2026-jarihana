@@ -73,6 +73,39 @@ if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/conflict.l
 echo 'PASS release-workflow conflicting_scopes_rejected_before_mutation'
 INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false BEFORE_SHA=1111111111111111111111111111111111111111
 GITHUB_EVENT_NAME=push
+export CHANGE_SCOPE=backend
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/old-app.log" 2>&1; then exit 1; fi
+[[ ! -e $DOCKER_TRACE ]]
+grep -q 'lacks release Compose capability' "$TEST_DIR/old-app.log"
+echo 'PASS release-workflow old_app_control_rejected_for_backend_release'
+printf '%s\n' '# APP_RELEASE_COMPOSE_CAPABILITY=1' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/app.sh"
+cp "$ROOT/infra/blue-green-deploy/scripts/actions/release-compose.sh" \
+  "$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/"
+compose=infra/blue-green-deploy/controller/app-compose.yml
+approved_compose=$TEST_DIR/deployment-control/$compose
+release_compose=$TEST_DIR/source/$compose
+mkdir -p "$(dirname "$approved_compose")" "$(dirname "$release_compose")"
+cat >"$approved_compose" <<'COMPOSE'
+services:
+  backend:
+    image: backend:test
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      APP_ENV: test
+COMPOSE
+sed 's/127\.0\.0\.1:/0.0.0.0:/' "$approved_compose" >"$release_compose"
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/compose-mismatch.log" 2>&1; then
+  echo 'resolve accepted a protected Compose change' >&2
+  exit 1
+fi
+[[ ! -e $DOCKER_TRACE ]]
+grep -q 'Release Compose differs from protected control settings' "$TEST_DIR/compose-mismatch.log"
+echo 'PASS release-workflow protected_compose_change_rejected_before_image_resolution'
+awk '{
+  print
+  if ($0 == "    environment:") print "      POINTS_STARTS_AT: \"${POINTS_STARTS_AT:-}\""
+}' "$approved_compose" >"$release_compose"
 for scope in backend frontend both infra; do
   export CHANGE_SCOPE=$scope
   : >"$GITHUB_OUTPUT"

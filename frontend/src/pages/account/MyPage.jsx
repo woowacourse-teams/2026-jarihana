@@ -1,3 +1,4 @@
+import { ClipboardList, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -10,6 +11,7 @@ import { Card, Skeleton } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 import { positiveFocusId, useNotificationFocus } from "./useNotificationFocus.js";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
+import { PointBalanceCard } from "./MyPointsPage.jsx";
 import {
   flattenPages,
   memberMetaLabel,
@@ -223,6 +225,7 @@ export function MyPage() {
     <AccountLayout
       title="마이페이지"
       description="가입한 모임과 신청 내역을 한곳에서 확인하세요."
+      headingAside={<PointBalanceCard />}
     >
       <div className="my-dashboard">
         <aside className="profile-column">
@@ -239,7 +242,7 @@ export function MyPage() {
           {focusStatus === "missing" ? <p role="status">알림에 해당하는 항목을 찾을 수 없어요. 탈퇴했거나 기록이 삭제되었을 수 있어요.</p> : null}
           {focusStatus === "error" ? <p role="alert">알림에 해당하는 항목을 불러오지 못했어요. 페이지를 새로고침해 주세요.</p> : null}
           <Card as="section" className="dashboard-panel">
-            <h2>내 모임</h2>
+            <h2><UsersRound aria-hidden="true" size={19} />내 모임</h2>
             <div aria-label="내 모임 유형" className="dashboard-counts" role="tablist">
               {groupTabs.map((tab) => (
                 <button
@@ -270,7 +273,7 @@ export function MyPage() {
             />
           </Card>
           <Card as="section" className="dashboard-panel">
-            <h2>내 신청</h2>
+            <h2><ClipboardList aria-hidden="true" size={19} />내 신청</h2>
             <div aria-label="내 신청 상태" className="dashboard-counts" role="tablist">
               {registrationTabs.map((tab) => (
                 <button

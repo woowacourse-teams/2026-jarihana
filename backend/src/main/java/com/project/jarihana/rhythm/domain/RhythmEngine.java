@@ -71,7 +71,7 @@ public final class RhythmEngine {
         for (RhythmLane lane : LANES) {
             laneNotes.put(lane, new ArrayList<>());
         }
-        double rate = rateForLoop(startLoop);
+        double rate = rateForLoop(startLoop, levelChart.speedUpFromLoop());
         double countInDuration = ((60 / chart.bpm()) * 4) / rate;
         double leadIn = Math.max(countInDuration, APPROACH_SECONDS / this.scrollSpeed / rate);
         appendLoop(startLoop, leadIn, LANES);
@@ -89,8 +89,9 @@ public final class RhythmEngine {
         return new RhythmEngine(chart, level, scrollSpeed, seed, startLoop);
     }
 
-    static double rateForLoop(int loopNumber) {
-        return Math.round((1 + Math.max(0, loopNumber - 5) * 0.05) * 100) / 100.0;
+    static double rateForLoop(int loopNumber, int speedUpFromLoop) {
+        int spedUpLoops = Math.max(0, loopNumber - speedUpFromLoop + 1);
+        return Math.round((1 + spedUpLoops * 0.05) * 100) / 100.0;
     }
 
     /**
@@ -114,7 +115,7 @@ public final class RhythmEngine {
     }
 
     private void appendLoop(int number, double start, List<RhythmLane> map) {
-        double rate = rateForLoop(number);
+        double rate = rateForLoop(number, levelChart.speedUpFromLoop());
         double duration = chart.durationSeconds() / rate;
         List<RhythmChart.Staircase> staircases = levelChart.staircasesFor(map);
         loops.add(new Loop(number, start, start + duration, List.copyOf(map)));

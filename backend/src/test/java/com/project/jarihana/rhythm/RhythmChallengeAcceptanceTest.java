@@ -58,7 +58,7 @@ class RhythmChallengeAcceptanceTest extends IntegrationTestSupport {
                 .body("data.level", equalTo("EASY"))
                 .body("data.scrollSpeed", equalTo(1.5f))
                 .body("data.seed", notNullValue())
-                .body("data.rulesVersion", equalTo("rhythm-harpoon-ranked-3"))
+                .body("data.rulesVersion", equalTo("rhythm-harpoon-ranked-4"))
                 .body("data.chartVersion", equalTo("bars-13-16-1"))
                 .body("data.lives", equalTo(10));
     }

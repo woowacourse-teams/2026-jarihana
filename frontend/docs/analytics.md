@@ -371,15 +371,15 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 
 리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
 준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
-소리 미리 듣기는 `rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`,
-접힌 튜토리얼 펼치기는 `rhythm_tutorial_toggle`, 따라 하기 진입은 `rhythm_lesson_open`,
-혼자 연습은 `rhythm_practice_open`, 공식 도전은 `rhythm_ranked_open`이다.
+따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 공식 도전은 `rhythm_ranked_open`이다.
+예전 싱글 플레이 화면의 소리 미리 듣기(`rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`)와
+접힌 튜토리얼 펼치기(`rhythm_tutorial_toggle`)는 화면에서 빠져 더 이상 기록되지 않는다.
 공식 도전 화면의 난이도 선택은 `rhythm_challenge_level_select`, 배속 선택은 `rhythm_challenge_speed_change`,
 입력 지연 보정 슬라이더는 `rhythm_challenge_offset_change`이며 싱크 진단 창은 연습과 같은 `rhythm_sync_*` 식별자를 쓴다.
 다음 단계는 `rhythm_challenge_next`, 도전 만들기는 `rhythm_challenge_start`, 판의 시작 버튼은 `rhythm_challenge_play`,
 옵션으로 돌아가기는 `rhythm_challenge_options`, 다시 도전은 `rhythm_challenge_retry`이다. 판의 Canvas 포커스는
 `rhythm_challenge_arena_focus`, 터치 방향 버튼은 `rhythm_challenge_input_left`, `rhythm_challenge_input_down`,
-`rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 결과 옆 랭킹의 더 보기와 다시 불러오기는
+`rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 옵션과 결과 옆 랭킹의 더 보기와 다시 불러오기는
 `rhythm_ranking_more`, `rhythm_ranking_retry`이다. 공식 도전의 점수와 입력은 분석 이벤트로 보내지 않는다.
 따라 하기와 연습 화면의 싱글 플레이 복귀는 `rhythm_single_back`이다. 따라 하기의 단계 선택은
 `rhythm_lesson_step_kung`, `rhythm_lesson_step_chak`, `rhythm_lesson_step_chi`, 빠르기는

@@ -58,7 +58,7 @@ const created = {
   level: "HARDEST",
   scrollSpeed: 2,
   seed: 987654,
-  rulesVersion: "rhythm-harpoon-ranked-3",
+  rulesVersion: "rhythm-harpoon-ranked-4",
   chartVersion: "bars-13-16-1",
   status: "CREATED"
 };
@@ -117,7 +117,7 @@ it("walks from options to a confirmed challenge with the server seed", async () 
     level: "hardest",
     scrollSpeed: 2,
     chartVersion: "bars-13-16-1",
-    rulesVersion: "rhythm-harpoon-ranked-3"
+    rulesVersion: "rhythm-harpoon-ranked-4"
   });
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
 });
@@ -159,6 +159,19 @@ it("summarizes the options and the no-pause rules before starting", () => {
   expect(screen.getByRole("heading", { name: "옵션 설정" })).toBeInTheDocument();
 });
 
+it("shows the chosen level ranking next to the options and follows a new level choice", () => {
+  render(<RhythmHarpoonChallengePage />);
+  const options = screen.getByRole("region", { name: "옵션 설정" });
+  expect(screen.getByRole("region", { name: "Easy 랭킹" }).parentElement).toBe(options.parentElement);
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("easy");
+  fireEvent.click(screen.getByRole("button", { name: /Medium/ }));
+  const ranking = screen.getByRole("region", { name: "Medium 랭킹" });
+  expect(ranking.parentElement).toBe(options.parentElement);
+  expect(screen.queryByRole("region", { name: "Easy 랭킹" })).not.toBeInTheDocument();
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("medium");
+  expect(within(ranking).getByText("2위")).toBeInTheDocument();
+});
+
 it("shows the server result next to the level ranking with the player marked", async () => {
   await reachBoard();
   fireEvent.click(screen.getByRole("button", { name: "finish" }));
@@ -170,7 +183,8 @@ it("shows the server result next to the level ranking with the player marked", a
   expect(useRhythmRanking).toHaveBeenCalledWith("hardest");
   const rows = within(ranking).getAllByRole("listitem");
   expect(rows).toHaveLength(2);
-  expect(rows[1]).toHaveClass("is-mine");
+  expect(rows[0]).toHaveClass("is-gold");
+  expect(rows[1]).toHaveClass("is-silver", "is-mine");
   expect(rows[1]).toHaveTextContent("나");
   expect(within(ranking).getByText("2위")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "다시 도전" }));
