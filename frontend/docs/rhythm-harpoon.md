@@ -18,7 +18,8 @@
   ×1.0~×2.5에서 고르고, 패턴은 두 마디마다 좌우와 상하를 바꾸는 두 방향 트릴이다. 배경음은 녹음된 곡 없이
   Web Audio로 만든 드럼 비트이며 본편보다 1.5배 크게 섞는다. 단계 완료와 건너뛰기 여부는 이 브라우저의
   `haengseong-lesson-v1`에만 저장한다.
-- `/games/rhythm-harpoon/practice`는 Pixel Circuit 원곡 연습 플레이다. 상단 링크는 싱글 플레이로 돌아가고,
+- `/games/rhythm-harpoon/practice`는 Pixel Circuit 연습 플레이다. Easy~Hardest는 원곡, 번외 난이도 ANOTHER는
+  스윙 편곡을 친다(아래 ANOTHER 스윙 스테이지 절). 상단 링크는 싱글 플레이로 돌아가고,
   색 범례를 소리 이름과 함께 보여 주며 세균 위 소리 글자 표시를 켜고 끌 수 있다(기본 켬).
 - 연습과 따라 하기의 판은 데스크톱에서 앱 헤더와 도구 막대를 뺀 화면 높이를 모두 쓴다. 연습 판 왼쪽에는 폭이 고정된
   난이도 열을 두어 난이도 설명 길이와 관계없이 판 위치가 바뀌지 않게 한다. 난이도 버튼은 Easy 초록, Medium 파랑,
@@ -240,7 +241,7 @@ python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --c
 `assets/sprites-clay-v1.png`는 승인한 클레이 시안의 배경을 제거한 1254×1254 RGBA 이미지다.
 `sprite-atlas.mjs`의 URL, 시트 크기와 프레임 좌표를 연습, 따라 하기, 메뉴의 판 그림과 결과 화면이 공유한다.
 행성이 표정 4개, 세균의 기본/포획 상태 4색, 작살, 포획 효과와 하트를 기존 인덱스 순서로 유지한다.
-초록색은 기타 박자를 위한 예비 프레임이며 현재 채보에 새 노트를 추가하지 않는다.
+초록색은 16분 격자 밖 박자를 위한 프레임이며 ANOTHER 스윙 채보에서 쓴다.
 원본 `sprites.png`는 보존한다.
 
 내장 `image_gen`으로 승인 시안에 아래 프롬프트를 적용했다.
@@ -254,6 +255,22 @@ Remove the ivory studio background AND ALL shadows beneath the objects. Deliver 
 Keep all four white mascot faces complete, including the separate yellow emphasis marks of the hurt expression, all eight colored germ shapes, arrow, impact star and heart. No text, labels, grids, frames or new elements.
 This is precise background removal of the existing approved image, not a new style variation.
 ```
+
+## ANOTHER 스윙 스테이지
+
+ANOTHER는 Pixel Circuit을 144 BPM, 8분 스윙(2:1)으로 편곡한 번외 스테이지다. 연습에서만 고를 수 있고
+공식 도전과 랭킹에는 넣지 않는다. 그래서 난이도 정의는 공식 도전의 `LEVELS`와 분리한 `PRACTICE_LEVELS`에 둔다.
+
+- 음원은 `pixel-circuit-swing.ogg`(48마디, 80초 루프)이고 원곡과 음량을 맞췄다(약 -13.8 LUFS).
+  채보 `swing-chart.json`은 단순화 없이 그대로 치며(348타, 노트 381개, 동시타 33), 고를 때 처음 한 번만 받는다.
+- 채보는 박을 6 tick으로 나눈 셋잇단 격자라 step이 정수가 아니다. 색은 다른 난이도와 같은 `noteColor`로
+  박 안 위치를 따른다. 정박은 빨강, 박의 1/3과 2/3 자리(스윙 엇박과 셋잇단)는 초록이다.
+- 회오리 대신 셋잇단 계단을 둔다. 39~40마디는 `awdawdasdasdawdasdawdasd`, 48마디는 `awdawdawdawd`
+  (a 왼쪽, s 아래, d 오른쪽, w 위)이다. 계단 구간(`pattern: "stairs"`)은 루프마다 레인을 섞지 않고 통째로 돌리며,
+  앞뒤 노트와 같은 레인을 8/3 step(한 박의 2/3) 안에 두지 않는다.
+- 48마디 마지막 노트와 다음 루프 첫 노트는 139ms 간격이다. 둘이 같은 레인에 오면 다음 루프 배치를 다시 섞는다.
+  같은 레인 139ms 연타는 41~42마디의 셋잇단 2연타에만 나온다.
+- 라이프 10, 루프 완주 회복 5, 6루프부터 곡 배속 상승은 Hardest와 같다.
 
 ## 검증
 
