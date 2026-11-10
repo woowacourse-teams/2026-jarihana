@@ -21,9 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.project.jarihana.points.config.PointRewardRules.ACTIVITY_POST;
-import static com.project.jarihana.points.config.PointRewardRules.GOMOKU_WIN;
-
 @RestController
 @RequestMapping("/members/me/points")
 @RequiredArgsConstructor
@@ -35,7 +32,7 @@ public class PointQueryController {
     public ResponseEntity<ApiResponse<SummaryResponse>> findSummary(@LoginMember long memberId) {
         var result = queries.summary(memberId);
         return ResponseEntity.ok(ApiResponse.success(new SummaryResponse(result.enabled(), result.balance(), result.processing(),
-                result.quotaFor(GOMOKU_WIN.code()), result.quotaFor(ACTIVITY_POST.code()), result.resetsAt(),
+                result.resetsAt(),
                 result.weeklyQuotas().stream().map(WeeklyQuotaResponse::from).toList())));
     }
 
@@ -52,7 +49,7 @@ public class PointQueryController {
                 result.nextCursor(), result.hasNext())));
     }
 
-    public record SummaryResponse(boolean enabled, long balance, boolean processing, Quota gomokuWeekly, Quota activityPostWeekly,
+    public record SummaryResponse(boolean enabled, long balance, boolean processing,
                                   LocalDateTime resetsAt, List<WeeklyQuotaResponse> weeklyQuotas) {
     }
 

@@ -14,7 +14,6 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notificationdelivery.command.service.WorkerAdmissionController;
-import com.project.jarihana.points.config.PointPolicy;
 import com.project.jarihana.points.domain.PointReward;
 import com.project.jarihana.points.domain.PointReward.SkipReason;
 import com.project.jarihana.points.domain.PointRewardRule;
@@ -39,6 +38,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,6 +70,8 @@ import static org.hamcrest.Matchers.nullValue;
 @Import(PointAcceptanceTest.ExtraRewardRules.class)
 class PointAcceptanceTest extends IntegrationTestSupport {
     private static final String POINTS = "/members/me/points";
+    private static final String GOMOKU_QUOTA = "data.weeklyQuotas.find { it.reason == 'GOMOKU_WIN' }.quota";
+    private static final String ACTIVITY_QUOTA = "data.weeklyQuotas.find { it.reason == 'ACTIVITY_POST' }.quota";
     private static final String GOMOKU_ROOMS = "/games/gomoku/rooms";
     @Autowired private PointRewardService rewards;
     @Autowired private PointRewardWorker worker;
@@ -244,7 +248,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         request(winner).get(POINTS).then().statusCode(200)
-                .body("data.balance", equalTo(150)).body("data.gomokuWeekly.completed", equalTo(3));
+                .body("data.balance", equalTo(150)).body(GOMOKU_QUOTA + ".completed", equalTo(3));
         assertThat(jdbc.queryForObject("select skip_reason from point_reward where source_key = 'game:4'", String.class))
                 .isEqualTo("WEEKLY_LIMIT");
     }
@@ -417,27 +421,6 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isEqualTo(3);
     }
 
-    @DisplayName("이전 정책에서 예약한 5P는 보존하고 새 오목 승리에는 50P를 적립한다.")
-    @Test
-    void keepsReservedAmountsWhenRewardPolicyChanges() {
-        long winner = member("가온", "21001").getId();
-
-        // Given
-        transaction.executeWithoutResult(status -> rewards.gomokuWon(1, winner, true, FIXED_NOW));
-        jdbc.update("update point_reward set amount = 5, policy_version = 2 where source_key = 'game:1'");
-
-        // When
-        transaction.executeWithoutResult(status -> rewards.gomokuWon(2, winner, true, FIXED_NOW));
-        worker.processDue();
-
-        // Then
-        request(winner).get(POINTS).then().statusCode(200).body("data.balance", equalTo(55));
-        request(winner).get(POINTS + "/transactions").then().statusCode(200)
-                .body("data.items.amount", equalTo(List.of(50, 5)));
-        assertThat(jdbc.queryForObject("select policy_version from point_reward where source_key = 'game:2'",
-                Integer.class)).isEqualTo(PointPolicy.VERSION);
-    }
-
     @DisplayName("동시에 적립을 예약해도 대국이 끝난 주의 3회 한도와 대국별 중복 방지를 지킨다.")
     @Test
     void reservesWeeklyQuotaAtTheTimeOfTheGame() throws Exception {
@@ -451,7 +434,7 @@ class PointAcceptanceTest extends IntegrationTestSupport {
             rewards.gomokuWon(4, winner, false, FIXED_NOW);
         });
         request(winner).get(POINTS).then().statusCode(200)
-                .body("data.gomokuWeekly.pending", equalTo(2)).body("data.gomokuWeekly.remaining", equalTo(1))
+                .body(GOMOKU_QUOTA + ".pending", equalTo(2)).body(GOMOKU_QUOTA + ".remaining", equalTo(1))
                 .body("data.weeklyQuotas.find { it.reason == 'GOMOKU_WIN' }.quota.pending", equalTo(2));
 
         try (var pool = Executors.newFixedThreadPool(4)) {
@@ -468,13 +451,13 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         }
 
         request(winner).get(POINTS).then().statusCode(200).body("data.balance", equalTo(0))
-                .body("data.gomokuWeekly.pending", equalTo(3)).body("data.gomokuWeekly.remaining", equalTo(0));
+                .body(GOMOKU_QUOTA + ".pending", equalTo(3)).body(GOMOKU_QUOTA + ".remaining", equalTo(0));
         CompletableFuture.allOf(
                 CompletableFuture.runAsync(worker::processDue),
                 CompletableFuture.runAsync(worker::processDue)
         ).get(10, TimeUnit.SECONDS);
         request(winner).get(POINTS).then().body("data.balance", equalTo(200))
-                .body("data.gomokuWeekly.completed", equalTo(3));
+                .body(GOMOKU_QUOTA + ".completed", equalTo(3));
         request(winner).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items.size()", equalTo(8))
                 .body("data.items.findAll { it.skipReason == 'WEEKLY_LIMIT' }.size()", equalTo(3));
@@ -565,25 +548,29 @@ class PointAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
-    void olderMembershipAndNewJoinShareTheFirstJoinAward() {
-        LocalDateTime older = FIXED_NOW.minusMonths(1);
+    void manualGrantAndNewJoinShareTheFirstJoinAward() throws IOException {
+        String grant = Files.readString(Path.of("db/operations/points-first-join-grant.sql"))
+                .replace(":'member_id'", "?").replace(":'points_starts_at'", "?");
+        LocalDateTime databaseNow = jdbc.queryForObject(
+                "select CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul'", LocalDateTime.class);
+        LocalDateTime startsAt = databaseNow.minusWeeks(1);
+        LocalDateTime older = startsAt.minusWeeks(1);
         Member member = member("가온", "21001");
         Group group = groups.save(Group.createClub("기존 모임", "함께해요", null, null, null, older));
         jdbc.update("update groups set created_at = ? where id = ?", older.plusSeconds(1), group.getId());
         memberships.save(GroupMember.createLeader(group, member, older));
 
-        request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
-                .body("data.queued", equalTo(false));
+        assertThat(jdbc.queryForList(grant, member.getId(), startsAt, startsAt)).isEmpty();
 
         Group joinedGroup = groups.save(Group.createClub("위임받은 모임", "함께해요", null, null, null, older));
         jdbc.update("update groups set created_at = ? where id = ?", older.plusSeconds(1), joinedGroup.getId());
         memberships.save(GroupMember.createLeader(joinedGroup, member, older.plusDays(1)));
-        request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
-                .body("data.queued", equalTo(true));
-        request(member.getId()).post(POINTS + "/first-join-claim").then().statusCode(200)
-                .body("data.queued", equalTo(false));
-        transaction.executeWithoutResult(status -> rewards.groupJoined(group.getId() + 1, 12,
-                member.getId(), FIXED_NOW));
+        assertThat(jdbc.queryForList(grant, member.getId(), databaseNow.plusDays(1), databaseNow.plusDays(1))).isEmpty();
+        assertThat(jdbc.queryForList(grant, member.getId(), startsAt, startsAt)).hasSize(1);
+        assertThat(jdbc.queryForList(grant, member.getId(), startsAt, startsAt)).isEmpty();
+
+        transaction.executeWithoutResult(status -> rewards.groupJoined(joinedGroup.getId(), 12, member.getId(), FIXED_NOW));
+        jdbc.update("update point_reward set next_attempt_at = ? where member_id = ?", FIXED_NOW, member.getId());
         worker.processDue();
 
         request(member.getId()).get(POINTS).then().body("data.balance", equalTo(150));
@@ -613,6 +600,9 @@ class PointAcceptanceTest extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from point_ledger", Long.class)).isZero();
         assertThat(jdbc.queryForObject("select status from point_reward where source_key = 'post:10'",
                 String.class)).isEqualTo("NEEDS_REVIEW");
+        request(author).get(POINTS).then().statusCode(200)
+                .body("data.processing", equalTo(false))
+                .body(ACTIVITY_QUOTA + ".pending", equalTo(1));
         jdbc.update("update point_wallet set balance = 0 where member_id = ?", author);
         jdbc.update("update point_reward set status = 'PENDING', next_attempt_at = ? where status = 'NEEDS_REVIEW'",
                 FIXED_NOW);
@@ -640,15 +630,15 @@ class PointAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items[0].activityDate", equalTo(editedDate.toString()));
 
         publishActivity(author, group, originalDate);
-        request(author).get(POINTS).then().body("data.activityPostWeekly.pending", equalTo(1))
-                .body("data.activityPostWeekly.remaining", equalTo(1));
+        request(author).get(POINTS).then().body(ACTIVITY_QUOTA + ".pending", equalTo(1))
+                .body(ACTIVITY_QUOTA + ".remaining", equalTo(1));
         publishActivity(author, group, editedDate);
         publishActivity(author, group, editedDate.minusDays(1));
         worker.processDue();
 
         // Then
         request(author).get(POINTS).then().body("data.balance", equalTo(500))
-                .body("data.activityPostWeekly.completed", equalTo(2));
+                .body(ACTIVITY_QUOTA + ".completed", equalTo(2));
         request(author).get(POINTS + "/transactions").then().statusCode(200)
                 .body("data.items[0].skipReason", equalTo("WEEKLY_LIMIT"))
                 .body("data.items[1].status", equalTo("COMPLETED"))

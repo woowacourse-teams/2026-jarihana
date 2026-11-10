@@ -4,7 +4,6 @@ import { useState } from "react";
 import { NotificationSessionBoundary } from "../features/notifications/NotificationSessionBoundary";
 import { AuthProvider } from "../features/auth";
 import { ChatSessionProvider } from "../features/chat/ChatSessionProvider";
-import { PointSessionClaim } from "../features/points/hooks";
 import { ToastProvider } from "../shared/ui";
 
 export function createAppQueryClient() {
@@ -26,7 +25,6 @@ export function AppProviders({ children }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PointSessionClaim />
         <ToastProvider><NotificationSessionBoundary /><ChatSessionProvider>{children}</ChatSessionProvider></ToastProvider>
       </AuthProvider>
     </QueryClientProvider>

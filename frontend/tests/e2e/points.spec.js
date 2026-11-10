@@ -8,44 +8,31 @@ const events = [
     completedAt: "2026-11-06T14:00:00" },
   { id: "4", reason: "MEMBER_SIGNUP", label: "서비스 가입", amount: 200, status: "COMPLETED", skipReason: null,
     occurredAt: "2026-11-06T11:00:00", completedAt: "2026-11-06T11:00:00" },
-  { id: "1", reason: "GOMOKU_WIN", amount: 5, status: "SKIPPED", skipReason: "SAME_OPPONENT", completedAt: null,
-    occurredAt: "2026-10-30T13:50:00" },
-  { id: "0", reason: "GOMOKU_WIN", amount: 5, status: "SKIPPED", skipReason: "WEEKLY_LIMIT", completedAt: null,
+  { id: "0", reason: "GOMOKU_WIN", amount: 50, status: "SKIPPED", skipReason: "WEEKLY_LIMIT", completedAt: null,
     occurredAt: "2026-10-29T13:50:00" }
 ].map((event) => ({ occurredAt: "2026-11-06T13:50:00", ...event }));
 
-async function setup(page, { claimFailures = 0 } = {}) {
+async function setup(page, { needsReview = false } = {}) {
   const state = await installApiFixture(page);
   let settled = false;
-  let claimAttempts = 0;
-  let claimed = false;
+  const reads = { summary: 0, history: 0 };
   await page.route("**/api/members/me/points**", async (route) => {
     const url = new URL(route.request().url());
     const reply = (data) => route.fulfill({ json: { success: true, data, error: null } });
-    if (url.pathname.endsWith("/first-join-claim")) {
-      claimAttempts++;
-      if (claimAttempts <= claimFailures) {
-        return route.fulfill({
-          status: 503,
-          json: { success: false, data: null, error: { code: "TEMPORARILY_UNAVAILABLE", message: "Fixture unavailable" } }
-        });
-      }
-      const queued = claimFailures > 0 && !claimed;
-      claimed ||= queued;
-      return reply({ queued });
-    }
     if (url.pathname.endsWith("/transactions")) {
+      reads.history++;
       const next = url.searchParams.has("cursor");
-      const first = settled ? { ...events[0], status: "COMPLETED", completedAt: "2026-11-06T14:00:00" } : events[0];
+      const first = { ...events[0] };
+      if (settled) Object.assign(first, { status: "COMPLETED", completedAt: "2026-11-06T14:00:00" });
+      if (needsReview) first.status = "NEEDS_REVIEW";
       return reply({ items: next ? events.slice(3) : [first, ...events.slice(1, 3)], hasNext: !next, nextCursor: next ? null : "next" });
     }
+    reads.summary++;
     const gomokuWeekly = { limit: 3, completed: settled ? 3 : 2, pending: settled ? 0 : 1, remaining: 0 };
     return reply({
       enabled: true,
-      processing: !settled,
-      balance: (settled ? 700 : 650) + (claimed ? 150 : 0),
-      gomokuWeekly,
-      activityPostWeekly,
+      processing: !settled && !needsReview,
+      balance: settled ? 700 : 650,
       resetsAt: "2026-11-09T00:00:00",
       weeklyQuotas: [
         { reason: "GROUP_CREATED", label: "모임 만들기", quota: { limit: 2, completed: 1, pending: 0, remaining: 1 } },
@@ -54,7 +41,7 @@ async function setup(page, { claimFailures = 0 } = {}) {
       ]
     });
   });
-  return { state, settle: () => { settled = true; }, claimAttempts: () => claimAttempts };
+  return { state, settle: () => { settled = true; }, reads };
 }
 
 for (const width of [390, 896, 1440, 1920]) {
@@ -99,7 +86,6 @@ for (const width of [390, 896, 1440, 1920]) {
       await expect(page.getByText("+50 P", { exact: true })).toBeVisible();
       await expect(page.getByRole("listitem").filter({ hasText: "서비스 가입" })).toContainText("+200 P");
       await page.getByRole("button", { name: "내역 더 보기" }).click();
-      await expect(page.getByText("대국한 날 같은 상대와의 적립 한도에 도달했어요.")).toBeVisible();
       await expect(page.getByText("활동한 주의 적립 한도에 도달했어요.")).toBeVisible();
       await assertSurface(page, state, { axe: true });
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
@@ -119,8 +105,6 @@ test("renders a new reward and quota from the server rule", async ({ page }) => 
     success: true,
     data: {
       enabled: true, balance: 7, processing: false, resetsAt: "2026-11-09T00:00:00",
-      gomokuWeekly: { limit: 3, completed: 0, pending: 0, remaining: 3 },
-      activityPostWeekly,
       weeklyQuotas: [{ reason, label, quota }]
     },
     error: null
@@ -151,14 +135,14 @@ test("pending points refresh while the member stays on the page", async ({ page 
   await expect(page.getByText("처리 중", { exact: true })).toHaveCount(0);
 });
 
-test("legacy reward recovers after two 503 responses in the same session", async ({ page }) => {
-  const { claimAttempts } = await setup(page, { claimFailures: 2 });
+test("shows a reward awaiting review without polling summary or history", async ({ page }) => {
+  await page.clock.install();
+  const { reads } = await setup(page, { needsReview: true });
   await page.goto("/my/points");
-  await expect(page.getByText("650 P", { exact: true })).toBeVisible();
-  await expect.poll(claimAttempts, { timeout: 10_000 }).toBe(2);
-  await page.getByRole("link", { name: "마이페이지로 돌아가기" }).click();
-  await page.getByRole("link", { name: "내역 보기" }).click();
+  await expect(page.getByText("지급 확인 중", { exact: true })).toBeVisible();
+  const initialReads = { ...reads };
 
-  await expect(page.getByText("800 P", { exact: true })).toBeVisible({ timeout: 17_000 });
-  expect(claimAttempts()).toBe(3);
+  await page.clock.runFor(15000);
+
+  expect(reads).toEqual(initialReads);
 });

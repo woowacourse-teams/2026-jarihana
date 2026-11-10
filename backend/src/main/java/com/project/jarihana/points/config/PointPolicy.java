@@ -9,7 +9,7 @@ import java.time.temporal.TemporalAdjusters;
 
 @Component
 public class PointPolicy {
-    public static final int VERSION = 4;
+    public static final int VERSION = 1;
 
     private final LocalDateTime startsAt;
 
@@ -19,10 +19,6 @@ public class PointPolicy {
 
     public boolean isActiveAt(LocalDateTime time) {
         return startsAt != null && !time.isBefore(startsAt);
-    }
-
-    public LocalDateTime startsAt() {
-        return startsAt;
     }
 
     public static LocalDateTime weekStart(LocalDateTime time) {

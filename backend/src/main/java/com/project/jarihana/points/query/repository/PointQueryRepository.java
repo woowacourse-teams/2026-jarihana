@@ -17,10 +17,10 @@ public class PointQueryRepository {
                 .param(memberId).query(Long.class).optional().orElse(0L);
     }
 
-    public boolean hasUnsettledRewards(long memberId) {
+    public boolean hasPendingRewards(long memberId) {
         return jdbc.sql("""
                 SELECT EXISTS (SELECT 1 FROM point_reward WHERE member_id = ?
-                    AND status IN ('PENDING', 'NEEDS_REVIEW'))
+                    AND status = 'PENDING')
                 """).param(memberId).query(Boolean.class).single();
     }
 

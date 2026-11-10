@@ -55,21 +55,6 @@ public class PointCommandRepository {
                 """).params(reason, limit).query(Long.class).list();
     }
 
-    public boolean hasOlderMembership(long memberId, LocalDateTime startsAt) {
-        return jdbc.sql("""
-                SELECT EXISTS (
-                    SELECT 1 FROM group_member membership
-                    JOIN groups ON groups.id = membership.group_id
-                    LEFT JOIN point_group_origin origin ON origin.group_id = groups.id
-                    WHERE membership.member_id = ? AND membership.joined_at < ?
-                      AND (CASE WHEN origin.group_id IS NOT NULL
-                           THEN origin.creator_member_id <> membership.member_id
-                           ELSE membership.joined_at > groups.created_at END)
-                )
-                """)
-                .params(memberId, startsAt).query(Boolean.class).single();
-    }
-
     public boolean hasSource(PointReward reward) {
         return jdbc.sql("""
                 SELECT EXISTS (SELECT 1 FROM point_reward WHERE member_id = ? AND reason = ? AND source_key = ?)
