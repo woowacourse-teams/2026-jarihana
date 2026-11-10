@@ -11,6 +11,7 @@
 | `content` | String | NOT NULL, 1~10,000자 | 일반 텍스트 본문 |
 | `scope` | enum | NOT NULL, `MEMBERS` 또는 `PUBLIC` | 조회할 수 있는 사용자 범위 |
 | `requestId` | UUID | NULL, 모임과 작성자별 고유 | 등록 재시도에서 같은 공지를 찾는다 |
+| `requestFingerprint` | String | NULL, SHA-256 16진수 64자 | 최초 등록의 제목, 내용, 공개 범위를 비교하며 공지를 수정해도 유지한다 |
 | `createdAt` | LocalDateTime | NOT NULL | 등록 시각이며 목록 정렬에 사용한다 |
 | `updatedAt` | LocalDateTime | NOT NULL | 공통 감사 필드 |
 | `deletedAt` | LocalDateTime | NULL | 숨긴 시각. 목록·상세 조회에서는 제외한다 |

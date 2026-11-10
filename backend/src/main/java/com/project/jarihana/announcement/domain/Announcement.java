@@ -20,7 +20,11 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -58,6 +62,9 @@ public class Announcement extends BaseEntity {
     @Column(name = "request_id")
     private UUID requestId;
 
+    @Column(name = "request_fingerprint", length = 64, updatable = false)
+    private String requestFingerprint;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -73,10 +80,11 @@ public class Announcement extends BaseEntity {
         this.content = requiredText(content, CONTENT_MAX_LENGTH, "본문");
         this.scope = Objects.requireNonNull(scope);
         this.requestId = requestId;
+        this.requestFingerprint = requestId == null ? null : fingerprint(this.title, this.content, this.scope);
     }
 
     private Announcement(Long id, Group group, Member author, String title, String content, AnnouncementScope scope,
-                         UUID requestId, LocalDateTime createdAt, LocalDateTime deletedAt) {
+                         UUID requestId, String requestFingerprint, LocalDateTime createdAt, LocalDateTime deletedAt) {
         super(Objects.requireNonNull(createdAt));
         this.id = id;
         this.group = Objects.requireNonNull(group);
@@ -85,6 +93,7 @@ public class Announcement extends BaseEntity {
         this.content = requiredText(content, CONTENT_MAX_LENGTH, "본문");
         this.scope = Objects.requireNonNull(scope);
         this.requestId = requestId;
+        this.requestFingerprint = requestFingerprint;
         this.deletedAt = deletedAt;
     }
 
@@ -98,22 +107,37 @@ public class Announcement extends BaseEntity {
         return new Announcement(group, author, title, content, scope, requestId, createdAt);
     }
 
-    public boolean hasSameContent(Announcement other) {
-        return title.equals(other.title) && content.equals(other.content) && scope == other.scope;
+    public boolean matchesCreationRequest(Announcement candidate) {
+        if (requestFingerprint == null) {
+            return title.equals(candidate.title) && content.equals(candidate.content) && scope == candidate.scope;
+        }
+        return requestFingerprint.equals(candidate.requestFingerprint);
     }
 
     public Announcement modify(String title, String content, AnnouncementScope scope) {
         if (deletedAt != null) {
             throw new BusinessException(ErrorCode.ANNOUNCEMENT_NOT_FOUND, "공지를 찾을 수 없습니다.");
         }
-        return new Announcement(id, group, author, title, content, scope, requestId, getCreatedAt(), null);
+        return new Announcement(id, group, author, title, content, scope, requestId, requestFingerprint,
+                getCreatedAt(), null);
     }
 
     public Announcement deleteAt(LocalDateTime now) {
         if (deletedAt != null) {
             throw new BusinessException(ErrorCode.ANNOUNCEMENT_NOT_FOUND, "공지를 찾을 수 없습니다.");
         }
-        return new Announcement(id, group, author, title, content, scope, requestId, getCreatedAt(), Objects.requireNonNull(now));
+        return new Announcement(id, group, author, title, content, scope, requestId, requestFingerprint,
+                getCreatedAt(), Objects.requireNonNull(now));
+    }
+
+    private static String fingerprint(String title, String content, AnnouncementScope scope) {
+        String request = title.length() + ":" + title + content.length() + ":" + content + scope.name();
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(request.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", exception);
+        }
     }
 
     private static String requiredText(String value, int maxLength, String field) {

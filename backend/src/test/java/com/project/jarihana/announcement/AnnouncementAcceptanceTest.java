@@ -93,6 +93,47 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("공지를 수정한 뒤에도 최초 등록 요청에는 기존 공지 ID를 반환한다.")
+    void replaysOriginalCreationAfterAnnouncementWasEdited() {
+        Group group = saveGroup("공지 수정 후 재전송 모임");
+        Member leader = saveMember("다온", "announcement-edited-leader");
+        Member reader = saveMember("해솔", "announcement-edited-reader");
+        saveLeader(group, leader);
+        saveMemberOf(group, reader);
+        String csrf = csrfToken();
+        UUID requestId = UUID.randomUUID();
+        var edited = Map.of("title", "일요일 모임", "content", "오후 3시에 만나요", "scope", "PUBLIC");
+        var registration = Map.of("title", "토요일 모임", "content", "오후 2시에 만나요",
+                "scope", "MEMBERS", "requestId", requestId);
+
+        long id = mutation(leader, csrf).contentType("application/json").body(registration)
+                .post("/groups/{groupId}/announcements", group.getId())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        mutation(leader, csrf).contentType("application/json").body(edited)
+                .put("/groups/{groupId}/announcements/{announcementId}", group.getId(), id)
+                .then().statusCode(200);
+
+        long replayedId = mutation(leader, csrf).contentType("application/json").body(registration)
+                .post("/groups/{groupId}/announcements", group.getId())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        Response conflict = mutation(leader, csrf).contentType("application/json")
+                .body(Map.of("title", edited.get("title"), "content", edited.get("content"),
+                        "scope", edited.get("scope"), "requestId", requestId))
+                .post("/groups/{groupId}/announcements", group.getId());
+        Response detail = authenticated(reader).get("/groups/{groupId}/announcements/{announcementId}",
+                group.getId(), id);
+
+        assertThat(replayedId).isEqualTo(id);
+        assertThat(conflict.statusCode()).isEqualTo(409);
+        assertThat(conflict.jsonPath().getString("error.code")).isEqualTo("ANNOUNCEMENT_REQUEST_CONFLICT");
+        assertThat(detail.jsonPath().getMap("data")).containsAllEntriesOf(edited);
+        assertThat(jdbc.queryForObject("select count(*) from announcements where group_id = ?",
+                Long.class, group.getId())).isEqualTo(1);
+        assertThat(authenticated(reader).queryParam("clientVersion", 2)
+                .get("/notifications").jsonPath().getList("data.items")).hasSize(1);
+    }
+
+    @Test
     @DisplayName("모임원 공개 공지는 현재 구성원에게만 보이고 전체 공개 공지는 비로그인 방문자에게도 보인다.")
     void filtersAnnouncementScopeForListAndDetail() {
         Group group = saveGroup("공지 공개 범위 모임");

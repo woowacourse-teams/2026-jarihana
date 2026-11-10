@@ -67,7 +67,7 @@ public class AnnouncementCommandService {
             var existing = announcements.findByGroupIdAndAuthorIdAndRequestId(groupId, memberId, command.requestId());
             if (existing.isPresent()) {
                 Announcement original = existing.get();
-                if (!original.hasSameContent(candidate)) {
+                if (!original.matchesCreationRequest(candidate)) {
                     throw new BusinessException(ErrorCode.ANNOUNCEMENT_REQUEST_CONFLICT,
                             "같은 공지 등록 요청 식별자에 다른 내용을 사용할 수 없습니다.");
                 }
