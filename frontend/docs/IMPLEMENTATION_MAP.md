@@ -594,3 +594,9 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 주간 한도는 응답의 `weeklyQuotas`를 순서대로 표시한다. 처음 보는 지급 사유는 내역 응답의 `label`과 공통 포인트 아이콘을 사용한다.
 
 [포인트 API](../../backend/docs/context/api/endpoints/points.md) / [적립 조건과 지급액](../../backend/docs/context/domain/business-policies.md#포인트-적립)
+
+## 오목 시작 효과음
+
+- `useGomokuSounds.js`는 확정 snapshot의 같은 방에서 WAITING/FINISHED가 새 gameNumber의 PLAYING, ply 0으로 바뀌면 시작음을 한 번 재생한다. REST/SSE 중복과 역순 수신, 진행 중 입장, 여러 수가 지난 복구에는 재생하지 않는다.
+- `audio.js`는 방이 열릴 때 파일을 미리 읽고 pointerdown/keydown/click에서 AudioContext를 활성화한다. 활성화 또는 디코딩이 막 진행 중이면 확정된 시작음은 최대 1초 동안 준비를 기다린다. 사용자 동작 없이 놓친 소리와 대기 시간이 지난 소리는 재생하지 않는다. 화면 이탈 시 요청, 재생 노드, 이벤트와 컨텍스트를 정리한다.
+- 효과음 파일은 Git에 저장하지 않는다. `soundAssets.js`가 개발/운영 S3의 `sounds/gomoku/` URL을 선택하며 기존 frontend 배포 경로 밖에 별도 업로드한다. 승인한 1초 징의 출처, 해시와 업로드 경로는 [오목 효과음](gomoku-sounds.md)에 기록한다.
