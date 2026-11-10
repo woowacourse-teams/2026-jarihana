@@ -674,11 +674,24 @@ test("all 24 random maps preserve staircase direction and avoid boundary jacks",
   }
 });
 
-test("five normal loops then additive rate and exact scheduled loop boundaries", () => {
-  assert.deepEqual(
-    [1, 2, 3, 4, 5, 6, 7, 10].map((loop) => rateForLoop(loop)),
-    [1, 1, 1, 1, 1, 1.05, 1.1, 1.25]
-  );
+test("each level speeds up from its own loop with additive rate and exact scheduled loop boundaries", () => {
+  const loops = [1, 2, 3, 4, 5, 6, 7, 10];
+  for (const [level, rates] of [
+    ["easy", [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.45]],
+    ["medium", [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.45]],
+    ["hard", [1, 1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.4]],
+    ["hardest", [1, 1, 1, 1, 1, 1.05, 1.1, 1.25]]
+  ]) {
+    assert.deepEqual(
+      loops.map((loop) => rateForLoop(loop, level)),
+      rates,
+      level
+    );
+  }
+  const easy = engine({ level: "easy" });
+  assert.equal(easy.loops[0].rate, 1);
+  assert.equal(easy.loops[1].rate, 1.05);
+  assert.equal(easy.loops[1].duration, 90 / 1.05);
   const run = engine({ startLoop: 5, startAt: 86.25 });
   const first = run.loops[0];
   const second = run.loops[1];

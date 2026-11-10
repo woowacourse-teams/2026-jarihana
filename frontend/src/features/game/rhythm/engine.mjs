@@ -24,25 +24,41 @@ export const JUDGMENTS = [
 ];
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
+// speedUpFromLoop부터 곡 배속이 매 루프 +0.05 오른다. 기본 패턴이 쉬운 난이도일수록 일찍 빨라진다.
 export const LEVELS = {
-  easy: { name: "Easy", lives: 10, loopHeal: 3, description: "정박 위주의 단타로 리듬을 익혀요." },
+  easy: {
+    name: "Easy",
+    lives: 10,
+    loopHeal: 3,
+    speedUpFromLoop: 2,
+    description: "정박 위주의 단타로 리듬을 익혀요."
+  },
   medium: {
     name: "Medium",
     lives: 8,
     loopHeal: 3,
+    speedUpFromLoop: 2,
     description: "한 박 간격의 축연타와 8분 엇박 단타가 나와요."
   },
   hard: {
     name: "Hard",
     lives: 8,
     loopHeal: 3,
+    speedUpFromLoop: 3,
     description: "2키 동시타와 16분 엇박, 박을 넘나드는 리듬에 도전해요."
   },
-  hardest: { name: "Hardest", lives: 10, loopHeal: 5, description: "라이프 10개, 자신 있게 드립니다!" }
+  hardest: {
+    name: "Hardest",
+    lives: 10,
+    loopHeal: 5,
+    speedUpFromLoop: 6,
+    description: "라이프 10개, 자신 있게 드립니다!"
+  }
 };
 
-export function rateForLoop(loopNumber) {
-  return Math.round((1 + Math.max(0, loopNumber - 5) * 0.05) * 100) / 100;
+export function rateForLoop(loopNumber, level) {
+  const spedUpLoops = Math.max(0, loopNumber - LEVELS[level].speedUpFromLoop + 1);
+  return Math.round((1 + spedUpLoops * 0.05) * 100) / 100;
 }
 
 export function noteColor(step) {
@@ -394,7 +410,7 @@ export class GameEngine {
     ) {
       throw new RangeError("세균 이동 배속은 1.0부터 3.0까지 0.25 단위로 설정할 수 있어요.");
     }
-    const rate = rateForLoop(this.startLoop);
+    const rate = rateForLoop(this.startLoop, this.level);
     const countInDuration = ((60 / chart.bpm) * 4) / rate;
     this.leadIn = Math.max(countInDuration, APPROACH_SECONDS / this.scrollSpeed / rate);
     this.countInStart = this.leadIn - countInDuration;
@@ -403,7 +419,7 @@ export class GameEngine {
   }
 
   appendLoop(number, start, offset, map) {
-    const rate = rateForLoop(number);
+    const rate = rateForLoop(number, this.level);
     const travelDuration = APPROACH_SECONDS / this.scrollSpeed / rate;
     const duration = (this.chart.durationSeconds - offset) / rate;
     const stairRotations = staircaseRotations(this.chart, this.sourceEvents, this.level, map);
