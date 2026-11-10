@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { useProfileEquipment } from "../../../src/features/shop/hooks.js";
 import { useAuth } from "../../../src/features/auth/index.js";
 import { useInfiniteGroups } from "../../../src/features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../../src/features/registration/index.js";
@@ -14,6 +15,7 @@ jest.mock("react-router", () => ({
     </a>
   )
 }));
+jest.mock("../../../src/features/shop/hooks.js", () => ({ useProfileEquipment: jest.fn(() => ({})) }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../../src/features/points/hooks", () => ({
   usePointSummary: () => ({ data: { enabled: false } })
@@ -237,4 +239,13 @@ describe("MyPage", () => {
       "/groups"
     );
   });
+});
+
+it("보유 후 적용한 프레임을 마이페이지 프로필 사진에 표시한다", () => {
+  useProfileEquipment.mockReturnValueOnce({ data: [{
+    itemId: "sleepy-bear-frame", slot: "frame", name: "꾸벅 곰돌이 프레임",
+    preview: { type: "profile", art: "bearFrame", tone: "cocoa" }
+  }] });
+  renderMyPage();
+  expect(screen.getByRole("img", { name: "꾸벅 곰돌이 프레임이 적용된 프로필" })).toBeInTheDocument();
 });
