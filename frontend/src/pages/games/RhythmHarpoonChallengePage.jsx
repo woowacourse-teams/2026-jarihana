@@ -48,7 +48,8 @@ function initialOptions() {
   const storage = browserStorage();
   const practice = readPracticeSettings(storage);
   return {
-    level: practice?.level ?? "easy",
+    // 연습에서만 고를 수 있는 난이도(ANOTHER)를 마지막으로 골랐다면 공식 도전은 Easy로 시작한다.
+    level: Object.hasOwn(LEVELS, practice?.level ?? "") ? practice.level : "easy",
     scrollSpeed: practice?.rate ?? 1,
     offset: readOffset(storage)
   };

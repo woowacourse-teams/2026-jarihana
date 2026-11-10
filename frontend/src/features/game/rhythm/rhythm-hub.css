@@ -258,6 +258,12 @@
 .rhythm-score__c2 {
   fill: #ffd21f;
 }
+.rhythm-score__c3 {
+  fill: #40d748;
+}
+.rhythm-score__tuplet {
+  font: italic 800 11px "Segoe UI", "Malgun Gothic", sans-serif;
+}
 .rhythm-score__label.rhythm-score__c0 {
   fill: #c62f28;
 }
@@ -266,6 +272,9 @@
 }
 .rhythm-score__label.rhythm-score__c2 {
   fill: #8f6b00;
+}
+.rhythm-score__label.rhythm-score__c3 {
+  fill: #237a2a;
 }
 
 /* 따라 하기 */
@@ -293,6 +302,10 @@
 .rhythm-game .rhythm-lesson__steps button[aria-current="step"] {
   border-color: var(--mint);
   color: var(--mint);
+}
+/* 번외 단계는 완료 여부에 세지 않아 점선으로 구분한다. */
+.rhythm-game .rhythm-lesson__steps button.is-extra {
+  border-style: dashed;
 }
 .rhythm-game .rhythm-lesson__steps button.is-done::after {
   content: "✓";
@@ -375,6 +388,9 @@
 .rhythm-game .rhythm-upcoming__chip--2 {
   background: #ffd21f;
   color: #3a2c00;
+}
+.rhythm-game .rhythm-upcoming__chip--3 {
+  background: #2f9e3a;
 }
 
 @media (max-width: 700px) {

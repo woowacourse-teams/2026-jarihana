@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  LOOP_BANNER_SECONDS,
   Renderer,
   beatTiming,
+  loopHealAnnouncement,
   spiralCue,
   turnIndicatorPoints
 } from "../../../src/features/game/rhythm/render.mjs";
@@ -434,6 +436,87 @@ test("the indicator draws one start note and one arrowhead without a text panel"
   assert.deepEqual(icons[0], [4, 834, 230, 36, 36]);
   assert.equal(circles.length, 1);
   assert.equal(fills.filter((fill) => fill.closed && fill.path.length === 3).length, 1);
+});
+
+function bannerFrame(time, loopHeals, reducedMotion = false) {
+  const drawn = [];
+  const ctx = { globalAlpha: 1, setTransform() {}, clearRect() {}, save() {}, restore() {} };
+  const renderer = Object.assign(Object.create(Renderer.prototype), {
+    canvas: { width: 900, height: 900 },
+    ctx,
+    effects: [],
+    hurtUntil: -1,
+    lastHit: null,
+    reducedMotion,
+    field() {},
+    sprite() {},
+    germ() {},
+    harpoon() {},
+    chordLinks() {},
+    turnSignal() {},
+    text(value, x, y) {
+      drawn.push({ value, x, y, alpha: ctx.globalAlpha });
+    }
+  });
+  renderer.draw(time, { notes: [], loops: [{ start: 0 }], loopHeals });
+  return drawn;
+}
+
+test("a completed loop shows the next loop and the hearts gained above the character for a moment", () => {
+  const heals = [
+    { at: 10, loop: 2, amount: 3 },
+    { at: 20, loop: 3, amount: 5 }
+  ];
+  assert.deepEqual(bannerFrame(9.9, heals), []);
+  const shown = bannerFrame(10.5, heals);
+  assert.deepEqual(
+    shown.map((item) => item.value),
+    ["Loop 2", "♥ +3"]
+  );
+  assert(shown.every((item) => item.x === 450 && item.y < 384 && item.alpha === 1));
+  assert.deepEqual(
+    bannerFrame(20.5, heals).map((item) => item.value),
+    ["Loop 3", "♥ +5"]
+  );
+  assert(bannerFrame(10.06, heals).every((item) => Math.abs(item.alpha - 0.5) < 1e-9));
+  assert.deepEqual(bannerFrame(10 + LOOP_BANNER_SECONDS, heals), []);
+  assert.deepEqual(bannerFrame(5, []), []);
+});
+
+test("a full life bar reads MAX, reduced motion keeps the banner still, and screen readers hear the same", () => {
+  const full = [{ at: 10, loop: 4, amount: 0 }];
+  assert.deepEqual(
+    bannerFrame(10.5, full).map((item) => item.value),
+    ["Loop 4", "♥ MAX"]
+  );
+  assert.deepEqual(
+    bannerFrame(10.5, full, true).map((item) => item.y),
+    [306, 350]
+  );
+  assert.deepEqual(
+    bannerFrame(10.5, full).map((item) => item.y),
+    [296, 340]
+  );
+  assert.equal(loopHealAnnouncement({ loop: 2, amount: 3 }), "Loop 2, 라이프 3개 회복.");
+  assert.equal(loopHealAnnouncement({ loop: 4, amount: 0 }), "Loop 4, 라이프 가득.");
+});
+
+test("a faster next loop adds a speed-up line and the whole banner stays above the character", () => {
+  const heals = [{ at: 10, loop: 3, amount: 3, rate: 1.1, speedUp: true }];
+  const shown = bannerFrame(10.5, heals, true);
+  assert.deepEqual(
+    shown.map((item) => item.value),
+    ["Loop 3", "♥ +3", "SPEED UP ×1.10"]
+  );
+  assert.deepEqual(
+    shown.map((item) => item.y),
+    [264, 308, 348]
+  );
+  assert(shown.every((item) => item.y + 12 < 384));
+  assert.equal(
+    loopHealAnnouncement(heals[0]),
+    "Loop 3, 라이프 3개 회복. 곡 배속 ×1.10로 빨라짐."
+  );
 });
 
 test("timing feedback respects the setting and hides on autoplay or empty inputs", () => {

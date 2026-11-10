@@ -122,6 +122,15 @@ it("walks from options to a confirmed challenge with the server seed", async () 
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
 });
 
+it("starts on Easy when the last practice level is not an official one", () => {
+  localStorage.setItem(
+    "haengseong-practice-settings-v1",
+    JSON.stringify({ level: "another", rate: 1, volume: 65 })
+  );
+  render(<RhythmHarpoonChallengePage />);
+  expect(screen.getByRole("button", { name: /Easy/ })).toHaveAttribute("aria-pressed", "true");
+});
+
 it("sets the input offset on the options step, saves it and plays with it", async () => {
   localStorage.setItem("haengseong-input-offset-v1", "12");
   rhythmRankedApi.create.mockResolvedValue(created);
