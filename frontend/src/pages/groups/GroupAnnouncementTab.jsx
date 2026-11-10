@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { AnnouncementFormDialog } from "../../features/announcement/AnnouncementFormDialog.jsx";
@@ -17,10 +17,6 @@ const SCOPE_LABELS = {
   MEMBERS: "모임원 공개",
   PUBLIC: "전체 공개"
 };
-
-function openCreateAction(setOpen) {
-  return () => setOpen(true);
-}
 
 function AnnouncementRow({ announcement, groupId }) {
   return (
@@ -46,6 +42,8 @@ function AnnouncementRow({ announcement, groupId }) {
 export function GroupAnnouncementTab({ group, isLeader }) {
   const auth = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
+  const createOpener = useRef(null);
+  const headerCreateButton = useRef(null);
   const list = useAnnouncementList(
     group.id,
     auth.member?.id,
@@ -57,7 +55,16 @@ export function GroupAnnouncementTab({ group, isLeader }) {
     [list.data]
   );
   const canCreate = isLeader && group.status !== "ENDED";
-  const openCreate = openCreateAction(setCreateOpen);
+  function openCreate(event) {
+    createOpener.current = event.currentTarget;
+    setCreateOpen(true);
+  }
+
+  function closeCreate() {
+    setCreateOpen(false);
+    const opener = createOpener.current?.isConnected ? createOpener.current : headerCreateButton.current;
+    opener?.focus({ preventScroll: true });
+  }
 
   return (
     <section aria-label="모임 공지" className="group-announcement-tab">
@@ -70,6 +77,7 @@ export function GroupAnnouncementTab({ group, isLeader }) {
           <Button
             data-ph-capture-attribute-action="group_announcement_create_open"
             onClick={openCreate}
+            ref={headerCreateButton}
             size="sm"
           >
             공지 추가
@@ -131,7 +139,7 @@ export function GroupAnnouncementTab({ group, isLeader }) {
           groupId={group.id}
           key={`${group.id}:${auth.member.id}:${auth.sessionVersion}`}
           memberId={auth.member.id}
-          onOpenChange={setCreateOpen}
+          onOpenChange={closeCreate}
           open
         />
       ) : null}

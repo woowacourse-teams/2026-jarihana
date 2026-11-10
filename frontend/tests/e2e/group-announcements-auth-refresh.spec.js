@@ -48,7 +48,7 @@ test("@core retries a lost announcement response automatically and uses a fresh 
   expect(state.unexpectedResponses).toEqual([]);
 });
 
-test("@core restores an unconfirmed announcement after closing the form and reloading the tab", async ({ page }) => {
+async function submitUnconfirmedAnnouncement(page) {
   await installApiFixture(page);
   const submissions = [];
   await page.route("**/api/groups/10/announcements**", async (route) => {
@@ -61,29 +61,85 @@ test("@core restores an unconfirmed announcement after closing the form and relo
   });
 
   await page.goto(`/groups/${group.id}?tab=announcements`);
-  const open = announcementOpenButton(page);
   const form = announcementForm(page);
-  const submit = form.getByRole("button", { name: "공지 등록", exact: true });
-  const cancel = form.getByRole("button", { name: "취소", exact: true });
-  await open.click();
+  await announcementOpenButton(page).click();
   await fillAnnouncement(form);
-  await submit.click();
-  await expect(form.getByRole("alert")).toHaveText("공지 등록 결과를 확인하지 못했어요. 공지 목록을 확인해 주세요.");
+  await form.getByRole("radio", { name: "전체 공개" }).check();
+  await form.getByRole("button", { name: "공지 등록", exact: true }).click();
+  await expect(form.getByRole("alert")).toContainText("이전 공지의 등록 결과를 확인하지 못했어요");
+  await expect(form.getByRole("alert")).toBeFocused();
+  await expect(form.getByLabel("공지 제목")).toHaveCount(0);
   expect(submissions).toHaveLength(3);
   expect(submissions).toEqual(Array(3).fill(submissions[0]));
+  return submissions;
+}
 
-  await cancel.click();
+test("@core restores the original announcement without sending it until explicitly submitted", async ({ page }) => {
+  const submissions = await submitUnconfirmedAnnouncement(page);
+  const open = announcementOpenButton(page);
+  const form = announcementForm(page);
+  const restore = form.getByRole("button", { name: "이전 요청 불러오기", exact: true });
+
+  await page.keyboard.press("Escape");
+  await expect(form).toBeHidden();
+  await expect(open).toBeFocused();
   await open.click();
-  await expect(form.getByLabel("공지 제목")).toHaveValue("모임 공지");
-  await expect(form.getByLabel("공지 제목")).not.toBeEditable();
-  await cancel.click();
+  await restore.click();
+  const title = form.getByLabel("공지 제목");
+  await expect(title).toHaveValue("모임 공지");
+  await expect(title).not.toBeEditable();
+  await expect(title).toBeFocused();
+  await expect(form.getByRole("radio", { name: "전체 공개" })).toBeChecked();
+  await expect(form.getByRole("radio", { name: "전체 공개" })).toBeDisabled();
+  expect(submissions).toHaveLength(3);
+
+  await form.getByRole("button", { name: "취소", exact: true }).click();
   await page.reload();
   await open.click();
+  await expect(form.getByLabel("공지 내용")).toHaveCount(0);
+  await restore.click();
   await expect(form.getByLabel("공지 내용")).toHaveValue("다음 일정 안내");
-  await submit.click();
+  expect(submissions).toHaveLength(3);
+
+  await form.getByRole("button", { name: "이전 요청 다시 보내기", exact: true }).click();
   await expect(form).toBeHidden();
   expect(submissions).toHaveLength(4);
   expect(submissions[3]).toEqual(submissions[0]);
+});
+
+test("@core discards an unconfirmed announcement and starts with a blank form and a fresh ID", async ({ page }) => {
+  const submissions = await submitUnconfirmedAnnouncement(page);
+  const open = announcementOpenButton(page);
+  const form = announcementForm(page);
+  const title = form.getByLabel("공지 제목");
+  const content = form.getByLabel("공지 내용");
+  const storageKey = `announcement:create:1:${group.id}`;
+
+  expect(await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key)), storageKey)).toEqual(submissions[0]);
+  await form.getByRole("button", { name: "새 공지 쓰기", exact: true }).click();
+  await expect(title).toHaveValue("");
+  await expect(title).toBeFocused();
+  await expect(content).toHaveValue("");
+  await expect(form.getByRole("radio", { name: "모임원 공개" })).toBeChecked();
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), storageKey)).toBeNull();
+  expect(submissions).toHaveLength(3);
+
+  await page.reload();
+  await open.click();
+  await expect(title).toBeEditable();
+  await expect(title).toHaveValue("");
+  await title.fill("새 모임 공지");
+  await content.fill("바뀐 일정 안내");
+  await form.getByRole("button", { name: "공지 등록", exact: true }).click();
+  await expect(form).toBeHidden();
+  expect(submissions).toHaveLength(4);
+  expect(submissions[3]).toEqual({
+    title: "새 모임 공지",
+    content: "바뀐 일정 안내",
+    scope: "MEMBERS",
+    requestId: expect.stringMatching(/^[0-9a-f-]{36}$/)
+  });
+  expect(submissions[3].requestId).not.toBe(submissions[0].requestId);
 });
 
 test("shows an announcement request conflict without retrying it", async ({ page }) => {
