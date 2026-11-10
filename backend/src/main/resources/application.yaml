@@ -58,6 +58,10 @@ sentry:
 jarihana:
   points:
     starts-at: ${POINTS_STARTS_AT:}
+  group-space:
+    weather:
+      enabled: ${GROUP_SPACE_WEATHER_ENABLED:false}
+      api-key: ${OPEN_METEO_API_KEY:}
   minigame:
     pepero-day:
       opens-at: 2026-11-11T00:00:00

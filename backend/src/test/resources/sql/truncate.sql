@@ -47,6 +47,8 @@ TRUNCATE TABLE
     registration,
     group_member,
     group_recruitment,
+    group_space,
+    group_music,
     groups,
     member,
     SPRING_SESSION_ATTRIBUTES,

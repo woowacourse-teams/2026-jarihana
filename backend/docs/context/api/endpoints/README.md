@@ -14,6 +14,7 @@
 | --- | --- | --- | --- | --- |
 | 포인트 | `GET` | `/api/members/me/points` | `MEMBER` | 잔액, 처리 상태와 주간 한도 조회 |
 | 포인트 | `GET` | `/api/members/me/points/transactions` | `MEMBER` | 본인 적립 내역 커서 조회 |
+| 모임 공간 | `GET` | `/api/group-spaces/weather` | `PUBLIC` | 서울의 날씨 코드와 당일 일출·일몰, 이전 응답 여부 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
@@ -180,3 +181,8 @@ SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/
 - [오목 게임방 채팅](gomoku-chat.md): 입장 회차와 메시지 순번, REST 복구, SSE 알림 계약
 
 - [오목 관전](gomoku-observation.md): 관전 입장/종료, 조회 권한과 접속 인원수
+
+## 아지트
+
+- [모임 공간](group-space.md) — 공개 배치 조회, 멤버 원본 조회와 모임장 저장
+- [모임 음악](group-music.md) — 공개 음악과 서버 기준 재생 타임라인, 모임장 설정
