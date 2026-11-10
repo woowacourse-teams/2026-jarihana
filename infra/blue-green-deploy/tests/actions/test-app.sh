@@ -358,7 +358,7 @@ prepare_release_fixture() {
   mkdir -p "$(dirname "$RELEASE_SOURCE")"
   awk '{
     print
-    if ($0 == "    environment:") print "      JARIHANA_POINTS_STARTS_AT: \"${JARIHANA_POINTS_STARTS_AT:-}\""
+    if ($0 == "    environment:") print "      POINTS_STARTS_AT: \"${POINTS_STARTS_AT:-}\""
   }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
   git init -q "$BG_RELEASE_COMPOSE_CHECKOUT"
   commit_release_fixture
@@ -378,7 +378,7 @@ case_prepare_release_compose() {
   grep -q "Release Compose commit: $GITHUB_SHA" "$APP_DIR/rejected.log"
   git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
     cmp -s - "$APP_DIR/validated-compose.yml"
-  grep -Fxq '      JARIHANA_POINTS_STARTS_AT: "${JARIHANA_POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
+  grep -Fxq '      POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
   [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose.*' -print) ]]
 }
 case_prepare_release_compose_wrong_commit() {
@@ -396,7 +396,7 @@ case_prepare_release_compose_protected_settings() {
     's|127.0.0.1:|0.0.0.0:|' \
     's|PUSH_WORKER_START_PAUSED: "true"|PUSH_WORKER_START_PAUSED: "false"|' \
     's|jdbc:postgresql://|jdbc:postgresql://unexpected-|' \
-    's|JARIHANA_POINTS_STARTS_AT:-|DB_PASSWORD:-|' \
+    's|POINTS_STARTS_AT:-|DB_PASSWORD:-|' \
     's|restart: "no"|privileged: true|'; do
     sed "$change" "$APP_DIR/original-release.yml" >"$RELEASE_SOURCE"
     commit_release_fixture
@@ -404,6 +404,17 @@ case_prepare_release_compose_protected_settings() {
     grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
     [[ ! -e "$APP_DIR/docker-calls" ]]
   done
+  awk '{
+    print
+    if ($0 == "    environment:") {
+      print "      JARIHANA_PUSH_WORKER_START_PAUSED: \"${JARIHANA_PUSH_WORKER_START_PAUSED:-}\""
+      print "      JARIHANA_PUSH_WORKER_CONTROL_ENABLED: \"${JARIHANA_PUSH_WORKER_CONTROL_ENABLED:-}\""
+    }
+  }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
+  commit_release_fixture
+  reject app_prepare
+  grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
+  [[ ! -e "$APP_DIR/docker-calls" ]]
 }
 case_prepare_release_compose_checks_before_removal() {
   prepare_release_fixture

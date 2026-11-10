@@ -136,8 +136,15 @@ jobs:
             exit 0
           fi
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
-            grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=1' "$control/app.sh" || {
+            if [[ ! -f "$control/release-compose.sh" ]] ||
+              ! grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=1' "$control/app.sh"; then
               echo '::error::Approved control tag lacks release Compose capability'
+              exit 1
+            fi
+            source "$control/release-compose.sh"
+            compose=infra/blue-green-deploy/controller/app-compose.yml
+            app_compose_matches_control "../deployment-control/$compose" "$compose" || {
+              echo '::error::Release Compose differs from protected control settings. Update the approved control tag before deployment.'
               exit 1
             }
           fi

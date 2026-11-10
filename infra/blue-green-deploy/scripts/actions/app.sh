@@ -4,6 +4,7 @@
 set -Eeuo pipefail
 set +x
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+source "$SCRIPT_ROOT/release-compose.sh"
 
 app_check() {
   bg_grant "$GRANT_OPERATION" "$BG_SLOT"
@@ -218,33 +219,18 @@ app_stop_container() {
   STOPPED=true
 }
 
-# Only same-name, optional application variables can vary between control releases.
-app_compose_protected_content() {
-  awk '
-    /^    [^ ]/ { environment = ($0 == "    environment:") }
-    environment && /^      JARIHANA_[A-Z0-9_]+: / {
-      key = $1
-      sub(/:$/, "", key)
-      if ($0 == "      " key ": \"${" key ":-}\"") next
-    }
-    { print }
-  ' "$1"
-}
-
 app_release_compose() {
   local destination=$1 checkout=$BG_RELEASE_COMPOSE_CHECKOUT
   local source_path=infra/blue-green-deploy/controller/app-compose.yml
-  local source_sha blob size approved release release_hash
+  local source_sha blob size release_hash
   source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
   [[ "$source_sha" == "$GITHUB_SHA" ]] || bg_die 'Release Compose checkout does not match the deployment commit'
   blob="$source_sha:$source_path"
   size=$(git -C "$checkout" cat-file -s "$blob") || bg_die 'Release Compose file is missing'
   (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
   git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
-  approved=$(app_compose_protected_content "$SCRIPT_ROOT/../../controller/app-compose.yml") ||
-    bg_die 'Cannot read approved control Compose'
-  release=$(app_compose_protected_content "$destination") || bg_die 'Cannot read release Compose'
-  [[ "$release" == "$approved" ]] || bg_die 'Release Compose differs from protected control settings'
+  app_compose_matches_control "$SCRIPT_ROOT/../../controller/app-compose.yml" "$destination" ||
+    bg_die 'Release Compose differs from protected control settings'
   release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
   printf 'Release Compose commit: %s, SHA-256: %s\n' "$source_sha" "${release_hash%% *}"
 }
