@@ -126,9 +126,11 @@ export function GroupAnnouncementTab({ group, isLeader }) {
           ) : null}
         </>
       )}
-      {canCreate && createOpen ? (
+      {canCreate && createOpen && auth.member?.id != null ? (
         <AnnouncementFormDialog
           groupId={group.id}
+          key={`${group.id}:${auth.member.id}:${auth.sessionVersion}`}
+          memberId={auth.member.id}
           onOpenChange={setCreateOpen}
           open
         />

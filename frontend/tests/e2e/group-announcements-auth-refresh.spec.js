@@ -2,7 +2,17 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
-test("@core reuses the announcement request ID on retry and replaces it for a new submission", async ({ page }) => {
+const announcementOpenButton = (page) =>
+  page.locator(".group-announcement-tab__header").getByRole("button", { name: "공지 추가", exact: true });
+
+const announcementForm = (page) => page.getByRole("dialog", { name: "공지 등록" });
+
+async function fillAnnouncement(form) {
+  await form.getByLabel("공지 제목").fill("모임 공지");
+  await form.getByLabel("공지 내용").fill("다음 일정 안내");
+}
+
+test("@core retries a lost announcement response automatically and uses a fresh ID after success", async ({ page }) => {
   const state = await installApiFixture(page);
   const submissions = [];
   await page.route("**/api/groups/10/announcements**", async (route) => {
@@ -11,38 +21,93 @@ test("@core reuses the announcement request ID on retry and replaces it for a ne
     }
     submissions.push(route.request().postDataJSON());
     if (submissions.length === 1) {
-      return route.fulfill({
-        status: 503,
-        json: { data: null, error: { code: "TEMPORARILY_UNAVAILABLE", message: "Retry fixture" }, success: false }
-      });
+      return route.abort("connectionreset");
     }
     return route.fulfill({ status: 201, json: { data: { id: 101 }, error: null, success: true } });
   });
 
   await page.goto(`/groups/${group.id}?tab=announcements`);
-  const open = page.locator(".group-announcement-tab__header").getByRole("button", { name: "공지 추가", exact: true });
-  const form = page.getByRole("dialog", { name: "공지 등록" });
+  const open = announcementOpenButton(page);
+  const form = announcementForm(page);
   const submit = form.getByRole("button", { name: "공지 등록", exact: true });
-  const fill = async () => {
-    await form.getByLabel("공지 제목").fill("모임 공지");
-    await form.getByLabel("공지 내용").fill("다음 일정 안내");
-  };
 
   await open.click();
-  await fill();
-  await submit.click();
-  await expect(form.getByRole("alert")).toBeVisible();
+  await fillAnnouncement(form);
   await submit.click();
   await expect(form).toBeHidden();
+  expect(submissions).toHaveLength(2);
   expect(submissions[0].requestId).toMatch(/^[0-9a-f-]{36}$/);
   expect(submissions[1]).toEqual(submissions[0]);
 
   await open.click();
-  await fill();
+  await fillAnnouncement(form);
   await submit.click();
   await expect(form).toBeHidden();
+  expect(submissions).toHaveLength(3);
   expect(submissions[2].requestId).not.toEqual(submissions[0].requestId);
-  expect(state.unexpectedResponses).toEqual(["503 /api/groups/10/announcements"]);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("@core restores an unconfirmed announcement after closing the form and reloading the tab", async ({ page }) => {
+  await installApiFixture(page);
+  const submissions = [];
+  await page.route("**/api/groups/10/announcements**", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: { data: { items: [], hasNext: false, nextCursor: null }, error: null, success: true } });
+    }
+    submissions.push(route.request().postDataJSON());
+    if (submissions.length <= 3) return route.abort("connectionreset");
+    return route.fulfill({ status: 201, json: { data: { id: 101 }, error: null, success: true } });
+  });
+
+  await page.goto(`/groups/${group.id}?tab=announcements`);
+  const open = announcementOpenButton(page);
+  const form = announcementForm(page);
+  const submit = form.getByRole("button", { name: "공지 등록", exact: true });
+  const cancel = form.getByRole("button", { name: "취소", exact: true });
+  await open.click();
+  await fillAnnouncement(form);
+  await submit.click();
+  await expect(form.getByRole("alert")).toHaveText("공지 등록 결과를 확인하지 못했어요. 공지 목록을 확인해 주세요.");
+  expect(submissions).toHaveLength(3);
+  expect(submissions).toEqual(Array(3).fill(submissions[0]));
+
+  await cancel.click();
+  await open.click();
+  await expect(form.getByLabel("공지 제목")).toHaveValue("모임 공지");
+  await expect(form.getByLabel("공지 제목")).not.toBeEditable();
+  await cancel.click();
+  await page.reload();
+  await open.click();
+  await expect(form.getByLabel("공지 내용")).toHaveValue("다음 일정 안내");
+  await submit.click();
+  await expect(form).toBeHidden();
+  expect(submissions).toHaveLength(4);
+  expect(submissions[3]).toEqual(submissions[0]);
+});
+
+test("shows an announcement request conflict without retrying it", async ({ page }) => {
+  await installApiFixture(page);
+  let submissions = 0;
+  await page.route("**/api/groups/10/announcements**", async (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: { data: { items: [], hasNext: false, nextCursor: null }, error: null, success: true } });
+    }
+    submissions += 1;
+    return route.fulfill({
+      status: 409,
+      json: { data: null, error: { code: "ANNOUNCEMENT_REQUEST_CONFLICT", message: "Conflict" }, success: false }
+    });
+  });
+
+  await page.goto(`/groups/${group.id}?tab=announcements`);
+  const form = announcementForm(page);
+  await announcementOpenButton(page).click();
+  await fillAnnouncement(form);
+  await form.getByRole("button", { name: "공지 등록", exact: true }).click();
+  await expect(form.getByRole("alert")).toHaveText("이미 다른 내용으로 사용한 요청이에요. 공지 목록을 확인해 주세요.");
+  expect(submissions).toBe(1);
+  await expect(form.getByLabel("공지 제목")).toBeEditable();
 });
 
 test("@core refreshes an expired member session before loading group announcements", async ({ page }) => {

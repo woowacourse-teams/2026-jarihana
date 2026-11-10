@@ -1,25 +1,34 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { toUserMessage } from "../../shared/api/index.js";
 import { Button, Modal, Radio, Textarea, TextField, useToast } from "../../shared/ui/index.js";
+import { AnnouncementCreationUnconfirmedError } from "./api.js";
 import { useCreateAnnouncement, useModifyAnnouncement } from "./hooks.js";
+import { clearPendingCreation, readPendingCreation, savePendingCreation } from "./pendingCreation.js";
 
-export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, open }) {
+export function AnnouncementFormDialog({ announcement, groupId, memberId, onOpenChange, open }) {
   const isEditing = Boolean(announcement);
   const create = useCreateAnnouncement(groupId);
   const modify = useModifyAnnouncement(groupId, announcement?.id);
   const mutation = isEditing ? modify : create;
   const toast = useToast();
-  const [title, setTitle] = useState(announcement?.title ?? "");
-  const [content, setContent] = useState(announcement?.content ?? "");
-  const [scope, setScope] = useState(announcement?.scope ?? "MEMBERS");
+  const storageKey = `announcement:create:${memberId}:${groupId}`;
+  const [pendingCreation, setPendingCreation] = useState(() =>
+    isEditing ? null : readPendingCreation(storageKey)
+  );
+  const [title, setTitle] = useState(announcement?.title ?? pendingCreation?.title ?? "");
+  const [content, setContent] = useState(announcement?.content ?? pendingCreation?.content ?? "");
+  const [scope, setScope] = useState(announcement?.scope ?? pendingCreation?.scope ?? "MEMBERS");
   const [formError, setFormError] = useState("");
-  const requestIds = useRef(new Map());
+  const activeCreation = useRef(null);
   const actionPrefix = isEditing ? "group_announcement_edit" : "group_announcement_create";
   const fieldActionPrefix = isEditing ? "group_announcement_edit" : "group_announcement";
 
+  useEffect(() => () => activeCreation.current?.abort(), []);
+
   async function submit(event) {
     event.preventDefault();
+    if (mutation.isPending || activeCreation.current) return;
     const cleanTitle = title.trim();
     const cleanContent = content.trim();
     if (!cleanTitle || cleanTitle.length > 100) {
@@ -32,21 +41,40 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
     }
 
     setFormError("");
+    let controller;
+    let request;
     try {
       const payload = { title: cleanTitle, content: cleanContent, scope };
       if (isEditing) {
         await mutation.mutateAsync(payload);
       } else {
-        const signature = JSON.stringify(payload);
-        const requestId = requestIds.current.get(signature) ?? crypto.randomUUID();
-        requestIds.current.set(signature, requestId);
-        await mutation.mutateAsync({ ...payload, requestId });
-        requestIds.current.clear();
+        request = pendingCreation ?? { ...payload, requestId: crypto.randomUUID() };
+        savePendingCreation(storageKey, request);
+        controller = new AbortController();
+        activeCreation.current = controller;
+        await mutation.mutateAsync({ values: request, signal: controller.signal });
+        clearPendingCreation(storageKey, request.requestId);
       }
+      if (controller?.signal.aborted) return;
       onOpenChange(false);
       toast.success({ title: isEditing ? "공지를 수정했어요" : "공지를 등록했어요" });
     } catch (error) {
+      if (controller?.signal.aborted) return;
+      if (error instanceof AnnouncementCreationUnconfirmedError) {
+        setPendingCreation(request);
+        setTitle(request.title);
+        setContent(request.content);
+        setScope(request.scope);
+        setFormError(error.message);
+        return;
+      }
+      if (request && (!pendingCreation || error?.code === "ANNOUNCEMENT_REQUEST_CONFLICT")) {
+        clearPendingCreation(storageKey, request.requestId);
+        setPendingCreation(null);
+      }
       setFormError(toUserMessage(error?.code));
+    } finally {
+      activeCreation.current = null;
     }
   }
 
@@ -68,6 +96,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
           label="공지 제목"
           maxLength={100}
           onChange={(event) => setTitle(event.currentTarget.value)}
+          readOnly={Boolean(pendingCreation) || mutation.isPending}
           required
           value={title}
         />
@@ -77,6 +106,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
           label="공지 내용"
           maxLength={10000}
           onChange={(event) => setContent(event.currentTarget.value)}
+          readOnly={Boolean(pendingCreation) || mutation.isPending}
           required
           rows={7}
           value={content}
@@ -84,7 +114,7 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
         <p className="group-announcement-form__count" aria-live="polite">
           {content.length.toLocaleString("ko-KR")} / 10,000자
         </p>
-        <fieldset className="group-announcement-form__scope">
+        <fieldset className="group-announcement-form__scope" disabled={Boolean(pendingCreation) || mutation.isPending}>
           <legend>공개 범위</legend>
           <Radio
             checked={scope === "MEMBERS"}
@@ -105,6 +135,9 @@ export function AnnouncementFormDialog({ announcement, groupId, onOpenChange, op
             value="PUBLIC"
           />
         </fieldset>
+        {pendingCreation && !formError ? (
+          <p role="status">이전 공지의 등록 결과를 확인하려면 등록을 눌러 주세요.</p>
+        ) : null}
         {formError ? <p className="group-announcement-form__error" role="alert">{formError}</p> : null}
         <div className="group-announcement-form__actions">
           <Button
