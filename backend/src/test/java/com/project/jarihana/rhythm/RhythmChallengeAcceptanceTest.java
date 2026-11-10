@@ -100,6 +100,44 @@ class RhythmChallengeAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("ANOTHER 난이도는 스윙 곡의 채보 판본으로 다시 계산하고 난이도마다 따로 순위를 매긴다")
+    void recordsAnotherOnItsOwnSongAndRanking() throws IOException {
+        // Given
+        String player = member("가을", "rhythm-another");
+        request(player).body(Map.of("level", "ANOTHER_HARD", "scrollSpeed", 1)).post(ROOT + "/challenges")
+                .then().statusCode(201)
+                .body("data.level", equalTo("ANOTHER_HARD"))
+                .body("data.rulesVersion", equalTo("rhythm-harpoon-ranked-4"))
+                .body("data.chartVersion", equalTo("swing-another-2"))
+                .body("data.lives", equalTo(10));
+        long id = start(player, "ANOTHER_HARDEST");
+        double[] first = firstNote("anotherHardest");
+        elapse(id, 5);
+
+        // When
+        batch(player, id, 1, 4, List.of(input((int) first[0], first[1] + 0.01)), false)
+                .statusCode(200)
+                .body("data.score", equalTo(1000))
+                .body("data.perfect", equalTo(1));
+        elapse(id, 60);
+        batch(player, id, 2, 59, List.of(), false)
+                .statusCode(200)
+                .body("data.status", equalTo("FINISHED"))
+                .body("data.lives", equalTo(0));
+
+        // Then
+        request(player).queryParam("level", "ANOTHER_HARDEST").get(ROOT + "/rankings")
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].score", equalTo(1000))
+                .body("data.me.rank", equalTo(1));
+        request(player).queryParam("level", "ANOTHER_HARD").get(ROOT + "/rankings")
+                .then().statusCode(200).body("data.items", hasSize(0));
+        request(player).queryParam("level", "HARDEST").get(ROOT + "/rankings")
+                .then().statusCode(200).body("data.items", hasSize(0));
+    }
+
+    @Test
     @DisplayName("랭킹은 회원마다 가장 높은 기록 한 판으로 정렬하고 커서로 이어 본다")
     void ranksEachMembersBestRun() throws IOException {
         // Given
@@ -226,13 +264,16 @@ class RhythmChallengeAcceptanceTest extends IntegrationTestSupport {
         return Map.of("lane", lane, "at", at);
     }
 
-    // 채보 첫 박의 방향 순번과 곡 시작 기준 시각이다.
+    // 채보 첫 박의 방향 순번과 곡 시작 기준 시각이다. 다른 곡을 치는 난이도는 그 곡의 빠르기로 카운트인을 센다.
     private static double[] firstNote(String level) throws IOException {
         try (InputStream stream = RhythmChallengeAcceptanceTest.class.getResourceAsStream("/rhythm-harpoon/ranked-chart.json")) {
             JsonNode chart = JsonMapper.builder().build().readTree(stream);
-            JsonNode event = chart.get("levels").get(level).get("events").get(0);
+            JsonNode levelNode = chart.get("levels").get(level);
+            JsonNode song = levelNode.has("song") ? levelNode.get("song") : chart;
+            double leadIn = levelNode.has("song") ? 60 / song.get("bpm").asDouble() * 4 : LEAD_IN;
+            JsonNode event = levelNode.get("events").get(0);
             int lane = List.of("left", "down", "right", "up").indexOf(event.get(2).get(0).asString());
-            return new double[] {lane, LEAD_IN + event.get(1).asDouble() / chart.get("sampleRateHz").asDouble()};
+            return new double[] {lane, leadIn + event.get(1).asDouble() / song.get("sampleRateHz").asDouble()};
         }
     }
 

@@ -53,21 +53,32 @@ export const LEVELS = {
     loopHeal: 5,
     speedUpFromLoop: 6,
     description: "라이프 10개, 자신 있게 드립니다!"
+  },
+  // ANOTHER는 스윙 곡(stages.mjs의 swing)의 번외 채보다. 채보를 단순화하지 않고 swing-chart.json의 난이도별 채보를 그대로 친다.
+  // 충전과 가속은 원곡의 같은 이름 난이도를 따르고, 라이프는 둘 다 10개다.
+  // loopSeamGuard: 마지막 노트와 다음 루프 첫 노트가 붙어 있어 둘이 같은 레인에 오지 않게 다음 루프를 다시 섞는다.
+  anotherHard: {
+    name: "ANOTHER Hard",
+    song: "swing",
+    lives: 10,
+    loopHeal: 3,
+    speedUpFromLoop: 3,
+    loopSeamGuard: true,
+    description: "스윙 144 BPM 번외 채보. 셋잇단 계단이 방향을 바꾸지 않아요."
+  },
+  anotherHardest: {
+    name: "ANOTHER Hardest",
+    song: "swing",
+    lives: 10,
+    loopHeal: 5,
+    speedUpFromLoop: 6,
+    loopSeamGuard: true,
+    description: "스윙 144 BPM 번외 채보. 방향이 바뀌는 셋잇단 계단과 동시타가 나와요."
   }
 };
 
-// ANOTHER는 스윙 곡의 번외 채보다. 연습에서만 고를 수 있어 공식 도전 난이도(LEVELS)와 따로 둔다.
-export const ANOTHER_LEVEL = Object.freeze({
-  name: "ANOTHER",
-  lives: 10,
-  loopHeal: 5,
-  speedUpFromLoop: 6,
-  description: "스윙 144 BPM 번외 채보. 셋잇단 계단과 초록 세균이 나와요."
-});
-export const PRACTICE_LEVELS = Object.freeze({ ...LEVELS, another: ANOTHER_LEVEL });
-
 export function rateForLoop(loopNumber, level) {
-  const spedUpLoops = Math.max(0, loopNumber - PRACTICE_LEVELS[level].speedUpFromLoop + 1);
+  const spedUpLoops = Math.max(0, loopNumber - LEVELS[level].speedUpFromLoop + 1);
   return Math.round((1 + spedUpLoops * 0.05) * 100) / 100;
 }
 
@@ -96,7 +107,8 @@ export function shuffleLanes(previous, random = Math.random) {
 const STAIRCASE_RULES = {
   hard: { pattern: "roll", gap: 4 },
   hardest: { pattern: "roll", gap: 2 },
-  another: { pattern: "stairs", gap: 8 / 3 }
+  anotherHard: { pattern: "stairs", gap: 8 / 3 },
+  anotherHardest: { pattern: "stairs", gap: 8 / 3 }
 };
 
 function staircaseRotations(chart, events, level, map) {
@@ -300,6 +312,11 @@ function doubleTapChart(events, chart, level) {
 
 function simplifySourceChart(chart, level) {
   if (!LEVELS[level]) throw new Error("Unknown difficulty");
+  if (LEVELS[level].song === "swing") {
+    const own = chart.levels?.[level];
+    if (!own) throw new Error("ANOTHER는 스윙 채보로만 칠 수 있어요.");
+    return own.events.map(({ step, sample, keys }) => ({ step, sample, keys: keys.slice() }));
+  }
   const patterns = new Map();
   for (const section of chart.sections) {
     for (let bar = section.startBar - 1; bar < section.startBar - 1 + section.bars; bar++) {
@@ -404,9 +421,9 @@ export class GameEngine {
     this.sourceEvents = options.events
       ? options.events.map((event) => ({ ...event, keys: event.keys.slice() }))
       : simplifyChart(chart, this.level);
-    this.maxLives = PRACTICE_LEVELS[this.level].lives;
+    this.maxLives = LEVELS[this.level].lives;
     this.lives = this.maxLives;
-    this.loopHeal = PRACTICE_LEVELS[this.level].loopHeal;
+    this.loopHeal = LEVELS[this.level].loopHeal;
     this.nextLoopToHeal = 0;
     // 루프 완주로 하트가 찰 때마다 화면에 "Loop n / ♥ +k / SPEED UP"을 띄우려고 남기는 기록이다. 점수와 판정에는 쓰지 않는다.
     this.loopHeals = [];
@@ -493,7 +510,8 @@ export class GameEngine {
     const last = this.loops[this.loops.length - 1];
     let map = shuffleLanes(last.map, this.random);
     // ANOTHER는 마지막 계단 노트와 다음 루프 첫 노트가 139ms 간격이다. 둘이 같은 레인에 오면 다시 섞는다.
-    if (this.level === "another") {
+    // 서버 RhythmEngine도 같은 순서로 난수를 써야 하므로 바꿀 때는 함께 바꾼다.
+    if (LEVELS[this.level].loopSeamGuard) {
       const lastStep = this.sourceEvents[this.sourceEvents.length - 1].step;
       const endingLanes = this.notes
         .filter((note) => note.loop === last.number && note.step === lastStep)
