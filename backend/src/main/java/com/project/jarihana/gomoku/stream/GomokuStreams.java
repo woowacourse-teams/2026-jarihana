@@ -144,7 +144,8 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                         } catch (RuntimeException exception) {
                             signals = null;
                         }
-                        Set<UUID> candidates = room.clients.stream().filter(client -> client.connectionId != null)
+                        List<Client> pollingClients = List.copyOf(room.clients);
+                        Set<UUID> candidates = pollingClients.stream().filter(client -> client.connectionId != null)
                                 .map(client -> client.participationId).collect(Collectors.toSet());
                         Set<UUID> activeObservations = queries.activeObservations(id, candidates);
                         List<GomokuSpectatorResult> spectators;
@@ -153,7 +154,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                         } catch (RuntimeException exception) {
                             spectators = null;
                         }
-                        for (Client client : room.clients) client.offer(snapshot, signals, activeObservations, spectators);
+                        for (Client client : pollingClients) client.offer(snapshot, signals, activeObservations, spectators);
                     } catch (RuntimeException exception) {
                         room.clients.forEach(Client::close);
                     } finally {
