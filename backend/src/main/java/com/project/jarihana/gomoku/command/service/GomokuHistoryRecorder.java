@@ -7,6 +7,7 @@ import com.project.jarihana.gomoku.command.repository.GomokuGameRepository;
 import com.project.jarihana.gomoku.domain.GomokuGame;
 import com.project.jarihana.gomoku.domain.GomokuRoom;
 import com.project.jarihana.gomoku.domain.RoomStatus;
+import com.project.jarihana.points.command.service.PointRewardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,7 @@ public class GomokuHistoryRecorder {
     private final GomokuGameRepository games;
     private final GomokuPostHogSettings postHog;
     private final GomokuPostHogOutbox outbox;
+    private final PointRewardService pointRewards;
 
     public void start(GomokuRoom room, LocalDateTime now) {
         GomokuGame game = games.save(GomokuGame.started(room, now));
@@ -33,6 +35,11 @@ public class GomokuHistoryRecorder {
                     GomokuGame finished = game.complete(next, endedAt);
                     games.save(finished);
                     if (postHog.enabled()) outbox.enqueue(GomokuPostHogEvent.finished(finished));
+                    Long winner = finished.getWinnerMemberId();
+                    if (winner != null) {
+                        boolean playedEnough = "FIVE".equals(finished.getEndReason()) || finished.getPly() >= 10;
+                        pointRewards.gomokuWon(finished.getId(), winner, playedEnough, endedAt);
+                    }
                 });
     }
 }

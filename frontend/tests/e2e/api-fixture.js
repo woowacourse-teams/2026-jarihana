@@ -389,6 +389,12 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
 
+    if (path === "/members/me/points" && method === "GET") {
+      return json(route, success({
+        enabled: false, balance: 0, processing: false, resetsAt: "2026-11-09T00:00:00",
+        weeklyQuotas: []
+      }));
+    }
     if (path === "/members/me" && method === "GET") {
       state.memberProfileReads += 1;
       if (state.expireMemberProfileAfterBootstrap && state.memberProfileReads === 2) {

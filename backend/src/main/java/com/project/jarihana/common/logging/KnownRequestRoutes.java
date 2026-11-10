@@ -18,6 +18,7 @@ final class KnownRequestRoutes {
             "/groups/{groupId}/registrations/summary", "/registrations",
             "/recruitments/{recruitmentId}/registrations", "/recruitments/{recruitmentId}/registrations/{registrationId}",
             "/recruitments/{recruitmentId}/registrations/read", "/members", "/members/me",
+            "/members/me/points", "/members/me/points/transactions",
             "/auth/logout", "/auth/refresh", "/oauth/github/callback", "/image-uploads", "/feedbacks",
             "/share/groups/{groupId}"
     ).stream().map(KnownRequestRoutes::route).toList();
