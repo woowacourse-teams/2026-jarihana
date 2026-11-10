@@ -1,0 +1,84 @@
+/* 랜딩과 기능 소개 페이지가 함께 쓰는 머리글 메뉴, 버튼 변형, 바닥글. */
+.landing-header .landing-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-right: auto;
+}
+.landing-header .landing-header__nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-semibold);
+  transition: color var(--duration-base);
+}
+.landing-header .landing-header__nav a:hover {
+  color: var(--color-ink);
+}
+.landing-header .landing-header__actions {
+  gap: var(--space-2);
+}
+.landing-page .landing-button--mint {
+  color: var(--landing-dark);
+  background: var(--color-brand);
+}
+.landing-page .landing-button--mint:hover {
+  background: var(--color-brand-strong);
+}
+.landing-page .landing-button--quiet {
+  color: var(--color-ink);
+  background: var(--color-surface-sunken);
+}
+.landing-page .landing-button--quiet:hover {
+  background: var(--color-line);
+}
+
+.landing-footer .landing-footer__inner {
+  flex-direction: column;
+  gap: var(--space-10);
+}
+.landing-footer .landing-footer__menus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-16);
+}
+.landing-footer .landing-footer__menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.landing-footer .landing-footer__menu-title {
+  margin: 0 0 var(--space-2);
+  color: var(--color-ink);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.landing-footer .landing-footer__about p {
+  margin: 0 0 var(--space-2);
+}
+.landing-footer .landing-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-extrabold);
+}
+.landing-footer {
+  border-top: 1px solid var(--color-line);
+}
+
+@media (max-width: 63.9375rem) {
+  .landing-header .landing-header__nav {
+    gap: var(--space-5);
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .landing-header .landing-header__nav,
+  .landing-header .landing-header__explore {
+    display: none;
+  }
+}

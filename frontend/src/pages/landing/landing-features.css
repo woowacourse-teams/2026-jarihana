@@ -1,0 +1,368 @@
+/* 두 번째 섹션: 대표 기능 카드 세 장. 카드마다 파스텔 배경 위 반투명 화면, 화살표, 두 줄 제목과 회색 링크 문구를 둔다. */
+.landing-page {
+  --feature-mint: radial-gradient(110% 80% at 0% 0%, #e4f7f1 0%, rgb(228 247 241 / 0%) 60%),
+    radial-gradient(90% 70% at 100% 100%, #fde3d3 0%, rgb(253 227 211 / 0%) 60%), #c9ebe6;
+  --feature-coral: radial-gradient(100% 80% at 100% 0%, #fde1dc 0%, rgb(253 225 220 / 0%) 60%),
+    radial-gradient(100% 80% at 0% 100%, #d4f1ee 0%, rgb(212 241 238 / 0%) 60%), #e9e6f7;
+  --feature-lavender: radial-gradient(100% 80% at 100% 0%, #f1e4fb 0%, rgb(241 228 251 / 0%) 60%),
+    radial-gradient(100% 80% at 0% 100%, #d6e6fb 0%, rgb(214 230 251 / 0%) 60%), #dde3f8;
+  --feature-glass: rgb(255 255 255 / 74%);
+  --feature-row: rgb(255 255 255 / 92%);
+  --feature-mint-side: #27bdb6;
+  --feature-coral-side: #ec7569;
+}
+.landing-features {
+  padding: calc(var(--landing-section-gap) * 0.9) var(--space-6);
+}
+.landing-features__heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-16);
+  text-align: center;
+}
+.landing-features__heading p {
+  color: var(--color-muted-ink);
+  font-size: var(--text-body-lg);
+}
+.landing-features__heading h2 {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--landing-statement-size);
+  line-height: 1.3;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--landing-heading-tracking);
+}
+.landing-features__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: var(--space-12) 0;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.landing-feature-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: inherit;
+}
+.landing-feature-card__visual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32rem;
+  padding: var(--space-12) var(--space-10);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--feature-mint);
+}
+.landing-feature-card[data-tone="coral"] .landing-feature-card__visual {
+  background: var(--feature-coral);
+}
+.landing-feature-card[data-tone="lavender"] .landing-feature-card__visual {
+  background: var(--feature-lavender);
+}
+.landing-feature-card__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 20rem;
+  height: 100%;
+  max-height: 25rem;
+  box-sizing: border-box;
+  padding: var(--space-7) var(--space-6);
+  border-radius: 2rem;
+  background: var(--feature-glass);
+  box-shadow: 0 1.25rem 2.5rem rgb(60 110 120 / 12%);
+  transition: transform var(--duration-smooth) var(--landing-ease);
+}
+.landing-feature-card:hover .landing-feature-card__panel,
+.landing-feature-card:focus-visible .landing-feature-card__panel {
+  transform: translateY(calc(var(--space-1) * -1));
+}
+.landing-feature-card__hint {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+.landing-feature-card__title {
+  font-size: var(--text-h3);
+  line-height: 1.4;
+  font-weight: var(--font-weight-bold);
+}
+.landing-feature-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+}
+.landing-feature-card__chips span {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted-ink);
+  background: var(--feature-row);
+}
+.landing-feature-card__chips span[data-selected="true"] {
+  color: var(--color-surface);
+  background: var(--color-ink);
+  font-weight: var(--font-weight-bold);
+}
+.landing-feature-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--feature-row);
+  font-size: var(--text-label);
+}
+.landing-feature-card__row > span {
+  color: var(--color-muted-ink);
+}
+.landing-feature-card__row--dot {
+  justify-content: flex-start;
+}
+.landing-feature-card__row--dot i {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--feature-mint-side);
+}
+.landing-feature-card__row--dot i[data-side="coral"] {
+  background: var(--feature-coral-side);
+}
+.landing-feature-card__versus {
+  display: flex;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+}
+.landing-feature-card__versus span:first-child {
+  background: var(--feature-mint-side);
+}
+.landing-feature-card__versus span:last-child {
+  background: var(--feature-coral-side);
+}
+.landing-feature-card__sides {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
+}
+.landing-feature-card__art {
+  width: 100%;
+  height: 6rem;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+.landing-feature-card__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  min-height: 2.875rem;
+  border-radius: var(--radius-md);
+  color: var(--landing-dark);
+  background: var(--color-brand);
+  font-weight: var(--font-weight-bold);
+}
+.landing-feature-card__arrow {
+  position: absolute;
+  right: var(--space-8);
+  bottom: var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  color: var(--color-ink);
+  background: rgb(51 61 75 / 12%);
+}
+.landing-feature-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-3) 0;
+}
+.landing-feature-card__text strong {
+  font-size: var(--text-h3);
+  line-height: 1.55;
+  font-weight: var(--font-weight-bold);
+}
+.landing-feature-card__text span {
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+}
+
+@media (max-width: 47.9375rem) {
+  .landing-features {
+    padding-inline: 0;
+  }
+  .landing-features__heading {
+    padding-inline: var(--space-4);
+    margin-bottom: var(--space-10);
+  }
+  .landing-feature-card__visual {
+    height: 26rem;
+    padding: var(--space-8) var(--space-6);
+  }
+  .landing-feature-card__text {
+    padding-inline: var(--space-5);
+  }
+}
+
+/* 기능 소개 페이지: 카드와 같은 배경의 첫 화면, 세 칸 설명, 기존 이용 예시를 이어 붙인다. */
+.landing-feature-page__hero {
+  padding: var(--space-16) var(--space-6);
+  background: var(--feature-mint);
+}
+.landing-feature-page__hero[data-tone="coral"] {
+  background: var(--feature-coral);
+}
+.landing-feature-page__hero[data-tone="lavender"] {
+  background: var(--feature-lavender);
+}
+.landing-feature-page__hero-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12) var(--space-16);
+  max-width: 70rem;
+  min-height: calc(70vh - var(--landing-header));
+  margin: 0 auto;
+}
+.landing-feature-page__copy {
+  display: flex;
+  flex: 1 1 26rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+.landing-feature-page__copy h1 {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--landing-statement-size);
+  line-height: 1.25;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--landing-heading-tracking);
+}
+.landing-feature-page__copy h1 > span {
+  text-wrap: balance;
+  word-break: keep-all;
+}
+.landing-feature-page__copy > p {
+  color: var(--color-ink);
+  font-size: var(--text-body-lg);
+  line-height: var(--landing-body-leading);
+}
+.landing-feature-page__copy .landing-button {
+  margin-top: var(--space-2);
+}
+.landing-feature-page__note {
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+.landing-feature-page__visual {
+  display: flex;
+  flex: 1 1 24rem;
+  justify-content: center;
+  min-width: 0;
+}
+.landing-feature-page__visual > img,
+.landing-feature-page__visual > .landing-feature-card__panel {
+  width: 100%;
+  max-width: 26rem;
+}
+.landing-feature-page__visual > img {
+  height: auto;
+  border-radius: 2rem;
+  box-shadow: var(--landing-depth-shadow);
+}
+.landing-feature-page__visual > .landing-feature-card__panel {
+  max-height: none;
+}
+.landing-feature-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: var(--space-5);
+  margin: var(--space-12) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-feature-page__grid > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-6);
+  border-radius: var(--landing-radius);
+  background: var(--color-surface-sunken);
+}
+.landing-feature-page__grid > li > img {
+  align-self: center;
+  width: auto;
+  height: 10rem;
+  mix-blend-mode: multiply;
+}
+.landing-feature-page__grid > li > h3 {
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-extrabold);
+}
+.landing-feature-page__grid > li > p {
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+  line-height: var(--landing-body-leading);
+}
+.landing-feature-page__games > li > img {
+  align-self: stretch;
+  width: 100%;
+  height: 14rem;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  mix-blend-mode: normal;
+  background: var(--color-surface);
+}
+.landing-feature-page__games > li > ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+.landing-feature-page__section-title {
+  font-size: var(--landing-heading-size);
+  line-height: 1.3;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--landing-heading-tracking);
+  text-align: center;
+}
+.landing-feature-page__closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding-block: var(--landing-section-gap);
+  text-align: center;
+}
+.landing-feature-page__closing h2 {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--landing-heading-size);
+  line-height: 1.3;
+  font-weight: var(--font-weight-extrabold);
+}
+.landing-feature-page__back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+}

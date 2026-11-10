@@ -1,17 +1,17 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { useAuth } from "../../../src/features/auth";
 import { LandingPage } from "../../../src/pages/landing/LandingPage";
-import { useLandingGuideScroll } from "../../../src/pages/landing/useLandingGuideScroll";
+import { useLandingChapters } from "../../../src/pages/landing/useLandingChapters";
+import { ToastProvider } from "../../../src/shared/ui";
 
-jest.mock("../../../src/pages/landing/useLandingGuideScroll", () => ({
-  useLandingGuideScroll: jest.fn(() => ({ current: false }))
+jest.mock("../../../src/pages/landing/useLandingChapters", () => ({
+  useLandingChapters: jest.fn()
 }));
 
 jest.mock("react-router", () => ({
-  MemoryRouter: ({ children }) => children,
-  Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>
+  Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
+  useLocation: () => ({ hash: "", pathname: "/land", search: "" })
 }));
 
 jest.mock("../../../src/features/auth", () => ({
@@ -20,108 +20,126 @@ jest.mock("../../../src/features/auth", () => ({
   useAuth: jest.fn()
 }));
 
+function renderLanding() {
+  return render(
+    <ToastProvider>
+      <LandingPage />
+    </ToastProvider>
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   sessionStorage.clear();
 });
 
-test("one controller connects the service introduction, every guide and the final call to action", () => {
+test("reads as the clubhouse, three features and the tech story with one active chapter at a time", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
-  const { container } = render(<LandingPage />);
-  expect(useLandingGuideScroll).toHaveBeenCalledTimes(1);
-  const [pageRef, activate] = useLandingGuideScroll.mock.calls[0];
+  const { container } = renderLanding();
+  const [pageRef, activate] = useLandingChapters.mock.calls[0];
   const stops = [...pageRef.current.querySelectorAll("[data-guide-chapter]")];
   expect(stops.map((node) => node.dataset.guideChapter)).toEqual([
-    "about", "together", "participate-intro", "browse", "detail", "continue", "proposal-intro", "proposal",
-    "host-intro", "create", "manage", "invite-intro", "invite", "chat-intro", "chat", "calendar",
-    "activity-intro", "activity", "sparring-intro", "sparring", "tech-intro", "tech-time", "tech-size", "tech-runs", "start"
+    "clubhouse", "features", "tech-intro", "tech-time", "tech-size", "tech-runs"
   ]);
-  expect(container.querySelector(".landing-hero [data-guide-chapter]")).toBeNull();
-  expect(container.querySelector("#start .landing-start-section__note"))
-    .toHaveTextContent("부트캠프 수강생도, 현직자도 가입할 수 있어요.");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임마다 하나씩,함께 꾸미는 아지트");
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
-  for (const id of [
-    "together", "proposal-intro", "host-intro", "invite", "chat-intro", "calendar", "activity", "sparring-intro", "sparring",
-    "tech-intro", "tech-size", "start"
-  ]) {
+  for (const id of ["features", "tech-time", "clubhouse"]) {
     act(() => activate(id));
     expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
     expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);
   }
 });
 
-test("keeps authentication actions disabled while checking the current session", () => {
+test("announces the clubhouse as coming soon instead of opening an unreleased space", () => {
+  useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
+  renderLanding();
+  const tries = [
+    screen.getByRole("button", { name: "아지트 꾸며 보기" }),
+    screen.getByRole("button", { name: "직접 꾸며 보기" })
+  ];
+  for (const button of tries) {
+    expect(button).toHaveAttribute("data-ph-capture-attribute-action", "landing_clubhouse_try");
+  }
+  fireEvent.click(tries[0]);
+  expect(screen.getByText("아지트 꾸미기는 곧 열려요")).toBeInTheDocument();
+  expect(screen.getByText("동아리와 스터디마다 생기는 3D 아지트를 준비하고 있어요.")).toBeInTheDocument();
+});
+
+test("links the menu, the recruiting list, the feature pages and the footer", () => {
+  useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
+  renderLanding();
+  const menu = screen.getByRole("navigation", { name: "주요 메뉴" });
+  for (const [name, href, action] of [
+    ["자리", "/groups", "landing_nav_groups"],
+    ["토론하나?", "/sparring", "landing_nav_sparring"],
+    ["게임하나?", "/games", "landing_nav_games"]
+  ]) {
+    const link = within(menu).getByRole("link", { name });
+    expect(link).toHaveAttribute("href", href);
+    expect(link).toHaveAttribute("data-ph-capture-attribute-action", action);
+  }
+
+  const recruiting = screen.getAllByRole("link", { name: "모집 중인 모임 보기" });
+  expect(recruiting).toHaveLength(2);
+  for (const link of recruiting) {
+    expect(link).toHaveAttribute("href", "/groups?recruiting=true");
+    expect(link).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
+  }
+
+  for (const [name, href, action] of [
+    [/오늘 바로 모임을 열 수 있어요/, "/land/create", "landing_feature_create"],
+    [/한마디로 받아쳐요/, "/land/sparring", "landing_feature_sparring"],
+    [/기록과 랭킹을 나눠요/, "/land/games", "landing_feature_games"]
+  ]) {
+    const card = screen.getByRole("link", { name });
+    expect(card).toHaveAttribute("href", href);
+    expect(card).toHaveAttribute("data-ph-capture-attribute-action", action);
+  }
+
+  const footer = screen.getByRole("navigation", { name: "하단 메뉴" });
+  expect(within(footer).getByRole("link", { name: "자리하나를 만드는 방식" })).toHaveAttribute("href", "/land#tech");
+  expect(within(footer).getByRole("link", { name: "GitHub 저장소" })).toHaveAttribute(
+    "href",
+    "https://github.com/woowacourse-teams/2026-jarihana"
+  );
+});
+
+test("keeps the start button disabled while checking the current session", () => {
   const login = jest.fn();
   useAuth.mockReturnValue({ status: "loading", login });
-  render(
-    <MemoryRouter>
-      <LandingPage />
-    </MemoryRouter>
-  );
-
-  const buttons = screen.getAllByRole("button", { name: "연결 중" });
-  expect(buttons).toHaveLength(3);
-  for (const button of buttons) {
-    expect(button).toBeDisabled();
-    fireEvent.click(button);
-  }
+  renderLanding();
+  const button = screen.getByRole("button", { name: "연결 중" });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
   expect(login).not.toHaveBeenCalled();
-  expect(screen.getByRole("link", { name: "둘러보기", exact: true })).toHaveAttribute(
-    "href",
-    "/groups"
-  );
 });
 
-test("reports a failed login connection and retains the creation destination for retry", () => {
-  const login = jest.fn(() => {
-    throw new Error("OAuth configuration unavailable");
-  });
-  useAuth.mockReturnValue({ status: "unavailable", login });
-  render(
-    <MemoryRouter>
-      <LandingPage />
-    </MemoryRouter>
-  );
-
-  fireEvent.click(screen.getByRole("button", { name: "모임 만들기", exact: true }));
-  expect(screen.getByRole("alert")).toHaveTextContent("로그인을 연결하지 못했어요");
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups/new");
-  expect(screen.getByRole("button", { name: "모임 만들기", exact: true })).toBeEnabled();
-});
-
-
-test("lets signed-in visitors view the landing and continue without another login", () => {
+test("lets signed-in visitors return home without another login", () => {
   const login = jest.fn();
   useAuth.mockReturnValue({ status: "authenticated", login });
-  render(<LandingPage />);
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("함께하고 싶은 순간,여기, 자리하나.");
-  const homeLinks = screen.getAllByRole("link", { name: "홈으로 가기" });
-  expect(homeLinks).toHaveLength(2);
-  for (const link of homeLinks) {
-    expect(link).toHaveAttribute("href", "/home");
-    expect(link).toHaveAttribute("data-ph-capture-attribute-action", "group_home");
-  }
-  const create = screen.getByRole("link", { name: "모임 만들기", exact: true });
-  expect(create).toHaveAttribute("href", "/groups/new");
-  expect(create).toHaveAttribute("data-ph-capture-attribute-action", "group_create");
+  renderLanding();
+  const home = screen.getByRole("link", { name: "홈으로 가기" });
+  expect(home).toHaveAttribute("href", "/home");
+  expect(home).toHaveAttribute("data-ph-capture-attribute-action", "group_home");
   expect(login).not.toHaveBeenCalled();
 });
 
-test("returns a new login to home while keeping a creation signup destination", () => {
+test("returns a new login to home and continues an interrupted signup", () => {
   const login = jest.fn();
   useAuth.mockReturnValue({ status: "anonymous", login });
-  const { rerender } = render(<LandingPage />);
+  const { rerender } = renderLanding();
   fireEvent.click(screen.getByRole("button", { name: "시작하기", exact: true }));
   expect(login).toHaveBeenCalledTimes(1);
   expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/home");
 
   useAuth.mockReturnValue({ status: "signup-required", login });
-  rerender(<LandingPage />);
-  const signupLinks = screen.getAllByRole("link", { name: "가입 계속하기" });
-  expect(signupLinks).toHaveLength(3);
-  fireEvent.click(signupLinks[1]);
-  expect(signupLinks[1]).toHaveAttribute("href", "/signup");
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/groups/new");
+  rerender(
+    <ToastProvider>
+      <LandingPage />
+    </ToastProvider>
+  );
+  const signup = screen.getByRole("link", { name: "가입 계속하기" });
+  expect(signup).toHaveAttribute("href", "/signup");
   expect(login).toHaveBeenCalledTimes(1);
 });

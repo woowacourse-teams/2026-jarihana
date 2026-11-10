@@ -56,7 +56,7 @@ const proposalChapters = [{
   alt: "모임 제안에 함께하고 싶어요가 모이고 가능한 시간과 진행 방식, 분위기가 정리되는 자유게시판 이용 예시"
 }];
 
-const hostChapters = [
+export const hostChapters = [
   {
     id: "create",
     number: "01",
@@ -75,7 +75,7 @@ const hostChapters = [
   }
 ];
 
-const inviteChapters = [{
+export const inviteChapters = [{
   id: "invite",
   number: "01",
   icon: UserPlus,
@@ -84,7 +84,7 @@ const inviteChapters = [{
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
 }];
 
-const chatChapters = [
+export const chatChapters = [
   {
     id: "chat",
     number: "01",
@@ -103,7 +103,7 @@ const chatChapters = [
   }
 ];
 
-const activityChapters = [{
+export const activityChapters = [{
   id: "activity",
   number: "01",
   icon: Camera,
@@ -112,7 +112,7 @@ const activityChapters = [{
   alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화한 뒤 새 반응을 알림함에서 확인하는 활동 피드 이용 예시"
 }];
 
-const sparringChapters = [{
+export const sparringChapters = [{
   id: "sparring",
   number: "01",
   icon: Swords,
@@ -196,7 +196,7 @@ function GuideChapter({ chapter, active }) {
   );
 }
 
-function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
+export function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
   return (
     <section
       aria-labelledby={titleId}
