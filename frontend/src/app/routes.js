@@ -46,7 +46,6 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "InvitationPage", path: "/invitations/link/:token" },
   { access: "member", page: "NotificationOpenPage", path: "/notifications/open/:id" },
   { access: "member", page: "MyPage", path: "/my" },
-  { access: "member", page: "AvatarPage", path: "/my/avatar" },
   { access: "member", page: "MyPointsPage", path: "/my/points" },
   { access: "member", page: "MyGroupsPage", path: "/my/groups" },
   { access: "member", page: "MyRegistrationsPage", path: "/my/registrations" },

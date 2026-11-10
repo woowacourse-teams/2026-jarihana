@@ -14,8 +14,8 @@ jest.mock("react-router", () => ({
 jest.mock("../../../src/features/auth/index.js", () => ({
   useAuth: () => ({ member: null, sessionVersion: 0 })
 }));
-jest.mock("../../../src/features/avatar/AvatarFrame.jsx", () => ({
-  AvatarFrame: ({ appearance }) => (
+jest.mock("../../../src/features/shop/ShopAvatarPreview.jsx", () => ({
+  ShopAvatarPreview: ({ appearance }) => (
     <div data-testid="avatar-preview">{JSON.stringify(appearance)}</div>
   )
 }));

@@ -1011,6 +1011,11 @@ img.profile-card__avatar {
   font-size: var(--text-caption);
 }
 
+.profile-companion {
+  min-height: 330px;
+  background: url("../../shared/assets/figma/my-profile-illustration.png") center top / contain
+    no-repeat;
+}
 
 .dashboard-panel {
   padding: var(--space-6);
@@ -1403,6 +1408,9 @@ img.profile-card__avatar {
     grid-template-columns: 1fr;
   }
 
+  .profile-companion {
+    display: none;
+  }
 
   .dashboard-counts button {
     align-items: baseline;
@@ -1480,6 +1488,9 @@ img.profile-card__avatar {
     gap: var(--space-6);
   }
 
+  .profile-companion {
+    display: none;
+  }
 
   .dashboard-counts button {
     align-items: baseline;

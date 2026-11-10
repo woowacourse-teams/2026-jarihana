@@ -3,8 +3,6 @@ package com.project.jarihana.common.migration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
-import org.flywaydb.core.api.MigrationInfo;
-import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,95 +57,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
         return migrationCountThroughRhythmChallenge(baseCount) + 1;
     }
 
-    private int migrationCountThroughPoints(int baseCount) {
-        return migrationCountThroughMinigame(baseCount) + 4;
-    }
-
-    private int migrationCountThroughAvatar(int baseCount) {
-        return migrationCountThroughPoints(baseCount) + 1;
-    }
-
     private int migrationCountThroughShop(int baseCount) {
-        return migrationCountThroughAvatar(baseCount) + 2;
-    }
-
-    @Test
-    @DisplayName("V35는 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
-    void addAvatarPreservesOldMemberOperations() throws SQLException {
-        // Given
-        String schema = "avatar_upgrade_" + UUID.randomUUID().toString().replace("-", "");
-        JdbcTemplate administrative = new JdbcTemplate(dataSource);
-        administrative.execute("create schema " + schema);
-        try (Connection connection = dataSource.getConnection()) {
-            String originalSchema = connection.getSchema();
-            try {
-                connection.setSchema(schema);
-                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
-                var avatarVersion = MigrationVersion.fromVersion("35");
-                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target(avatarVersion).load();
-                var precedingVersion = Arrays.stream(upgraded.info().pending())
-                        .map(MigrationInfo::getVersion)
-                        .filter(version -> version != null && version.compareTo(avatarVersion) < 0)
-                        .max(MigrationVersion::compareTo)
-                        .orElseThrow();
-                Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target(precedingVersion).load().migrate();
-                JdbcTemplate jdbc = new JdbcTemplate(isolated);
-                String oldInsert = """
-                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
-                        values (?, 8, ?, 'CREW', 'BACKEND', localtimestamp, localtimestamp) returning id
-                        """;
-                long ownerId = jdbc.queryForObject(oldInsert, Long.class, "바다", "avatar-upgrade-owner");
-                var members = jdbc.queryForList("select * from member order by id");
-                var columns = jdbc.queryForList("""
-                        select column_name, data_type, is_nullable from information_schema.columns
-                        where table_schema = current_schema() and table_name = 'member' order by ordinal_position
-                        """);
-                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
-
-                // When
-                var result = upgraded.migrate();
-
-                // Then
-                assertThat(result.migrationsExecuted).isEqualTo(1);
-                assertThat(result.targetSchemaVersion).isEqualTo("35");
-                assertThat(jdbc.queryForList("select * from member order by id")).isEqualTo(members);
-                assertThat(jdbc.queryForList("""
-                        select column_name, data_type, is_nullable from information_schema.columns
-                        where table_schema = current_schema() and table_name = 'member' order by ordinal_position
-                        """)).isEqualTo(columns);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '35' order by installed_rank"))
-                        .isEqualTo(history);
-                assertThat(jdbc.queryForObject("select count(*) from member_avatar", Long.class)).isZero();
-                long newMemberId = jdbc.queryForObject(oldInsert, Long.class, "하늘", "avatar-upgrade-old-app");
-                jdbc.update("""
-                        insert into member_avatar (member_id, version, hair, skin, hair_color, face, eyes,
-                            eyebrows, nose, mouth, glasses, outfit, shoes, shoe_color, hat, hat_color, bag, bag_color, handheld, created_at, updated_at)
-                        values (?, 1, 'flowing', 'warm', 'ink', 'round', 'dot', 'straight', 'small', 'flat',
-                            'sunglasses', 'cream', 'highTop', 'white', 'bucket', 'ink', 'backpack', 'mint', 'laptop', localtimestamp, localtimestamp)
-                        """, ownerId);
-                assertThat(jdbc.queryForObject("select github_id from member where id = ?", String.class, ownerId))
-                        .isEqualTo("avatar-upgrade-owner");
-                jdbc.update("update member set crew_name = '파도' where id = ?", ownerId);
-                assertThat(jdbc.queryForObject("select hair from member_avatar where member_id = ?", String.class, ownerId))
-                        .isEqualTo("flowing");
-                // Part values evolve in the domain without changing database CHECK constraints.
-                jdbc.update("update member_avatar set handheld = 'futureItem' where member_id = ?", ownerId);
-                assertThatThrownBy(() -> jdbc.update("update member_avatar set hair = null where member_id = ?", ownerId))
-                        .isInstanceOf(DataIntegrityViolationException.class);
-                jdbc.update("delete from member where id = ?", ownerId);
-                assertThat(jdbc.queryForObject("select count(*) from member_avatar", Long.class)).isZero();
-                assertThat(jdbc.queryForObject("select crew_name from member where id = ?", String.class, newMemberId))
-                        .isEqualTo("하늘");
-                upgraded.validate();
-                assertThat(upgraded.migrate().migrationsExecuted).isZero();
-            } finally {
-                connection.setSchema(originalSchema);
-            }
-        } finally {
-            administrative.execute("drop schema " + schema + " cascade");
-        }
+        return migrationCountThroughMinigame(baseCount) + 8;
     }
 
     @Test
@@ -321,7 +231,12 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int applied = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(applied).isEqualTo(17);
+                assertThat(applied).isEqualTo(18);
+                assertThat(jdbc.queryForList("select script from flyway_schema_history where version in ('33', '34', '35', '36', '37') "
+                        + "and success order by installed_rank", String.class))
+                        .containsExactly("V33__points.sql", "V34__announcement_request_id.sql",
+                                "V35__announcement_request_fingerprint.sql", "V36__shop_purchases.sql",
+                                "V37__shop_profile_offers.sql");
                 assertThat(jdbc.queryForList("""
                         select id || ':' || (definition->>'price') from shop_product
                         where available order by id
@@ -341,7 +256,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         select id, group_id, author_member_id, title, content, scope, created_at, updated_at
                         from announcements
                         """)).isEqualTo(existingAnnouncements);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 jdbc.update("""
                         insert into announcements (group_id, author_member_id, title, content, scope, created_at, updated_at)
@@ -1145,7 +1060,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(13));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
@@ -1213,7 +1128,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(10));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForList("select * from proposal")).isEqualTo(proposals);
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
@@ -1300,14 +1215,14 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 // Then
                 assertThat(corrected).isEqualTo(1);
                 assertThat(normal.getConfiguration().isOutOfOrder()).isFalse();
-                assertThat(normal.migrate().migrationsExecuted).isEqualTo(24);
+                assertThat(normal.migrate().migrationsExecuted).isEqualTo(25);
                 normal.validate();
                 assertThat(normal.migrate().migrationsExecuted).isZero();
                 assertThat(jdbc.queryForList("""
                         select id, group_id, author_member_id, title, content, scope, created_at, updated_at
                         from announcements
                         """)).isEqualTo(announcements);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version = '13'", Integer.class))
                         .isEqualTo(-1253084773);

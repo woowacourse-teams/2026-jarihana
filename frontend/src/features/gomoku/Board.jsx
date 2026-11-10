@@ -1,8 +1,12 @@
 import { useRef, useState } from "react";
 import { Stone } from "./Stone";
+import "./forbidden-moves.css";
+
+const NO_FORBIDDEN_MOVES = new Map();
 export function Board({
   room,
   selected,
+  forbiddenMoves = NO_FORBIDDEN_MOVES,
   onSelect,
   onConfirm,
   disabled,
@@ -39,7 +43,8 @@ export function Board({
         const x = index % 15;
         const y = Math.floor(index / 15);
         const value = room.board[index];
-        const chosen = selected?.x === x && selected?.y === y;
+        const forbidden = value === "0" ? forbiddenMoves.get(index) : null;
+        const chosen = !forbidden && selected?.x === x && selected?.y === y;
         return (
           <button
             type="button"
@@ -51,15 +56,16 @@ export function Board({
             className={`gomoku-cell${chosen ? " gomoku-cell--selected" : ""}`}
             data-ph-capture-attribute-action="gomoku_position_select"
             aria-pressed={chosen}
-            aria-disabled={readOnly || disabled || value !== "0"}
-            aria-label={`${String.fromCharCode(65 + x)}${y + 1}, ${value === "1" ? "흑돌" : value === "2" ? "백돌" : "빈 자리"}${room.lastX === x && room.lastY === y ? ", 마지막 수" : ""}`}
+            aria-disabled={readOnly || disabled || value !== "0" || Boolean(forbidden)}
+            title={forbidden ? `${forbidden} 금수` : undefined}
+            aria-label={`${String.fromCharCode(65 + x)}${y + 1}, ${value === "1" ? "흑돌" : value === "2" ? "백돌" : "빈 자리"}${room.lastX === x && room.lastY === y ? ", 마지막 수" : ""}${forbidden ? `, ${forbidden} 금수` : ""}`}
             onFocus={() => setFocusIndex(index)}
             onKeyDown={(event) => moveFocus(event, index)}
             onClick={() => {
-              if (!readOnly && !disabled && value === "0") onSelect({ x, y });
+              if (!readOnly && !disabled && !forbidden && value === "0") onSelect({ x, y });
             }}
             onDoubleClick={() => {
-              if (!readOnly && !disabled && value === "0") onConfirm?.({ x, y });
+              if (!readOnly && !disabled && !forbidden && value === "0") onConfirm?.({ x, y });
             }}
           >
             {((x === 7 && y === 7) || ([3, 11].includes(x) && [3, 11].includes(y))) && (
@@ -73,6 +79,7 @@ export function Board({
                 last={room.lastX === x && room.lastY === y}
               />
             )}
+            {forbidden && <span className="gomoku-forbidden" aria-hidden="true" />}
             {chosen && value === "0" && <span className="gomoku-selection" />}
           </button>
         );

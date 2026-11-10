@@ -22,11 +22,10 @@ import { createShopClient, shopApi } from "../../features/shop/api.js";
 import { usePointSummary } from "../../features/points/hooks.js";
 import { useShop } from "../../features/shop/hooks.js";
 import { useAuth } from "../../features/auth/index.js";
-import { AvatarFrame } from "../../features/avatar/AvatarFrame.jsx";
+import { ShopAvatarPreview } from "../../features/shop/ShopAvatarPreview.jsx";
 import { AVATAR_BASIC_APPEARANCE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { Button, Modal } from "../../shared/ui/index.js";
 import { ProductArt } from "../../features/shop/ProductArt.jsx";
-import "../account/avatar.css";
 import "./shop.css";
 
 const CATEGORY_ICONS = { all: Grid2X2, wear: Shirt, profile: UserRound };
@@ -114,7 +113,7 @@ function ProductDetail({
       </div>
       <div className="shop-detail__stage">
         {product.preview.type === "avatar" ? (
-          <AvatarFrame appearance={appearance} mode="preview" />
+          <ShopAvatarPreview appearance={appearance} />
         ) : (
           <ProductArt {...product.preview} />
         )}
@@ -270,8 +269,8 @@ export function ShopPreview({ client, pointsSummary }) {
           <h1>득템하나?</h1>
         </div>
         <div className="shop-heading__tools">
-          <Link to="/my/avatar" data-ph-capture-attribute-action="shop_avatar_open">
-            내 아바타 <ArrowUpRight size={16} />
+          <Link to="/my" data-ph-capture-attribute-action="shop_profile_open">
+            내 프로필 <ArrowUpRight size={16} />
           </Link>
           <div className="shop-wallet" data-ph-private>
             <Coins size={19} aria-hidden="true" />

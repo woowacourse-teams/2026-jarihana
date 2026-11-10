@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import { createWalkingCharacters } from './walking-characters.js';
-import { readAvatarAppearance } from './avatar-appearance.js';
 import { characterVariant } from './character-motion.js';
 
 // Alpha-cutout image planes preserve the brand faces without competing with transparent capsule lids for draw order.
@@ -48,16 +46,8 @@ export function createCharacters(scene, capacity) {
   function hideMesh(mesh, index) {
     mesh.setMatrixAt(index, zero); mesh.instanceMatrix.needsUpdate = true; mesh.boundingSphere = null;
   }
-  let custom;
-  function hide(index) { for (const mesh of meshes) hideMesh(mesh, index); custom?.hide(index); }
+  function hide(index) { for (const mesh of meshes) hideMesh(mesh, index); }
   function draw(index, post, position, size, pose, yaw = 0, capsuleRotation = null) {
-    if (readAvatarAppearance(post?.appearance)) {
-      custom ??= createWalkingCharacters(scene, capacity);
-      for (const mesh of meshes) hideMesh(mesh, index);
-      custom.draw(index, post, position, size, pose, yaw, capsuleRotation);
-      return;
-    }
-    custom?.hide(index);
     const variant = characterVariant(post) + (post?.side === 'b' ? 2 : 0);
     const scale = size * pose.scale * pose.shrink;
     // Keep the atlas face visible while its body rolls with the capsule in the screen plane.

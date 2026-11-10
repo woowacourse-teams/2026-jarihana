@@ -1,5 +1,5 @@
 import { moveRequestId } from "../../features/gomoku/moveRequestId";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Gamepad2,
@@ -23,9 +23,11 @@ import { gomokuApi, turnMemberId } from "../../features/gomoku/api";
 import { STICK_HALVING_ROOM_PATH, usePeperoDayStatus } from "../../features/pepero-day";
 import { syncGomokuMembership } from "../../features/gomoku/membership";
 import { useGomokuObservation } from "../../features/gomoku/useGomokuObservation";
+import { useGomokuSounds } from "../../features/gomoku/useGomokuSounds";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { useGomokuChat } from "../../features/gomoku/useGomokuChat";
 import { GomokuChat } from "../../features/gomoku/GomokuChat";
+import { findForbiddenMoves } from "../../features/gomoku/forbiddenMoves";
 import { Board } from "../../features/gomoku/Board";
 import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
@@ -740,12 +742,20 @@ function GomokuRoom({ roomId, observation = null }) {
     roomId,
     observation?.participationId
   );
+  useGomokuSounds(room);
   const chat = useGomokuChat(roomId, {
     connected,
     closed: room?.status === "CLOSED",
     chatSignal,
     participationId: observation?.participationId
   });
+  const showForbiddenMoves = !spectator && room?.status === "PLAYING" &&
+    room.rule === "RENJU" && room.blackMemberId === member?.id;
+  const board = room?.board;
+  const forbiddenMoves = useMemo(
+    () => showForbiddenMoves ? findForbiddenMoves(board) : new Map(),
+    [board, showForbiddenMoves]
+  );
   const leave = observation?.leave;
   const memberId = member?.id;
   const observationChannel = useRef(null);
@@ -833,14 +843,16 @@ function GomokuRoom({ roomId, observation = null }) {
   const selectedEmpty =
     selected &&
     selected.gameNumber === room.gameNumber &&
-    room.board[selected.y * 15 + selected.x] === "0";
+    room.board[selected.y * 15 + selected.x] === "0" &&
+    !forbiddenMoves.has(selected.y * 15 + selected.x);
   const colorOf = (id) => (room.blackMemberId === id ? "BLACK" : "WHITE");
   async function place(position = selected) {
     if (
       !canMove ||
       !position ||
       position.gameNumber !== room.gameNumber ||
-      room.board[position.y * 15 + position.x] !== "0"
+      room.board[position.y * 15 + position.x] !== "0" ||
+      forbiddenMoves.has(position.y * 15 + position.x)
     )
       return;
     const payload = { gameNumber: room.gameNumber, expectedPly: room.ply, ...position };
@@ -1055,6 +1067,7 @@ function GomokuRoom({ roomId, observation = null }) {
               <div className="gomoku-board-surface" inert={covered || undefined}>
                 <Board
                   room={room}
+                  forbiddenMoves={forbiddenMoves}
                   selected={selectedEmpty ? selected : null}
                   onSelect={(position) => setSelected({ ...position, gameNumber: room.gameNumber })}
                   onConfirm={(position) => {

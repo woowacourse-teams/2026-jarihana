@@ -1,0 +1,10 @@
+.gomoku-forbidden {
+  width: 65%;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  pointer-events: none;
+  z-index: 2;
+}

@@ -105,6 +105,17 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                   <span className="sr-only">라이프</span>10
                 </small>
               </button>
+              <button
+                type="button"
+                data-level="another"
+                data-ph-capture-attribute-action="rhythm_difficulty_another"
+                aria-pressed="false"
+              >
+                ANOTHER<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>10
+                </small>
+              </button>
             </div>
             <p id="difficulty-copy" className="small muted">
               정박 위주의 단타로 리듬을 익혀요.
@@ -297,8 +308,8 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
             <header className="masthead">
               <div className="track">
                 <span className="eyebrow">NOW PLAYING</span>
-                <span>Pixel Circuit</span>
-                <small>128 BPM / 90초 루프</small>
+                <span id="track-title">Pixel Circuit</span>
+                <small id="track-meta">128 BPM / 90초 루프</small>
               </div>
               <button
                 id="pause"
@@ -347,6 +358,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 </span>
                 <span>
                   <i className="dot yellow"></i>치 / 16분
+                </span>
+                <span id="legend-triplet" hidden>
+                  <i className="dot green"></i>따 / 셋잇단, 스윙 엇박
                 </span>
               </div>
               <label className="check">

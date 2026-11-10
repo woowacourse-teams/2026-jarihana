@@ -17,7 +17,6 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../../src/features/shop/hooks.js", () => ({ useProfileEquipment: jest.fn(() => ({})) }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
-jest.mock("../../../src/features/avatar/MyAvatarCard.jsx", () => ({ MyAvatarCard: () => <section aria-label="내 아바타" /> }));
 jest.mock("../../../src/features/points/hooks", () => ({
   usePointSummary: () => ({ data: { enabled: false } })
 }));
@@ -241,7 +240,6 @@ describe("MyPage", () => {
     );
   });
 });
-
 
 it("보유 후 적용한 프레임을 마이페이지 프로필 사진에 표시한다", () => {
   useProfileEquipment.mockReturnValueOnce({ data: [{

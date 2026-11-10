@@ -47,7 +47,6 @@ TRUNCATE TABLE
     image_promotion_task,
     image_upload,
     feedback,
-    member_avatar,
     registration,
     group_member,
     group_recruitment,

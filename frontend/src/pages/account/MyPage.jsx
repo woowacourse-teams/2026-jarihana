@@ -5,8 +5,6 @@ import { Link, useLocation } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { ProductArt } from "../../features/shop/ProductArt.jsx";
 import { useProfileEquipment } from "../../features/shop/hooks.js";
-import { MyAvatarCard } from "../../features/avatar/MyAvatarCard.jsx";
-import "./avatar.css";
 import { useInfiniteGroups } from "../../features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../features/registration/index.js";
 import { Card, Skeleton } from "../../shared/ui/index.js";
@@ -249,7 +247,7 @@ export function MyPage() {
             <h2>{member.crewName}</h2>
             <p>{memberMetaLabel(member)}</p>
           </Card>
-          <MyAvatarCard previewPaused={focusStatus === "loading"} />
+          <div aria-hidden="true" className="profile-companion" />
         </aside>
         <div className="activity-column">
           {focusStatus === "loading" ? <p role="status">알림에 해당하는 항목을 찾고 있어요…</p> : null}

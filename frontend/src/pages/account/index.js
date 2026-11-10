@@ -2,7 +2,6 @@ import "./account.css";
 
 export { MyGroupsPage } from "./MyGroupsPage.jsx";
 export { MyPage } from "./MyPage.jsx";
-export { AvatarPage } from "./AvatarPage.jsx";
 export { MyPointsPage } from "./MyPointsPage.jsx";
 export { MyRegistrationsPage } from "./MyRegistrationsPage.jsx";
 export { OAuthCallbackPage } from "./OAuthCallbackPage.jsx";

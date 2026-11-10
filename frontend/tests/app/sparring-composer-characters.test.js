@@ -322,15 +322,3 @@ it('실제 호스 경로의 투영 비율로 캡슐 크기를 줄이고 발사�
   models.step(0.28);
   expect(capsules.hide).toHaveBeenCalledWith(0);
 });
-
-it('위치와 회원 유형이 같아도 선택한 외형이 바뀌면 입력 캐릭터를 다시 그린다', () => {
-  const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
-  const entry = { side: 'a', avatar, diameter: 24, memberType: 'CREW', active: true };
-  standing.draw.mockClear();
-  models.update([{ ...entry, appearance: AVATAR_PRESETS[0].appearance }]);
-  expect(standing.draw.mock.lastCall[1].appearance).toEqual(AVATAR_PRESETS[0].appearance);
-  standing.draw.mockClear();
-  models.update([{ ...entry, appearance: AVATAR_PRESETS[1].appearance }]);
-  expect(standing.draw).toHaveBeenCalledTimes(1);
-  expect(standing.draw.mock.lastCall[1].appearance).toEqual(AVATAR_PRESETS[1].appearance);
-});

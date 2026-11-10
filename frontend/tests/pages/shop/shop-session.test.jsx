@@ -20,7 +20,7 @@ jest.mock("../../../src/features/shop/api.js", () => ({
   shopApi: { catalog: jest.fn() },
   createShopClient: jest.fn()
 }));
-jest.mock("../../../src/features/avatar/AvatarFrame.jsx", () => ({ AvatarFrame: () => <div /> }));
+jest.mock("../../../src/features/shop/ShopAvatarPreview.jsx", () => ({ ShopAvatarPreview: () => <div /> }));
 
 function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
