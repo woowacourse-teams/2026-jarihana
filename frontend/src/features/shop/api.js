@@ -24,10 +24,10 @@ export const shopApi = {
       json: { itemId, equipped },
       schema: ownedItemsSchema
     }),
-  purchase: ({ productId, termsVersion, requestId }) =>
+  purchase: ({ productId, termsVersion, requestId, expectedMemberId }) =>
     apiClient.request("members/me/shop/purchases", {
       method: "POST",
-      json: { productId, termsVersion, requestId },
+      json: { productId, termsVersion, requestId, expectedMemberId },
       schema: shopPurchaseResultSchema
     })
 };

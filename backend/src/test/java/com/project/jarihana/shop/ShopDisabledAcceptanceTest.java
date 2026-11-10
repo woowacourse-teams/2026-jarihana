@@ -6,6 +6,8 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +30,8 @@ class ShopDisabledAcceptanceTest extends IntegrationTestSupport {
         // When / Then
         given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value())
                 .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf).contentType("application/json")
-                .body("{\"productId\":\"beanie\",\"termsVersion\":\"v1\",\"requestId\":\"00000000-0000-0000-0000-000000000001\"}")
+                .body(Map.of("productId", "beanie", "termsVersion", "v1", "requestId", UUID.randomUUID().toString(),
+                        "expectedMemberId", member.getId()))
                 .post("/members/me/shop/purchases").then().statusCode(503)
                 .body("error.code", equalTo("SHOP_UNAVAILABLE"));
     }

@@ -28,7 +28,7 @@
 ## 구매 안전성과 코드 경계
 
 `entities/shop`은 응답과 허용 미리보기 값을 검증한다. `features/shop/api.js`는 공통 client의
-인증·CSRF·취소 신호를 사용한다. 회원/가격은 전송하지 않고 productId/termsVersion/requestId만 보낸다.
+인증·CSRF·취소 신호를 사용한다. 구매 요청에는 productId/termsVersion/requestId와 확인창을 열 때의 expectedMemberId를 보낸다. 서버가 확인 계정 불일치를 알리면 확인창을 닫고 현재 계정과 잔액을 다시 불러온다.
 `demoClient`와 실제 어댑터는 같은 `ShopPreview`를 사용하며 실제 잔액으로 체험 아이템을 차감하지 않는다.
 
 확인창에 UUID를 만들고 결과 불명 재시도는 같은 키를 유지한다. 자동 구매 재시도는 하지 않는다.

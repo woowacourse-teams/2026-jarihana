@@ -4,12 +4,13 @@ import { apiClient } from "../../../src/shared/api/index.js";
 jest.mock("../../../src/shared/api/index.js", () => ({ apiClient: { request: jest.fn() } }));
 afterEach(() => jest.clearAllMocks());
 
-it("구매 API에는 상품·조건·멱등 키만 전달하며 가격과 회원 ID는 보내지 않는다", async () => {
+it("구매 API는 확인 계정 ID를 전달하고 클라이언트 가격과 구매자 지정은 제외한다", async () => {
   apiClient.request.mockResolvedValue({ purchaseId: "receipt" });
   await shopApi.purchase({
     productId: "beanie",
     termsVersion: "v1",
     requestId: "uuid",
+    expectedMemberId: 21,
     price: 1,
     memberId: 99
   });
@@ -17,7 +18,7 @@ it("구매 API에는 상품·조건·멱등 키만 전달하며 가격과 회원
     "members/me/shop/purchases",
     expect.objectContaining({
       method: "POST",
-      json: { productId: "beanie", termsVersion: "v1", requestId: "uuid" }
+      json: { productId: "beanie", termsVersion: "v1", requestId: "uuid", expectedMemberId: 21 }
     })
   );
 });

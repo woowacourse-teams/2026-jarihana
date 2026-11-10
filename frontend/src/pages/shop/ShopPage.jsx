@@ -176,7 +176,7 @@ function ProductDetail({
   );
 }
 
-export function ShopPreview({ client, pointsSummary }) {
+export function ShopPreview({ client, pointsSummary, memberId, onAccountChanged }) {
   const live = Boolean(client.isLive);
   const { query, purchase, equipment } = useShop(client);
   const [category, setCategory] = useState("all");
@@ -193,7 +193,8 @@ export function ShopPreview({ client, pointsSummary }) {
     setConfirmation({
       productId: product.id,
       termsVersion: product.termsVersion,
-      requestId: crypto.randomUUID()
+      requestId: crypto.randomUUID(),
+      ...(live ? { expectedMemberId: memberId } : {})
     });
   }
 
@@ -207,8 +208,13 @@ export function ShopPreview({ client, pointsSummary }) {
         `${data.catalog.products.find((item) => item.id === result.productId)?.name} 구매를 마쳤어요.`
       );
     } catch (error) {
+      if (error.code === "ACCOUNT_CHANGED") {
+        setConfirmation(null);
+        onAccountChanged();
+      } else if (SHOP_ERROR_MESSAGES[error.code]) {
+        void query.refetch();
+      }
       // Unknown outcomes retain the same requestId for safe retry.
-      if (SHOP_ERROR_MESSAGES[error.code]) void query.refetch();
     } finally {
       mutationLock.current = false;
     }
@@ -474,12 +480,13 @@ function DemoShopSession({ pointsSummary }) {
   return <ShopPreview client={client} pointsSummary={pointsSummary} />;
 }
 
-function LiveShopSession() {
+function LiveShopSession({ memberId, onAccountChanged }) {
   const [client] = useState(createShopClient);
-  return <ShopPreview client={client} />;
+  return <ShopPreview client={client} memberId={memberId} onAccountChanged={onAccountChanged} />;
 }
 
-function ShopSession({ authenticated }) {
+function ShopSession({ memberId, onAccountChanged }) {
+  const authenticated = Boolean(memberId);
   const points = usePointSummary();
   const catalog = useQuery({
     queryKey: ["shop-availability"],
@@ -508,16 +515,49 @@ function ShopSession({ authenticated }) {
         </Button>
       </div>
     );
-  if (catalog.data?.purchasingEnabled) return <LiveShopSession />;
+  if (catalog.data?.purchasingEnabled)
+    return <LiveShopSession memberId={memberId} onAccountChanged={onAccountChanged} />;
   return <DemoShopSession pointsSummary={points} />;
 }
 
 export function ShopPage() {
-  const { member, sessionVersion, status, logoutPending } = useAuth();
+  const { member, sessionVersion, status, logoutPending, reload } = useAuth();
+  const [accountRecovery, setAccountRecovery] = useState(null);
+
+  async function reloadAccount() {
+    setAccountRecovery("checking");
+    try {
+      await reload();
+      setAccountRecovery("complete");
+    } catch {
+      setAccountRecovery("failed");
+    }
+  }
+
+  if (accountRecovery === "checking")
+    return <div className="shop-page shop-loading" role="status">현재 로그인 계정을 확인하고 있어요…</div>;
+  if (accountRecovery === "failed")
+    return (
+      <div className="shop-page shop-loading">
+        <p role="alert">현재 로그인 계정을 확인하지 못했어요.</p>
+        <Button data-ph-capture-attribute-action="shop_load_retry" onClick={reloadAccount}>
+          다시 확인
+        </Button>
+      </div>
+    );
+
   return (
-    <ShopSession
-      key={`${member?.id || "guest"}:${sessionVersion}:${Boolean(logoutPending)}`}
-      authenticated={Boolean(member?.id) && status === "authenticated" && !logoutPending}
-    />
+    <>
+      {accountRecovery === "complete" && (
+        <p className="shop-page shop-account-notice" role="status">
+          로그인 계정이 바뀌었어요. 현재 계정에서 구매를 다시 확인해 주세요.
+        </p>
+      )}
+      <ShopSession
+        key={`${member?.id || "guest"}:${sessionVersion}:${Boolean(logoutPending)}`}
+        memberId={status === "authenticated" && !logoutPending ? member?.id : null}
+        onAccountChanged={reloadAccount}
+      />
+    </>
   );
 }

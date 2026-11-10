@@ -6,6 +6,9 @@
   margin: 0 auto;
   padding: var(--space-8) var(--page-gutter) var(--space-12);
 }
+.shop-account-notice {
+  padding-bottom: 0;
+}
 .shop-page h1,
 .shop-page h2,
 .shop-page p {

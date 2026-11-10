@@ -24,13 +24,13 @@ V37은 실제 카탈로그에 프로필 프레임 두 종을 등록한다. 꾸�
 | PUT | /members/me/shop/equipment | MEMBER + CSRF | 200: 변경 후 inventory |
 
 상품 조회는 작은 전체 카탈로그를 반환하는 화면 설정 리소스다. 구매 이력 목록 API가 아니다.
-구매자 ID는 인증 쿠키에서만 읽는다. 가격·지급 아이템은 요청으로 받지 않는다.
+실제 구매자는 인증 쿠키에서 결정한다. `expectedMemberId`는 확인창을 열 때의 계정과 같은지 검사한다. 가격·지급 아이템은 요청으로 받지 않는다.
 
 ```json
-{"productId":"offer-id","termsVersion":"서버가 반환한 조건 해시","requestId":"4e3d654a-9f57-4cd1-9113-1d92dad97f23"}
+{"productId":"offer-id","termsVersion":"서버가 반환한 조건 해시","requestId":"4e3d654a-9f57-4cd1-9113-1d92dad97f23","expectedMemberId":42}
 ```
 
-- productId, termsVersion: 필수, 1~64자. requestId: 필수 UUID.
+- productId, termsVersion: 필수, 1~64자. requestId: 필수 UUID. expectedMemberId: 필수 양의 정수.
 - 상품: id, name, description, categoryId, price(1~JS 안전 정수 상한), termsVersion,
   status(AVAILABLE/ENDED), preview(type/art/tone/appearance), grant(itemId/slot).
 - preview와 슬롯은 [프론트 계약](../../../../../frontend/src/entities/shop/index.js)의 지원 목록만 등록한다.
@@ -44,7 +44,7 @@ V37은 실제 카탈로그에 프로필 프레임 두 종을 등록한다. 꾸�
 
 ## 원자성·재시도
 
-1. READ COMMITTED 트랜잭션에서 회원 잔액 행을 생성 또는 잠근다.
+1. 확인한 회원 ID가 인증된 회원 ID와 같은지 검사한다. 일치하면 READ COMMITTED 트랜잭션에서 회원 잔액 행을 생성 또는 잠근다.
 2. 같은 회원/requestId 구매가 있으면 productId/termsVersion 일치를 검사한 뒤 같은 purchaseId를 반환한다.
    재응답의 잔액과 보유 목록은 최신 상태다. 원래 응답 전체를 재생하는 계약은 아니다.
 3. 새 요청이면 상품 행을 FOR SHARE로 읽어 판매 중 여부, 조건, 기존 보유를 검사한다.
@@ -63,6 +63,7 @@ V37은 실제 카탈로그에 프로필 프레임 두 종을 등록한다. 꾸�
 | INVALID_PARAMETER | 400 | 필수 필드/UUID/길이 오류 |
 | UNAUTHENTICATED | 401 | 인증 없음 또는 존재하지 않는 회원 |
 | ACCESS_DENIED | 403 | CSRF 검증 실패 |
+| ACCOUNT_CHANGED | 409 | 확인창을 연 계정과 현재 인증 계정이 다름. 잔액과 보유를 변경하지 않음 |
 | PRODUCT_UNAVAILABLE | 409 | 없는 상품 또는 판매 종료 |
 | TERMS_CHANGED | 409 | 가격·지급 조건 변경 |
 | ALREADY_OWNED | 409 | 같은 아이템 보유 |
@@ -74,7 +75,7 @@ V37은 실제 카탈로그에 프로필 프레임 두 종을 등록한다. 꾸�
 ## 검증과 남은 결정
 
 ShopPurchaseAcceptanceTest: PostgreSQL HTTP 인수 테스트로 중복 요청·동시 지출·동시 적립 SQL,
-가격 신뢰 경계·조건 변경·계정 분리·인증/CSRF·지급 실패 롤백을 확인한다.
+가격 신뢰 경계·조건 변경·탭 간 로그인 계정 변경 시 양쪽 잔액과 보유 유지·인증/CSRF·지급 실패 롤백을 확인한다.
 ShopDisabledAcceptanceTest: 기본 판매 중지. FlywayBaselineTest: 기존 스키마 업그레이드와 이력 보존.
 상점 인수 테스트는 V33으로 생성된 지갑을 사용하고, 구매 후 포인트 조회 API에서 차감된 잔액을 확인한다.
 운영 DB와 구버전 앱 이미지는 배포 전에 별도로 확인한다.

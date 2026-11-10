@@ -25,6 +25,9 @@ public class ShopPurchaseService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ShopPurchaseResult purchase(long memberId, PurchaseProductCommand command) {
+        if (memberId != command.expectedMemberId()) {
+            throw new BusinessException(ErrorCode.ACCOUNT_CHANGED, "구매를 확인한 계정과 현재 로그인 계정이 달라요.");
+        }
         availability.requireEnabled();
         repository.lockWallet(memberId);
         var previous = repository.findPurchase(memberId, command.requestId());

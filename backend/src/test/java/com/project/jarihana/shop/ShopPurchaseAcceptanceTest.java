@@ -44,7 +44,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         // Given
         Member member = member("가온", "shop-one", 1000);
         String version = offer("beanie", PRODUCT);
-        Map<String, String> body = body("beanie", version);
+        Map<String, Object> body = body(member.getId(), "beanie", version);
         // When
         Response first = request(member).body(body).post(PATH);
         first.then().statusCode(201).body("data.wallet.balance", equalTo(700))
@@ -61,7 +61,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         assertThat(balance(member)).isEqualTo(700);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM shop_purchase", Long.class)).isEqualTo(1);
         request(member).body(Map.of("productId", "another", "termsVersion", version,
-                "requestId", body.get("requestId"))).post(PATH).then().statusCode(409)
+                "requestId", body.get("requestId"), "expectedMemberId", member.getId())).post(PATH).then().statusCode(409)
                 .body("error.code", equalTo("REQUEST_CONFLICT"));
     }
 
@@ -73,13 +73,33 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         Member second = member("도담", "shop-second", 1000);
         String version = offer("beanie", PRODUCT);
         // When / Then
-        request(first).body(body("beanie", version)).post(PATH).then().statusCode(201);
-        request(first).body(body("beanie", version)).post(PATH).then().statusCode(409)
+        request(first).body(body(first.getId(), "beanie", version)).post(PATH).then().statusCode(201);
+        request(first).body(body(first.getId(), "beanie", version)).post(PATH).then().statusCode(409)
                 .body("error.code", equalTo("ALREADY_OWNED"));
         request(second).get("/members/me/shop").then().body("data.inventory.items.size()", equalTo(0));
-        request(second).body(body("beanie", version)).post(PATH).then().statusCode(201);
+        request(second).body(body(second.getId(), "beanie", version)).post(PATH).then().statusCode(201);
         assertThat(balance(first)).isEqualTo(700);
         assertThat(balance(second)).isEqualTo(700);
+    }
+
+    @Test
+    @DisplayName("다른 계정으로 바뀐 탭의 구매를 거절하고 두 계정의 잔액과 보유를 보존한다.")
+    void rejectsPurchaseConfirmedForAnotherAccount() {
+        // Given
+        Member confirmedMember = member("가온", "shop-confirmed", 1000);
+        Member cookieMember = member("도담", "shop-cookie", 900);
+        String version = offer("beanie", PRODUCT);
+
+        // When
+        request(cookieMember).body(body(confirmedMember.getId(), "beanie", version)).post(PATH)
+                .then().statusCode(409).body("error.code", equalTo("ACCOUNT_CHANGED"));
+
+        // Then
+        request(confirmedMember).get("/members/me/shop").then().statusCode(200)
+                .body("data.wallet.balance", equalTo(1000)).body("data.inventory.items.size()", equalTo(0));
+        request(cookieMember).get("/members/me/shop").then().statusCode(200)
+                .body("data.wallet.balance", equalTo(900)).body("data.inventory.items.size()", equalTo(0));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM shop_purchase", Long.class)).isZero();
     }
 
     @Test
@@ -89,14 +109,17 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         Member member = member("가온", "shop-invalid", 200);
         String version = offer("beanie", PRODUCT);
         // When / Then
-        request(member).body(body("beanie", version)).post(PATH).then().statusCode(409)
+        request(member).body(body(member.getId(), "beanie", version)).post(PATH).then().statusCode(409)
                 .body("error.code", equalTo("INSUFFICIENT_POINTS"));
-        request(member).body(body("beanie", "stale")).post(PATH).then().statusCode(409)
+        request(member).body(body(member.getId(), "beanie", "stale")).post(PATH).then().statusCode(409)
                 .body("error.code", equalTo("TERMS_CHANGED"));
-        request(member).body(Map.of("productId", "beanie", "termsVersion", version, "requestId", "invalid"))
+        request(member).body(Map.of("productId", "beanie", "termsVersion", version, "requestId", "invalid",
+                "expectedMemberId", member.getId()))
                 .post(PATH).then().statusCode(400);
+        request(member).body(Map.of("productId", "beanie", "termsVersion", version,
+                "requestId", UUID.randomUUID().toString())).post(PATH).then().statusCode(400);
         jdbc.update("UPDATE shop_product SET available = false");
-        request(member).body(body("beanie", version)).post(PATH).then().statusCode(409)
+        request(member).body(body(member.getId(), "beanie", version)).post(PATH).then().statusCode(409)
                 .body("error.code", equalTo("PRODUCT_UNAVAILABLE"));
         assertThat(balance(member)).isEqualTo(200);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM shop_purchase", Long.class)).isZero();
@@ -109,8 +132,8 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         Member member = member("가온", "shop-concurrent", 400);
         String first = offer("beanie", PRODUCT);
         String second = offer("bucket", PRODUCT.replace("test-beanie", "test-bucket"));
-        Callable<Integer> buyFirst = () -> request(member).body(body("beanie", first)).post(PATH).statusCode();
-        Callable<Integer> buySecond = () -> request(member).body(body("bucket", second)).post(PATH).statusCode();
+        Callable<Integer> buyFirst = () -> request(member).body(body(member.getId(), "beanie", first)).post(PATH).statusCode();
+        Callable<Integer> buySecond = () -> request(member).body(body(member.getId(), "bucket", second)).post(PATH).statusCode();
         // When
         try (var executor = Executors.newFixedThreadPool(2)) {
             var results = executor.invokeAll(List.of(buyFirst, buySecond));
@@ -126,7 +149,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
     void serializesSameRequest() throws Exception {
         // Given
         Member member = member("가온", "shop-retry", 1000);
-        Map<String, String> body = body("beanie", offer("beanie", PRODUCT));
+        Map<String, Object> body = body(member.getId(), "beanie", offer("beanie", PRODUCT));
         Callable<Response> buy = () -> request(member).body(body).post(PATH);
         // When
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -150,11 +173,12 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         // When / Then
         given().get("/members/me/shop").then().statusCode(401);
         given().cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .contentType("application/json").body(body("beanie", version)).post(PATH).then().statusCode(401);
+                .contentType("application/json").body(body(member.getId(), "beanie", version)).post(PATH).then().statusCode(401);
         given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value())
-                .contentType("application/json").body(body("beanie", version)).post(PATH).then().statusCode(403);
+                .contentType("application/json").body(body(member.getId(), "beanie", version)).post(PATH).then().statusCode(403);
         request(member).body(Map.of("productId", "beanie", "termsVersion", version,
-                "requestId", UUID.randomUUID().toString(), "price", 1, "memberId", 999)).post(PATH)
+                "requestId", UUID.randomUUID().toString(), "expectedMemberId", member.getId(),
+                "price", 1, "memberId", 999)).post(PATH)
                 .then().statusCode(201).body("data.wallet.balance", equalTo(700));
     }
 
@@ -167,7 +191,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         jdbc.execute("ALTER TABLE shop_purchase ADD CONSTRAINT shop_test_failure CHECK (amount <> 300)");
         try {
             // When
-            request(member).body(body("beanie", version)).post(PATH).then().statusCode(500);
+            request(member).body(body(member.getId(), "beanie", version)).post(PATH).then().statusCode(500);
             // Then
             assertThat(balance(member)).isEqualTo(1000);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM shop_purchase", Long.class)).isZero();
@@ -182,7 +206,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         // Given: the same additive wallet update used by #589's complete method.
         Member member = member("가온", "shop-credit", 1000);
         String version = offer("beanie", PRODUCT);
-        Callable<Integer> buy = () -> request(member).body(body("beanie", version)).post(PATH).statusCode();
+        Callable<Integer> buy = () -> request(member).body(body(member.getId(), "beanie", version)).post(PATH).statusCode();
         Callable<Integer> credit = () -> jdbc.update("UPDATE point_wallet SET balance = balance + 25 WHERE member_id = ?", member.getId());
         // When
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -205,7 +229,7 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
                 .get("/members/me/shop").then().statusCode(401);
         given().cookie(cookies.accessTokenName(), tokens.issue(999999L).value())
                 .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .contentType("application/json").body(body("beanie", version)).post(PATH).then().statusCode(401);
+                .contentType("application/json").body(body(999999L, "beanie", version)).post(PATH).then().statusCode(401);
     }
 
     @Test
@@ -220,8 +244,8 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
         String second = offer("profile-second", frame.replace("test-beanie", "test-second"));
         String equipment = "/members/me/shop/equipment";
         var equipFirst = Map.of("itemId", "test-first", "equipped", true);
-        request(buyer).body(body("profile-first", first)).post(PATH).then().statusCode(201);
-        request(buyer).body(body("profile-second", second)).post(PATH).then().statusCode(201);
+        request(buyer).body(body(buyer.getId(), "profile-first", first)).post(PATH).then().statusCode(201);
+        request(buyer).body(body(buyer.getId(), "profile-second", second)).post(PATH).then().statusCode(201);
 
         // When / Then
         request(other).body(equipFirst).put(equipment).then().statusCode(409)
@@ -253,8 +277,9 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
                 .getString("data.products.find { it.id == '" + id + "' }.termsVersion");
     }
 
-    private Map<String, String> body(String productId, String version) {
-        return Map.of("productId", productId, "termsVersion", version, "requestId", UUID.randomUUID().toString());
+    private Map<String, Object> body(long memberId, String productId, String version) {
+        return Map.of("productId", productId, "termsVersion", version, "requestId", UUID.randomUUID().toString(),
+                "expectedMemberId", memberId);
     }
 
     private long balance(Member member) {
