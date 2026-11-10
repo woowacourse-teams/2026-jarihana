@@ -40,7 +40,10 @@ URL에 버전 경로를 붙이지 않는다.
 잘못되거나 만료된 `cursor`와 허용 범위를 벗어난 `size`는 `INVALID_PARAMETER`로 응답한다.
 
 ## 응답 형식
-`204 No Content`와 `3xx` 리다이렉트 응답을 제외한 API 응답은 동일한 봉투를 사용한다.
+`204 No Content`, `3xx` 리다이렉트와 아래 공유 미리보기 HTML 응답을 제외한 API 응답은 동일한 봉투를 사용한다.
+
+`GET /api/share/groups/{groupId}`, `GET /api/share/sparrings/{topicId}`의 성공 응답은
+공유 크롤러가 React 실행 없이 읽는 `text/html`이다. 해당 API의 오류 응답에는 공통 JSON 봉투를 사용한다.
 
 ```json
 {

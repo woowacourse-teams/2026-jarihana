@@ -1,7 +1,7 @@
 package com.project.jarihana.share.query.controller;
 
 import com.project.jarihana.share.query.service.GroupSharePreviewService;
-import com.project.jarihana.share.query.service.dto.GroupSharePreview;
+import com.project.jarihana.share.query.service.dto.SharePreviewResult;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +24,10 @@ public class GroupSharePreviewController {
 
     @GetMapping(value = "/groups/{groupId}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> findGroupPreview(@PathVariable long groupId) {
-        GroupSharePreview preview = groupSharePreviewService.findGroupPreview(groupId);
+        SharePreviewResult preview = groupSharePreviewService.findGroupPreview(groupId);
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
-                .body(GroupSharePreviewHtmlRenderer.render(preview));
+                .body(SharePreviewHtmlRenderer.render(preview));
     }
 }

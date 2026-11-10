@@ -2,6 +2,7 @@ package com.project.jarihana.sparring.query.repository;
 
 import com.project.jarihana.sparring.domain.SparringTopic;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
+import com.project.jarihana.sparring.query.repository.dto.SparringShareProjection;
 import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
 
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,14 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
 
     @Query(value = TOPIC_SELECT + " where t.id=:id", nativeQuery = true)
     Optional<SparringTopicProjection> topic(long id, Long memberId);
+
+    @Query(value = """
+            select t.title, t.claim_a as claimA, t.claim_b as claimB,
+                   (select i.image_key from image_reference r join image_upload i on i.id=r.image_upload_id
+                    where r.reference_type='SPARRING_REPRESENTATIVE' and r.owner_id=t.id) as representativeImageKey
+            from sparring_topic t where t.id=:id
+            """, nativeQuery = true)
+    Optional<SparringShareProjection> shareTopic(long id);
 
     @Query(
             value =

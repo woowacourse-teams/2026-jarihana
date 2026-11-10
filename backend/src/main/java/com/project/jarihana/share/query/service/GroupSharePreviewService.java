@@ -4,7 +4,7 @@ import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.query.service.GroupQueryService;
 import com.project.jarihana.group.query.service.dto.GroupDetailResult;
-import com.project.jarihana.share.query.service.dto.GroupSharePreview;
+import com.project.jarihana.share.query.service.dto.SharePreviewResult;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -23,16 +23,17 @@ public class GroupSharePreviewService {
         this.frontendOrigin = authProperties.frontendOrigin();
     }
 
-    public GroupSharePreview findGroupPreview(long groupId) {
+    public SharePreviewResult findGroupPreview(long groupId) {
         GroupDetailResult result = groupQueryService.findGroup(groupId);
         Group group = result.group();
         String canonicalUrl = frontendOrigin + "/groups/" + groupId;
-        return new GroupSharePreview(
+        return new SharePreviewResult(
                 group.getName() + " | " + SITE_NAME,
                 group.getIntroduction(),
                 canonicalUrl,
                 toAbsoluteUrl(result.representativeImageUrl()),
-                canonicalUrl + "?preview=1"
+                canonicalUrl + "?preview=1",
+                "모임 페이지로 이동"
         );
     }
 

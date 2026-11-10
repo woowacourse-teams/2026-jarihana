@@ -1,36 +1,32 @@
 /**
- * CloudFront viewer-request function for group social previews and SPA routes.
+ * CloudFront viewer-request function for group/debate social previews and SPA routes.
  *
  * Attach this function to the default (S3) behavior at Viewer request using
  * CloudFront Functions runtime 2.0. A URI rewrite alone does not change the
  * selected origin, so the metadata request explicitly selects the backend
- * origin. Requests with ?preview=1 intentionally remain on the default
- * behavior so the browser can load the normal SPA shell after the metadata
- * response's redirect. Extensionless frontend routes are rewritten to the SPA
- * entry point; API paths and static files are left unchanged. Query strings
- * are removed from group preview origin requests; metadata HTML reads the
- * browser-visible URL and carries only one validated promotion_id into that
- * redirect, so origin responses remain safe to cache.
+ * origin for known share crawlers. Browsers and unrecognized clients get the
+ * SPA shell at the original address. The rewritten URIs separate cached
+ * metadata from the SPA shell. API paths and static files pass through.
  */
 import cf from "cloudfront";
 
 // CloudFront Distribution E1YDHL1SDC4C1C > Origins > Origin name
 var BACKEND_ORIGIN_ID = "jarihana-backend";
+var SHARE_CRAWLER = /(?:^|[\s;])(?:kakaotalk-scrap|slackbot-linkexpanding|facebookexternalhit|facebot|twitterbot)(?=$|[/\s;])/i;
 
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
-  var match = uri.match(/^\/groups\/([1-9][0-9]*)\/?$/);
-  var preview = request.querystring && request.querystring.preview;
-  var isPreview = preview && !preview.multiValue && preview.value === "1";
+  var match = uri.match(/^\/(groups|sparring)\/([1-9][0-9]*)\/?$/);
 
   if (request.method === "GET" && match) {
-    // The browser keeps the original URL, so the HTML and SPA can read the
-    // promotion_id locally. Do not forward arbitrary query parameters to an
-    // origin or create cache variants for them.
+    // The browser keeps the original URL. Avoid forwarding arbitrary queries
+    // to either origin or creating cache variants for them.
     request.querystring = {};
-    if (!isPreview) {
-      request.uri = "/api/share/groups/" + match[1];
+    var userAgent = request.headers && request.headers["user-agent"];
+    if (userAgent && SHARE_CRAWLER.test(userAgent.value)) {
+      var resource = match[1] === "groups" ? "groups" : "sparrings";
+      request.uri = "/api/share/" + resource + "/" + match[2];
       cf.selectRequestOriginById(BACKEND_ORIGIN_ID);
       return request;
     }

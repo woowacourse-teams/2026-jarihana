@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../features/auth";
 import { useArenaBridge } from "../../features/sparring/useArenaBridge";
@@ -234,7 +234,19 @@ function Room({ topicId, member, login, retry, onRetry }) {
 export function SparringDetailPage() {
   const [retry, setRetry] = useState(0);
   const { topicId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { status, member, login, restoring, sessionVersion } = useAuth();
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const preview = query.getAll("preview");
+    if (preview.length !== 1 || preview[0] !== "1") return;
+    query.delete("preview");
+    const search = query.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, {
+      replace: true, state: location.state
+    });
+  }, [location, navigate]);
   if (!/^[1-9]\d*$/.test(topicId)) return <p role="alert">토론 주소가 올바르지 않아요.</p>;
   if (status === "loading" || restoring) return <SparringEntry />;
   return (

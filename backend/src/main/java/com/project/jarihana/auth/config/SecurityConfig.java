@@ -50,6 +50,7 @@ public class SecurityConfig {
             "/games/stick-halving/rankings",
             "/images/**",
             "/share/groups/*",
+            "/share/sparrings/*",
             "/invitations/links/*",
             "/assets/default-group.png"
     };

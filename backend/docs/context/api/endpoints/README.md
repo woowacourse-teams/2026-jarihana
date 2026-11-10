@@ -78,6 +78,7 @@
 | 그룹 | `DELETE` | `/api/groups/{groupId}` | `LEADER` | 생성 후 24시간 이내 그룹 삭제 |
 | 그룹 | `GET` | `/api/groups/{groupId}` | `PUBLIC` | 그룹 상세 조회 |
 | 공유 미리보기 | `GET` | `/api/share/groups/{groupId}` | `PUBLIC` | 그룹별 Open Graph/Twitter 메타데이터 HTML 반환 |
+| 공유 미리보기 | `GET` | `/api/share/sparrings/{topicId}` | `PUBLIC` | 토론명·편명·대표사진의 Open Graph/Twitter HTML 반환 |
 | 그룹 | `PATCH` | `/api/groups/{groupId}` | `LEADER` | 생성 후 24시간이 지난 그룹 종료 |
 | 그룹 | `PUT` | `/api/groups/{groupId}` | `LEADER` | 그룹 기본 정보 전체 교체 |
 | 그룹 | `DELETE` | `/api/groups/{groupId}/recurring-schedule` | `LEADER` | 동아리·스터디를 유동적 일정으로 변경 |
@@ -169,7 +170,7 @@
 | 활동 기록 | [activity-posts.md](activity-posts.md) | 사진 활동 기록 조회, 작성, 수정, 숨김과 댓글, 하트 반응 |
 | 자유게시판 | [proposals.md](proposals.md) | 모임 제안 조회, 작성, 숨김과 함께하고 싶어요 응답, 코멘트 |
 | 미니게임 | [minigames.md](minigames.md) | 빼빼로데이 반 나누기 이벤트 상태, 순위 도전 판 시작과 막대 판정, 순위 |
-| 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹 공유 미리보기 HTML 엔드포인트 |
+| 공유 미리보기 | [share-preview.md](share-preview.md) | 그룹·토론 공유 미리보기 HTML 엔드포인트 |
 | 알림함·웹푸시 | [notifications.md](notifications.md) | 알림함·구독·푸시 내용 조회·로그아웃 호환 확장 |
 
 ## 스파링

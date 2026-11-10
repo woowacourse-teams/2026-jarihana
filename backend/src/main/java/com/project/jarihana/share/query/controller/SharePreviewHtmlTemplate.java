@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-final class GroupSharePreviewHtmlTemplate {
+final class SharePreviewHtmlTemplate {
 
-    private static final String TEMPLATE_PATH = "/share/group-share-preview.html";
+    private static final String TEMPLATE_PATH = "/share/share-preview.html";
     private static final String CONTENT = loadContent();
 
-    private GroupSharePreviewHtmlTemplate() {
+    private SharePreviewHtmlTemplate() {
     }
 
     static String render(
@@ -17,13 +17,14 @@ final class GroupSharePreviewHtmlTemplate {
             String description,
             String canonicalUrl,
             String imageUrl,
-            String redirectUrl
+            String redirectUrl,
+            String linkText
     ) {
-        return CONTENT.formatted(title, description, canonicalUrl, imageUrl, redirectUrl);
+        return CONTENT.formatted(title, description, canonicalUrl, imageUrl, redirectUrl, linkText);
     }
 
     private static String loadContent() {
-        try (InputStream inputStream = GroupSharePreviewHtmlTemplate.class.getResourceAsStream(TEMPLATE_PATH)) {
+        try (InputStream inputStream = SharePreviewHtmlTemplate.class.getResourceAsStream(TEMPLATE_PATH)) {
             if (inputStream == null) {
                 throw new IllegalStateException("공유 미리보기 HTML 템플릿을 찾을 수 없습니다.");
             }

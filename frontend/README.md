@@ -39,8 +39,9 @@ npm run dev
 ```
 
 현재 로컬 DB에는 공유 미리보기 확인용 모임이 `id=13`으로 준비되어 있다.
-브라우저에서 `http://localhost:5173/groups/13?promotion_id=yutnori_chat_01`을 열면 개발 서버가 운영의
-CloudFront rewrite를 흉내 내 그룹 메타 페이지를 거친 뒤 React 화면을 표시한다.
+브라우저에서 `http://localhost:5173/groups/13?promotion_id=yutnori_chat_01`을 열면 개발 서버에서
+그룹 메타 페이지를 거친 뒤 React 화면을 표시한다. 배포 환경의 CloudFront는 User-Agent로 분기해
+등록된 공유 봇에 메타 페이지를 제공하고 일반 브라우저에는 React 화면을 바로 제공한다.
 주소에 붙인 `promotion_id`는 유효한 형식일 때만 `?preview=1` 이동과 세션 추적에 보존된다.
 크롤러가 받는 원본 HTML을 직접 보려면 주소창에
 `view-source:http://localhost:5173/groups/13`을 입력한다. 원본에서
@@ -51,6 +52,11 @@ CloudFront rewrite를 흉내 내 그룹 메타 페이지를 거친 뒤 React 화
 ```bash
 curl -i http://localhost:8080/api/share/groups/13
 ```
+
+토론도 로컬에서 만든 토론 ID로 `/sparring/{topicId}`를 열면 같은 메타 페이지 흐름을 거친다.
+서버 HTML은 `curl -i http://localhost:8080/api/share/sparrings/{topicId}`로 확인한다.
+카드에는 토론명·양쪽 편명·대표사진만 담으며 사진이 없으면 기존 토론 이미지를 쓴다.
+토론 SPA는 진입용 `preview=1`을 주소에서 제거하므로 주소를 복사해 다시 공유해도 토론별 카드를 얻는다.
 
 `200 OK`, `Content-Type: text/html`, 그리고 모임 이름이 들어간
 `og:title`을 확인할 수 있다. `DB_URL` 같은 값은 `bootRun` 프로세스가 실행되는
