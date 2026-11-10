@@ -404,6 +404,10 @@ export async function installApiFixture(pageInstance, options = {}) {
         weeklyQuotas: []
       }));
     }
+    if (path === "/members/me/shop/equipment" && method === "GET") {
+      if (state.auth !== "authenticated") return json(route, failure("UNAUTHENTICATED"), 401);
+      return json(route, success([]));
+    }
     if (path === "/members/me" && method === "GET") {
       state.memberProfileReads += 1;
       if (state.expireMemberProfileAfterBootstrap && state.memberProfileReads === 2) {
