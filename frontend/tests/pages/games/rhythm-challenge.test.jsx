@@ -58,7 +58,7 @@ const created = {
   level: "HARDEST",
   scrollSpeed: 2,
   seed: 987654,
-  rulesVersion: "rhythm-harpoon-ranked-3",
+  rulesVersion: "rhythm-harpoon-ranked-4",
   chartVersion: "bars-13-16-1",
   status: "CREATED"
 };
@@ -117,9 +117,18 @@ it("walks from options to a confirmed challenge with the server seed", async () 
     level: "hardest",
     scrollSpeed: 2,
     chartVersion: "bars-13-16-1",
-    rulesVersion: "rhythm-harpoon-ranked-3"
+    rulesVersion: "rhythm-harpoon-ranked-4"
   });
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
+});
+
+it("starts on Easy when the last practice level is not an official one", () => {
+  localStorage.setItem(
+    "haengseong-practice-settings-v1",
+    JSON.stringify({ level: "another", rate: 1, volume: 65 })
+  );
+  render(<RhythmHarpoonChallengePage />);
+  expect(screen.getByRole("button", { name: /Easy/ })).toHaveAttribute("aria-pressed", "true");
 });
 
 it("sets the input offset on the options step, saves it and plays with it", async () => {

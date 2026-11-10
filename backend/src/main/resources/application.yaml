@@ -57,7 +57,7 @@ sentry:
 
 jarihana:
   points:
-    starts-at: ${JARIHANA_POINTS_STARTS_AT:}
+    starts-at: ${POINTS_STARTS_AT:}
   minigame:
     pepero-day:
       opens-at: 2026-11-11T00:00:00

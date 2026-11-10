@@ -192,7 +192,7 @@ test("overlapping same-lane windows retain the nearest-note matching rule", () =
   }
 });
 
-test("scroll multipliers change travel while preserving musical timing and loop rate", () => {
+test("scroll multipliers set travel that stays fixed as loops speed up, preserving musical timing and loop rate", () => {
   for (const scrollSpeed of [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3]) {
     const run = engine({ scrollSpeed, startLoop: 6 });
     const reference = engine({ startLoop: 6 });
@@ -201,7 +201,10 @@ test("scroll multipliers change travel while preserving musical timing and loop 
     assert.equal(run.loops[1].rate, 1.1);
     assert.equal(run.loops[0].duration, reference.loops[0].duration);
     const note = run.notes[0];
-    assert(Math.abs(note.travelDuration - 1.25 / scrollSpeed / 1.05) < 0.000001);
+    assert(Math.abs(note.travelDuration - 1.25 / scrollSpeed) < 0.000001);
+    const fasterLoopNote = run.notes.find((candidate) => candidate.loop === run.loops[1].number);
+    assert.equal(fasterLoopNote.rate, 1.1);
+    assert.equal(fasterLoopNote.travelDuration, note.travelDuration);
     for (let index = 0; index < 30; index++) {
       const relative = run.notes[index].at - run.loops[0].start;
       const expected = reference.notes[index].at - reference.loops[0].start;
@@ -674,11 +677,24 @@ test("all 24 random maps preserve staircase direction and avoid boundary jacks",
   }
 });
 
-test("five normal loops then additive rate and exact scheduled loop boundaries", () => {
-  assert.deepEqual(
-    [1, 2, 3, 4, 5, 6, 7, 10].map((loop) => rateForLoop(loop)),
-    [1, 1, 1, 1, 1, 1.05, 1.1, 1.25]
-  );
+test("each level speeds up from its own loop with additive rate and exact scheduled loop boundaries", () => {
+  const loops = [1, 2, 3, 4, 5, 6, 7, 10];
+  for (const [level, rates] of [
+    ["easy", [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.45]],
+    ["medium", [1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.45]],
+    ["hard", [1, 1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.4]],
+    ["hardest", [1, 1, 1, 1, 1, 1.05, 1.1, 1.25]]
+  ]) {
+    assert.deepEqual(
+      loops.map((loop) => rateForLoop(loop, level)),
+      rates,
+      level
+    );
+  }
+  const easy = engine({ level: "easy" });
+  assert.equal(easy.loops[0].rate, 1);
+  assert.equal(easy.loops[1].rate, 1.05);
+  assert.equal(easy.loops[1].duration, 90 / 1.05);
   const run = engine({ startLoop: 5, startAt: 86.25 });
   const first = run.loops[0];
   const second = run.loops[1];

@@ -8,7 +8,6 @@ import { RhythmHarpoonSinglePage } from "../../../src/pages/games/RhythmHarpoonS
 import { RhythmHarpoonLessonPage } from "../../../src/pages/games/RhythmHarpoonLessonPage.jsx";
 import { mountPracticeGame } from "../../../src/features/game/rhythm/mount-practice-game.mjs";
 import { mountLessonGame } from "../../../src/features/game/rhythm/mount-lesson-game.mjs";
-import { playLessonPreview } from "../../../src/features/game/rhythm/lesson-audio.mjs";
 import { storeReturnTarget } from "../../../src/features/auth";
 
 const mockNavigate = jest.fn();
@@ -36,15 +35,11 @@ jest.mock("../../../src/features/game/rhythm/mount-practice-game.mjs", () => ({
 jest.mock("../../../src/features/game/rhythm/mount-lesson-game.mjs", () => ({
   mountLessonGame: jest.fn()
 }));
-jest.mock("../../../src/features/game/rhythm/lesson-audio.mjs", () => ({
-  playLessonPreview: jest.fn(() => 1)
-}));
 
 beforeEach(() => {
   mockNavigate.mockClear();
   mountPracticeGame.mockReset();
   mountLessonGame.mockReset();
-  playLessonPreview.mockClear();
   localStorage.clear();
   window.AudioContext = jest.fn(() => ({ state: "running", close: jest.fn(() => Promise.resolve()) }));
 });
@@ -83,23 +78,29 @@ it("starts from two game room cards and only opens single play until online matc
   expect(online).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_online_open");
 });
 
-it("shows the sound tutorial open until it is finished, then folds it away", () => {
+it("shows practice and challenge first and the lesson as a full-width card below, marked for first-timers", () => {
   const first = render(<RhythmHarpoonSinglePage />);
-  expect(document.querySelector("details")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "따라 하기 시작 (1분)" })).toHaveAttribute(
-    "href",
-    "/games/rhythm-harpoon/learn"
-  );
-  expect(screen.getAllByRole("img", { name: /패턴 악보/ })).toHaveLength(3);
-  fireEvent.click(screen.getByRole("button", { name: /^쿵 빨강/ }));
-  expect(playLessonPreview).toHaveBeenCalledWith(expect.anything(), 0);
-  expect(screen.getByRole("link", { name: /혼자 연습/ })).toHaveAttribute(
-    "href",
-    "/games/rhythm-harpoon/practice"
-  );
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: /패턴 악보/ })).not.toBeInTheDocument();
+  const lesson = screen.getByRole("link", { name: /따라 하기/ });
+  expect(lesson).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
+  expect(lesson).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_lesson_open");
+  expect(lesson).toHaveTextContent("처음이라면");
+  const practice = screen.getByRole("link", { name: /혼자 연습/ });
+  expect(practice).toHaveAttribute("href", "/games/rhythm-harpoon/practice");
   const challenge = screen.getByRole("link", { name: /공식 도전/ });
   expect(challenge).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   expect(challenge).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
+  expect(lesson.parentElement).toBe(practice.parentElement);
+  expect(Array.from(lesson.parentElement.children)).toEqual([practice, challenge, lesson]);
+  expect(practice).toHaveClass("rhythm-mode--practice");
+  expect(challenge).toHaveClass("rhythm-mode--record");
+  expect(lesson).toHaveClass("rhythm-mode--lesson");
+  for (const card of [practice, challenge, lesson]) {
+    const art = card.querySelector(".rhythm-mode__art");
+    expect(art).toHaveAttribute("aria-hidden", "true");
+    expect(art.querySelector("svg")).toBeInTheDocument();
+  }
   fireEvent.click(challenge);
   expect(mockLogin).toHaveBeenCalledTimes(1);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
@@ -107,15 +108,9 @@ it("shows the sound tutorial open until it is finished, then folds it away", () 
 
   localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, true] }));
   render(<RhythmHarpoonSinglePage />);
-  const fold = document.querySelector("details");
-  expect(fold).not.toHaveAttribute("open");
-  expect(fold.querySelector("summary")).toHaveTextContent("조작법을 다시 보고 싶다면?");
-  expect(fold.querySelector("summary")).toHaveTextContent("펼치기 ▼");
-  expect(fold.querySelector("summary")).toHaveAttribute(
-    "data-ph-capture-attribute-action",
-    "rhythm_tutorial_toggle"
-  );
-  expect(screen.getByRole("link", { name: "따라 하기 다시 하기" })).toBeInTheDocument();
+  const done = screen.getByRole("link", { name: /따라 하기/ });
+  expect(done).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
+  expect(done).not.toHaveTextContent("처음이라면");
 });
 
 it("runs the lesson with a slower default tempo and records passed steps", () => {
@@ -139,13 +134,56 @@ it("runs the lesson with a slower default tempo and records passed steps", () =>
   );
   expect(screen.getByText(/16개 중 15개를 잡았어요/)).toBeInTheDocument();
   expect(drawer).toHaveClass("is-open");
-  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, false, false]);
+  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, false, false, false]);
   fireEvent.click(screen.getByRole("button", { name: "다음 소리: 착" }));
   expect(screen.getByRole("heading", { name: "착 = 파랑, 쿵과 쿵 사이" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("link", { name: "건너뛰기" }));
   expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).skipped).toBe(true);
   view.unmount();
   expect(player.dispose).toHaveBeenCalledTimes(1);
+});
+
+it("offers the extra 따 step after the three core sounds without counting it toward completion", () => {
+  localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, false], skipped: false }));
+  const player = { play: jest.fn(), stop: jest.fn(), dispose: jest.fn() };
+  mountLessonGame.mockReturnValue(player);
+  render(<RhythmHarpoonLessonPage />);
+  const settings = mountLessonGame.mock.calls[0][0];
+  act(() => settings.onReady());
+  fireEvent.click(screen.getByRole("button", { name: /3\. 치/ }));
+  act(() =>
+    settings.onFinish({ stepIndex: 2, auto: false, total: 32, caught: 30, missed: 2, poor: 0, passed: true })
+  );
+  expect(screen.getByText(/세 소리를 다 익혔어요/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "싱글 플레이로" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "번외: 따 익히기" }));
+  expect(screen.getByRole("heading", { name: "따 = 초록, 스윙 엇박" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "스윙 144" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "원곡 128" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "스윙 144" }));
+  fireEvent.click(screen.getByRole("button", { name: "해보기" }));
+  expect(player.play).toHaveBeenLastCalledWith({ stepIndex: 3, bpm: 144, scrollSpeed: 1, auto: false });
+  act(() =>
+    settings.onFinish({ stepIndex: 3, auto: false, total: 32, caught: 32, missed: 0, poor: 0, passed: true })
+  );
+  expect(screen.getByText(/ANOTHER에서 초록 세균을 만나 봐요/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "번외: 따 익히기" })).not.toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("haengseong-lesson-v1")).done).toEqual([true, true, true, true]);
+});
+
+it("sets the shared input offset in the lesson drawer and applies it to the next attempt", () => {
+  localStorage.setItem("haengseong-input-offset-v1", "-12");
+  const player = { play: jest.fn(), stop: jest.fn(), dispose: jest.fn(), setOffset: jest.fn() };
+  mountLessonGame.mockReturnValue(player);
+  const { container } = render(<RhythmHarpoonLessonPage />);
+  const slider = container.querySelector("#lesson-offset");
+  expect(slider).toHaveValue("-12");
+  expect(slider).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_lesson_offset_change");
+  expect(screen.getByRole("button", { name: "싱크 진단 / 보정" })).toBeInTheDocument();
+  fireEvent.change(slider, { target: { value: "20" } });
+  expect(player.setOffset).toHaveBeenLastCalledWith(20);
+  expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("20");
+  expect(screen.getByText(/연습과 공식 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
 });
 
 it("keeps difficulty above the board and hides the other practice settings while playing", () => {

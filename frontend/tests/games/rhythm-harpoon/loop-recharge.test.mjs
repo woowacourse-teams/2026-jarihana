@@ -63,6 +63,40 @@ test("fatal damage before completion ends the run without recharging or resurrec
   assert.equal(run.nextLoopToHeal, 0);
   run.tick(run.loops[1].end + 1);
   assert.equal(run.lives, 0);
+  assert.deepEqual(run.loopHeals, []);
+});
+
+test("each completed loop leaves one record with the next loop number and the hearts actually gained", () => {
+  const run = new GameEngine(chart, { level: "easy", autoplay: true });
+  run.lives = run.maxLives - 2;
+  run.tick(run.loops[0].end - 0.001);
+  assert.deepEqual(run.loopHeals, []);
+  run.tick(run.loops[0].end);
+  assert.deepEqual(run.loopHeals, [
+    { at: run.loops[0].end, loop: 2, amount: 2, rate: 1.05, speedUp: true }
+  ]);
+  run.tick(run.loops[1].end);
+  assert.deepEqual(run.loopHeals.at(-1), {
+    at: run.loops[1].end,
+    loop: 3,
+    amount: 0,
+    rate: 1.1,
+    speedUp: true
+  });
+  run.tick(run.loops[1].end + 0.001);
+  assert.equal(run.loopHeals.length, 2);
+});
+
+test("the record marks a speed-up only when the next loop is faster", () => {
+  const run = new GameEngine(chart, { level: "hardest", autoplay: true });
+  run.tick(run.loops[0].end);
+  assert.deepEqual(run.loopHeals.at(-1), {
+    at: run.loops[0].end,
+    loop: 2,
+    amount: 0,
+    rate: 1,
+    speedUp: false
+  });
 });
 
 test("one delayed tick crossing multiple surviving loops grants each reward once", () => {

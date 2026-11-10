@@ -7,16 +7,25 @@
 - 첫 화면은 게임방 목록(`/games`)과 같은 카드 모양(그림, 제목, 설명, 버튼)으로 싱글 플레이와 온라인 매칭 중 하나를 고른다. 싱글은 판 하나, 온라인은 판 두 개 그림이며 온라인 카드는 준비 중 비활성 버튼이다.
   온라인 매칭은 아직 비활성 버튼과 준비 중 표시만 둔다. 붙일 때는 오목 대기실처럼 방 목록, 방 만들기,
   초대 링크, 준비, 방장 시작으로 이어 가고 1:1이라 인원 수는 표시하지 않는다.
-- `/games/rhythm-harpoon/single`은 소리 이름(빨강 쿵, 파랑 착, 노랑 치)으로 박자를 익히는 싱글 플레이 화면이다.
-  소리 버튼(한 마디 미리 듣기), 패턴별 한 마디 악보, 따라 하기 진입을 보여 준다. 따라 하기를 마치거나 건너뛰면
-  이 부분을 "조작법을 다시 보고 싶다면? 펼치기 ▼" 드롭다운으로 접고 혼자 연습과 공식 도전이 먼저 보이게 한다.
+- `/games/rhythm-harpoon/single`은 싱글 플레이 화면이다. 위 줄에 혼자 연습과 공식 도전 카드를 크게 두고,
+  아래 줄에 따라 하기 카드를 전체 너비로 둔다(휴대폰에서는 한 열). 카드는 밝은 색이며 혼자 연습은 파랑,
+  공식 도전은 노랑, 따라 하기는 초록 계열로 구분하고, 각 카드에 안을 칠한 그림(사람 한 명, 트로피, 드럼)을 둔다.
+  소리 이름(빨강 쿵, 파랑 착, 노랑 치)과 패턴 악보는 따라 하기 화면의 서랍에서 보여 주므로 여기에는 두지 않는다.
+  따라 하기를 마치거나 건너뛰기 전에는 따라 하기 카드에 "처음이라면" 배지를 붙인다.
   공식 도전은 `/games/rhythm-harpoon/challenge`로 이동한다(아래 공식 도전 절).
 - `/games/rhythm-harpoon/learn`은 따라 하기다. 쿵, 착, 치 세 단계마다 2마디 듣기와 4마디 해보기를 하고,
   놓친 세균과 헛공격이 전체의 30% 이하면 통과한다. 빠르기는 72, 96, 128 BPM(기본 96), 세균 이동 배속은
   ×1.0~×2.5에서 고르고, 패턴은 두 마디마다 좌우와 상하를 바꾸는 두 방향 트릴이다. 배경음은 녹음된 곡 없이
   Web Audio로 만든 드럼 비트이며 본편보다 1.5배 크게 섞는다. 단계 완료와 건너뛰기 여부는 이 브라우저의
   `haengseong-lesson-v1`에만 저장한다.
-- `/games/rhythm-harpoon/practice`는 Pixel Circuit 원곡 연습 플레이다. 상단 링크는 싱글 플레이로 돌아가고,
+- 따라 하기 설정 서랍에서도 입력 지연 보정(±150ms)과 싱크 진단을 맞춘다(`RhythmOffsetSettings`, `place="lesson"`).
+  연습, 공식 도전과 같은 `haengseong-input-offset-v1`을 쓰며, 바꾼 값은 다음 시도부터 판정에 쓴다.
+- 세 단계 아래에 번외 단계 따(초록)가 있다. ANOTHER 스윙 채보의 초록 세균을 위한 단계로, 박을 셋으로 나눈 마지막 자리
+  (16분 단위 8/3)에 오는 스윙 엇박을 "쿵 . 따" 셔플 비트로 친다. 빠르기는 72, 96, 스윙 144이고, 원곡 128을 고른 채
+  들어오면 144로 바꿔 쓴다. 악보는 셋잇단 박마다 빔 위에 3을 적는다. 번외 단계는 따라 하기 완료 여부에 세지 않아,
+  쿵, 착, 치를 끝내면 완료이고 그때 번외 단계를 권한다. 세균 위 소리 글자와 연습 색 범례에도 초록을 "따"로 표시한다.
+- `/games/rhythm-harpoon/practice`는 Pixel Circuit 연습 플레이다. Easy~Hardest는 원곡, 번외 난이도 ANOTHER는
+  스윙 편곡을 친다(아래 ANOTHER 스윙 스테이지 절). 상단 링크는 싱글 플레이로 돌아가고,
   색 범례를 소리 이름과 함께 보여 주며 세균 위 소리 글자 표시를 켜고 끌 수 있다(기본 켬).
 - 연습과 따라 하기의 판은 데스크톱에서 앱 헤더와 도구 막대를 뺀 화면 높이를 모두 쓴다. 연습 판 왼쪽에는 폭이 고정된
   난이도 열을 두어 난이도 설명 길이와 관계없이 판 위치가 바뀌지 않게 한다. 난이도 버튼은 Easy 초록, Medium 파랑,
@@ -51,7 +60,14 @@
 
 연습과 공식 도전은 루프를 완주할 때 Hardest는 하트 5개, 나머지 난이도는 3개를 충전한다.
 최대 라이프를 넘지 않고 완주당 한 번만 지급하며, 게임오버 후에는 충전하지 않는다.
-공식 도전은 서버도 같은 규칙으로 재계산하며 규칙 판본은 `rhythm-harpoon-ranked-3`이다.
+충전되는 순간 판 가운데 캐릭터 위에 다음 루프 번호와 실제로 찬 하트 수(`Loop 2`, `♥ +3`)를 1.6초 동안 띄우고,
+이미 가득 차 있었으면 `♥ MAX`로 표시한다. 다음 루프에서 곡이 빨라지면 `SPEED UP ×1.05`처럼 바뀐 곡 배속을
+한 줄 더 띄운다. 같은 내용을 화면 읽기 안내(`announcer`)로도 알린다.
+곡 배속은 Easy와 Medium은 2루프, Hard는 3루프, Hardest는 6루프부터 매 루프 +0.05씩 오른다.
+Easy와 Medium은 첫 루프를 버티기 쉬워서 일찍 빨라지게 했고, Hardest는 기본 패턴이 어려워 기존 시점을 유지한다.
+곡이 빨라져도 세균이 다가오는 시간은 고른 이동 배속으로만 정해(1.25초 ÷ 이동 배속) 세균의 이동 속도는 일정하다.
+빨라진 루프에서는 세균 간격만 촘촘해진다. 이 값은 화면 표시에만 쓰여 판정과 서버 재계산에는 영향이 없다.
+공식 도전은 서버도 같은 규칙으로 재계산하며 규칙 판본은 `rhythm-harpoon-ranked-4`이다.
 
 | 모듈 | 책임 |
 | --- | --- |
@@ -62,10 +78,11 @@
 | `mount-practice-game.mjs` | React 영역에서 모듈 연결과 실행 수명 관리 |
 | `RhythmHarpoonGame.jsx`, `pages/games/RhythmHarpoonPage.jsx` | 연습 화면과 싱글 플레이 복귀 |
 | `lesson.mjs` | 따라 하기 단계, 트릴 채보, 통과 판정, 진행 저장, 드럼 배치 |
-| `lesson-audio.mjs` | 따라 하기 드럼 비트 렌더링과 소리 버튼 미리 듣기 |
+| `lesson-audio.mjs` | 따라 하기 드럼 비트 렌더링 |
 | `mount-lesson-game.mjs` | 따라 하기의 판, 입력, 음악 시계 실행 수명 |
 | `notation.mjs`, `RhythmScore.jsx` | 한 마디 리듬 악보 배치와 그리기 |
 | `RhythmBoardArt.jsx` | 첫 화면 카드의 판 그림 |
+| `RhythmModeArt.jsx` | 싱글 플레이 카드의 사람, 트로피, 드럼 그림(lucide 모양을 바탕으로 안을 칠함) |
 | `pages/games/RhythmHarpoonEntryPage.jsx`, `RhythmHarpoonSinglePage.jsx`, `RhythmHarpoonLessonPage.jsx` | 첫 화면, 싱글 플레이, 따라 하기 |
 | `ranked-run.mjs` | 공식 도전의 시드 랜덤, 서버와 같은 순서의 입력 처리, 입력 묶음과 순차 전송 |
 | `mount-ranked-game.mjs`, `RhythmRankedBoard.jsx` | 공식 도전 판의 실행 수명, 묶음 전송, 이탈 시 무효 |
@@ -235,7 +252,7 @@ python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --c
 `assets/sprites-clay-v1.png`는 승인한 클레이 시안의 배경을 제거한 1254×1254 RGBA 이미지다.
 `sprite-atlas.mjs`의 URL, 시트 크기와 프레임 좌표를 연습, 따라 하기, 메뉴의 판 그림과 결과 화면이 공유한다.
 행성이 표정 4개, 세균의 기본/포획 상태 4색, 작살, 포획 효과와 하트를 기존 인덱스 순서로 유지한다.
-초록색은 기타 박자를 위한 예비 프레임이며 현재 채보에 새 노트를 추가하지 않는다.
+초록색은 16분 격자 밖 박자를 위한 프레임이며 ANOTHER 스윙 채보에서 쓴다.
 원본 `sprites.png`는 보존한다.
 
 내장 `image_gen`으로 승인 시안에 아래 프롬프트를 적용했다.
@@ -249,6 +266,22 @@ Remove the ivory studio background AND ALL shadows beneath the objects. Deliver 
 Keep all four white mascot faces complete, including the separate yellow emphasis marks of the hurt expression, all eight colored germ shapes, arrow, impact star and heart. No text, labels, grids, frames or new elements.
 This is precise background removal of the existing approved image, not a new style variation.
 ```
+
+## ANOTHER 스윙 스테이지
+
+ANOTHER는 Pixel Circuit을 144 BPM, 8분 스윙(2:1)으로 편곡한 번외 스테이지다. 연습에서만 고를 수 있고
+공식 도전과 랭킹에는 넣지 않는다. 그래서 난이도 정의는 공식 도전의 `LEVELS`와 분리한 `PRACTICE_LEVELS`에 둔다.
+
+- 음원은 `pixel-circuit-swing.ogg`(48마디, 80초 루프)이고 원곡과 음량을 맞췄다(약 -13.8 LUFS).
+  채보 `swing-chart.json`은 단순화 없이 그대로 치며(348타, 노트 381개, 동시타 33), 고를 때 처음 한 번만 받는다.
+- 채보는 박을 6 tick으로 나눈 셋잇단 격자라 step이 정수가 아니다. 색은 다른 난이도와 같은 `noteColor`로
+  박 안 위치를 따른다. 정박은 빨강, 박의 1/3과 2/3 자리(스윙 엇박과 셋잇단)는 초록이다.
+- 회오리 대신 셋잇단 계단을 둔다. 39~40마디는 `awdawdasdasdawdasdawdasd`, 48마디는 `awdawdawdawd`
+  (a 왼쪽, s 아래, d 오른쪽, w 위)이다. 계단 구간(`pattern: "stairs"`)은 루프마다 레인을 섞지 않고 통째로 돌리며,
+  앞뒤 노트와 같은 레인을 8/3 step(한 박의 2/3) 안에 두지 않는다.
+- 48마디 마지막 노트와 다음 루프 첫 노트는 139ms 간격이다. 둘이 같은 레인에 오면 다음 루프 배치를 다시 섞는다.
+  같은 레인 139ms 연타는 41~42마디의 셋잇단 2연타에만 나온다.
+- 라이프 10, 루프 완주 회복 5, 6루프부터 곡 배속 상승은 Hardest와 같다.
 
 ## 검증
 
