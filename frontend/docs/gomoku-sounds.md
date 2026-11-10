@@ -11,12 +11,11 @@
 
 ## 시작음
 
-- 객체: `start-1s-eb641c00b98b.wav`, 1초, 48 kHz stereo PCM16 WAV
+- 객체: `start-1s-90628cac3b08.wav`, 1초, 48 kHz stereo PCM16 WAV
 - 원본: [Small Gong_Soft Hit_RAW](https://freesound.org/people/cabled_mess/sounds/369428/), cabled_mess
 - 라이선스: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-- 편집: 낮은 음역과 저음층, 스테레오 잔향, 1초 자르기와 끝 페이드, 음량 증가
-- 승인한 최종 시안을 변환 없이 업로드한다.
-- SHA-256: `eb641c00b98ba6389f70cfa8f1e599bcf5f4ffd590873eb1633cf102a158c3fd`
+- 편집: 선택한 징의 1초 길이와 스테레오 잔향을 유지하고, 직전 로컬 시안 대비 420 Hz~3.4 kHz 대역을 약 6 dB 높였다. 피크는 -1 dBFS로 제한했다.
+- SHA-256: `90628cac3b0870d0cd34efa3c6e7763fd62ed995e42f1d72955191b29f4f68b4`
 
 ## 착수음
 
