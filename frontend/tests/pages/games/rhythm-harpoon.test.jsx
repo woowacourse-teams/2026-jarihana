@@ -96,6 +96,11 @@ it("shows practice and challenge first and the lesson as a full-width card below
   expect(practice).toHaveClass("rhythm-mode--practice");
   expect(challenge).toHaveClass("rhythm-mode--record");
   expect(lesson).toHaveClass("rhythm-mode--lesson");
+  for (const card of [practice, challenge, lesson]) {
+    const art = card.querySelector(".rhythm-mode__art");
+    expect(art).toHaveAttribute("aria-hidden", "true");
+    expect(art.querySelector("svg")).toBeInTheDocument();
+  }
   fireEvent.click(challenge);
   expect(mockLogin).toHaveBeenCalledTimes(1);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");

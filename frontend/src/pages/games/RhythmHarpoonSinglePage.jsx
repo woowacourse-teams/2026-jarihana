@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Drum, Trophy, UserRound } from "lucide-react";
 
 import { storeReturnTarget, useAuth } from "../../features/auth";
 import { browserStorage, readLessonProgress } from "../../features/game/rhythm/lesson.mjs";
@@ -48,6 +48,9 @@ export function RhythmHarpoonSinglePage() {
               data-ph-capture-attribute-action="rhythm_practice_open"
               to="/games/rhythm-harpoon/practice"
             >
+              <span className="rhythm-mode__art" aria-hidden="true">
+                <UserRound strokeWidth={1.75} />
+              </span>
               <span className="eyebrow">PRACTICE</span>
               <strong>혼자 연습</strong>
               <span>
@@ -61,6 +64,9 @@ export function RhythmHarpoonSinglePage() {
               onClick={openChallenge}
               to={CHALLENGE_PATH}
             >
+              <span className="rhythm-mode__art" aria-hidden="true">
+                <Trophy strokeWidth={1.75} />
+              </span>
               <span className="eyebrow">RECORD</span>
               <strong>공식 도전</strong>
               <span>
@@ -73,6 +79,9 @@ export function RhythmHarpoonSinglePage() {
               data-ph-capture-attribute-action="rhythm_lesson_open"
               to="/games/rhythm-harpoon/learn"
             >
+              <span className="rhythm-mode__art" aria-hidden="true">
+                <Drum strokeWidth={1.75} />
+              </span>
               <span className="eyebrow">TUTORIAL</span>
               <strong>
                 따라 하기

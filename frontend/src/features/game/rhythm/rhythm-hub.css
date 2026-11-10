@@ -127,6 +127,21 @@
 .rhythm-game .rhythm-mode .eyebrow {
   color: var(--mode-ink);
 }
+/* 카드 그림: 카드 색보다 진한 원 위에 lucide 아이콘(사람 한 명, 트로피, 드럼)을 둔다. */
+.rhythm-game .rhythm-mode__art {
+  display: grid;
+  place-items: center;
+  inline-size: 88px;
+  block-size: 88px;
+  margin-block-end: 4px;
+  border-radius: 50%;
+  background: var(--mode-art-bg);
+  color: var(--mode-ink);
+}
+.rhythm-game .rhythm-mode__art svg {
+  inline-size: 46px;
+  block-size: 46px;
+}
 .rhythm-game .rhythm-mode--practice {
   --mode-bg: #e3edfb;
   --mode-hover-bg: #eef4fd;
@@ -134,6 +149,7 @@
   --mode-edge: #8eaad6;
   --mode-hover-line: #4f74b3;
   --mode-ink: #2459c4;
+  --mode-art-bg: #c8dbf7;
 }
 .rhythm-game .rhythm-mode--record {
   --mode-bg: #fdf3cf;
@@ -142,6 +158,7 @@
   --mode-edge: #d0b768;
   --mode-hover-line: #a8862a;
   --mode-ink: #855600;
+  --mode-art-bg: #f7e3a2;
 }
 .rhythm-game .rhythm-mode--lesson {
   --mode-bg: #e4f2df;
@@ -150,9 +167,28 @@
   --mode-edge: #8fb486;
   --mode-hover-line: #4f8a4a;
   --mode-ink: #276a35;
+  --mode-art-bg: #c9e6c0;
   grid-column: 1 / -1;
+  /* 낮은 카드라 그림을 글 왼쪽에 두고, 그림과 글 묶음을 가운데에 놓는다. */
+  grid-template-columns: auto minmax(0, max-content);
+  justify-content: center;
+  justify-items: start;
+  column-gap: 18px;
+  row-gap: 4px;
   min-block-size: 0;
   padding: 16px 24px;
+  text-align: left;
+}
+.rhythm-game .rhythm-mode--lesson .rhythm-mode__art {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  inline-size: 64px;
+  block-size: 64px;
+  margin: 0;
+}
+.rhythm-game .rhythm-mode--lesson .rhythm-mode__art svg {
+  inline-size: 34px;
+  block-size: 34px;
 }
 .rhythm-game .rhythm-mode--lesson strong {
   font-size: 1.2rem;
@@ -342,6 +378,22 @@
   }
   .rhythm-game .rhythm-mode--lesson {
     min-block-size: 0;
+  }
+  .rhythm-game .rhythm-mode__art {
+    inline-size: 64px;
+    block-size: 64px;
+  }
+  .rhythm-game .rhythm-mode__art svg {
+    inline-size: 34px;
+    block-size: 34px;
+  }
+  .rhythm-game .rhythm-mode--lesson .rhythm-mode__art {
+    inline-size: 52px;
+    block-size: 52px;
+  }
+  .rhythm-game .rhythm-mode--lesson .rhythm-mode__art svg {
+    inline-size: 28px;
+    block-size: 28px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
