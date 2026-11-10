@@ -136,8 +136,14 @@
   color: var(--studio-panel);
   font: inherit;
 }
-.space-studio__interaction-menu { display: grid; gap: 4px; min-width: 160px; padding: 8px; max-height: min(55vh, 290px); overflow-y: auto; }
-.space-studio__interaction-poses { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; padding: 4px; }
+.space-studio__interaction-menu { display: grid; gap: 4px; max-width: 100%; padding: 6px; }
+.space-studio__interaction-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.space-studio__interaction-poses { max-width: 100%; padding: 4px; }
+.space-studio__interaction-choices { display: flex; justify-content: center; gap: 4px; min-width: 0; }
 .space-studio__interaction-menu strong { padding: 3px 6px; font-size: 13px; }
 .space-studio__interaction-menu button, .space-studio__interaction-poses button {
   display: flex;
@@ -152,10 +158,12 @@
   font-size: 13px;
   text-align: left;
 }
+.space-studio__interaction-choices > button { gap: 4px; min-width: 0; padding-inline: 5px; overflow-wrap: anywhere; }
+.space-studio__interaction-choices kbd { flex: none; width: 21px; height: 24px; }
 .space-studio__interaction :is(.space-studio__interaction-menu, .space-studio__interaction-poses) button:is(:focus-visible, :hover),
 .space-studio__interaction-prompt:hover { background: var(--studio-accent-soft, #dff8f3); }
 .space-studio__interaction-feedback { padding: 5px 10px; font-size: 12px; }
-.space-studio__flower-swatch { width: 12px; height: 12px; border: 1px solid var(--studio-ink); border-radius: 50%; }
+.space-studio__flower-swatch { flex: none; width: 12px; height: 12px; border: 1px solid var(--studio-ink); border-radius: 50%; }
 .space-studio__scene-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; color: var(--studio-ink); background: #eee1d2; }
 .space-studio__scene-state p { max-width: 360px; }
 .space-studio__scene-state button { min-height: 44px; padding: 0 18px; background: var(--studio-panel); border: 1px solid var(--studio-line); border-radius: 12px; }

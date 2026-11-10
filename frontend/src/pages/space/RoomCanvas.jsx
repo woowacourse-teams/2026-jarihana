@@ -67,7 +67,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
   }, [studioWideAngle]);
 
   useLayoutEffect(() => {
-    if (walkingReady && menu) interactionMenu.current?.querySelector("button")?.focus({ preventScroll: true });
+    if (walkingReady && menu) interactionMenu.current?.querySelector("button[aria-keyshortcuts='1']")?.focus({ preventScroll: true });
   }, [menu, walkingReady]);
 
   function interactionCommand(action) {
@@ -90,11 +90,13 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
       if (event.repeat) return;
       if (action) interactionCommand(action);
       else chooseInteraction(Number(event.key) - 1);
-    } else if (menu && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    } else if (menu && ["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp"].includes(event.key)) {
+      const buttons = [...interactionMenu.current.querySelectorAll(".space-studio__interaction-choices button")];
+      const index = buttons.indexOf(event.currentTarget);
+      if (index < 0) return;
       event.preventDefault();
-      const buttons = [...interactionMenu.current.querySelectorAll("button")];
-      const direction = event.key === "ArrowDown" ? 1 : -1;
-      buttons[(buttons.indexOf(event.target) + direction + buttons.length) % buttons.length].focus();
+      const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+      buttons[(index + direction + buttons.length) % buttons.length].focus();
     }
   }
 
@@ -210,13 +212,13 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
       {walkingReady && playMode && view === "firstPerson" && !menu && (
         <span className="room-canvas__reticle" data-aimed={Boolean(interaction?.target)} aria-hidden="true" />
       )}
-      {walkingReady && !playMode && !menu && (
+      {walkingReady && !menu && (!playMode || lookMode !== "locked") && (
         <div className="space-studio__look-mode">
-          {lookMode === "locked" ? <span role="status"><kbd>Esc</kbd> 포인터 풀기</span> : lookMode === "drag" ? (
+          {lookMode === "locked" ? <span role="status"><kbd>Esc</kbd> 포인터 풀기</span> : lookMode === "drag" && !playMode ? (
             <span role="status">드래그로 시선 조작</span>
           ) : (
             <button type="button" data-ph-capture-attribute-action="space_walk_lock_pointer"
-              onClick={() => scene.current?.command("lockPointer")}>시선 조작 시작</button>
+              onClick={() => scene.current?.command("lockPointer")}>{playMode ? "마우스로 둘러보기" : "시선 조작 시작"}</button>
           )}
         </div>
       )}
@@ -232,17 +234,23 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
           {choices && (
             <div className={menu ? "space-studio__interaction-menu" : "space-studio__interaction-poses"} role="group"
               aria-label={menu?.target.label || "앉은 자세"} ref={menu ? interactionMenu : undefined}>
-              {menu && <strong>{menu.target.name}</strong>}
-              {choices.map((choice, index) => (
-                <button type="button" key={choice.id} data-ph-capture-attribute-action={choice.action}
-                  aria-keyshortcuts={String(index + 1)} onKeyDown={interactionKey} onClick={() => chooseInteraction(choice.id)}>
-                  <kbd>{index + 1}</kbd>
-                  {choice.color && <span className="space-studio__flower-swatch" style={{ background: choice.color }} aria-hidden="true" />}
-                  {choice.label}
-                </button>
-              ))}
-              {menu && <button type="button" data-ph-capture-attribute-action="space_walk_interact_cancel"
-                aria-keyshortcuts="E Escape" onKeyDown={interactionKey} onClick={() => interactionCommand("cancelInteraction")}>닫기</button>}
+              {menu && (
+                <div className="space-studio__interaction-menu-header">
+                  <strong>{menu.target.name}</strong>
+                  <button type="button" data-ph-capture-attribute-action="space_walk_interact_cancel"
+                    aria-keyshortcuts="E Escape" onKeyDown={interactionKey} onClick={() => interactionCommand("interact")}>닫기</button>
+                </div>
+              )}
+              <div className="space-studio__interaction-choices">
+                {choices.map((choice, index) => (
+                  <button type="button" key={choice.id} data-ph-capture-attribute-action={choice.action}
+                    aria-keyshortcuts={String(index + 1)} onKeyDown={interactionKey} onClick={() => chooseInteraction(choice.id)}>
+                    <kbd>{index + 1}</kbd>
+                    {choice.color && <span className="space-studio__flower-swatch" style={{ background: choice.color }} aria-hidden="true" />}
+                    <span>{choice.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {interaction.held && (

@@ -4,7 +4,7 @@ import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
 import * as THREE from "three";
 import { ACCENT_COLORS, CATALOG, placedItemElevation, DEFAULT_ATMOSPHERE, THEMES, canPlace, footprint, snapPosition } from "./roomState";
-import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, createWalkBlooms, disposeObject } from "./roomModels";
+import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, disposeObject } from "./roomModels";
 import { createRoomLighting } from "./roomLighting";
 import { createRoomCeilingLighting } from "./roomCeilingLighting";
 import { advanceClubhouseSign, updateClubhouseSign } from "./clubhouseExterior";
@@ -193,7 +193,7 @@ export function createRoomScene(container, callbacks) {
   let drag = null;
   let interactionTargets = [];
   const gardenChanges = new Set();
-  const plantBlooms = new Map();
+  const paintedPetals = new Map();
   let waterDrops;
   let waterTimer;
   let disposed = false;
@@ -463,8 +463,8 @@ export function createRoomScene(container, callbacks) {
   function resetGarden() {
     for (const bed of gardenChanges) bed.reset();
     gardenChanges.clear();
-    for (const bloom of plantBlooms.values()) disposeObject(bloom);
-    plantBlooms.clear();
+    for (const [material, color] of paintedPetals) material.color.copy(color);
+    paintedPetals.clear();
     clearWater();
   }
 
@@ -478,14 +478,13 @@ export function createRoomScene(container, callbacks) {
       if (target.bed) {
         target.bed.paint(choice.color);
         gardenChanges.add(target.bed);
-      } else if (pot) {
-        if (plantBlooms.has(target.id)) disposeObject(plantBlooms.get(target.id));
-        const bloom = createWalkBlooms(choice.color);
-        bloom.position.set(0, (target.y - pot.position.y) / pot.scale.y, 0.12);
-        pot.add(bloom);
-        plantBlooms.set(target.id, bloom);
+      } else {
+        const petals = pot?.getObjectByName("plant-petal")?.material;
+        if (!petals) return;
+        if (!paintedPetals.has(petals)) paintedPetals.set(petals, petals.color.clone());
+        petals.color.set(choice.color);
       }
-      return `${choice.label}으로 바꿨어요.`;
+      return `꽃 색을 ${choice.label}으로 바꿨어요.`;
     }
     if (choice.id === "water") {
       if (target.bed) {
@@ -495,6 +494,7 @@ export function createRoomScene(container, callbacks) {
       clearWater();
       waterDrops = new THREE.InstancedMesh(new THREE.SphereGeometry(0.033, 8, 6),
         new THREE.MeshStandardMaterial({ color: "#76d9fb", emissive: "#3879a5", emissiveIntensity: 0.4 }), 5);
+      waterDrops.name = "walk-plant-water";
       const transform = new THREE.Object3D();
       for (let i = 0; i < 5; i += 1) {
         transform.position.set((i - 2) * 0.12, 0.2 + (i % 3) * 0.13, i % 2 * 0.1);
@@ -502,7 +502,7 @@ export function createRoomScene(container, callbacks) {
         transform.updateMatrix();
         waterDrops.setMatrixAt(i, transform.matrix);
       }
-      waterDrops.position.set(target.x, target.y, target.z);
+      waterDrops.position.set(target.x, target.maxY, target.z);
       scene.add(waterDrops);
       waterTimer = window.setTimeout(() => { clearWater(); render(); }, 1100);
       return "물을 줬어요.";

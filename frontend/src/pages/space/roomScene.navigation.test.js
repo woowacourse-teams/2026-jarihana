@@ -3,7 +3,7 @@ import { createRoomScene } from "./roomScene";
 import * as roomState from "./roomState";
 import { pickRoomItem } from "./roomPicking";
 import { createRoomLighting } from "./roomLighting";
-import { getRoomLayout } from "./roomLayout";
+import { getRoomLayout, PLAYER } from "./roomLayout";
 
 jest.mock("three", () => {
   const actual = jest.requireActual("three");
@@ -21,7 +21,8 @@ jest.mock("three", () => {
 jest.mock("./roomModels", () => {
   const { Group } = jest.requireActual("three");
   const { addClubhouseSign } = jest.requireActual("./clubhouseExterior");
-  return { climbingPanelBacking: () => undefined, createFurniture: () => new Group(), createRoomShell: () => {
+  const { createFurniture } = jest.requireActual("./roomModels");
+  return { climbingPanelBacking: () => undefined, createFurniture: (kind) => kind === "plant" ? createFurniture(kind) : new Group(), createRoomShell: () => {
     const shell = new Group();
     const island = new Group();
     island.name = "floating-island";
@@ -42,7 +43,8 @@ jest.mock("./roomModels", () => {
     shell.add(context, ceiling, wall);
     return shell;
   },
-    createMascot: () => new Group(), disposeObject: jest.fn() };
+    createMascot: () => new Group(),
+    disposeObject: jest.fn() };
 });
 jest.mock("./roomLighting", () => ({ createRoomLighting: jest.fn((scene) => {
   const { DirectionalLight } = jest.requireActual("three");
@@ -67,7 +69,7 @@ afterEach(() => { runtime?.dispose(); runtime = undefined; jest.restoreAllMocks(
 function setup(editable = false) {
   const container = document.createElement("div");
   container.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600 });
-  const callbacks = { canEdit: () => editable, onSelect: jest.fn(), onMove: jest.fn(), onInvalid: jest.fn(), onZoomChange: jest.fn() };
+  const callbacks = { canEdit: () => editable, onSelect: jest.fn(), onMove: jest.fn(), onInvalid: jest.fn(), onZoomChange: jest.fn(), onWalkInteraction: jest.fn() };
   const room = roomState.createInitialRoom();
   runtime = createRoomScene(container, callbacks);
   runtime.update(room, null, "perspective", 0.7);
@@ -82,6 +84,41 @@ function setup(editable = false) {
   };
   return { room, callbacks, camera, send, container };
 }
+
+test.each(["firstPerson", "thirdPerson"])("%s waters the selected pot and recolors its existing petals", (view) => {
+  const { room, callbacks, container } = setup();
+  const plant = { id: "test-plant", kind: "plant", x: PLAYER.spawn.x, z: PLAYER.spawn.z - 1.2, rotation: 0, scaleY: 1.4 };
+  const nextRoom = { ...room, items: [plant] };
+  runtime.update(nextRoom, null, view, 0.7);
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const scene = renderer.render.mock.calls.at(-1)[0];
+  const pot = scene.getObjectByProperty("name", "plant");
+  const petals = pot.getObjectsByProperty("name", "plant-petal");
+  const positions = petals.map((petal) => petal.getWorldPosition(new THREE.Vector3()).toArray());
+  const initialColors = petals.map(({ material }) => material.color.getHexString());
+  expect(petals).toHaveLength(5);
+  const press = (key, code) => container.dispatchEvent(new KeyboardEvent("keydown", { key, code }));
+
+  press("e", "KeyE");
+  expect(callbacks.onWalkInteraction).toHaveBeenLastCalledWith(expect.objectContaining({
+    menu: expect.objectContaining({ target: expect.objectContaining({ id: plant.id }) })
+  }));
+  press("1", "Digit1");
+  const plantBase = roomState.placedItemElevation(plant, nextRoom);
+  const plantHeight = roomState.footprint(plant).height * plant.scaleY;
+  const plantTop = plantBase + plantHeight;
+  const water = scene.getObjectByName("walk-plant-water");
+  expect(water?.position.toArray()).toEqual([plant.x, plantTop, plant.z]);
+
+  press("e", "KeyE");
+  press("4", "Digit4");
+  expect(pot.getObjectsByProperty("name", "plant-petal")).toEqual(petals);
+  expect(petals.map((petal) => petal.getWorldPosition(new THREE.Vector3()).toArray())).toEqual(positions);
+  expect(petals.every(({ material }) => material.color.getHexString() === "b495f0")).toBe(true);
+  expect(scene.getObjectByName("walk-flower-blooms")).toBeUndefined();
+  runtime.update(nextRoom, null, "perspective", 0.7);
+  expect(petals.map(({ material }) => material.color.getHexString())).toEqual(initialColors);
+});
 
 test("a template switch leaves a frame for its loading indicator before drawing the new scene", () => {
   const { callbacks } = setup(true);

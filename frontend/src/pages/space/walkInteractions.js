@@ -15,9 +15,9 @@ const SNACKS = new Set(["cafeCabinet", "pantryShelf", "cafeFridge", "kitchenFrid
 const FEATURE_LABELS = { dashboard: "공지 읽기", activities: "활동 기록 보기", info: "모임 정보 보기", music: "음악 열기" };
 const WATER = { id: "water", label: "물 주기", action: "space_plant_water" };
 const FLOWER_CHOICES = [
-  { id: "flowerPink", label: "분홍 꽃", color: "#f58aaa" },
-  { id: "flowerYellow", label: "노랑 꽃", color: "#ffd872" },
-  { id: "flowerPurple", label: "보라 꽃", color: "#b495f0" }
+  { id: "flowerPink", label: "분홍색", color: "#f58aaa" },
+  { id: "flowerYellow", label: "노란색", color: "#ffd872" },
+  { id: "flowerPurple", label: "보라색", color: "#b495f0" }
 ].map((choice) => ({ ...choice, action: "space_flower_color_change" }));
 const DRINKS = [
   { id: "coffee", label: "아메리카노", action: "space_pick_coffee" },
@@ -47,7 +47,7 @@ export function itemInteraction(item, elevation, occupied, room) {
     label: seat ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : "간식 고르기",
     action: seat ? "space_seat_sit" : undefined,
     feature, seat, carry: coffee || snacks,
-    choices: plant ? GARDEN_CHOICES : [...(coffee ? DRINKS : []), ...(snacks ? SNACK_CHOICES : [])]
+    choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...(coffee ? DRINKS : []), ...(snacks ? SNACK_CHOICES : [])]
   };
 }
 

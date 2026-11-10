@@ -127,7 +127,7 @@ function addLegs(kit, width, depth, height, color = PALETTE.darkWood) {
   }
 }
 
-function addPlant(kit, x, y, z, scale = 1) {
+function addPlant(kit, x, y, z, scale = 1, flowering = false) {
   const plant = new THREE.Group();
   plant.position.set(x, y, z);
   plant.scale.setScalar(scale);
@@ -144,6 +144,7 @@ function addPlant(kit, x, y, z, scale = 1) {
     [-0.08, 0.78, 0.17, -0.35]
   ];
   leaves.forEach(([lx, ly, lz, tilt], index) => {
+    if (flowering && index === 4) return;
     const leaf = kit.sphere(
       0.11,
       0.23,
@@ -156,6 +157,15 @@ function addPlant(kit, x, y, z, scale = 1) {
     );
     leaf.rotation.set(0.25, index * 0.8, -tilt);
   });
+  if (flowering) {
+    for (let petal = 0; petal < 5; petal += 1) {
+      const angle = petal * Math.PI * 2 / 5;
+      const mesh = kit.sphere(0.069, 0.069, 0.037, "#fff0dc",
+        Math.cos(angle) * 0.074, 1.04 + Math.sin(angle) * 0.074, 0.055, plant);
+      mesh.name = "plant-petal";
+    }
+    kit.sphere(0.055, 0.055, 0.045, "#eebc60", 0, 1.04, 0.084, plant);
+  }
   return plant;
 }
 
@@ -395,7 +405,7 @@ export function createFurniture(kind, { color, food = "pizza", accentColor, matC
   if (kind === "diningTable") return createDiningTable(color || PALETTE.lightWood, food);
   const kit = modelKit(kind);
   if (kind === "plant") {
-    addPlant(kit, 0, 0, 0, 0.9);
+    addPlant(kit, 0, 0, 0, 0.9, true);
   } else if (kind === "rug") {
     const rug = kit.cylinder(1, 1, 0.025, color || "#ecdbcd", 0, 0.017, 0);
     rug.scale.set(1.4, 1, 1);
@@ -1223,19 +1233,6 @@ export function createWalkProp(kind, avatarColor) {
     sleeve.rotation.y = side * 0.28;
   }
   kit.group.add(grip.group);
-  return kit.group;
-}
-
-export function createWalkBlooms(color) {
-  const kit = modelKit("walk-flower-blooms");
-  for (const [x, y, z] of [[-0.18, 0.16, 0.06], [0.04, 0.29, 0.11], [0.22, 0.08, 0.04]]) {
-    kit.cylinder(0.012, 0.016, y + 0.19, "#64814c", x, (y - 0.19) / 2, z);
-    for (let petal = 0; petal < 5; petal += 1) {
-      const angle = petal * Math.PI * 2 / 5;
-      kit.sphere(0.053, 0.026, 0.053, color, x + Math.cos(angle) * 0.05, y, z + Math.sin(angle) * 0.05);
-    }
-    kit.sphere(0.038, 0.032, 0.038, "#ffdb80", x, y + 0.019, z);
-  }
   return kit.group;
 }
 

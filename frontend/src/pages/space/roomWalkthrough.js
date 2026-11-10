@@ -39,6 +39,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let pointer;
   let pointerLocked = false;
   let wantsPointerLock = false;
+  let pointerUnlockTimer;
+  let resumeLookOnFocus = false;
   let lockingForVisit = false;
   let controlsEnabled = true;
   let inputBlocked = false;
@@ -75,14 +77,33 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
 
   function releasePointerLock() {
+    window.clearTimeout(pointerUnlockTimer);
     wantsPointerLock = false;
     lockingForVisit = false;
     if (document.pointerLockElement === container) document.exitPointerLock();
   }
 
   function pauseWalk() {
+    resumeLookOnFocus = false;
     releasePointerLock();
     stop();
+  }
+
+  function suspendWalk() {
+    resumeLookOnFocus ||= wantsPointerLock;
+    releasePointerLock();
+    stop();
+  }
+
+  function resumeWalkLook() {
+    if (!resumeLookOnFocus || !acceptsInput() || document.hidden || !document.hasFocus() ||
+      document.pointerLockElement === container || menu) return;
+    lockPointer();
+  }
+
+  function onCanvasBlur(event) {
+    if (!event.relatedTarget && (document.hidden || !document.hasFocus())) suspendWalk();
+    else pauseWalk();
   }
 
   function handlePointerLockChange() {
@@ -93,8 +114,16 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     if (locked === pointerLocked) return;
     pointerLocked = locked;
-    if (!locked && wantsPointerLock) pauseWalk();
+    if (!locked && wantsPointerLock) {
+      if (document.hidden || !document.hasFocus()) suspendWalk();
+      else {
+        stop();
+        // Chrome can report a tab switch's unlock before blur or visibilitychange.
+        pointerUnlockTimer = window.setTimeout(pauseWalk, 120);
+      }
+    }
     onPointerLockChange?.(locked ? "locked" : "free");
+    if (!locked) resumeWalkLook();
   }
 
   function handlePointerLockError() {
@@ -107,6 +136,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function lockPointer(forVisit = false) {
     if (inputBlocked || !container.requestPointerLock || wantsPointerLock || menu || approaching) return;
+    resumeLookOnFocus = false;
     if (!forVisit) container.focus({ preventScroll: true });
     wantsPointerLock = true;
     lockingForVisit = forVisit;
@@ -187,7 +217,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function interact(target = interactionInView()) {
     if (menu) {
-      closeInteraction();
+      closeInteraction(true);
       return;
     }
     if (seated) {
@@ -207,8 +237,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       syncCamera();
       frame = requestAnimationFrame(tick);
     } else if (target.choices?.length) {
+      const resumeMouseLook = wantsPointerLock;
       pauseWalk();
-      menu = { target, choices: target.choices };
+      menu = { target, choices: target.choices, resumeMouseLook };
       syncCamera();
       publishInteraction();
     } else if (target.feature) {
@@ -217,8 +248,10 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
   }
 
-  function closeInteraction() {
+  function closeInteraction(restoreMouseLook = false) {
+    const resumeMouseLook = restoreMouseLook && menu?.resumeMouseLook;
     menu = null;
+    if (resumeMouseLook) lockPointer();
     syncCamera();
     publishInteraction();
   }
@@ -228,7 +261,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const choice = typeof selection === "number" ? choices?.[selection] : choices?.find(({ id }) => id === selection);
     if (!acceptsInput() || !choice) return;
     const { id } = choice;
-    const target = menu?.target;
+    const { target, resumeMouseLook } = menu ?? {};
     menu = null;
     if (seated) {
       if (id === "empty") setHeld(null);
@@ -240,6 +273,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       const message = onInteract?.(target, choice);
       if (message) showFeedback(message);
     }
+    if (resumeMouseLook) lockPointer();
     syncCamera();
     publishInteraction();
   }
@@ -471,11 +505,15 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   function onLockedMouseMove(event) {
     if (acceptsInput() && pointerLocked && wantsPointerLock) look(event.movementX || 0, event.movementY || 0);
   }
-  function visibility() { if (document.hidden) pauseWalk(); }
+  function visibility() {
+    if (document.hidden) suspendWalk();
+    else resumeWalkLook();
+  }
   container.addEventListener("keydown", onKeyDown);
   container.addEventListener("keyup", onKeyUp);
-  container.addEventListener("blur", pauseWalk);
-  window.addEventListener("blur", pauseWalk);
+  container.addEventListener("blur", onCanvasBlur);
+  window.addEventListener("blur", suspendWalk);
+  window.addEventListener("focus", resumeWalkLook);
   document.addEventListener("keydown", onPlayHudKeyDown);
   document.addEventListener("keyup", onKeyUp);
   document.addEventListener("focusin", onFocusIn);
@@ -605,8 +643,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       setHeld(null);
       container.removeEventListener("keydown", onKeyDown);
       container.removeEventListener("keyup", onKeyUp);
-      container.removeEventListener("blur", pauseWalk);
-      window.removeEventListener("blur", pauseWalk);
+      container.removeEventListener("blur", onCanvasBlur);
+      window.removeEventListener("blur", suspendWalk);
+      window.removeEventListener("focus", resumeWalkLook);
       document.removeEventListener("keydown", onPlayHudKeyDown);
       document.removeEventListener("keyup", onKeyUp);
       document.removeEventListener("focusin", onFocusIn);

@@ -316,7 +316,6 @@ body:has(.group-clubhouse--expanded, .group-clubhouse[data-camera-flight]) { ove
 .space-studio--clubhouse .space-studio__interaction {
   top: auto; bottom: clamp(170px, 40%, 242px); transform: translateX(-50%);
 }
-.space-studio--clubhouse .space-studio__interaction-menu { max-height: min(40dvh, 290px); }
 .group-clubhouse .space-studio--clubhouse-play .space-studio__walk-dock { display: none; }
 @media (pointer: coarse) {
   .group-clubhouse .space-studio--clubhouse-play .space-studio__walk-dock:not([hidden]) {

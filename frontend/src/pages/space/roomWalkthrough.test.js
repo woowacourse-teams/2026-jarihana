@@ -352,6 +352,7 @@ test("the visit locks the pointer through the camera flight and rotates until Es
     const firstTurn = direction();
     mouseMove();
     expect(direction()).toBeGreaterThan(firstTurn);
+    container.focus();
     keyDown("w", "KeyW");
     changeOwner(null);
     expect(frames.size).toBe(0);
@@ -384,6 +385,76 @@ test("the visit locks the pointer through the camera flight and rotates until Es
   }
 });
 
+test("returning to the tab resumes mouse look without restarting held keys or overriding Escape", () => {
+  jest.useFakeTimers({ doNotFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  const { walk, container } = setup();
+  let owner = null;
+  let focused = true;
+  let hidden = false;
+  jest.spyOn(document, "hasFocus").mockImplementation(() => focused);
+  jest.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+  const changeOwner = (element) => {
+    owner = element;
+    document.dispatchEvent(new Event("pointerlockchange"));
+  };
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => owner });
+  document.exitPointerLock = jest.fn(() => changeOwner(null));
+  container.requestPointerLock = jest.fn(() => changeOwner(container));
+  const changeTab = (away) => {
+    hidden = away;
+    if (away) {
+      focused = false;
+      window.dispatchEvent(new Event("blur"));
+    }
+    document.dispatchEvent(new Event("visibilitychange"));
+    if (!away) {
+      focused = true;
+      window.dispatchEvent(new Event("focus"));
+    }
+  };
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.command("lockPointer");
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW" }));
+    expect(frames.size).toBe(1);
+    changeTab(true);
+    expect(owner).toBeNull();
+    expect(frames.size).toBe(0);
+    changeTab(false);
+    expect(owner).toBe(container);
+    expect(frames.size).toBe(0);
+    const mouseMove = new MouseEvent("mousemove");
+    Object.defineProperty(mouseMove, "movementX", { value: 35 });
+    document.dispatchEvent(mouseMove);
+    expect(walk.camera.getWorldDirection(new THREE.Vector3()).x).toBeGreaterThan(0.1);
+
+    // Chrome emits the unlock before updating focus or visibility on tab switch.
+    changeOwner(null);
+    changeTab(true);
+    jest.runOnlyPendingTimers();
+    changeTab(false);
+    expect(owner).toBe(container);
+    container.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    changeTab(true);
+    changeTab(false);
+    expect(owner).toBeNull();
+    expect(container.requestPointerLock).toHaveBeenCalledTimes(3);
+
+    walk.command("lockPointer");
+    changeOwner(null);
+    jest.runOnlyPendingTimers();
+    changeTab(true);
+    changeTab(false);
+    expect(owner).toBeNull();
+    expect(container.requestPointerLock).toHaveBeenCalledTimes(4);
+  } finally {
+    walk.dispose();
+    jest.useRealTimers();
+    delete document.pointerLockElement;
+    delete document.exitPointerLock;
+  }
+});
+
 test("touch can drag to look without locking the pointer", () => {
   const { walk, container } = setup();
   container.requestPointerLock = jest.fn();
@@ -394,6 +465,69 @@ test("touch can drag to look without locking the pointer", () => {
   expect(walk.camera.getWorldDirection(new THREE.Vector3()).x).toBeGreaterThan(0.1);
   expect(container.requestPointerLock).not.toHaveBeenCalled();
   walk.dispose();
+});
+
+test.each(["firstPerson", "thirdPerson"])("%s restores mouse look and movement after using a plant", (view) => {
+  const room = { ...createInitialRoom("lounge"), items: [] };
+  const plant = itemInteraction({ id: "qa-plant", kind: "plant", scaleY: 2, rotation: 0, x: PLAYER.spawn.x, z: PLAYER.spawn.z - 1.2 }, 0, false, room);
+  const scene = new THREE.Scene();
+  const container = document.body.appendChild(document.createElement("div"));
+  container.tabIndex = 0;
+  const onInteract = jest.fn();
+  const walker = createWalkthrough(scene, container, {
+    getRoom: () => room, getObstacles: () => [], render: jest.fn(), getInteractionTargets: () => [plant], onInteract
+  });
+  let owner = null;
+  const changeOwner = (element) => {
+    owner = element;
+    document.dispatchEvent(new Event("pointerlockchange"));
+  };
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => owner });
+  document.exitPointerLock = jest.fn(() => changeOwner(null));
+  container.requestPointerLock = jest.fn(() => changeOwner(container));
+  const press = (key, code = key) => container.dispatchEvent(new KeyboardEvent("keydown", { key, code }));
+  try {
+    walker.update(view, room.avatarColor, true, { playing: true });
+    press("Enter");
+    expect(owner).toBe(container);
+    press("e", "KeyE");
+    expect(owner).toBeNull();
+    document.body.appendChild(document.createElement("button")).focus();
+    walker.chooseInteraction(0);
+    expect(onInteract).toHaveBeenCalledWith(plant, expect.objectContaining({ id: "water" }));
+    expect(owner).toBe(container);
+    expect(container).toHaveFocus();
+
+    const direction = () => walker.camera.getWorldDirection(new THREE.Vector3()).x;
+    const beforeTurn = direction();
+    const mouseMove = new MouseEvent("mousemove");
+    Object.defineProperty(mouseMove, "movementX", { value: 35 });
+    document.dispatchEvent(mouseMove);
+    expect(direction()).toBeGreaterThan(beforeTurn + 0.1);
+    const avatar = scene.getObjectByName("mascot");
+    const beforeWalk = avatar.position.z;
+    press("s", "KeyS");
+    advance(100);
+    expect(avatar.position.z).toBeGreaterThan(beforeWalk);
+    container.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyS" }));
+
+    walker.command("reset");
+    press("e", "KeyE");
+    expect(owner).toBeNull();
+    press("e", "KeyE");
+    expect(owner).toBe(container);
+    press("e", "KeyE");
+    press("Escape");
+    expect(owner).toBeNull();
+    press("e", "KeyE");
+    press("2", "Digit2");
+    expect(onInteract).toHaveBeenCalledWith(plant, expect.objectContaining({ id: "flowerPink" }));
+    expect(owner).toBeNull();
+  } finally {
+    walker.dispose();
+    delete document.pointerLockElement;
+    delete document.exitPointerLock;
+  }
 });
 
 test("Shift increases held movement speed and Space completes one jump even after keyup", () => {
