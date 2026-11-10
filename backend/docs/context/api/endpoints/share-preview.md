@@ -14,8 +14,9 @@
 크롤러는 첫 HTML의 메타데이터를 그대로 읽는다. canonical과 OG URL에는 쿼리를 포함하지
 않는다.
 
-CloudFront viewer-request 함수가 일반 `/groups/{groupId}` 요청을 이 엔드포인트로
-연결해야 한다. `/api/share/groups/{groupId}`를 직접 호출해도 같은 HTML을 반환한다.
+CloudFront viewer-request 함수는 `/groups/{groupId}`에 온 등록된 공유 봇의 GET 요청을
+이 엔드포인트로 보낸다. 일반 브라우저는 S3의 React 앱을 바로 받는다.
+`/api/share/groups/{groupId}`를 직접 호출해도 같은 HTML을 반환한다.
 
 그룹이 없으면 기존 공통 오류 봉투의 `GROUP_NOT_FOUND`와 HTTP 404를 반환한다.
 
@@ -39,12 +40,9 @@ CloudFront viewer-request 함수가 일반 `/groups/{groupId}` 요청을 이 엔
 제목·편명·대표사진 키만 가져오며 표수나 의견수를 집계하지 않는다.
 사진 URL은 만료되는 CDN 서명 URL을 HTML에 고정하지 않고 기존 이미지 접근 API의 안정된 주소를 사용한다.
 
-CloudFront 함수는 일반 `/sparring/{topicId}` 요청을 `/api/share/sparrings/{topicId}`로 연결한다.
-브라우저는 HTML 스크립트로 `/sparring/{topicId}?preview=1`로 이동하며, 원래 주소에서
-유효한 `promotion_id` 하나만 보존한다. 크롤러는 첫 HTML의 메타데이터를 읽는다.
-`?preview=1` 요청은 SPA로 연결해 리다이렉트 루프를 막는다.
-토론 화면은 진입 후 내부용 `preview=1`만 주소에서 제거하므로 복사한 주소를 다시 공유해도
-토론 메타데이터를 받을 수 있다.
+CloudFront 함수는 `/sparring/{topicId}`에 온 등록된 공유 봇의 GET 요청을 이 엔드포인트로
+보내고 일반 브라우저에는 React 앱을 바로 제공한다. 브라우저가 API를 직접 열거나 로컬 개발
+서버에서 공유 HTML을 열면 공용 스크립트가 `?preview=1`을 붙여 React 화면으로 이동한다.
 
 토론이 없으면 공통 JSON 오류 봉투의 `SPARRING_NOT_FOUND`와 HTTP 404를 반환한다.
 서버의 5분 캐시와 별개로 공유 서비스가 메타데이터·이미지를 캐시할 수 있으므로,

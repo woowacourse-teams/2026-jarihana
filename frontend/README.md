@@ -39,8 +39,9 @@ npm run dev
 ```
 
 현재 로컬 DB에는 공유 미리보기 확인용 모임이 `id=13`으로 준비되어 있다.
-브라우저에서 `http://localhost:5173/groups/13?promotion_id=yutnori_chat_01`을 열면 개발 서버가 운영의
-CloudFront rewrite를 흉내 내 그룹 메타 페이지를 거친 뒤 React 화면을 표시한다.
+브라우저에서 `http://localhost:5173/groups/13?promotion_id=yutnori_chat_01`을 열면 개발 서버에서
+그룹 메타 페이지를 거친 뒤 React 화면을 표시한다. 배포 환경의 CloudFront는 User-Agent로 분기해
+등록된 공유 봇에 메타 페이지를 제공하고 일반 브라우저에는 React 화면을 바로 제공한다.
 주소에 붙인 `promotion_id`는 유효한 형식일 때만 `?preview=1` 이동과 세션 추적에 보존된다.
 크롤러가 받는 원본 HTML을 직접 보려면 주소창에
 `view-source:http://localhost:5173/groups/13`을 입력한다. 원본에서
