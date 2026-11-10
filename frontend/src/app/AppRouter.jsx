@@ -45,6 +45,24 @@ export const lazyPageRegistry = Object.freeze({
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
 
   AvatarPage: lazyNamed(loadAccountPages, "AvatarPage"),
+  StickHalvingRoomPage: lazyNamed(() => import("../pages/games/StickHalvingRoomPage.jsx"), "StickHalvingRoomPage"),
+  RhythmHarpoonEntryPage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
+    "RhythmHarpoonEntryPage"
+  ),
+  RhythmHarpoonSinglePage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonSinglePage.jsx"),
+    "RhythmHarpoonSinglePage"
+  ),
+  RhythmHarpoonLessonPage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonLessonPage.jsx"),
+    "RhythmHarpoonLessonPage"
+  ),
+  RhythmHarpoonPage: lazyNamed(() => import("../pages/games/RhythmHarpoonPage.jsx"), "RhythmHarpoonPage"),
+  RhythmHarpoonChallengePage: lazyNamed(
+    () => import("../pages/games/RhythmHarpoonChallengePage.jsx"),
+    "RhythmHarpoonChallengePage"
+  ),
   ChatPage: lazyNamed(() => import("../pages/chat/ChatPage.jsx"), "ChatPage"),
   InvitationPage: lazyNamed(() => import("../pages/invitations/index.jsx"), "InvitationPage"),
   NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),
@@ -65,9 +83,11 @@ export const lazyPageRegistry = Object.freeze({
   LandingPage: lazyNamed(() => import("../pages/landing/LandingPage.jsx"), "LandingPage"),
   MyGroupsPage: lazyNamed(loadAccountPages, "MyGroupsPage"),
   MyPage: lazyNamed(loadAccountPages, "MyPage"),
+  MyPointsPage: lazyNamed(loadAccountPages, "MyPointsPage"),
   MyRegistrationsPage: lazyNamed(loadAccountPages, "MyRegistrationsPage"),
   NotFoundPage: lazyNamed(() => import("../pages/index.js"), "NotFoundPage"),
   OAuthCallbackPage: lazyNamed(loadAccountPages, "OAuthCallbackPage"),
+  PeperoDayEventPage: lazyNamed(() => import("../pages/events/PeperoDayEventPage.jsx"), "PeperoDayEventPage"),
   ProposalBoardPage: lazyNamed(loadProposalPages, "ProposalBoardPage"),
   ProposalCreatePage: lazyNamed(loadProposalPages, "ProposalCreatePage"),
   ProposalDetailPage: lazyNamed(loadProposalPages, "ProposalDetailPage"),

@@ -1,0 +1,707 @@
+.stick-game {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  /* 다음 막대로 넘어갈 때 이 영역으로 스크롤한다. 헤더 아래에 카드 테두리가 보이도록 여유를 둔다. */
+  scroll-margin-top: var(--space-8);
+}
+
+.stick-game__head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.stick-game__round {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.stick-game__round-number {
+  font-size: 1.875rem;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.stick-game__round-of,
+.stick-game__running,
+.stick-game__hint,
+.stick-game__nudge-label,
+.stick-game__muted {
+  color: var(--color-text-muted);
+}
+
+.stick-game__round-name {
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.stick-game__running {
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.stick-game__running strong {
+  color: var(--color-ink);
+}
+
+.stick-game__hint {
+  font-size: var(--text-label);
+  margin: calc(var(--space-2) * -1) 0 0;
+}
+
+.stick-game__timer {
+  background: var(--color-surface-sunken);
+  border-radius: 999px;
+  block-size: 1.875rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.stick-game__timer-fill {
+  background: var(--color-brand-soft);
+  inset: 0;
+  position: absolute;
+  transform-origin: left center;
+}
+
+.stick-game__timer--low .stick-game__timer-fill {
+  background: var(--color-danger-soft);
+}
+
+.stick-game__timer-text {
+  display: block;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.875rem;
+  position: relative;
+  text-align: center;
+}
+
+.stick-game__timer--low .stick-game__timer-text {
+  color: var(--color-danger);
+}
+
+.stick-game__controls,
+.stick-game__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.stick-game__actions {
+  justify-content: flex-end;
+}
+
+.stick-game__nudge {
+  background: var(--color-surface);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: 999px;
+  block-size: var(--touch-target);
+  cursor: pointer;
+  font-size: 1.375rem;
+  inline-size: var(--touch-target);
+  line-height: 1;
+}
+
+.stick-game__nudge:focus-visible,
+.stick-board:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.stick-game__nudge-label {
+  font-size: var(--text-caption);
+}
+
+.stick-game__cut {
+  margin-inline-start: auto;
+}
+
+.stick-game__loading {
+  block-size: 18rem;
+}
+
+.stick-game__eyebrow {
+  color: var(--color-text-brand);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.stick-game__final-score {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.stick-game__final-score span {
+  font-size: 3.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.stick-game__final-score small {
+  color: var(--color-text-muted);
+}
+
+.stick-game__table-wrap {
+  overflow-x: auto;
+}
+
+.stick-game__table {
+  border-collapse: collapse;
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  inline-size: 100%;
+}
+
+.stick-game__table th,
+.stick-game__table td {
+  border-block-end: var(--border-thin) solid var(--color-line);
+  padding: var(--space-2) var(--space-1);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.stick-game__table th {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stick-game__table .stick-game__number {
+  text-align: end;
+}
+
+/* 무게표 */
+.weight-table {
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md, 0.875rem);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.weight-table__head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.weight-table__total {
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.weight-table__total b {
+  color: var(--color-text-brand);
+  font-size: 1rem;
+}
+
+.weight-table__rows {
+  display: grid;
+  gap: var(--space-2) var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.weight-table__rows li {
+  align-items: center;
+  display: flex;
+  font-size: var(--text-caption);
+  gap: var(--space-2);
+  min-inline-size: 0;
+  white-space: nowrap;
+}
+
+.weight-table__rows b {
+  font-variant-numeric: tabular-nums;
+  margin-inline-start: auto;
+}
+
+.weight-table__piece {
+  block-size: 1.5rem;
+  flex: none;
+  inline-size: 1.75rem;
+}
+
+.weight-table__name {
+  min-inline-size: 6rem;
+}
+
+.weight-table__equals {
+  color: var(--color-text-muted);
+}
+
+.weight-table__coins {
+  align-items: center;
+  display: inline-flex;
+  gap: 3px;
+}
+
+.weight-table__coin {
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  block-size: 10px;
+  display: inline-block;
+  flex: none;
+  inline-size: 10px;
+}
+
+.weight-table__note {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: var(--text-caption);
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.weight-table__biscuit {
+  fill: var(--color-game-biscuit);
+  stroke: var(--color-game-biscuit-edge);
+  stroke-width: 1;
+}
+
+.weight-table__thin {
+  fill: var(--color-game-choco-thin);
+}
+
+.weight-table__thick {
+  fill: var(--color-game-choco-thick);
+}
+
+.weight-table__almond {
+  fill: var(--color-game-almond);
+  stroke: var(--color-game-almond-edge);
+  stroke-width: 1;
+}
+
+/* 막대 */
+.stick-board {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md, 0.875rem);
+  cursor: ew-resize;
+  padding-block-start: var(--space-2);
+  touch-action: none;
+  user-select: none;
+}
+
+.stick-board--locked {
+  cursor: default;
+}
+
+.stick-board svg {
+  block-size: auto;
+  display: block;
+  inline-size: 100%;
+}
+
+.stick-board__labels {
+  block-size: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+.stick-board__labels span {
+  line-height: 1rem;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.stick-board__labels .stick-board__label--middle {
+  color: var(--color-text-brand);
+  font-weight: var(--font-weight-bold);
+}
+
+.stick-board__ruler line {
+  stroke: var(--color-muted);
+  stroke-width: 2;
+}
+
+.stick-board__ruler .stick-board__ruler-middle {
+  stroke: var(--color-brand);
+  stroke-width: 4;
+}
+
+.stick-knife__steel-light {
+  stop-color: var(--color-game-knife-steel);
+}
+
+.stick-knife__steel-dark {
+  stop-color: var(--color-game-knife-steel-shade);
+}
+
+.stick-knife__blade {
+  stroke: var(--color-game-knife-edge);
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.stick-knife__bolster {
+  fill: var(--color-game-knife-bolster);
+}
+
+.stick-knife__handle {
+  fill: var(--color-game-knife-handle);
+}
+
+.stick-knife__rivet {
+  fill: var(--color-game-knife-rivet);
+}
+
+.stick-board__answer {
+  stroke: var(--color-brand-ink);
+  stroke-dasharray: 10 8;
+  stroke-width: 4;
+}
+
+.stick-board__piece {
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 칼 확대 창 */
+.stick-loupe {
+  background: var(--color-surface-sunken);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md, 0.875rem);
+  cursor: ew-resize;
+  overflow: hidden;
+  padding: var(--space-1) 0 var(--space-2);
+  touch-action: none;
+  user-select: none;
+}
+
+.stick-loupe--locked {
+  cursor: default;
+}
+
+.stick-loupe__labels {
+  block-size: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+.stick-loupe__labels span {
+  line-height: 1rem;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.stick-loupe svg {
+  display: block;
+  inline-size: 100%;
+}
+
+.stick-loupe__ticks {
+  block-size: 0.75rem;
+}
+
+.stick-loupe__ticks line {
+  stroke: var(--color-muted);
+  stroke-width: 1;
+}
+
+.stick-loupe__ticks .stick-loupe__tick--cell {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.stick-loupe__stick {
+  block-size: 3.5rem;
+}
+
+.stick-loupe__knife {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.stick-loupe__answer {
+  stroke: var(--color-brand-ink);
+  stroke-dasharray: 6 4;
+  stroke-width: 3;
+}
+
+.stick-board__pieces .stick-board__piece--left {
+  transform: translateX(-14px);
+}
+
+.stick-board__pieces .stick-board__piece--right {
+  transform: translateX(14px);
+}
+
+.stick-art__biscuit-top {
+  stop-color: var(--color-game-biscuit);
+}
+
+.stick-art__biscuit-bottom {
+  stop-color: var(--color-game-biscuit-low);
+}
+
+.stick-art__biscuit {
+  stroke: var(--color-game-biscuit-edge);
+  stroke-width: 1.5;
+}
+
+.stick-art__choco-thin {
+  fill: var(--color-game-choco-thin);
+}
+
+.stick-art__choco-thick {
+  fill: var(--color-game-choco-thick);
+}
+
+.stick-art__choco-highlight {
+  opacity: 0.7;
+  stroke: var(--color-game-choco-highlight);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.stick-art__almond {
+  fill: var(--color-game-almond);
+  stroke: var(--color-game-almond-edge);
+  stroke-width: 2;
+}
+
+.stick-art__almond-line {
+  fill: none;
+  stroke: var(--color-game-almond-edge);
+  stroke-width: 1.5;
+}
+
+/* 결과 */
+.cut-result {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cut-result__legend {
+  color: var(--color-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  gap: var(--space-4);
+}
+
+.cut-result__legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.cut-result__swatch {
+  border-block-start: 3px solid var(--color-ink);
+  display: inline-block;
+  inline-size: 1.375rem;
+}
+
+.cut-result__swatch--answer {
+  border-block-start-color: var(--color-brand-ink);
+  border-block-start-style: dashed;
+}
+
+.cut-result__positions,
+.cut-result__mix-detail {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.cut-result__positions {
+  font-size: var(--text-label);
+}
+
+.cut-result__positions b {
+  color: var(--color-text-brand);
+}
+
+.cut-result__balance {
+  block-size: auto;
+  display: block;
+  inline-size: 100%;
+}
+
+.cut-result__beam {
+  stroke: var(--color-ink);
+  stroke-linecap: round;
+  stroke-width: 8;
+}
+
+.cut-result__post {
+  stroke: var(--color-muted);
+  stroke-linecap: round;
+  stroke-width: 8;
+}
+
+.cut-result__base {
+  fill: var(--color-muted);
+}
+
+.cut-result__pivot {
+  fill: var(--color-ink);
+}
+
+.cut-result__string {
+  stroke: var(--color-muted);
+  stroke-width: 2;
+}
+
+.cut-result__pan {
+  fill: var(--color-surface-sunken);
+  stroke: var(--color-muted);
+  stroke-width: 2;
+}
+
+.cut-result__weights {
+  align-items: end;
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-3);
+  grid-template-columns: 1fr auto 1fr;
+  text-align: center;
+}
+
+.cut-result__weights span {
+  color: var(--color-text-muted);
+  display: block;
+  font-size: var(--text-caption);
+}
+
+.cut-result__weights strong {
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.cut-result__error strong {
+  color: var(--color-text-brand);
+}
+
+.cut-result__mix {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cut-result__mix-row {
+  align-items: center;
+  display: grid;
+  font-size: var(--text-caption);
+  gap: var(--space-3);
+  grid-template-columns: 2.5rem 1fr 4rem;
+}
+
+.cut-result__mix-side {
+  color: var(--color-text-muted);
+}
+
+.cut-result__mix-bar {
+  background: var(--color-surface-sunken);
+  border-radius: 4px;
+  block-size: 1.125rem;
+  display: flex;
+  overflow: hidden;
+}
+
+.cut-result__segment {
+  block-size: 100%;
+}
+
+.cut-result__segment--biscuit {
+  background: var(--color-game-biscuit);
+}
+
+.cut-result__segment--thin {
+  background: var(--color-game-choco-thin);
+}
+
+.cut-result__segment--thick {
+  background: var(--color-game-choco-thick);
+}
+
+.cut-result__segment--almond {
+  background: var(--color-game-almond);
+}
+
+.cut-result__mix-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  text-align: end;
+}
+
+.cut-result__mix-detail {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+
+.cut-result__verdict {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.cut-result__points {
+  color: var(--color-text-brand);
+  font-size: 2rem;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.cut-result__comment {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 520px) {
+  .stick-board__labels .stick-board__label--odd {
+    display: none;
+  }
+
+  .stick-game__cut {
+    flex: 1 1 100%;
+    margin-inline-start: 0;
+  }
+
+  .weight-table__rows li {
+    gap: var(--space-1);
+  }
+
+  .weight-table__name {
+    min-inline-size: 0;
+  }
+
+  .weight-table__coins {
+    gap: 2px;
+  }
+
+  .weight-table__coin {
+    block-size: 8px;
+    inline-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stick-board__piece {
+    transition: none;
+  }
+}

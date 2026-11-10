@@ -13,8 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.jdbc.Sql;
-import org.springframework.test.context.jdbc.SqlMergeMode;
 
 import java.util.List;
 import java.util.Map;
@@ -27,8 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = "jarihana.shop.enabled=true")
-@SqlMergeMode(SqlMergeMode.MergeMode.MERGE)
-@Sql({"/sql/shop-wallet-contract.sql", "/sql/truncate.sql"})
 class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
     private static final String PATH = "/members/me/shop/purchases";
     private static final String PRODUCT = """
@@ -60,6 +56,8 @@ class ShopPurchaseAcceptanceTest extends IntegrationTestSupport {
                 .body("data.wallet.balance", equalTo(700));
         request(member).get("/members/me/shop").then().statusCode(200)
                 .body("data.inventory.items.size()", equalTo(1));
+        request(member).get("/members/me/points").then().statusCode(200)
+                .body("data.balance", equalTo(700));
         assertThat(balance(member)).isEqualTo(700);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM shop_purchase", Long.class)).isEqualTo(1);
         request(member).body(Map.of("productId", "another", "termsVersion", version,

@@ -68,14 +68,15 @@
 
 ## 저장과 배포
 
-`V24__member_avatar.sql` 한 파일의 `CREATE TABLE`로 모든 최종 파츠 컬럼을 만든다.
+`V35__member_avatar.sql` 한 파일의 `CREATE TABLE`로 모든 최종 파츠 컬럼을 만든다.
 기존 `member` 컬럼과 프로필 응답은 유지하고 회원당 하나의 PK/FK·삭제 연쇄 정리를 둔다.
-파츠 컬럼에는 NOT NULL·VARCHAR(16)만 두고 허용 값과 누락 확장 파츠의 기본값은 `AvatarAppearance`에서 관리한다.
+파츠 컬럼에는 NOT NULL·VARCHAR(16)만 두고 허용 값과 누락 확장 파츠의 기본값은 `AvatarCatalog`에서 관리한다.
 향후 파츠 값이 늘어날 때 DB CHECK를 변경하거나 기존 행을 전수 검사하지 않기 위한 선택이다.
-JSONB 전환은 이번 변경에 포함하지 않는다. 도메인 검증을 우회한 직접 SQL은 허용 값 검증을 받지 않는다.
+생성 입력은 `Map<AvatarCatalog, String>`으로 파츠 종류를 명시한다. 모자 색과 가방 색을 같은 위치 기반 인자로 넘기지 않는다.
+`AvatarAppearance`는 검증된 선택값과 기존 JPA 컬럼 매핑을 유지한다. 기존 종류의 값 추가는 카탈로그만 수정하고, 새 저장 종류를 추가할 때는 컬럼·DTO 매핑도 함께 추가한다. JSONB 전환은 이번 변경에 포함하지 않는다. 도메인 검증을 우회한 직접 SQL은 허용 값 검증을 받지 않는다.
 
 이 PR의 이전 V20~V23 아바타 파일은 공유 환경 미배포 상태에서 통합했다.
-develop에 오목 채팅 V21, 관전 V22, 분석 V23이 병합되어 아바타는 다음 번호 V24를 사용한다.
+포인트 [#589](https://github.com/woowacourse-teams/2026-jarihana/pull/589)의 V33과 공지 재전송 [#602](https://github.com/woowacourse-teams/2026-jarihana/pull/602)의 V34가 먼저 적용되는 순서에 맞춰 아바타는 V35를 사용한다.
 실제 적용된 공유 환경의 Flyway 파일을 바꾸는 절차가 아니다.
 예전 PR 스키마를 적용했던 개인 로컬 DB에는 checksum repair·이력 삭제를 하지 말고 새 별도 DB를 사용한다.
 기존 개인 DB와 저장 조합은 보존한다. 공유 환경에 적용된 후에는 후속 마이그레이션으로만 변경한다.
@@ -89,6 +90,6 @@ develop에 오목 채팅 V21, 관전 V22, 분석 V23이 병합되어 아바타�
 
 검증: `MemberAvatarAcceptanceTest`는 최초 조회·생성·교체·재조회·회원 분리·잘못된 요청 보존·삭제·인증·CSRF를 확인한다.
 `AvatarAppearanceTest.defaultsMissingExtensionPartsInDomain`은 누락 확장 파츠의 도메인 기본값을 검증한다.
-`FlywayBaselineTest.addAvatarAfterV23PreservesOldMemberOperations`는 채팅·오목 마이그레이션 V23까지 적용된 DB에서 V24로 올린 뒤
+`FlywayBaselineTest.addAvatarPreservesOldMemberOperations`는 V35 직전의 마이그레이션까지 적용된 DB에서 V35로 올린 뒤
 회원·컬럼·이력 보존, 기존 회원 SQL, 최종 파츠 컬럼, NOT NULL, 회원 삭제 연쇄 정리를 확인한다.
 실제 구버전 앱 이미지 동시 실행과 운영 규모의 FK 생성 잠금 시간은 미검증이다.

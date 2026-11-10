@@ -1,0 +1,292 @@
+/* 공식 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
+.rhythm-challenge-steps {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-caption, 0.8rem);
+  color: var(--color-text-muted);
+}
+.rhythm-challenge-steps li {
+  padding: 2px 10px;
+  border: 1px solid var(--color-border, #d6dbe1);
+  border-radius: 999px;
+}
+.rhythm-challenge-steps li[aria-current="step"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: var(--color-surface);
+  font-weight: 700;
+}
+
+.rhythm-game .rhythm-challenge {
+  display: grid;
+  justify-items: center;
+  min-block-size: var(--rhythm-board-space);
+  align-content: start;
+}
+.rhythm-game .rhythm-challenge__panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  inline-size: min(560px, 100%);
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #13232b;
+}
+.rhythm-game .rhythm-challenge__panel h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+.rhythm-game .rhythm-challenge__panel p {
+  margin: 0;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-challenge__panel a {
+  color: var(--mint);
+}
+.rhythm-game .rhythm-challenge__levels {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.rhythm-game .rhythm-challenge__levels button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.rhythm-game .rhythm-challenge__levels .life-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 28%);
+  color: #f3f6f4;
+  font-size: 0.68rem;
+}
+.rhythm-game .rhythm-challenge__summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.rhythm-game .rhythm-challenge__summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #1b2e37;
+}
+.rhythm-game .rhythm-challenge__summary dt {
+  color: var(--muted);
+}
+.rhythm-game .rhythm-challenge__summary dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+.rhythm-game .rhythm-challenge__rules {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  line-height: 1.6;
+}
+.rhythm-game .rhythm-challenge__error {
+  color: #ffd0c7;
+}
+.rhythm-game .rhythm-challenge__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 옵션 또는 결과(왼쪽)와 같은 난이도의 랭킹(오른쪽)을 나란히 둔다. 좁은 화면에서는 랭킹을 아래에 쌓는다. */
+.rhythm-game .rhythm-challenge__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  inline-size: min(1080px, 100%);
+  align-items: start;
+}
+.rhythm-game .rhythm-challenge__pair .rhythm-challenge__panel {
+  inline-size: 100%;
+}
+/* 옵션 단계는 옵션이 중심이라 랭킹을 좁은 열(옵션 560px, 랭킹 360px 비율)로 둔다.
+   랭킹은 옵션 카드 높이에 맞추고 목록만 안에서 스크롤한다. 난이도를 바꿔도 카드 크기가 흔들리지 않는다. */
+@media (min-width: 768px) {
+  .rhythm-game .rhythm-challenge__options {
+    grid-template-columns: minmax(0, 14fr) minmax(280px, 9fr);
+    inline-size: min(940px, 100%);
+    align-items: stretch;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking {
+    display: flex;
+    flex-direction: column;
+    contain: size;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking__list {
+    flex: 0 1 auto;
+    min-block-size: 0;
+    /* 내 줄 테두리가 스크롤 영역 가장자리에서 잘리지 않게 여백을 두고 같은 만큼 바깥으로 넓힌다. */
+    margin: -2px;
+    padding: 2px;
+    overflow-y: auto;
+    scrollbar-color: #2c434d transparent;
+    scrollbar-width: thin;
+  }
+  .rhythm-game .rhythm-challenge__options .rhythm-ranking__state {
+    flex: 1 1 auto;
+    align-content: center;
+  }
+}
+.rhythm-game .rhythm-result__score {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 0 4px;
+}
+.rhythm-game .rhythm-result__score small {
+  color: var(--muted);
+}
+.rhythm-game .rhythm-result__score strong {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: clamp(2rem, 5vw, 3rem);
+  color: var(--mint);
+}
+.rhythm-game .rhythm-ranking {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #13232b;
+}
+.rhythm-game .rhythm-ranking__heading h2 {
+  margin: 2px 0 4px;
+  font-size: 1.3rem;
+}
+.rhythm-game .rhythm-ranking__heading p {
+  margin: 0;
+}
+.rhythm-game .rhythm-ranking__state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px 0;
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+.rhythm-game .rhythm-ranking__mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #263e34;
+  color: var(--mint);
+}
+.rhythm-game .rhythm-ranking__mine strong {
+  font-size: 1.3rem;
+}
+.rhythm-game .rhythm-ranking__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rhythm-game .rhythm-ranking__list li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #1b2e37;
+}
+.rhythm-game .rhythm-ranking__list li.is-mine {
+  outline: 2px solid var(--mint);
+}
+/* 1, 2, 3위 줄은 금, 은, 동 색 카드다. 내 줄 표시(outline)와 겹쳐도 보이도록 테두리는 안쪽 그림자로 그린다. */
+.rhythm-game .rhythm-ranking__list li.is-gold {
+  background: linear-gradient(135deg, #6a5316, #3b3114);
+  box-shadow: inset 0 0 0 1px #d9b44a;
+}
+.rhythm-game .rhythm-ranking__list li.is-silver {
+  background: linear-gradient(135deg, #4d5860, #2c353b);
+  box-shadow: inset 0 0 0 1px #b9c4cc;
+}
+.rhythm-game .rhythm-ranking__list li.is-bronze {
+  background: linear-gradient(135deg, #5f3b22, #362417);
+  box-shadow: inset 0 0 0 1px #c98552;
+}
+.rhythm-game .rhythm-ranking__list li.is-gold .rhythm-ranking__rank {
+  color: #ffd95e;
+}
+.rhythm-game .rhythm-ranking__list li.is-silver .rhythm-ranking__rank {
+  color: #e6edf2;
+}
+.rhythm-game .rhythm-ranking__list li.is-bronze .rhythm-ranking__rank {
+  color: #f1a670;
+}
+.rhythm-game .rhythm-ranking__list li:is(.is-gold, .is-silver, .is-bronze) .rhythm-ranking__score small {
+  color: rgb(255 255 255 / 72%);
+}
+.rhythm-game .rhythm-ranking__rank {
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 700;
+  text-align: center;
+}
+.rhythm-game .rhythm-ranking__member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rhythm-game .rhythm-ranking__member > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rhythm-game .rhythm-ranking__member small {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mint);
+  color: #0f1a14;
+  font-weight: 700;
+}
+.rhythm-game .rhythm-ranking__score {
+  display: grid;
+  justify-items: end;
+}
+.rhythm-game .rhythm-ranking__score b {
+  font-family: ui-monospace, Consolas, monospace;
+}
+.rhythm-game .rhythm-ranking__score small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+@media (max-width: 767px) {
+  .rhythm-challenge-steps {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .rhythm-game .rhythm-challenge__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rhythm-game .rhythm-challenge__panel,
+  .rhythm-game .rhythm-ranking {
+    padding: 18px 16px;
+  }
+}

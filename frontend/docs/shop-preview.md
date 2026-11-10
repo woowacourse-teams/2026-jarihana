@@ -15,8 +15,7 @@
 
 - 로그인 회원은 #589의 `GET /members/me/points`를 조회한다. 실제 잔액은 체험 잔액과 구분해 표시한다.
   `enabled`는 적립 여부이므로 false여도 실제 잔액을 표시한다. 오류 시 0으로 대체하지 않는다.
-- `features/points/api.js`, `hooks.js`는 #589의 614760b 계약을 그대로 사용한다. 적립 claim 컴포넌트는
-  이 PR에서 마운트하지 않으며 적립 이벤트·포인트 화면 구현은 #589에 맡긴다.
+- 실제 잔액 조회는 #589에서 제공하는 `usePointSummary`를 상점과 포인트 상세 화면에서 공유한다.
 - `GET /shop/products`가 purchasingEnabled=true를 반환하면 로그인 회원은 실제 구매 어댑터로 전환한다.
 - 실제 구매는 `POST /members/me/shop/purchases` 한 번으로 처리하고, `GET /members/me/shop`으로
   서버 잔액·보유 상태를 함께 읽는다. 게스트는 체험 상점을 이용한다.

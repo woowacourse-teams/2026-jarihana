@@ -1,25 +1,26 @@
+import { AVATAR_PARTS } from '../src/avatar-part-definitions.js';
 import { AVATAR_OPTIONS, AVATAR_PALETTE } from '../src/avatar-appearance.js';
 import { createAvatarDraft } from './avatar-draft.js';
 import { createEditorIcon } from './avatar-editor-icons.js';
 
 const FIELDS = {
-  face: { label: '얼굴형', action: 'avatar_lab_face_change', names: ['동그란 얼굴', '타원형 얼굴', '넓은 얼굴'] },
-  skin: { label: '피부색', action: 'avatar_lab_skin_change', names: ['밝은 피부', '따뜻한 피부', '갈색 피부', '짙은 피부'] },
-  hair: { label: '머리 모양', action: 'avatar_lab_hair_change', names: ['곱슬머리', '가르마', '단발머리', '긴 생머리', '긴 웨이브', '민머리'] },
-  hairColor: { label: '머리색', action: 'avatar_lab_hair_color_change', names: ['검정', '밤색', '구릿빛', '은빛'] },
-  eyes: { label: '눈', action: 'avatar_lab_eyes_change', names: ['동그란 눈', '가는 눈', '작은 눈'] },
-  eyebrows: { label: '눈썹', action: 'avatar_lab_eyebrows_change', names: ['아치형 눈썹', '일자 눈썹', '짙은 눈썹'] },
-  nose: { label: '코', action: 'avatar_lab_nose_change', names: ['둥근 코', '작은 코', '넓은 코'] },
-  mouth: { label: '입', action: 'avatar_lab_mouth_change', names: ['미소', '일자 입', '동그란 입'] },
-  glasses: { label: '안경', action: 'avatar_lab_glasses_change', names: ['안경 없음', '둥근 안경', '네모 안경', '선글라스'] },
-  outfit: { label: '옷 색', action: 'avatar_lab_outfit_change', names: ['민트', '코랄', '크림', '네이비', '라일락', '머스터드'] },
-  shoes: { label: '신발 모양', action: 'avatar_lab_shoes_change', names: ['운동화', '슬립온', '하이탑'] },
-  shoeColor: { label: '신발 색', action: 'avatar_lab_shoe_color_change', names: ['흰색', '검정', '민트', '코랄'] },
-  hat: { label: '모자 모양', action: 'avatar_lab_hat_change', names: ['모자 없음', '캡', '버킷햇', '비니', '베레모'] },
-  hatColor: { label: '모자 색', action: 'avatar_lab_hat_color_change', names: ['검정', '크림', '민트', '코랄', '네이비'] },
-  bag: { label: '가방 모양', action: 'avatar_lab_bag_change', names: ['가방 없음', '백팩', '크로스백', '숄더백'] },
-  bagColor: { label: '가방 색', action: 'avatar_lab_bag_color_change', names: ['검정', '크림', '민트', '코랄', '네이비'] },
-  handheld: { label: '손에 드는 물건', action: 'avatar_lab_handheld_change', names: ['빈손', '따뜻한 커피', '차가운 커피', '책', '노트북', '휴대폰'] },
+  face: { label: '얼굴형', action: 'avatar_lab_face_change' },
+  skin: { label: '피부색', action: 'avatar_lab_skin_change' },
+  hair: { label: '머리 모양', action: 'avatar_lab_hair_change' },
+  hairColor: { label: '머리색', action: 'avatar_lab_hair_color_change' },
+  eyes: { label: '눈', action: 'avatar_lab_eyes_change' },
+  eyebrows: { label: '눈썹', action: 'avatar_lab_eyebrows_change' },
+  nose: { label: '코', action: 'avatar_lab_nose_change' },
+  mouth: { label: '입', action: 'avatar_lab_mouth_change' },
+  glasses: { label: '안경', action: 'avatar_lab_glasses_change' },
+  outfit: { label: '옷 색', action: 'avatar_lab_outfit_change' },
+  shoes: { label: '신발 모양', action: 'avatar_lab_shoes_change' },
+  shoeColor: { label: '신발 색', action: 'avatar_lab_shoe_color_change' },
+  hat: { label: '모자 모양', action: 'avatar_lab_hat_change' },
+  hatColor: { label: '모자 색', action: 'avatar_lab_hat_color_change' },
+  bag: { label: '가방 모양', action: 'avatar_lab_bag_change' },
+  bagColor: { label: '가방 색', action: 'avatar_lab_bag_color_change' },
+  handheld: { label: '손에 드는 물건', action: 'avatar_lab_handheld_change' },
 };
 const CATEGORIES = [
   { id: 'face', name: '얼굴', fields: ['face', 'skin'] },
@@ -98,10 +99,10 @@ export function createAvatarEditor(root, { portrait, onChange, initial }) {
       legend.textContent = FIELDS[field].label; group.className = 'part-group'; group.append(legend);
       const choices = document.createElement('div'); choices.className = AVATAR_PALETTE[field] ? 'part-colors' : 'part-options';
       const registry = new Map(); buttons.set(field, registry);
-      AVATAR_OPTIONS[field].forEach((value, index) => {
+      AVATAR_OPTIONS[field].forEach(value => {
         const button = document.createElement('button'); button.type = 'button'; button.className = 'part-option';
         button.dataset.part = field; button.dataset.value = value; button.dataset.phCaptureAttributeAction = FIELDS[field].action;
-        button.setAttribute('aria-label', `${FIELDS[field].label}: ${FIELDS[field].names[index]}`);
+        button.setAttribute('aria-label', `${FIELDS[field].label}: ${AVATAR_PARTS[field][value].label}`);
         button.setAttribute('aria-pressed', 'false');
         if (AVATAR_PALETTE[field]) {
           const swatch = document.createElement('span'); swatch.className = 'part-swatch';
@@ -109,7 +110,7 @@ export function createAvatarEditor(root, { portrait, onChange, initial }) {
         } else {
           const image = document.createElement('img'); image.alt = ''; image.width = image.height = 72; button.append(image);
         }
-        const name = document.createElement('span'); name.textContent = FIELDS[field].names[index]; button.append(name);
+        const name = document.createElement('span'); name.textContent = AVATAR_PARTS[field][value].label; button.append(name);
         button.addEventListener('click', () => { if (draft.setPart(field, value)) sync(); });
         registry.set(value, button); choices.append(button);
       });

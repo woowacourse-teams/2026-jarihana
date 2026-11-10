@@ -1,24 +1,8 @@
+import { AVATAR_PARTS } from './avatar-part-definitions.js';
 // Versioned, allowlisted appearance data shared by the arena and the portrait renderer.
 // No member type, scene state, pose, URL or arbitrary geometry belongs in this contract.
-export const AVATAR_OPTIONS = Object.freeze({
-  hair: Object.freeze(['curly', 'parted', 'bob', 'long', 'flowing', 'bald']),
-  skin: Object.freeze(['pearl', 'warm', 'tan', 'deep']),
-  hairColor: Object.freeze(['ink', 'chestnut', 'copper', 'silver']),
-  face: Object.freeze(['round', 'oval', 'wide']),
-  eyes: Object.freeze(['round', 'slim', 'dot']),
-  eyebrows: Object.freeze(['arched', 'straight', 'bold']),
-  nose: Object.freeze(['round', 'small', 'wide']),
-  mouth: Object.freeze(['smile', 'flat', 'open']),
-  glasses: Object.freeze(['none', 'round', 'square', 'sunglasses']),
-  outfit: Object.freeze(['mint', 'coral', 'cream', 'navy', 'lilac', 'ochre']),
-  shoes: Object.freeze(['sneakers', 'slipOn', 'highTop']),
-  shoeColor: Object.freeze(['white', 'ink', 'mint', 'coral']),
-  hat: Object.freeze(['none', 'cap', 'bucket', 'beanie', 'beret']),
-  hatColor: Object.freeze(['ink', 'cream', 'mint', 'coral', 'navy']),
-  bag: Object.freeze(['none', 'backpack', 'crossbody', 'shoulder']),
-  bagColor: Object.freeze(['ink', 'cream', 'mint', 'coral', 'navy']),
-  handheld: Object.freeze(['none', 'hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone']),
-});
+export const AVATAR_OPTIONS = Object.freeze(Object.fromEntries(Object.entries(AVATAR_PARTS).map(([slot, parts]) =>
+  [slot, Object.freeze(Object.keys(parts))])));
 export const AVATAR_PALETTE = Object.freeze({
   skin: Object.freeze({ pearl: '#ffe0bf', warm: '#e9b383', tan: '#b97850', deep: '#75472f' }),
   hairColor: Object.freeze({ ink: '#292726', chestnut: '#61412f', copper: '#a45732', silver: '#c3c6cd' }),

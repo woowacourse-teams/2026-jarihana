@@ -12,6 +12,9 @@ spring:
       initialize-schema: never
 
 jarihana:
+  minigame:
+    pepero-day:
+      always-open: true
   auth:
     cookie:
       secure: false

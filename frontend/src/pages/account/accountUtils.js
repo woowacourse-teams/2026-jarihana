@@ -11,6 +11,7 @@ export const MEMBER_TYPE_LABELS = {
   BOOTCAMP: "부트캠프",
   COACH: "코치",
   CREW: "크루",
+  MEMBER: "멤버",
   PROFESSIONAL: "현직자"
 };
 

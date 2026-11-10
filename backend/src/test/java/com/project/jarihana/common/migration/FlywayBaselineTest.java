@@ -3,6 +3,8 @@ package com.project.jarihana.common.migration;
 import com.project.jarihana.support.IntegrationTestSupport;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,15 +50,31 @@ class FlywayBaselineTest extends IntegrationTestSupport {
         return baseCount + (new ClassPathResource("db/migration/V11__member_affiliation.sql").exists() ? 1 : 0);
     }
 
-    private int migrationCountThroughLatestSchema(int baseCount) {
+    private int migrationCountThroughRhythmChallenge(int baseCount) {
         return migrationCountIncludingMemberAffiliation(baseCount)
                 + (new ClassPathResource("db/migration/V19__announcement_soft_delete.sql").exists() ? 1 : 0)
-                + 8;
+                + 7;
+    }
+
+    private int migrationCountThroughMinigame(int baseCount) {
+        return migrationCountThroughRhythmChallenge(baseCount) + 1;
+    }
+
+    private int migrationCountThroughPoints(int baseCount) {
+        return migrationCountThroughMinigame(baseCount) + 4;
+    }
+
+    private int migrationCountThroughAvatar(int baseCount) {
+        return migrationCountThroughPoints(baseCount) + 1;
+    }
+
+    private int migrationCountThroughShop(int baseCount) {
+        return migrationCountThroughAvatar(baseCount) + 2;
     }
 
     @Test
-    @DisplayName("V24는 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
-    void addAvatarAfterV23PreservesOldMemberOperations() throws SQLException {
+    @DisplayName("V35는 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
+    void addAvatarPreservesOldMemberOperations() throws SQLException {
         // Given
         String schema = "avatar_upgrade_" + UUID.randomUUID().toString().replace("-", "");
         JdbcTemplate administrative = new JdbcTemplate(dataSource);
@@ -65,8 +84,16 @@ class FlywayBaselineTest extends IntegrationTestSupport {
             try {
                 connection.setSchema(schema);
                 SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                var avatarVersion = MigrationVersion.fromVersion("35");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target(avatarVersion).load();
+                var precedingVersion = Arrays.stream(upgraded.info().pending())
+                        .map(MigrationInfo::getVersion)
+                        .filter(version -> version != null && version.compareTo(avatarVersion) < 0)
+                        .max(MigrationVersion::compareTo)
+                        .orElseThrow();
                 Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target("23").load().migrate();
+                        .locations("classpath:db/migration").target(precedingVersion).load().migrate();
                 JdbcTemplate jdbc = new JdbcTemplate(isolated);
                 String oldInsert = """
                         insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
@@ -79,19 +106,19 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         where table_schema = current_schema() and table_name = 'member' order by ordinal_position
                         """);
                 var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
-                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
-                        .locations("classpath:db/migration").target("24").load();
 
                 // When
-                assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+                var result = upgraded.migrate();
 
                 // Then
+                assertThat(result.migrationsExecuted).isEqualTo(1);
+                assertThat(result.targetSchemaVersion).isEqualTo("35");
                 assertThat(jdbc.queryForList("select * from member order by id")).isEqualTo(members);
                 assertThat(jdbc.queryForList("""
                         select column_name, data_type, is_nullable from information_schema.columns
                         where table_schema = current_schema() and table_name = 'member' order by ordinal_position
                         """)).isEqualTo(columns);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '24' order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '35' order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select count(*) from member_avatar", Long.class)).isZero();
                 long newMemberId = jdbc.queryForObject(oldInsert, Long.class, "하늘", "avatar-upgrade-old-app");
@@ -235,7 +262,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("V14~V20.1은 기존 이미지와 공지, 구버전 INSERT, 스키마 이력을 보존하고 오목 제약을 생성한다.")
+    @DisplayName("V14~V37은 기존 이미지와 공지, 구버전 INSERT, 스키마 이력을 보존하고 오목 제약을 생성한다.")
     void addSparringAfterV13PreservesGroupImages() throws SQLException {
         // Given
         String schema = "sparring_upgrade_" + UUID.randomUUID().toString().replace("-", "");
@@ -294,7 +321,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int applied = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(applied).isEqualTo(7);
+                assertThat(applied).isEqualTo(17);
                 assertThat(jdbc.queryForList("""
                         select id || ':' || (definition->>'price') from shop_product
                         where available order by id
@@ -303,6 +330,10 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         .isEqualTo(chatMigration);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '20.1' and success", String.class))
                         .isEqualTo("V20_1__gomoku_game_history.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '24' and success", String.class))
+                        .isEqualTo("V24__sparring_post_side_index.sql");
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '27' and success", String.class))
+                        .isEqualTo("V27__rhythm_harpoon_challenge.sql");
                 assertThat(jdbc.queryForList("select id, image_key, status, attached_group_id from image_upload"))
                         .isEqualTo(uploads);
                 assertThat(jdbc.queryForList("select * from image_reference")).isEqualTo(references);
@@ -310,7 +341,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                         select id, group_id, author_member_id, title, content, scope, created_at, updated_at
                         from announcements
                         """)).isEqualTo(existingAnnouncements);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '29', '30') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 jdbc.update("""
                         insert into announcements (group_id, author_member_id, title, content, scope, created_at, updated_at)
@@ -328,7 +359,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '17' and success", String.class))
                         .isEqualTo("V17__gomoku.sql");
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
-                        .contains("gomoku_room", "gomoku_seat", "gomoku_move", "gomoku_game", "gomoku_posthog_outbox");
+                        .contains("gomoku_room", "gomoku_seat", "gomoku_move", "gomoku_game", "gomoku_posthog_outbox",
+                                "rhythm_challenge", "rhythm_challenge_batch");
                 long memberId = jdbc.queryForObject("""
                         insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
                         values ('오목', 8, 'gomoku-upgrade', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
@@ -440,6 +472,231 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("V31은 V30의 회원·채팅·알림과 적용 이력을 보존하며 계정별 활성 상태로 전환한다.")
+    void replaceChatViewsAfterV30PreservesDurableData() throws SQLException {
+        // Given
+        String schema = "activity_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("30").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                long memberId = jdbc.queryForObject("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('바다', 8, 'activity-upgrade', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        returning id
+                        """, Long.class);
+                long groupId = jdbc.queryForObject("""
+                        insert into groups (name, introduction, status, type, meeting_type, created_at, updated_at)
+                        values ('채팅 보존', '활성 상태 전환', 'ACTIVE', 'STUDY', 'ONLINE', localtimestamp, localtimestamp)
+                        returning id
+                        """, Long.class);
+                jdbc.update("insert into chat_room (group_id, last_sequence) values (?, 1)", groupId);
+                long messageId = jdbc.queryForObject("""
+                        insert into chat_message (group_id, sequence, sender_id, client_message_id, content, created_at)
+                        values (?, 1, ?, ?, '기존 채팅', localtimestamp) returning id
+                        """, Long.class, groupId, memberId, UUID.randomUUID());
+                jdbc.update("insert into chat_read_state (group_id, member_id, last_read_sequence) values (?, ?, 0)",
+                        groupId, memberId);
+                jdbc.update("""
+                        insert into notifications (member_id, event_key, event_type, payload_version, payload, created_at, updated_at)
+                        values (?, ?, 'CHAT_MESSAGE_RECEIVED', 1, jsonb_build_object('groupId', cast(? as bigint)),
+                            localtimestamp, localtimestamp)
+                        """, memberId, "chat-message:" + messageId + ":created", groupId);
+                jdbc.update("""
+                        insert into chat_views (member_id, view_id, revision, group_id, expires_at)
+                        values (?, ?, 1, ?, localtimestamp + interval '30 seconds')
+                        """, memberId, UUID.randomUUID(), groupId);
+                var members = jdbc.queryForList("select * from member");
+                var groups = jdbc.queryForList("select * from groups");
+                var rooms = jdbc.queryForList("select * from chat_room");
+                var messages = jdbc.queryForList("select * from chat_message");
+                var reads = jdbc.queryForList("select * from chat_read_state");
+                var notifications = jdbc.queryForList("select * from notifications");
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("31").load();
+
+                // When
+                int applied = upgraded.migrate().migrationsExecuted;
+
+                // Then
+                assertThat(applied).isEqualTo(1);
+                assertThat(jdbc.queryForList("select * from member")).isEqualTo(members);
+                assertThat(jdbc.queryForList("select * from groups")).isEqualTo(groups);
+                assertThat(jdbc.queryForList("select * from chat_room")).isEqualTo(rooms);
+                assertThat(jdbc.queryForList("select * from chat_message")).isEqualTo(messages);
+                assertThat(jdbc.queryForList("select * from chat_read_state")).isEqualTo(reads);
+                assertThat(jdbc.queryForList("select * from notifications")).isEqualTo(notifications);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '31' order by installed_rank"))
+                        .isEqualTo(history);
+                assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
+                        .contains("member_activity").doesNotContain("chat_views");
+                assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = current_schema()", String.class))
+                        .contains("idx_notifications_chat_room");
+                assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class)).isZero();
+                jdbc.update("insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", memberId);
+                assertThatThrownBy(() -> jdbc.update(
+                        "insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", memberId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(
+                        "update member_activity set last_active_at = null where member_id = ?", memberId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(
+                        "insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", Long.MAX_VALUE))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                long removableMember = jdbc.queryForObject("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('하늘', 8, 'activity-cascade', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        returning id
+                        """, Long.class);
+                jdbc.update("insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", removableMember);
+                jdbc.update("delete from member where id = ?", removableMember);
+                assertThat(jdbc.queryForList("select member_id from member_activity", Long.class)).containsExactly(memberId);
+                upgraded.validate();
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
+    @DisplayName("V32은 활성 상태와 제약·기존 이력을 보존하며 활성 테이블과 인덱스만 UNLOGGED로 전환한다.")
+    void makeMemberActivityUnloggedAfterV31PreservesRowsAndConstraints() throws SQLException {
+        // Given
+        String schema = "unlogged_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("31").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                long memberId = jdbc.queryForObject("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('바다', 8, 'unlogged-upgrade', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        returning id
+                        """, Long.class);
+                jdbc.update("insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", memberId);
+                var members = jdbc.queryForList("select * from member");
+                var activity = jdbc.queryForList("select * from member_activity");
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+                String durableRelations = """
+                        select relname, relpersistence::text from pg_class
+                        where relnamespace = current_schema()::regnamespace
+                            and relkind in ('r', 'i') and relname not in ('member_activity', 'member_activity_pkey')
+                        order by relname
+                        """;
+                var durablePersistence = jdbc.queryForList(durableRelations);
+                assertThat(jdbc.queryForObject("select relpersistence::text from pg_class where oid = 'member_activity'::regclass", String.class))
+                        .isEqualTo("p");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("32").load();
+
+                // When
+                int applied = upgraded.migrate().migrationsExecuted;
+
+                // Then
+                assertThat(applied).isEqualTo(1);
+                assertThat(jdbc.queryForList("select * from member")).isEqualTo(members);
+                assertThat(jdbc.queryForList("select * from member_activity")).isEqualTo(activity);
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version <> '32' order by installed_rank"))
+                        .isEqualTo(history);
+                assertThat(jdbc.queryForList(durableRelations)).isEqualTo(durablePersistence);
+                assertThat(jdbc.queryForList("""
+                        select relpersistence::text from pg_class
+                        where oid in ('member_activity'::regclass, 'member_activity_pkey'::regclass)
+                        """, String.class)).containsExactly("u", "u");
+                assertThatThrownBy(() -> jdbc.update(
+                        "insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", memberId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(
+                        "update member_activity set last_active_at = null where member_id = ?", memberId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(
+                        "insert into member_activity (member_id, last_active_at) values (?, localtimestamp)", Long.MAX_VALUE))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                upgraded.validate();
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+                jdbc.update("delete from member where id = ?", memberId);
+                assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class)).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
+    @DisplayName("V33은 V32까지의 적용 이력을 보존하고 포인트 적립 제약을 만든다.")
+    void addsPointRewardConstraintsAfterV32() throws SQLException {
+        String schema = "point_constraints_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("32").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.update("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('우주', 8, 'group-reward-upgrade', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        """);
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("33").load();
+                assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+                assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '33' and success",
+                        String.class)).isEqualTo("V33__points.sql");
+                assertThat(jdbc.queryForList("""
+                        select * from flyway_schema_history where version is distinct from '33' order by installed_rank
+                        """)).isEqualTo(history);
+
+                jdbc.update("insert into point_wallet (member_id, balance) select id, 0 from member");
+                String pendingInsert = """
+                        insert into point_reward (member_id, reason, source_key, scope_key, policy_version, amount,
+                            occurred_at, status, next_attempt_at)
+                        select member_id, ?, ?, ?, 1, 200, localtimestamp, 'PENDING', localtimestamp from point_wallet
+                        """;
+                jdbc.update(pendingInsert, "GROUP_CREATED", "group:1", null);
+                jdbc.update(pendingInsert, "GROUP_FIRST_MEMBER", "group:1", "once");
+                jdbc.update(pendingInsert, "FIRST_GROUP_JOIN", "membership:1", "once");
+                assertThat(jdbc.update(pendingInsert, "GROUP_CREATED", "group:2", null)).isEqualTo(1);
+                assertThatThrownBy(() -> jdbc.update(pendingInsert, "GROUP_CREATED", "group:2", null))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(pendingInsert, "GROUP_FIRST_MEMBER", "group:2", null))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThatThrownBy(() -> jdbc.update(pendingInsert, "FIRST_GROUP_JOIN", "membership:2", null))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThat(jdbc.update(pendingInsert, "CHALLENGE_CLEAR", "challenge:1", null)).isEqualTo(1);
+                assertThatThrownBy(() -> jdbc.update(pendingInsert, "invalid-reason", "challenge:2", null))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                upgraded.validate();
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
     @DisplayName("애플리케이션은 V1으로 스키마와 세션 테이블을 만들고 재기동 시 다시 적용하지 않는다.")
     void applicationMigratesBaselineOnlyOnce() {
         // Given
@@ -460,6 +717,10 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 .contains("uk_member_coach_name", "idx_notifications_inbox", "uk_group_recurring_current_group",
                         "uk_group_event_recurring_occurrence", "idx_activity_post_date_id",
                         "idx_invitation_group_created", "idx_invitation_target_created", "idx_invitation_acceptance_member");
+        assertThat(jdbc.queryForObject("""
+                select indexdef from pg_indexes
+                where schemaname = current_schema() and indexname = 'idx_sparring_post_topic_side_id'
+                """, String.class)).endsWith("USING btree (topic_id, side, id)");
         assertThat(jdbc.queryForList("""
                 select conname from pg_constraint where connamespace = current_schema()::regnamespace
                 """, String.class)).contains("ck_member_profile_fields", "ck_notifications_payload",
@@ -633,6 +894,152 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("크루 명단은 GitHub 숫자 id마다 한 줄이고 양수 기수와 실제 과정만 받는다.")
+    void crewRosterAcceptsOneRowPerGithubIdWithValidProfile() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("insert into crew_roster (github_id, generation, course) values ('54736876', 8, 'BACKEND')");
+
+        // When / Then
+        assertThat(jdbc.queryForObject("select count(*) from crew_roster", Integer.class)).isEqualTo(1);
+        assertThatThrownBy(() -> jdbc.update(
+                "insert into crew_roster (github_id, generation, course) values ('54736876', 7, 'FRONTEND')"
+        )).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update(
+                "insert into crew_roster (github_id, generation, course) values ('1', 0, 'BACKEND')"
+        )).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update(
+                "insert into crew_roster (github_id, generation, course) values ('2', 8, 'DEVOPS')"
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Flyway는 기본 멤버를 기수, 과정, 소속 정보 없이 저장하고 다른 정보가 섞이면 거절한다.")
+    void applicationMigratesBasicMember() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        // When
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('도담', 'basic-member', 'MEMBER', localtimestamp, localtimestamp)
+                """);
+
+        // Then
+        assertThat(jdbc.queryForObject("select count(*) from member where member_type = 'MEMBER'", Integer.class))
+                .isEqualTo(1);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                values ('우주', 8, 'basic-with-generation', 'MEMBER', 'BACKEND', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, field, created_at, updated_at)
+                values ('하나', 'basic-with-field', 'MEMBER', 'BACKEND', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, bootcamp_name, bootcamp_status,
+                                    created_at, updated_at)
+                values ('바다', 'basic-with-bootcamp', 'MEMBER', 'SSAFY', 'COMPLETED', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("기본 멤버는 코치나 다른 기본 멤버와 같은 닉네임을 DB에서 거절한다.")
+    void rejectDuplicatedBasicMemberName() {
+        // Given
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('도담', 'coach-member', 'COACH', localtimestamp, localtimestamp)
+                """);
+        jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('하나', 'basic-member', 'MEMBER', localtimestamp, localtimestamp)
+                """);
+
+        // When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('도담', 'duplicated-coach-name', 'MEMBER', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                values ('하나', 'duplicated-basic-name', 'MEMBER', localtimestamp, localtimestamp)
+                """)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("V29는 부트캠프 회원과 현직자를 소속 정보 없는 기본 멤버로 옮기고 크루, 코치는 그대로 둔다.")
+    void moveAffiliationMembersToBasicMembers() throws SQLException {
+        // Given
+        String schema = "basic_member_move_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("28").load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.update("""
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values ('우주', 8, 'crew-member', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                        """);
+                jdbc.update("""
+                        insert into member (crew_name, github_id, member_type, created_at, updated_at)
+                        values ('코치', 'coach-member', 'COACH', localtimestamp, localtimestamp)
+                        """);
+                jdbc.update("""
+                        insert into member (crew_name, github_id, member_type, bootcamp_name, bootcamp_status,
+                                            bootcamp_cohort, field, created_at, updated_at)
+                        values ('도담', 'bootcamp-member', 'BOOTCAMP', 'SSAFY', 'IN_PROGRESS', '12기', 'BACKEND',
+                                localtimestamp, localtimestamp)
+                        """);
+                jdbc.update("""
+                        insert into member (crew_name, github_id, member_type, field, career, company_name,
+                                            company_visible, created_at, updated_at)
+                        values ('하나', 'professional-member', 'PROFESSIONAL', 'FRONTEND', 'YEARS_1_3', '자리하나', true,
+                                localtimestamp, localtimestamp)
+                        """);
+                var unchanged = jdbc.queryForList("select * from member where member_type in ('CREW', 'COACH') order by id");
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target("29").load();
+
+                // When
+                int applied = upgraded.migrate().migrationsExecuted;
+
+                // Then
+                assertThat(applied).isEqualTo(1);
+                assertThat(jdbc.queryForList("select * from member where member_type in ('CREW', 'COACH') order by id"))
+                        .isEqualTo(unchanged);
+                assertThat(jdbc.queryForList("""
+                        select github_id, crew_name, member_type, bootcamp_name, bootcamp_status, bootcamp_cohort,
+                               field, career, company_name, company_visible
+                        from member where github_id in ('bootcamp-member', 'professional-member') order by github_id
+                        """)).allSatisfy(row -> {
+                    assertThat(row.get("member_type")).isEqualTo("MEMBER");
+                    assertThat(row).extractingByKeys("bootcamp_name", "bootcamp_status", "bootcamp_cohort", "field",
+                            "career", "company_name", "company_visible").containsOnlyNulls();
+                }).extracting(row -> row.get("crew_name")).containsExactly("도담", "하나");
+                jdbc.update("""
+                        insert into member (crew_name, github_id, member_type, bootcamp_name, bootcamp_status, field,
+                                            created_at, updated_at)
+                        values ('바다', 'old-app-bootcamp', 'BOOTCAMP', 'SSAFY', 'COMPLETED', 'BACKEND',
+                                localtimestamp, localtimestamp)
+                        """);
+                assertThat(jdbc.queryForObject("select count(*) from member where member_type = 'BOOTCAMP'", Integer.class))
+                        .isEqualTo(1);
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
     @DisplayName("기존 스키마는 V1을 baseline으로 등록하고 후속 migration을 적용해도 데이터를 보존한다.")
     void existingSchemaSkipsV1AndPreservesData() throws SQLException {
         // Given
@@ -664,7 +1071,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = existing.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountThroughLatestSchema(15));
+                assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(18));
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '1'", String.class))
                         .isEqualTo("BASELINE");
                 assertThat(jdbc.queryForObject("select type from flyway_schema_history where version = '2'", String.class))
@@ -737,8 +1144,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountThroughLatestSchema(10));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '29', '30') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(13));
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");
@@ -805,8 +1212,8 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 int appliedMigrations = upgraded.migrate().migrationsExecuted;
 
                 // Then
-                assertThat(appliedMigrations).isEqualTo(migrationCountThroughLatestSchema(7));
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '29', '30') order by installed_rank"))
+                assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(10));
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForList("select * from proposal")).isEqualTo(proposals);
                 assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
@@ -893,17 +1300,21 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 // Then
                 assertThat(corrected).isEqualTo(1);
                 assertThat(normal.getConfiguration().isOutOfOrder()).isFalse();
-                assertThat(normal.migrate().migrationsExecuted).isEqualTo(14);
+                assertThat(normal.migrate().migrationsExecuted).isEqualTo(24);
                 normal.validate();
                 assertThat(normal.migrate().migrationsExecuted).isZero();
                 assertThat(jdbc.queryForList("""
                         select id, group_id, author_member_id, title, content, scope, created_at, updated_at
                         from announcements
                         """)).isEqualTo(announcements);
-                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '29', '30') order by installed_rank"))
+                assertThat(jdbc.queryForList("select * from flyway_schema_history where version not in ('13', '14', '15', '16', '17', '18', '19', '20', '20.1', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '35', '36', '37') order by installed_rank"))
                         .isEqualTo(history);
                 assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version = '13'", Integer.class))
                         .isEqualTo(-1253084773);
+                jdbc.update("""
+                        insert into announcements (group_id, author_member_id, title, content, scope, created_at, updated_at)
+                        select group_id, author_member_id, '구버전 공지', content, scope, created_at, updated_at from announcements
+                        """);
             } finally {
                 connection.setSchema(originalSchema);
             }
@@ -948,7 +1359,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
 
                 // Then
                 assertThat(corrected).isEqualTo(1);
-                assertThat(appliedMigrations).isEqualTo(migrationCountThroughLatestSchema(11));
+                assertThat(appliedMigrations).isEqualTo(migrationCountThroughShop(14));
                 assertThat(jdbc.queryForList("select * from worker_authority")).isEqualTo(worker);
                 assertThat(jdbc.queryForObject("select script from flyway_schema_history where version = '4'", String.class))
                         .isEqualTo("V4__image_lifecycle.sql");

@@ -44,6 +44,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0026 | [이미지의 참조 수명주기와 조회 접근을 함께 관리한다](0026-image-lifecycle-and-access.md) | 채택, Flyway V4 구현·검증 완료 / PR #405 develop 반영 대기 | 2026-10-14 | `feat/image-lifecycle` |
 | 0027 | [푸시 전송을 제한된 동시성으로 비동기 처리한다](0027-bounded-async-push-delivery.md) | 제안, 구현·로컬 검증 완료 / PR 검토·배포 후 성능 측정 예정 | 2026-10-21 | `feat/push-async-delivery` |
 | 0028 | [모임 채팅은 DB 순번과 개인 경로로 복구한다](0028-durable-group-chat-and-postgres-notify.md) | 채택, 로컬 구현 / 운영 적용 대기 | 2026-10-25 (보완 10-26) | `docs/chat-architecture-decisions` |
+| 0030 | [계정 활성 상태로 채팅 푸시를 보류하고 상태는 UNLOGGED로 저장한다](0030-account-activity-and-unlogged-chat-push.md) | 채택, V23 UNLOGGED 전환·로컬 검증 완료 / 운영 미적용 | 2026-11-06 | `feat/account-active-chat-push` |
 
 ## 오목 실시간 통신
 

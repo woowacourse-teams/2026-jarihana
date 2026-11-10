@@ -35,6 +35,7 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
+import com.project.jarihana.points.command.service.PointRewardService;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.Registration;
 import com.project.jarihana.registration.domain.RegistrationStatus;
@@ -87,6 +88,7 @@ public class GroupCommandService {
     private final ApplicationEventPublisher events;
     private final ConcurrentCommandExecutor concurrentCommands;
     private final InvitationCommandService invitationCommandService;
+    private final PointRewardService pointRewards;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -106,7 +108,8 @@ public class GroupCommandService {
             Clock clock,
             ApplicationEventPublisher events,
             ConcurrentCommandExecutor concurrentCommands,
-            InvitationCommandService invitationCommandService
+            InvitationCommandService invitationCommandService,
+            PointRewardService pointRewards
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -126,6 +129,7 @@ public class GroupCommandService {
         this.events = events;
         this.concurrentCommands = concurrentCommands;
         this.invitationCommandService = invitationCommandService;
+        this.pointRewards = pointRewards;
     }
 
     @Transactional
@@ -170,6 +174,7 @@ public class GroupCommandService {
         GroupMember leader = GroupMember.createLeader(group, member, now);
         groupMemberCommandRepository.save(leader);
         events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, group.getId(), member.getId()));
+        pointRewards.groupCreated(group.getId(), memberId, now);
         events.publishEvent(GroupCreatedEvent.from(group, memberId));
         return new CreateGroupResult(group.getId(), group.getStatus());
     }

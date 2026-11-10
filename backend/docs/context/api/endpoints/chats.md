@@ -1,7 +1,7 @@
 # 모임 채팅 API
 
 필드별 정식 계약은 [공통 구현 계약](../../../../../docs/chat-implementation-contract.md)을 따른다.
-모든 API는 인증 쿠키와 현재 GroupMember를 요구하며 승인 대기자는 접근할 수 없다.
+모든 API는 인증 쿠키를 요구하며, 방별 API는 현재 GroupMember만 접근할 수 있다.
 HTTP 응답은 기존 success/data/error 봉투다. ID와 순번은 10진수 문자열이다.
 
 | 메서드 | 경로 | 성공 |
@@ -36,3 +36,11 @@ MESSAGE_CREATED, ROOM_CLOSED, ROOM_REMOVED, READ_STATE_UPDATED, RESYNC_REQUIRED�
 메시지 전송은 REST만 사용한다. 실제 서버 수신 보장은 저장 이력과 catch-up으로 확인한다.
 
 검증: ChatAcceptanceTest, ChatPersistenceTest, ChatWebSocketTest.
+
+## 계정 활성 보고
+
+기존 WebSocket의 STOMP `SEND /app/presence/active`로 계정 활성 상태를 보고한다.
+빈 본문을 사용하며 인증된 회원과 서버 시각만 저장한다. 푸시 구독이나 특정 모임 소속은 필요하지 않다.
+로그인·표시·포커스·최근 5분 이내 활동을 모두 충족하면 10초마다 보고한다. 서버 TTL은 15초다.
+어느 기기에서든 활성이라면 모든 방의 채팅 푸시를 보류하고, 비활성 전환 후 미읽음 여부를 다시 판단한다.
+기존 `PUT /api/chats/view`는 제거한다. 상세 계약은 [계정 활성 보고](notifications.md#계정-활성-보고)를 따른다.
