@@ -44,9 +44,21 @@ async function setup(page) {
     gameNumber: 0, blackMemberId: 0, board: "0".repeat(225), ply: 0, lastX: null, lastY: null,
     winnerMemberId: null, endReason: null, revision: 1, serverNow: Date.now(), turnDeadline: null
   };
+  let rejectMove = true;
   const reply = (route, data) => route.fulfill({ json: { success: true, data, error: null } });
   await page.route("**/api/games/gomoku/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/moves")) {
+      if (rejectMove) {
+        rejectMove = false;
+        return route.fulfill({ status:422, json:{ success:false, data:null, error:{ code:"GOMOKU_FORBIDDEN_MOVE", message:"금수입니다." } } });
+      }
+      const { x, y } = route.request().postDataJSON();
+      const cells = [...room.board];
+      cells[y * 15 + x] = room.ply % 2 === 0 ? "1" : "2";
+      Object.assign(room, { board:cells.join(""), ply:room.ply+1, lastX:x, lastY:y, revision:room.revision+1 });
+      return reply(route, { roomId:1 });
+    }
     if (path.endsWith("/start")) {
       Object.assign(room, { status: "PLAYING", gameNumber: room.gameNumber + 1, blackMemberId: 1,
         ply: 0, board: "0".repeat(225), revision: room.revision + 1,
@@ -54,7 +66,7 @@ async function setup(page) {
       return reply(route, { roomId: 1 });
     }
     if (path.endsWith("/rooms/1")) return reply(route, room);
-    return reply(route, { items: [], nextCursor: null, hasNext: false });
+    return reply(route, { items: [], nextCursor: null, hasNext: false, participationId:"00000000-0000-4000-8000-000000000001", latestSequence:"0" });
   });
   await page.goto("/games/gomoku/rooms/1");
   await expect(page.getByRole("button", { name: "시작하기", exact: true })).toBeEnabled();
@@ -77,4 +89,31 @@ test("a one-second WAV plays once on confirmed start and rematch", async ({ page
   await page.reload();
   await expect(page.locator(".gomoku-board")).toBeVisible();
   expect(await page.evaluate(() => window.__gomokuAudio.played)).toEqual([]);
+});
+
+
+test("selection and rejected moves stay silent; both accepted colors play the chosen stone sample", async ({ page }) => {
+  const room = await setup(page);
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.decoded)).toContainEqual(expect.closeTo(.24, 3));
+  await page.getByRole("button", { name:"시작하기", exact:true }).click();
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played.length)).toBe(1);
+  await page.getByRole("button", { name:"H8, 빈 자리", exact:true }).click();
+  expect(await page.evaluate(() => window.__gomokuAudio.played.length)).toBe(1);
+  await page.getByRole("button", { name:"자리하기", exact:true }).click();
+  await expect(page.getByRole("alert").filter({ hasText:"쌍3" })).toContainText("쌍3");
+  expect(await page.evaluate(() => window.__gomokuAudio.played.length)).toBe(1);
+  await page.getByRole("button", { name:"자리하기", exact:true }).click();
+  await expect(page.getByRole("button", { name:"H8, 흑돌, 마지막 수", exact:true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played.length)).toBe(2);
+  await page.evaluate((value) => window.__gomokuEmit(value), room);
+  expect(await page.evaluate(() => window.__gomokuAudio.played.length)).toBe(2);
+  const cells = [...room.board];
+  cells[113] = "2";
+  Object.assign(room, { board:cells.join(""), ply:2, lastX:8, lastY:7, revision:room.revision+1 });
+  await page.evaluate((value) => window.__gomokuEmit(value), room);
+  await expect.poll(() => page.evaluate(() => window.__gomokuAudio.played)).toEqual([
+    { duration:expect.closeTo(1, 3), state:"running" },
+    { duration:expect.closeTo(.24, 3), state:"running" },
+    { duration:expect.closeTo(.24, 3), state:"running" }
+  ]);
 });

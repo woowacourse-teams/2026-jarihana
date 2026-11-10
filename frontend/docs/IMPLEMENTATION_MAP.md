@@ -600,3 +600,9 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `useGomokuSounds.js`는 확정 snapshot의 같은 방에서 WAITING/FINISHED가 새 gameNumber의 PLAYING, ply 0으로 바뀌면 시작음을 한 번 재생한다. REST/SSE 중복과 역순 수신, 진행 중 입장, 여러 수가 지난 복구에는 재생하지 않는다.
 - `audio.js`는 방이 열릴 때 파일을 미리 읽고 pointerdown/keydown에서 AudioContext를 활성화한다. 오디오 미지원, 자동재생 차단, 다운로드 실패는 대국을 막지 않으며 놓친 효과음은 뒤늦게 재생하지 않는다. 화면 이탈 시 요청, 재생 노드, 이벤트와 컨텍스트를 정리한다.
 - 효과음 파일은 Git에 저장하지 않는다. `soundAssets.js`가 개발/운영 S3의 `sounds/gomoku/` URL을 선택하며 기존 frontend 배포 경로 밖에 별도 업로드한다. 승인한 1초 징의 출처, 해시와 업로드 경로는 [오목 효과음](gomoku-sounds.md)에 기록한다.
+
+## 오목 착수 효과음
+
+- `useGomokuSounds.js`는 같은 방/대국의 확정 snapshot에서 ply가 정확히 1 늘고 마지막 좌표에 해당 색 돌 하나만 추가된 경우 착수음 1번을 재생한다. 내 착수, 상대 착수와 관전 수신에 동일하게 적용하며 마지막 승리/무승부 수에도 재생한다.
+- 위치 선택, 거절된 요청, 준비, 기권, 중복/역순 snapshot과 여러 수를 한 번에 복구하는 경우 재생하지 않는다. 과거 수를 연속 재생하지 않고 시작음과 같은 오디오 수명주기/실패 처리를 사용한다.
+- 선택한 0.24초 파일은 S3 `sounds/gomoku/stone-e83122800fe1.wav`에만 저장한다. `soundAssets.js`에 개발/운영 URL을 추가하며 출처와 해시는 [오목 효과음](gomoku-sounds.md)에 기록한다.

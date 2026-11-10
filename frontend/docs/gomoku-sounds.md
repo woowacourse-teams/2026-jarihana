@@ -18,6 +18,15 @@
 - 승인한 최종 시안을 변환 없이 업로드한다.
 - SHA-256: `eb641c00b98ba6389f70cfa8f1e599bcf5f4ffd590873eb1633cf102a158c3fd`
 
+## 착수음
+
+- 객체: `stone-e83122800fe1.wav`, 0.24초, 48 kHz mono PCM16 WAV
+- 원본: [Freesound 840424](https://freesound.org/people/Hongsungbock/sounds/840424/), Hongsungbock
+- 라이선스: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- 편집: 원본 0.578253968~0.818253968초 구간 추출, 짧은 페이드와 -6 dBFS 피크 정규화
+- 승인한 착수음 1번을 변환 없이 업로드한다.
+- SHA-256: `e83122800fe1e8c18b3390337aa199464ace4c440899c371df1ea1e0eddb129e`
+
 ## 검증
 
 Playwright는 기본적으로 테스트 코드에서 만든 무음 WAV로 재생 조건과 실제 AudioContext 동작을 확인한다.
