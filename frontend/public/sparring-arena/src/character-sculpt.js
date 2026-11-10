@@ -114,7 +114,50 @@ export function createCharacterSculpt() {
   const crewHair = mergeGeometries([scalp, ...crewLocks]);
   const coachHair = mergeGeometries([scalp, ...coachLocks]);
   for (const source of [scalp, ...crewLocks, ...coachLocks]) source.dispose();
-  return { face, crewHair, coachHair, sweater, sleeve, trouser, lanyard };
+  // Rounded rear hair shells keep their volume from both side and back views.
+  function rearHair(length) {
+    const geometry = new THREE.SphereGeometry(1, 32, 24, 0, Math.PI * 2, 0, Math.PI / 2);
+    const p = geometry.attributes.position, uv = geometry.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      const phi = uv.getX(i) * Math.PI * 2, t = 1 - uv.getY(i);
+      const front = Math.max(0, Math.sin(phi)), rear = 1 - front ** 4;
+      const theta = t * (2.30 - front ** 4 * 1.24);
+      const drop = length * rear * Math.max(0, (t - 0.55) / 0.45);
+      let x = -0.37 * Math.cos(phi) * Math.sin(theta);
+      const y = 0.07 + 0.345 * Math.cos(theta) - drop;
+      const z = 0.335 * Math.sin(phi) * Math.sin(theta) - 0.025;
+      // Keep the lowered front locks outside the cheeks for every face/color combination.
+      if (z > 0.02 && y < 0.16) {
+        const amount = THREE.MathUtils.smoothstep(0.16 - y, 0, 0.18);
+        x = Math.sign(x) * THREE.MathUtils.lerp(Math.abs(x), Math.max(Math.abs(x), 0.35), amount);
+      }
+      p.setXYZ(i, x, y, z);
+    }
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+  const bobHair = rearHair(0.10), longHair = rearHair(0.43);
+  // A closed, broad drape has a front surface visible behind the cheeks and shoulders.
+  // An open rear scalp shell alone is back-face culled when viewed from the front.
+  const cap = rearHair(0.04);
+  const curtain = new THREE.SphereGeometry(1, 48, 36);
+  const curtainPositions = curtain.attributes.position;
+  for (let i = 0; i < curtainPositions.count; i++) {
+    const x = curtainPositions.getX(i), y = curtainPositions.getY(i), z = curtainPositions.getZ(i);
+    curtainPositions.setXYZ(i, Math.sign(x) * Math.abs(x) ** 0.85 * 0.50,
+      -0.24 + Math.sign(y) * Math.abs(y) ** 0.78 * 0.64,
+      -0.23 + z * 0.16);
+  }
+  curtain.computeVertexNormals();
+  const frontLocks = [-1, 1].map(sign => lock([
+    [sign * 0.035, 0.355, 0.17], [sign * 0.22, 0.30, 0.25],
+    [sign * 0.35, 0.13, 0.23], [sign * 0.39, -0.12, 0.19],
+    [sign * 0.40, -0.40, 0.23], [sign * 0.36, -0.67, 0.29],
+    [sign * 0.33, -0.79, 0.28],
+  ], 0.085));
+  const flowingHair = mergeGeometries([cap, curtain, ...frontLocks]);
+  for (const source of [cap, curtain, ...frontLocks]) source.dispose();
+  return { face, crewHair, coachHair, bobHair, longHair, flowingHair, sweater, sleeve, trouser, lanyard };
 }
 
 // Each limb remains instanced. Its bend follows the same elbow/knee as the hand/foot.

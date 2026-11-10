@@ -50,7 +50,7 @@ test("방장은 제목·본문·공개 범위를 입력해 공지를 등록할 �
   const onOpenChange = jest.fn();
   render(
     <ToastProvider>
-      <AnnouncementFormDialog groupId="10" onOpenChange={onOpenChange} open />
+      <AnnouncementFormDialog groupId="10" memberId={1} onOpenChange={onOpenChange} open />
     </ToastProvider>
   );
 
@@ -60,9 +60,13 @@ test("방장은 제목·본문·공개 범위를 입력해 공지를 등록할 �
   await userEvent.click(screen.getByRole("button", { name: "공지 등록" }));
 
   expect(mockCreate).toHaveBeenCalledWith({
-    content: "새 공지 내용",
-    scope: "PUBLIC",
-    title: "새 공지 제목"
+    signal: expect.any(AbortSignal),
+    values: {
+      content: "새 공지 내용",
+      requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      scope: "PUBLIC",
+      title: "새 공지 제목"
+    }
   });
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });

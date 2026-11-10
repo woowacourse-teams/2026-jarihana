@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
+import { ProductArt } from "../../features/shop/ProductArt.jsx";
+import { useProfileEquipment } from "../../features/shop/hooks.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../features/registration/index.js";
 import { Card, Skeleton } from "../../shared/ui/index.js";
@@ -156,6 +158,8 @@ function ProfileAvatar({ member }) {
 
 export function MyPage() {
   const { member } = useAuth();
+  const { data: equipment } = useProfileEquipment();
+  const frame = equipment?.find((item) => item.slot === "frame");
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const focusGroupId = positiveFocusId(params.get("focusGroup"));
@@ -229,7 +233,17 @@ export function MyPage() {
         <aside className="profile-column">
           <Card as="section" className="profile-card">
             <p className="account-eyebrow">나의 프로필</p>
-            <ProfileAvatar member={member} />
+            {frame ? (
+              <div className="profile-card__shop-frame">
+                <ProductArt
+                  {...frame.preview}
+                  label={`${frame.name}이 적용된 프로필`}
+                  portrait={<ProfileAvatar member={member} />}
+                />
+              </div>
+            ) : (
+              <ProfileAvatar member={member} />
+            )}
             <h2>{member.crewName}</h2>
             <p>{memberMetaLabel(member)}</p>
           </Card>

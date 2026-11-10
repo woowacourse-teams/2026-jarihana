@@ -1,4 +1,5 @@
 export const routeRegistry = Object.freeze([
+  { access: "public", page: "ShopPage", path: "/shop" },
   { access: "public", page: "GamesPage", path: "/games" },
   { access: "public", page: "GomokuLobbyPage", path: "/games/gomoku" },
   { access: "member", page: "GomokuRoomPage", path: "/games/gomoku/rooms/:roomId" },
