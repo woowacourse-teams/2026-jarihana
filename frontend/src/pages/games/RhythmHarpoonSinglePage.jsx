@@ -52,10 +52,7 @@ export function RhythmHarpoonSinglePage() {
               <RhythmModeArt kind="practice" />
               <span className="eyebrow">PRACTICE</span>
               <strong>혼자 연습</strong>
-              <span>
-                Pixel Circuit 원곡으로 연습해요. 언제든 멈추고 설정을 바꿀 수 있고, 점수는 남지
-                않아요.
-              </span>
+              <span>언제든 멈추고 설정을 바꿀 수 있어요. 점수는 남지 않아요.</span>
             </Link>
             <Link
               className="rhythm-mode rhythm-mode--record"
@@ -67,8 +64,7 @@ export function RhythmHarpoonSinglePage() {
               <span className="eyebrow">RECORD</span>
               <strong>공식 도전</strong>
               <span>
-                점수를 서버가 다시 계산해 난이도별 랭킹에 올려요. 로그인이 필요하고, 시작하면 멈출 수
-                없어요.
+                점수가 난이도별 랭킹에 올라가요. 로그인이 필요하고, 시작하면 멈출 수 없어요.
               </span>
             </Link>
             <Link
