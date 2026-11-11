@@ -36,7 +36,7 @@ const PEPERO_DAY_LINK = {
   action: "pepero_day_view",
   icon: PeperoStickIcon,
   isActive: (pathname) => pathname === PEPERO_DAY_PATH,
-  label: "반띵 게임",
+  label: "공평하게 반띵",
   requiresAuth: false,
   to: PEPERO_DAY_PATH
 };

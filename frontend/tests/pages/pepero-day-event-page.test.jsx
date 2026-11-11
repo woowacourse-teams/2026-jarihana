@@ -25,6 +25,7 @@ jest.mock("../../src/features/pepero-day/api", () => ({
 }));
 
 const login = jest.fn();
+const startRun = async () => fireEvent.click(await screen.findByRole("button", { name: "시작하기" }));
 const asMember = () => useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
 const status = (overrides) => ({
   closesAt: "2026-11-12T10:00:00",
@@ -70,14 +71,17 @@ it("asks anonymous visitors to log in instead of offering a practice run", async
   expect(createRankedAdapter).not.toHaveBeenCalled();
 });
 
-it("starts a ranked stick as soon as a member opens the page and reveals the answer after cutting", async () => {
+it("starts a ranked run when a member presses start and reveals the answer after cutting", async () => {
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  expect(await screen.findByRole("heading", { name: "막대 5개를 10초씩 잘라요" })).toBeInTheDocument();
+  expect(createRankedAdapter).not.toHaveBeenCalled();
+  await startRun();
 
   expect(await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
   expect(createRankedAdapter).toHaveBeenCalledTimes(1);
-  expect(screen.getByText("순위 도전")).toBeInTheDocument();
+  expect(screen.queryByText("순위 도전")).not.toBeInTheDocument();
   expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
@@ -94,6 +98,7 @@ it("opens the ranked result dialog after five sticks and starts a new run from t
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  await startRun();
 
   for (let round = 1; round <= 5; round += 1) {
     fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
@@ -115,6 +120,7 @@ it("moves the knife with the arrow keys even when the stick is not focused, one 
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   const { container } = mount();
+  await startRun();
 
   const slider = await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
   const knifeX = () => Number(container.querySelector(".stick-board__knife").getAttribute("transform").match(/[\d.]+/)[0]);
@@ -139,6 +145,7 @@ it("cuts with Enter without focusing the stick, but not while another button has
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  await startRun();
 
   await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
 
@@ -166,6 +173,7 @@ it("lets a game in progress finish when the event closes mid-play", async () => 
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount(client);
+  await startRun();
 
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
 
@@ -182,6 +190,7 @@ it("keeps the game in progress when refreshing the status fails around closing t
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount(client);
+  await startRun();
 
   fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
   const next = await screen.findByRole("button", { name: "다음 막대" });

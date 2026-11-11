@@ -68,15 +68,23 @@
   padding: var(--space-1) var(--space-3);
 }
 
+/* 누적 점수는 머리 줄에서 가장 눈에 띄게 큰 숫자로 둔다. */
 .stick-game__running {
+  align-items: baseline;
   color: var(--color-text-muted);
+  display: flex;
   font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
+  gap: var(--space-1);
   margin: 0;
 }
 
 .stick-game__running strong {
-  color: var(--color-ink);
+  color: var(--color-text-brand);
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 /* 자를 때: 제목, 남은 시간, 막대, 안내, 자르기 버튼을 한 줄로 쌓는다. */

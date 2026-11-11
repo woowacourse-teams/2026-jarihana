@@ -12,7 +12,14 @@ import {
   usePeperoDayRankings,
   usePeperoDayStatus
 } from "../../features/pepero-day";
-import { ROUNDS, StickHalvingGame, formatPercent } from "../../features/stick-halving";
+import {
+  CutStickArtwork,
+  ROUNDS,
+  ROUND_COUNT,
+  ROUND_TIME_LIMIT_SECONDS,
+  StickHalvingGame,
+  formatPercent
+} from "../../features/stick-halving";
 import {
   Button,
   EmptyState,
@@ -233,14 +240,21 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   );
 }
 
-// 순위 도전은 회원만 할 수 있어서, 로그인하지 않았으면 게임 대신 로그인이나 가입 계속하기를 보여 준다.
-function JoinPrompt() {
+// 판을 시작하기 전의 카드다. 회원은 시작하기를 누르면 막대를 받고, 순위 도전은 회원만 할 수 있어서
+// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다.
+function StartPrompt({ onStart }) {
   const auth = useAuth();
 
   if (auth.status === "loading") return <Skeleton aria-label="로그인 상태를 확인하는 중" className="pepero-day__loading" />;
 
   let action;
-  if (auth.status === "signup-required") {
+  if (auth.status === "authenticated") {
+    action = (
+      <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={onStart} size="lg">
+        시작하기
+      </Button>
+    );
+  } else if (auth.status === "signup-required") {
     action = (
       <Link className="ui-button ui-button--primary ui-button--md" data-ph-capture-attribute-action="signup_continue" to="/signup">
         가입 계속하기
@@ -261,8 +275,9 @@ function JoinPrompt() {
   }
 
   return (
-    <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
-      <h2>로그인하고 도전해요</h2>
+    <section className="pepero-day__card pepero-day__start">
+      <CutStickArtwork />
+      <h2>막대 {ROUND_COUNT}개를 {ROUND_TIME_LIMIT_SECONDS}초씩 잘라요</h2>
       <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
       {action}
     </section>
@@ -270,22 +285,15 @@ function JoinPrompt() {
 }
 
 function OpenEvent({ closed, game, setGame }) {
-  const auth = useAuth();
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
   const [finished, setFinished] = useState(null);
-  const member = auth.status === "authenticated";
 
   // 새 판을 시작할 때마다 새 연결부를 만들고, 시작하면 상태를 다시 받는다.
   const start = useCallback(() => {
     const adapter = createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) });
     setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1 }));
   }, [queryClient, setGame]);
-
-  // 회원은 모드를 고르는 단계 없이 페이지를 열자마자 순위 도전 막대를 받는다.
-  useEffect(() => {
-    if (!game && !closed && member) start();
-  }, [closed, game, member, start]);
 
   async function copy(summary) {
     try {
@@ -296,7 +304,7 @@ function OpenEvent({ closed, game, setGame }) {
     }
   }
 
-  if (!game) return closed || member ? null : <JoinPrompt />;
+  if (!game) return closed ? null : <StartPrompt onStart={start} />;
 
   return (
     <section className="pepero-day__card pepero-day__game">
@@ -322,7 +330,6 @@ function OpenEvent({ closed, game, setGame }) {
           </>
         )}
         key={game.key}
-        label="순위 도전"
         onFinish={(summary) => {
           void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
           setFinished({ key: game.key, mode: "ranked", totalScore: summary.totalScore });
@@ -367,13 +374,9 @@ export function PeperoDayEventPage() {
   const closed = event.status === "CLOSED";
   return (
     <PageContainer className="pepero-day">
-      <PageHeader
-        eyebrow="막대과자 데이 이벤트"
-        title="공평하게 반띵"
-      />
+      <PageHeader title="공평하게 반띵" />
       <ul aria-label="이벤트 안내" className="pepero-day__facts">
         <li>{formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}</li>
-        <li>고득점자에게 빼빼로 세트</li>
       </ul>
       {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
       {closed ? (

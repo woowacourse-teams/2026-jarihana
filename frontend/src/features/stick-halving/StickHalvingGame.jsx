@@ -6,15 +6,14 @@ import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "
 import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
 
-function commentFor(round, errorRate, position, timedOut) {
-  const prefix = timedOut ? "시간이 다 돼서 그 자리에서 잘랐어요. " : "";
+function commentFor(round, errorRate, position) {
   if (round === 1 && Math.abs(position - STICK_LENGTH_CM / 2) < 0.15) {
-    return `${prefix}가운데를 잘랐네요. 초코 쪽이 더 무거워요.`;
+    return "가운데를 잘랐네요. 초코 쪽이 더 무거워요.";
   }
-  if (errorRate < 0.005) return `${prefix}거의 완벽하게 나눴어요.`;
-  if (errorRate < 0.02) return `${prefix}꽤 공평해요.`;
-  if (errorRate < 0.05) return `${prefix}한쪽이 조금 더 무거워요.`;
-  return `${prefix}한쪽이 확실히 무거워요.`;
+  if (errorRate < 0.005) return "거의 완벽하게 나눴어요.";
+  if (errorRate < 0.02) return "꽤 공평해요.";
+  if (errorRate < 0.05) return "한쪽이 조금 더 무거워요.";
+  return "한쪽이 확실히 무거워요.";
 }
 
 // 남은 시간은 큰 숫자와 그 아래의 가는 막대로 보여 준다. 3초 남으면 빨갛게 바꾼다.
@@ -278,7 +277,7 @@ export function StickHalvingGame({
         <div className="stick-game__result">
           <p className="stick-game__verdict" role="status">
             <span className="stick-game__comment">
-              {commentFor(round, outcome.errorRate, outcome.position, outcome.timedOut)}
+              {commentFor(round, outcome.errorRate, outcome.position)}
             </span>
             <span className="stick-game__points">+{outcome.score.toLocaleString("ko-KR")}점</span>
           </p>

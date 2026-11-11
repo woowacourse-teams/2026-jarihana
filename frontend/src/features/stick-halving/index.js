@@ -1,8 +1,10 @@
 export { CutFacts, CutResult, formatPercent } from "./CutResult";
 export { StickBoard } from "./StickBoard";
+export { CutStickArtwork } from "./StickHalvingArtwork";
 export { StickHalvingGame } from "./StickHalvingGame";
 export {
   ROUND_COUNT,
+  ROUND_TIME_LIMIT_SECONDS,
   ROUNDS,
   STICK_LENGTH_CM,
   generatePracticeStick,

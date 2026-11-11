@@ -95,6 +95,41 @@
   border-color: transparent;
 }
 
+/* 시작 카드: 가운데에 반으로 잘린 막대 그림, 그 아래 한 줄 안내와 버튼 */
+.pepero-day__start {
+  background: var(--color-brand-soft);
+  border-color: transparent;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  padding-block: var(--space-8);
+  text-align: center;
+}
+
+.pepero-day__start .cut-stick-artwork {
+  display: block;
+  inline-size: min(100%, 24rem);
+  margin-block-end: var(--space-3);
+}
+
+.pepero-day__start h2 {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.02em;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.pepero-day__start p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__start .ui-button {
+  margin-block-start: var(--space-3);
+  min-inline-size: min(100%, 16rem);
+}
+
 .pepero-day__game {
   display: grid;
   gap: var(--space-3);
