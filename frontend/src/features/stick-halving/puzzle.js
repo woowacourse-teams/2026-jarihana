@@ -5,7 +5,7 @@ export const STICK_LENGTH_CM = 12;
 export const STICK_CELLS = 24;
 export const CELL_CM = STICK_LENGTH_CM / STICK_CELLS;
 export const ROUND_COUNT = 5;
-export const ROUND_TIME_LIMIT_SECONDS = 30;
+export const ROUND_TIME_LIMIT_SECONDS = 60;
 export const MAX_SCORE = 1000;
 export const ZERO_SCORE_ERROR_RATE = 0.1;
 
