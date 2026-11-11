@@ -97,6 +97,88 @@ class FlywayBaselineTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("아바타 마이그레이션은 기존 회원과 이력을 보존하고 아바타 저장 후에도 구버전 회원 조회·저장·삭제를 허용한다.")
+    void addAvatarPreservesOldMemberOperations() throws SQLException {
+        // Given
+        String schema = "avatar_upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                var migrationFiles = migrations();
+                var avatarMigration = migrationFiles.stream()
+                        .filter(migration -> migration.script().endsWith("__member_avatar.sql"))
+                        .findFirst()
+                        .orElseThrow();
+                var precedingVersion = migrationFiles.stream()
+                        .map(Migration::version)
+                        .filter(version -> version.compareTo(avatarMigration.version()) < 0)
+                        .max(MigrationVersion::compareTo)
+                        .orElseThrow();
+                Flyway upgraded = Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target(avatarMigration.version()).load();
+                Flyway.configure().dataSource(isolated).schemas(schema)
+                        .locations("classpath:db/migration").target(precedingVersion).load().migrate();
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                String oldInsert = """
+                        insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                        values (?, 8, ?, 'CREW', 'BACKEND', localtimestamp, localtimestamp) returning id
+                        """;
+                long ownerId = jdbc.queryForObject(oldInsert, Long.class, "바다", "avatar-upgrade-owner");
+                var members = jdbc.queryForList("select * from member order by id");
+                var columns = jdbc.queryForList("""
+                        select column_name, data_type, is_nullable from information_schema.columns
+                        where table_schema = current_schema() and table_name = 'member' order by ordinal_position
+                        """);
+                var history = jdbc.queryForList("select * from flyway_schema_history order by installed_rank");
+
+                // When
+                var result = upgraded.migrate();
+
+                // Then
+                assertThat(result.migrationsExecuted).isEqualTo(1);
+                assertThat(result.targetSchemaVersion).isEqualTo(avatarMigration.version().getVersion());
+                assertThat(jdbc.queryForList("select * from member order by id")).isEqualTo(members);
+                assertThat(jdbc.queryForList("""
+                        select column_name, data_type, is_nullable from information_schema.columns
+                        where table_schema = current_schema() and table_name = 'member' order by ordinal_position
+                        """)).isEqualTo(columns);
+                assertThat(historyThrough(jdbc, history)).isEqualTo(history);
+                assertThat(jdbc.queryForObject("select count(*) from member_avatar", Long.class)).isZero();
+                long newMemberId = jdbc.queryForObject(oldInsert, Long.class, "하늘", "avatar-upgrade-old-app");
+                jdbc.update("""
+                        insert into member_avatar (member_id, version, hair, skin, hair_color, face, eyes,
+                            eyebrows, nose, mouth, glasses, outfit, shoes, shoe_color, hat, hat_color, bag, bag_color, handheld, created_at, updated_at)
+                        values (?, 1, 'flowing', 'warm', 'ink', 'round', 'dot', 'straight', 'small', 'flat',
+                            'sunglasses', 'cream', 'highTop', 'white', 'bucket', 'ink', 'backpack', 'mint', 'laptop', localtimestamp, localtimestamp)
+                        """, ownerId);
+                assertThat(jdbc.queryForObject("select github_id from member where id = ?", String.class, ownerId))
+                        .isEqualTo("avatar-upgrade-owner");
+                jdbc.update("update member set crew_name = '파도' where id = ?", ownerId);
+                assertThat(jdbc.queryForObject("select hair from member_avatar where member_id = ?", String.class, ownerId))
+                        .isEqualTo("flowing");
+                // Part values evolve in the domain without changing database CHECK constraints.
+                jdbc.update("update member_avatar set handheld = 'futureItem' where member_id = ?", ownerId);
+                assertThatThrownBy(() -> jdbc.update("update member_avatar set hair = null where member_id = ?", ownerId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                jdbc.update("delete from member where id = ?", ownerId);
+                assertThat(jdbc.queryForObject("select count(*) from member_avatar", Long.class)).isZero();
+                assertThat(jdbc.queryForObject("select crew_name from member where id = ?", String.class, newMemberId))
+                        .isEqualTo("하늘");
+                upgraded.validate();
+                assertThat(upgraded.migrate().migrationsExecuted).isZero();
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
+    }
+
+    @Test
     @DisplayName("V22는 기존 채팅과 구버전 INSERT를 참가자 메시지로 보존한다")
     void preservesChatReadsAndWritesAfterObservationUpgrade() throws SQLException {
         // Given
