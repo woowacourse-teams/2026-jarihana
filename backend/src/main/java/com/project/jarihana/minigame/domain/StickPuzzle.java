@@ -15,9 +15,7 @@ public final class StickPuzzle {
     public static final int CELLS = 24;
     public static final double CELL_CM = LENGTH_CM / CELLS;
     public static final int MAX_SCORE = 1_000;
-    public static final double KNEE_ERROR_RATE = 0.025;
-    public static final int KNEE_SCORE = 750;
-    public static final double ZERO_SCORE_ERROR_RATE = 0.25;
+    public static final double ZERO_SCORE_ERROR_RATE = 0.1;
 
     private static final int ANSWER_SEARCH_STEPS = 60;
 
@@ -93,23 +91,8 @@ public final class StickPuzzle {
 
     public CutJudgement judge(double position) {
         double errorRate = errorRateAt(position);
-        return new CutJudgement(errorRate, scoreOf(errorRate), answerPosition());
-    }
-
-    /**
-     * 오차 2.5%까지는 1000점에서 750점으로 가파르게 깎아 정밀하게 자른 판끼리 순위를 가르고,
-     * 그 뒤로는 25%에서 0점이 되도록 완만하게 깎아 감으로 자른 판도 점수를 받게 한다.
-     * 프론트 연습 모드의 {@code scoreOf}와 계산 순서를 맞춰 같은 점수가 나오게 한다.
-     */
-    static int scoreOf(double errorRate) {
-        double score;
-        if (errorRate <= KNEE_ERROR_RATE) {
-            score = MAX_SCORE - (MAX_SCORE - KNEE_SCORE) * errorRate / KNEE_ERROR_RATE;
-        } else {
-            score = KNEE_SCORE * Math.max(0, ZERO_SCORE_ERROR_RATE - errorRate)
-                    / (ZERO_SCORE_ERROR_RATE - KNEE_ERROR_RATE);
-        }
-        return (int) Math.round(score);
+        int score = (int) Math.round(MAX_SCORE * Math.max(0, 1 - errorRate / ZERO_SCORE_ERROR_RATE));
+        return new CutJudgement(errorRate, score, answerPosition());
     }
 
     public List<ChocolateLevel> cells() {

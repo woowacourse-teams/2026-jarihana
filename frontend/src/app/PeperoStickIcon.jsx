@@ -1,4 +1,4 @@
-// 헤더의 "반띵 게임" 링크 옆에 두는 막대과자 아이콘이다. 색은 게임 막대 그림과 같은 토큰을 쓴다.
+// 헤더의 "공평하게 반띵" 링크 옆에 두는 막대과자 아이콘이다. 색은 게임 막대 그림과 같은 토큰을 쓴다.
 export function PeperoStickIcon() {
   return (
     <svg aria-hidden="true" className="app-header__link-icon pepero-stick-icon" viewBox="0 0 24 24">

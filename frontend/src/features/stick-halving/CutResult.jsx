@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 
-import { composition, leftMilligrams, toGrams } from "./puzzle";
+import { leftMilligrams } from "./puzzle";
 import { STICK_BOTTOM, STICK_WIDTH, STICK_X0, StickArt, toStickX } from "./StickArt";
 
 const PIVOT_X = 500;
@@ -10,11 +10,10 @@ const PAN_DROP = 120;
 const PIECE_SCALE = 0.34;
 const MAX_TILT_DEGREES = 15;
 
-export const formatGrams = (milligrams) => `${toGrams(milligrams).toFixed(3).replace(/0$/, "")}g`;
 export const formatPercent = (rate) => `${(rate * 100 < 1 ? (rate * 100).toFixed(2) : (rate * 100).toFixed(1))}%`;
 export const formatCm = (position) => `${position.toFixed(2)}cm`;
 
-function prefersReducedMotion() {
+export function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
@@ -87,56 +86,31 @@ function Balance({ position, stick, tiltDegrees }) {
   );
 }
 
-const PARTS = [
-  ["biscuit", "cut-result__segment--biscuit", "과자"],
-  ["thin", "cut-result__segment--thin", "얇은 초코"],
-  ["thick", "cut-result__segment--thick", "두꺼운 초코"],
-  ["almond", "cut-result__segment--almond", "아몬드"]
-];
-
-// 한쪽 조각의 재료 구성 막대다. 재료별 무게는 막대 조각에 마우스를 올리면 보인다.
-function MixRow({ label, mix, scale }) {
-  return (
-    <div className="cut-result__mix-row">
-      <span className="cut-result__mix-side">{label}</span>
-      <div aria-hidden="true" className="cut-result__mix-bar">
-        {PARTS.filter(([key]) => mix[key] > 1e-9).map(([key, className, partLabel]) => (
-          <span
-            className={`cut-result__segment ${className}`}
-            key={key}
-            style={{ width: `${((mix[key] / scale) * 100).toFixed(2)}%` }}
-            title={`${partLabel} ${formatGrams(mix[key])}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// 자른 뒤의 결과다. 저울, 양쪽 무게, 재료별 무게 구성으로 왜 한쪽이 무거웠는지 보여 준다.
-export function CutResult({ position, result, stick }) {
+// 자른 뒤의 저울이다. 무거운 쪽으로 기울어 얼마나 공평했는지 보여 준다. 무게 숫자는 보여 주지 않는다.
+export function CutResult({ position, stick }) {
   const total = stick.totalMilligrams;
   const left = leftMilligrams(stick, position);
   const right = total - left;
   const tilt = Math.max(-MAX_TILT_DEGREES, Math.min(MAX_TILT_DEGREES, ((right - left) / total) * 150));
-  const scale = Math.max(left, right);
+  return <Balance position={position} stick={stick} tiltDegrees={tilt} />;
+}
 
+// 자른 결과의 오차와 두 위치다. 위치 줄의 선 모양이 막대 위의 칼선, 정답선과 같다.
+export function CutFacts({ position, result }) {
   return (
-    <div className="cut-result">
-      <div className="cut-result__legend">
-        <span><i className="cut-result__swatch" />내가 자른 곳 <b>{formatCm(position)}</b></span>
-        <span><i className="cut-result__swatch cut-result__swatch--answer" />정답 <b>{formatCm(result.answerPosition)}</b></span>
+    <dl className="cut-facts">
+      <div>
+        <dt>오차</dt>
+        <dd className="cut-facts__error">{formatPercent(result.errorRate)}</dd>
       </div>
-      <Balance position={position} stick={stick} tiltDegrees={tilt} />
-      <div className="cut-result__weights">
-        <div><span>왼쪽</span><strong>{formatGrams(left)}</strong></div>
-        <div className="cut-result__error"><span>오차</span><strong>{formatPercent(result.errorRate)}</strong></div>
-        <div><span>오른쪽</span><strong>{formatGrams(right)}</strong></div>
+      <div>
+        <dt><i aria-hidden="true" className="cut-facts__swatch" />내가 자른 곳</dt>
+        <dd>{formatCm(position)}</dd>
       </div>
-      <div aria-label="양쪽 조각의 무게 구성" className="cut-result__mix">
-        <MixRow label="왼쪽" mix={composition(stick, 0, position)} scale={scale} />
-        <MixRow label="오른쪽" mix={composition(stick, position, stick.lengthCm ?? 12)} scale={scale} />
+      <div>
+        <dt><i aria-hidden="true" className="cut-facts__swatch cut-facts__swatch--answer" />정답</dt>
+        <dd>{formatCm(result.answerPosition)}</dd>
       </div>
-    </div>
+    </dl>
   );
 }
