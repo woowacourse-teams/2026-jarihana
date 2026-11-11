@@ -558,8 +558,67 @@
   }
 }
 
+/* 자른 뒤의 흐름: 두 조각이 벌어지고(0~0.45초), 정답선이 나타나고, 점수, 오차, 저울, 다음 막대 버튼이
+   차례로 떠오른다. 다음 막대의 자르는 화면은 살짝 나타난다. */
+@keyframes stick-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+@keyframes stick-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes stick-split {
+  from {
+    transform: translateX(0);
+  }
+}
+
+.stick-game__play {
+  animation: stick-fade 0.25s ease-out both;
+}
+
+.stick-board__pieces .stick-board__piece {
+  animation: stick-split 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.stick-board__answer {
+  animation: stick-fade 0.3s ease-out 0.4s both;
+}
+
+.stick-game--result .stick-game__verdict {
+  animation: stick-rise 0.35s ease-out 0.15s both;
+}
+
+.stick-game--result .stick-game__facts {
+  animation: stick-rise 0.35s ease-out 0.5s both;
+}
+
+.stick-game--result .stick-game__balance {
+  animation: stick-rise 0.35s ease-out 0.65s both;
+}
+
+.stick-game--result .stick-game__next {
+  animation: stick-rise 0.35s ease-out 0.85s both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stick-board__piece {
     transition: none;
+  }
+
+  .stick-game__play,
+  .stick-board__pieces .stick-board__piece,
+  .stick-board__answer,
+  .stick-game--result .stick-game__verdict,
+  .stick-game--result .stick-game__facts,
+  .stick-game--result .stick-game__balance,
+  .stick-game--result .stick-game__next {
+    animation: none;
   }
 }

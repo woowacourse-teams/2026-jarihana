@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../shared/ui";
-import { CutFacts, CutResult, formatPercent } from "./CutResult";
+import { CutFacts, CutResult, formatPercent, prefersReducedMotion } from "./CutResult";
 import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
 import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
+
+const POINTS_DELAY_MILLIS = 250;
+const POINTS_DURATION_MILLIS = 700;
 
 function commentFor(round, errorRate, position) {
   if (round === 1 && Math.abs(position - STICK_LENGTH_CM / 2) < 0.15) {
@@ -29,6 +32,32 @@ function Timer({ deadline, now, limitSeconds }) {
         <div className="stick-game__timer-fill" style={{ transform: `scaleX(${(left / limitSeconds).toFixed(4)})` }} />
       </div>
     </div>
+  );
+}
+
+// 이번 막대 점수를 0부터 올려 보여 준다. 화면 읽기 프로그램에는 오르는 숫자 대신 최종 점수만 읽힌다.
+// 움직임 줄이기 설정에서는 바로 최종 점수를 보여 준다.
+function CountUpPoints({ score }) {
+  const still = prefersReducedMotion() || typeof requestAnimationFrame !== "function";
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (still) return undefined;
+    let frame = 0;
+    const startedAt = performance.now() + POINTS_DELAY_MILLIS;
+    const step = (time) => {
+      const progress = Math.min(1, Math.max(0, (time - startedAt) / POINTS_DURATION_MILLIS));
+      setShown(Math.round(score * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [score, still]);
+  const value = still ? score : shown;
+  return (
+    <span className="stick-game__points">
+      <span aria-hidden="true">+{value.toLocaleString("ko-KR")}점</span>
+      <span className="ui-sr-only">+{score.toLocaleString("ko-KR")}점</span>
+    </span>
   );
 }
 
@@ -260,6 +289,7 @@ export function StickHalvingGame({
 
   // 자를 때는 제목, 남은 시간, 막대, 자르기 버튼을 위에서 아래로 한 줄에 둔다.
   // 자른 뒤에는 넓은 화면에서 왼쪽에 자른 막대와 오차, 오른쪽에 점수와 저울, 다음 막대 버튼을 둔다.
+  // 결과는 한꺼번에 나타나지 않고 조각이 벌어진 뒤 점수, 오차, 저울, 버튼 순서로 떠오른다(stick-halving.css).
   return (
     <section
       aria-label="게임"
@@ -279,7 +309,7 @@ export function StickHalvingGame({
             <span className="stick-game__comment">
               {commentFor(round, outcome.errorRate, outcome.position)}
             </span>
-            <span className="stick-game__points">+{outcome.score.toLocaleString("ko-KR")}점</span>
+            <CountUpPoints score={outcome.score} />
           </p>
           <div className="stick-game__board">{board}</div>
           <div className="stick-game__facts">

@@ -13,7 +13,7 @@ const MAX_TILT_DEGREES = 15;
 export const formatPercent = (rate) => `${(rate * 100 < 1 ? (rate * 100).toFixed(2) : (rate * 100).toFixed(1))}%`;
 export const formatCm = (position) => `${position.toFixed(2)}cm`;
 
-function prefersReducedMotion() {
+export function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 

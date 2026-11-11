@@ -371,32 +371,42 @@ export function PeperoDayEventPage() {
 
   const event = status.data;
   const closed = event.status === "CLOSED";
+  const showRanking = event.status !== "UPCOMING";
+  // 넓은 화면에서는 순위를 오른쪽 열에 두고, 스크롤해도 화면에 붙어 있게 한다(pepero-day.css).
   return (
     <PageContainer className="pepero-day">
       <PageHeader title="공평하게 반띵" />
       <ul aria-label="이벤트 안내" className="pepero-day__facts">
         <li>{formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}</li>
       </ul>
-      {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
-      {closed ? (
-        <section className="pepero-day__card pepero-day__closed">
-          <h2>이벤트가 끝났어요</h2>
-          <p>{closedMessage(event, game)}</p>
-          {event.gameRoomOpen && !game ? (
-            <Link
-              className="ui-button ui-button--primary ui-button--md"
-              data-ph-capture-attribute-action="stick_halving_room_open"
-              to={STICK_HALVING_ROOM_PATH}
-            >
-              게임방에서 하기
-            </Link>
+      <div className={`pepero-day__layout${showRanking ? " pepero-day__layout--with-ranking" : ""}`}>
+        <div className="pepero-day__main">
+          {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
+          {closed ? (
+            <section className="pepero-day__card pepero-day__closed">
+              <h2>이벤트가 끝났어요</h2>
+              <p>{closedMessage(event, game)}</p>
+              {event.gameRoomOpen && !game ? (
+                <Link
+                  className="ui-button ui-button--primary ui-button--md"
+                  data-ph-capture-attribute-action="stick_halving_room_open"
+                  to={STICK_HALVING_ROOM_PATH}
+                >
+                  게임방에서 하기
+                </Link>
+              ) : null}
+            </section>
           ) : null}
-        </section>
-      ) : null}
-      {event.status === "OPEN" || (closed && game) ? (
-        <OpenEvent closed={closed} game={game} setGame={setGame} />
-      ) : null}
-      {event.status === "UPCOMING" ? null : <Ranking />}
+          {event.status === "OPEN" || (closed && game) ? (
+            <OpenEvent closed={closed} game={game} setGame={setGame} />
+          ) : null}
+        </div>
+        {showRanking ? (
+          <aside className="pepero-day__aside">
+            <Ranking />
+          </aside>
+        ) : null}
+      </div>
     </PageContainer>
   );
 }

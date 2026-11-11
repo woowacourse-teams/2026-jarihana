@@ -6,6 +6,41 @@
   padding-block: var(--space-8) var(--space-12);
 }
 
+/* 게임과 순위. 좁은 화면에서는 위아래로 두고, 넓은 화면에서는 순위를 오른쪽 열에 붙여 둔다. */
+.pepero-day__layout,
+.pepero-day__main {
+  display: grid;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+@media (min-width: 1080px) {
+  .ui-page-container.pepero-day:has(.pepero-day__layout--with-ranking) {
+    max-width: calc(76rem + 2 * var(--page-gutter));
+  }
+
+  .pepero-day__layout--with-ranking {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .pepero-day__aside {
+    max-block-size: calc(100vh - var(--header-height) - 2 * var(--space-4));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-4));
+  }
+
+  .pepero-day__aside .pepero-day__ranking-list li {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .pepero-day__aside .pepero-day__duration {
+    display: none;
+  }
+}
+
 .pepero-day .ui-page-header {
   padding-block: 0;
 }
