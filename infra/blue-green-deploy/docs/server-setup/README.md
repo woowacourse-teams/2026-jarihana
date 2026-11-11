@@ -24,9 +24,8 @@
 
 `coordinator.sh`의 plan은 기존 저널의 topology digest와 control SHA가 다르면 거부한다.
 이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
-서버 구성은 같고 control 버전만 교체한다면 [자동 교체 helper](../automatic-control.md)를 최초 한 번
-설치한 운영은 main 배포가 원본 백업과 이관 허가를 준비한다. helper 설치 전 환경과 관리자
-복구는 [수동 제어 버전 교체](../control-upgrade.md)를 따른다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
+서버 구성은 같고 control 버전만 교체한다면 [고정 제어 버전 교체](../control-upgrade.md)의
+명시적 이관 허가와 원본 백업을 준비한다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
 
 ## 필수 설정
 
@@ -40,7 +39,7 @@ A/B는 논리 슬롯이며 runner 표시 이름의 A/B와 같다고 가정하지
 | 위치 | 필요한 준비 |
 | --- | --- |
 | Nginx coordinator | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Git, Docker Compose v2, AWS CLI v2와 전용 runner |
-| 앱 A/B | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Asia/Seoul tzdata, Git, OpenSSH, Docker Compose v2와 서로 다른 전용 runner |
+| 앱 A/B | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Asia/Seoul tzdata, Git, OpenSSH, `config --no-env-resolution --format json`을 지원하는 Docker Compose v2와 서로 다른 전용 runner |
 | 관측 | 앱별 Alloy, Prometheus 읽기 경로와 정확한 environment/host_id |
 | 통신 | Nginx에서 앱 private port, 앱에서 Nginx의 읽기 전용 SSH, 앱에서 RDS, GitHub/GHCR outbound |
 
@@ -63,7 +62,7 @@ prod는 아래 경로의 환경 부분을 prod로 사용하고 dev 설정을 복
 | --- | --- |
 | `/etc/jarihana-deploy/<env>/coordinator.json` | root 소유, 실제 topology, Nginx와 telemetry 설정 |
 | 각 앱의 같은 경로 아래 `app-A.json` 또는 `app-B.json` | 해당 호스트의 local_slot, 포트와 파일 경로 |
-| `app-compose.yml` | 고정 control tag의 [앱 템플릿](../../controller/app-compose.yml)과 byte 단위 일치 |
+| `app-compose.yml` | 초기 설치와 dev 등의 비릴리스 경로 기준. 일반 prod prepare는 배포 main SHA의 Compose를 별도 검증해 사용 |
 | `worker-token`, `grant-key`, `known-hosts` | 관리자 소유 비밀 파일과 검증한 Nginx host key |
 | `/var/lib/jarihana-deploy/<env>/state.json` | coordinator 소유 0700 디렉터리, 저널 0600 |
 | 각 앱의 `/var/lib/jarihana-deploy/<env>/app-A` 또는 `app-B` | 해당 runner 소유 0700, worker/stop intent와 잠금, 실행 기록 |
@@ -308,9 +307,9 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
    기존 운영 환경에서 이 조치를 하는 것은 별도 변경 작업이다. 새 서버의 명령을 기존 호스트에 실행하지 않는다.
    실제 HTTP 대상, 앱 digest와 DB owner를 확인하고 보호된 설정, 저널, intent,
    S3 원본과 state/ETag, CloudFront 설정/ETag 및 활성 WAL을 보존한다.
-2. 검증한 `refs/tags/deployment-control-*`와 SHA를 정한다.
-   Nginx/A/B의 topology.control.ref/sha, 설치 Compose와 watchdog checkout을 같은 release로 맞춘다.
-   개발/최초 bootstrap은 BLUE_GREEN_CONTROL_REF도 맞춘다. 일반 운영은 coordinator pin을 읽는다.
+2. 검증한 `refs/tags/deployment-control-*`와 SHA를 정한다. BLUE_GREEN_CONTROL_REF,
+   Nginx/A/B의 topology.control.ref/sha와 watchdog checkout을 같은 제어 release로 맞춘다.
+   재구성할 앱의 Compose는 해당 앱 배포 SHA에서 가져오고 이미지 digest와 함께 대조한다.
    부모 workflow, 앱 이미지와 control checkout은 각각 대조하고 기존 태그는 이동하지 않는다.
 3. [구성 시작 전 준비](#구성-시작-전-준비)를 마치고 [Nginx](coordinator.md),
    [앱 A/B](app-hosts.md)를 각각 구성한다. 교체 호스트의 instance ID, 주소, runner, local_slot,
@@ -320,7 +319,6 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 5. worker 권한이 처음부터 미할당인 환경만 [최초 worker 등록](#최초-worker-등록)을 수행한다.
    기존 owner가 있는 환경에서는 bootstrap을 반복하지 않는다.
 6. [검증 가이드](../verification.md)의 관련 검증과 [상태 확인](../status.md)을 수행한다.
-   자동 교체를 사용할 세 호스트에는 [전용 helper](../automatic-control.md#최초-한-번-설치)도 설치한다.
    실제 인증, 쓰기, 이미지, 채팅과 푸시를 확인한 뒤 [배포 실행](../deployment.md)을 재개한다.
 
 완료 저널도 control SHA와 topology digest에 묶여 있다. pin 변경이나 저널 복사만으로

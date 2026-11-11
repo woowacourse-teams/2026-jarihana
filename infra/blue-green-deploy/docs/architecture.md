@@ -22,7 +22,6 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 | 구성요소 | 역할 |
 | --- | --- |
 | GitHub Actions | 이미지와 프론트 빌드, 호스트별 작업 순서와 결과 연결 |
-| 제어 버전 선택 workflow와 root helper | main의 제어 변경 감지, 불변 태그 발급, 세 호스트 pin/Compose와 저널 이관 허가 설치 |
 | Nginx와 coordinator | 활성 HTTP 경로 전환, 배포 저널, EC2 시작과 중지, 프론트 파일 게시와 복구 |
 | 앱 A/B와 전용 runner | 자기 호스트의 앱 준비, worker 제어, 관찰과 정상 종료 |
 | RDS | 앱 데이터와 환경별 worker 처리 권한 저장 |
@@ -32,11 +31,13 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 정상 배포 순서는 [배포 실행](deployment.md#정상-배포-순서),
 호스트별 통신과 권한은 [서버 구성](server-setup/README.md#호스트와-네트워크)을 따른다.
 
-일반 운영 배포는 coordinator에 설치된 control SHA와 main을 비교한다. 제어 코드나 보호된
-Compose 내용이 바뀌면 GitHub Actions가 새 태그를 만들고, 각 호스트의 관리자 설치 helper가
-완료 저널과 실제 상태를 검증한 뒤 pin을 교체한다. 선택 태그는 배포와 복구 job의 입력으로
-전달하며 GitHub 관리자 토큰으로 저장소 변수를 갱신하지 않는다.
-최초 권한 설치, 자동화 범위와 실패 복구는 [운영 제어 버전 자동 교체](automatic-control.md)를 따른다.
+## 앱 Compose와 제어 코드의 버전
+
+일반 운영 배포는 main의 해당 커밋 SHA에서 앱 Compose를 읽고, 후보 컨테이너를 바꾸기 전에
+Docker가 해석한 설정의 배포 계약을 검증한다. 앱 환경 변수와 자원 설정을 바꾸기 위해
+제어 태그를 새로 만들거나 서버의 보호된 control pin을 변경하지 않는다.
+제어 코드와 watchdog의 별도 고정 버전은 유지하며, 제어 코드 갱신은 관리자 절차를 따른다.
+최초 v2 검증기 설치와 허용 범위는 [Compose 선택](deployment.md#운영-백엔드의-compose-선택)을 따른다.
 
 ## worker 인계와 정상 종료
 

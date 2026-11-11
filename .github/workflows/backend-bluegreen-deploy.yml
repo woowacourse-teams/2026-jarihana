@@ -2,12 +2,6 @@ name: Backend Blue-Green Deployment
 on:
   workflow_call:
     inputs:
-      control_ref:
-        type: string
-        default: ""
-      parent_observed_lock:
-        type: boolean
-        default: false
       environment:
         type: string
         required: true
@@ -28,8 +22,8 @@ permissions:
   actions: read
   packages: read
 concurrency:
-  # Production holds the shared lock in its parent, including the control upgrade.
-  group: ${{ inputs.parent_observed_lock && format('jarihana-observed-child-{0}', github.run_id) || 'jarihana-observed-deployment' }}
+  # Monitoring recreates the query gateway; keep it outside the observation window.
+  group: jarihana-observed-deployment
   cancel-in-progress: false
   queue: max
 jobs:
@@ -41,17 +35,16 @@ jobs:
       contents: read
       packages: read
     outputs:
-      control_ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
       digest: ${{ steps.image.outputs.digest }}
       frontend_only: ${{ steps.image.outputs.frontend_only }}
       backend_only: ${{ steps.image.outputs.backend_only }}
     env:
-      BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
     steps:
       - name: 보호된 배포 제어 코드 checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           path: deployment-control
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -75,7 +68,7 @@ jobs:
           BG_MODE: ${{ inputs.mode }}
           BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
-          BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           RDS_URL: ${{ vars.RDS_URL }}
           BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
           BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
@@ -144,16 +137,12 @@ jobs:
           fi
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
             if [[ ! -f "$control/release-compose.sh" ]] ||
-              ! grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=1' "$control/app.sh"; then
-              echo '::error::Approved control tag lacks release Compose capability'
+              ! grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=2' "$control/app.sh"; then
+              echo '::error::Approved control tag lacks release Compose capability v2; install the reviewed validator once before deployment'
               exit 1
             fi
-            source "$control/release-compose.sh"
             compose=infra/blue-green-deploy/controller/app-compose.yml
-            app_compose_matches_control "../deployment-control/$compose" "$compose" || {
-              echo '::error::Release Compose differs from protected control settings. Update the approved control tag before deployment.'
-              exit 1
-            }
+            git cat-file -e "$GITHUB_SHA:$compose"
           fi
           if [[ "$BG_MODE" == bootstrap ]]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]
@@ -193,7 +182,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.resolve.outputs.digest }}
@@ -203,19 +191,19 @@ jobs:
       frontend_artifact_id: ${{ needs.frontend-build.outputs.artifact_id }}
   queue-guardian:
     name: deployment-queue-guardian
-    if: inputs.parent_observed_lock != true
+    needs: [resolve]
     runs-on: ubuntu-latest
     timeout-minutes: 125
     permissions:
       contents: read
       actions: write
     env:
-      BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           persist-credentials: false
       - name: 전용 runner queue와 전체 실행 기한 감시
         shell: bash
@@ -235,7 +223,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -248,7 +235,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -260,7 +246,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -270,7 +255,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -280,7 +264,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -292,7 +275,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -305,7 +287,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -318,7 +299,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -331,7 +311,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -344,7 +323,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -357,7 +335,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -370,7 +347,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -383,7 +359,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -395,7 +370,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -408,7 +382,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -421,7 +394,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -434,7 +406,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -447,7 +418,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -460,7 +430,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -471,7 +440,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -483,7 +451,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -496,7 +463,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -509,7 +475,6 @@ jobs:
     uses: ./.github/workflows/backend-app-operation.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -522,7 +487,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -535,7 +499,6 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-phase.yml
     secrets: inherit
     with:
-      control_ref: ${{ needs.resolve.outputs.control_ref }}
       environment: ${{ inputs.environment }}
       mode: ${{ inputs.mode }}
       digest: ${{ needs.plan.outputs.digest || needs.resolve.outputs.digest }}
@@ -548,7 +511,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      BG_CONTROL_REF: ${{ needs.resolve.outputs.control_ref }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
     steps:
       - name: 성공·롤백·확인 필요 결과 보고
         env:
@@ -561,7 +524,6 @@ jobs:
           CLEANUP_DEFERRED: ${{ needs.seal.outputs.cleanup_deferred }}
         shell: bash
         run: |
-          printf '운영/개발 제어 태그: %s\n' "$BG_CONTROL_REF" >> "$GITHUB_STEP_SUMMARY"
           printf '이번 배포/롤백 대상: %s\n' "$RELEASE_SCOPE" >> "$GITHUB_STEP_SUMMARY"
           printf '초기 등록: %s / 백엔드 배포: %s / 백엔드 롤백: %s\n' "$BOOTSTRAP" "$DEPLOY" "$ROLLBACK" >> "$GITHUB_STEP_SUMMARY"
           printf '프론트엔드 전용 배포: %s / 프론트엔드 복구: %s / 릴리스: %s-%s\n' "$FRONTEND" "$FRONTEND_RECOVERY" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"

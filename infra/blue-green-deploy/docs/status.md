@@ -21,15 +21,15 @@ gh run view <run-id>
 함께 대조한다. coordinator 저널의 switched 의도만으로 실제 경로를 단정하지 않는다.
 Nginx probe는 슬롯, 예상 upstream, 실제 upstream 헤더와 실제 API 성공 응답을 함께 검증한다.
 
-일반 운영 배포의 제어 태그는 Actions의 `control / ready` 요약과 세 호스트의
-`topology.control.ref/sha`에서 확인한다. `BLUE_GREEN_CONTROL_REF`는 개발/최초 bootstrap의
-입력이므로 운영의 최신 태그를 판단하는 기준으로 사용하지 않는다. 자동 교체 실행은
-`/var/backups/jarihana-control/automatic/<run-id>/status`와 원본 백업도 대조한다.
-
 coordinator는 `/var/lib/jarihana-deploy/<env>/state.json`을 보존한다.
 phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_deferred를 확인한다.
 앱의 worker-intent.json과 stop-intent.json도 현재 boot, 컨테이너와 DB 권한에 대조한다.
 상태 파일과 환경 전체를 공개 로그에 출력하지 않는다.
+
+운영 앱 Compose의 출처는 해당 실행의 prepare 로그에 남은 커밋 SHA와 파일 SHA-256으로 확인한다.
+배포 저널의 `sha`/`image`는 앱 소스와 이미지이며, `control_sha`는 별도 제어 코드 버전이다.
+Compose 변경만으로 control_sha가 바뀌어야 하는 것은 아니다. 원본 Git 객체와 로그 해시를 대조하고,
+실제 컨테이너 설정의 비밀값은 출력하지 않는다.
 
 ## 관찰 기준
 
@@ -46,10 +46,9 @@ HTTP 관찰은 실제 후보 경로와 호스트별 fresh up, 최근 2분 요청
 구분하지 못하므로 함께 제외된다.
 up, 실제 요청 경로와 별도 worker 검사는 유지한다.
 
-관찰 쿼리는 해당 실행에서 선택된 고정 제어 릴리스의 코드를 사용한다.
-[자동 교체](automatic-control.md)가 설치된 운영은 main의 제어 코드 변경을 감지해
-coordinator와 A/B의 보호된 control ref/SHA를 함께 교체한 뒤 배포한다.
-helper 설치 전 환경과 개발/최초 bootstrap은 [수동 교체](control-upgrade.md)가 필요하다.
+이 변경은 저장소 코드의 기준이다. 운영 적용에는 수정한 코드로 고정 제어 릴리스를 만들고
+coordinator와 A/B의 보호된 control ref/SHA, GitHub의 `BLUE_GREEN_CONTROL_REF`를 일치시켜야 한다.
+Git 병합이나 백엔드 이미지 배포만으로 기존 제어 릴리스의 쿼리가 바뀌지는 않는다.
 
 telemetry 예시의 실패 임계값은 5xx 1%, 평균 응답 1초다. 실제 보호된 설정을
 확인하며 이 응답 시간은 p95가 아니다. up 최신성은 [관측 최신성](#관측-최신성)을 따른다. 총 요청 수가 0인 값과 지표 누락을 구분한다.

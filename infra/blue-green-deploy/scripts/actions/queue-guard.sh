@@ -34,9 +34,7 @@ main() {
   [[ ${GITHUB_REPOSITORY:-} == woowacourse-teams/2026-jarihana && ${GITHUB_RUN_ID:-} =~ ^[1-9][0-9]*$ &&
      ${GITHUB_RUN_ATTEMPT:-} == 1 && ${GITHUB_SHA:-} =~ ^[a-f0-9]{40}$ &&
      ${GH_TOKEN:-} =~ ^[A-Za-z0-9_.-]+$ ]] || { echo 'Invalid guardian context' >&2; return 1; }
-  local run jobs now started previous id _label terminal_count identity_errors
-  local terminal=${BG_QUEUE_TERMINAL_NAME:-deployment-result}
-  [[ $terminal =~ ^[a-z][a-z0-9-]*$ ]] || { echo 'Invalid guardian terminal job' >&2; return 1; }
+  local run jobs now started previous id label terminal_count identity_errors
   declare -A first_seen=() queued=()
   started=$(q_now); previous=$started
   while true; do
@@ -72,11 +70,11 @@ main() {
         (.labels|type)=="array" and all(.labels[];type=="string"))' <<<"$jobs" >/dev/null; then
       q_fail 'Jobs response is incomplete or has foreign identity'; return 1
     fi
-    terminal_count=$(jq --arg terminal "$terminal" '[.jobs[]|select(.name==$terminal or (.name|endswith("/ "+$terminal)))]|length' <<<"$jobs")
+    terminal_count=$(jq '[.jobs[]|select(.name=="deployment-result" or (.name|endswith("/ deployment-result")))]|length' <<<"$jobs")
     if (( terminal_count>1 )); then q_fail 'Deployment result job is ambiguous'; return 1; fi
-    if jq -e --arg terminal "$terminal" 'any(.jobs[]; (.name==$terminal or (.name|endswith("/ "+$terminal))) and .status=="completed")' <<<"$jobs" >/dev/null; then return 0; fi
+    if jq -e 'any(.jobs[]; (.name=="deployment-result" or (.name|endswith("/ deployment-result"))) and .status=="completed")' <<<"$jobs" >/dev/null; then return 0; fi
     queued=()
-    while IFS=$'\t' read -r id _label; do
+    while IFS=$'\t' read -r id label; do
       [[ -n "$id" ]] || continue
       queued[$id]=1
       if [[ ! -v first_seen[$id] ]]; then first_seen[$id]=$now; fi

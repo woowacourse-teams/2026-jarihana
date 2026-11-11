@@ -13,8 +13,6 @@ on:
       - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
       - "infra/blue-green-deploy/scripts/**"
-      - "infra/blue-green-deploy/control/**"
-      - ".github/workflows/backend-control-*.yml"
       - "infra/blue-green-deploy/controller/**"
       - "infra/blue-green-deploy/nginx/**"
       - ".github/workflows/backend-prod-deploy.yml"
@@ -45,10 +43,8 @@ permissions:
   contents: read
 
 concurrency:
-  # Include control installation in the same lock as deployment and monitoring.
-  group: jarihana-observed-deployment
+  group: backend-prod-deploy
   cancel-in-progress: false
-  queue: max
 
 jobs:
   release-enabled:
@@ -68,32 +64,8 @@ jobs:
             echo '::error::새 운영 배포가 중단되어 있습니다. 현재 서비스는 유지하며 BLUE_GREEN_PROD_ENABLED=true 전에는 서버와 S3를 변경하지 않습니다.'
             exit 1
           fi
-  control:
-    needs: release-enabled
-    permissions:
-      contents: write
-      actions: read
-    uses: ./.github/workflows/backend-control-upgrade.yml
-    with:
-      enabled: ${{ github.event_name == 'push' || inputs.blue_green_mode == 'deploy' }}
-  queue-guardian:
-    needs: release-enabled
-    runs-on: ubuntu-latest
-    timeout-minutes: 125
-    permissions:
-      contents: read
-      actions: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      BG_QUEUE_TERMINAL_NAME: production-result
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: 제어 교체부터 배포 완료까지 runner 대기 감시
-        run: bash infra/blue-green-deploy/scripts/actions/queue-guard.sh
   blue-green:
-    needs: [release-enabled, control]
+    needs: release-enabled
     if: >-
       github.ref == 'refs/heads/main' &&
       ((github.event_name == 'push' && vars.BLUE_GREEN_PROD_ENABLED == 'true') ||
@@ -105,26 +77,9 @@ jobs:
       actions: write
     uses: ./.github/workflows/backend-bluegreen-deploy.yml
     with:
-      control_ref: ${{ needs.control.outputs.control_ref }}
-      parent_observed_lock: true
       environment: prod
       frontend_only: ${{ inputs.frontend_only || false }}
       backend_only: ${{ inputs.backend_only || false }}
       image_tag: ${{ inputs.image_tag }}
       mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit
-  result:
-    name: production-result
-    if: always()
-    needs: [release-enabled, control, blue-green]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    env:
-      CONTROL_RESULT: ${{ needs.control.result }}
-      DEPLOY_RESULT: ${{ needs.blue-green.result }}
-    steps:
-      - run: |
-          if [[ "$CONTROL_RESULT" == failure || "$CONTROL_RESULT" == cancelled ]]; then
-            echo '제어 버전 교체 실패: 앱 배포를 시작하지 않았습니다. control job의 복구 결과와 각 호스트의 /var/backups/jarihana-control/automatic/<run-id>를 확인하세요.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          test "$DEPLOY_RESULT" = success

@@ -311,15 +311,40 @@ case_profile_wrong_token() {
   reject app_profile "$(jq '.Config.Env |= map(if startswith("WORKER_CONTROL_TOKEN=") then "WORKER_CONTROL_TOKEN=other" else . end)' "$APP_DIR/profile")"
 }
 
+release_model_fixture() {
+  jq -cn --arg image "$IMAGE_REPOSITORY@$BG_IMAGE_DIGEST" --arg container "$CONTAINER" \
+    --arg db "jdbc:postgresql://$RDS_URL:5432/jarihana_$ENVIRONMENT?sslmode=require" \
+    --arg env "$ENVIRONMENT" --arg host "$HOST_ID" --arg digest "$BG_IMAGE_DIGEST" \
+    --arg token "$WORKER_CONTROL_TOKEN" '
+    {name:"fixture",networks:{default:{name:"fixture_default"}},services:{backend:{
+      image:$image,container_name:$container,restart:"no",mem_limit:"939524096",
+      stop_grace_period:"2m0s",logging:{driver:"local"},networks:{default:null},
+      ports:[{host_ip:"10.0.3.2",target:8080,published:"8080",protocol:"tcp"},
+             {host_ip:"127.0.0.1",target:8081,published:"8081",protocol:"tcp"}],
+      environment:{DB_URL:$db,SPRING_PROFILES_ACTIVE:$env,APP_VERSION:$digest,
+        PUSH_WORKER_CONTROL_ENABLED:"true",PUSH_WORKER_START_PAUSED:"true",
+        PUSH_WORKER_HOST_ID:$host,PUSH_WORKER_ENVIRONMENT:$env,WORKER_CONTROL_TOKEN:$token,
+        SERVER_SHUTDOWN:"graceful",SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE:"90s",
+        JDK_JAVA_OPTIONS:"-Xms128m -Xmx384m",DB_PASSWORD:"test$$value"}}}}'
+}
 prepare_db_fixture() {
   cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
   CONFIG=$(jq --arg compose "$APP_DIR/compose.yml" '. + {compose_file:$compose,app_port:8080}' <<< "$CONFIG")
   HOST='{"upstream":"10.0.3.2:8080"}'
   docker() {
     printf '%s\n' "$*" >> "$APP_DIR/docker-calls"
-    [[ $1 == compose && ${*: -2} == 'config --quiet' ]] || return 1
+    if [[ $1 == ps ]]; then
+      if [[ -n ${RELEASE_COMPOSE_FILE:-} ]]; then cp "$RELEASE_COMPOSE_FILE" "$APP_DIR/execution-compose.json"; fi
+      return 1
+    fi
+    [[ $1 == compose ]] || return 1
+    local arguments="$*"
     while [[ $1 != -f ]]; do shift; done
     cp "$2" "$APP_DIR/validated-compose.yml"
+    if [[ $arguments == *' --format json' ]]; then
+      if [[ -f $APP_DIR/release-model.json ]]; then cat "$APP_DIR/release-model.json"
+      else release_model_fixture; fi
+    else [[ $arguments == *' config --quiet' ]]; fi
   }
 }
 case_prepare_single_rds() {
@@ -356,10 +381,7 @@ prepare_release_fixture() {
   BG_RELEASE_COMPOSE_CHECKOUT=$APP_DIR/release-source
   RELEASE_SOURCE=$BG_RELEASE_COMPOSE_CHECKOUT/infra/blue-green-deploy/controller/app-compose.yml
   mkdir -p "$(dirname "$RELEASE_SOURCE")"
-  awk '{
-    print
-    if ($0 == "    environment:") print "      POINTS_STARTS_AT: \"${POINTS_STARTS_AT:-}\""
-  }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
+  sed 's/mem_limit: 896m/mem_limit: 1g/' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
   git init -q "$BG_RELEASE_COMPOSE_CHECKOUT"
   commit_release_fixture
 }
@@ -379,7 +401,16 @@ case_prepare_release_compose() {
   git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
     cmp -s - "$APP_DIR/validated-compose.yml"
   grep -Fxq '      POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
+  jq -e '.services.backend.environment.DB_PASSWORD=="test$$value"' "$APP_DIR/execution-compose.json" >/dev/null
   [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose.*' -print) ]]
+}
+case_prepare_release_compose_env_file() {
+  prepare_release_fixture
+  release_model_fixture | jq '.services.backend.env_file=[{path:"optional.env",required:false}]' >"$APP_DIR/release-model.json"
+  reject app_prepare
+  grep -q 'must receive environment values from the workflow' "$APP_DIR/rejected.log"
+  [[ $(wc -l <"$APP_DIR/docker-calls") -eq 1 ]]
+  [[ ! -e $APP_DIR/execution-compose.json ]]
 }
 case_prepare_release_compose_wrong_commit() {
   prepare_release_fixture
@@ -391,37 +422,30 @@ case_prepare_release_compose_wrong_commit() {
 case_prepare_release_compose_protected_settings() {
   local change
   prepare_release_fixture
-  cp "$RELEASE_SOURCE" "$APP_DIR/original-release.yml"
+  release_model_fixture >"$APP_DIR/original-model.json"
   for change in \
-    's|127.0.0.1:|0.0.0.0:|' \
-    's|PUSH_WORKER_START_PAUSED: "true"|PUSH_WORKER_START_PAUSED: "false"|' \
-    's|jdbc:postgresql://|jdbc:postgresql://unexpected-|' \
-    's|POINTS_STARTS_AT:-|DB_PASSWORD:-|' \
-    's|restart: "no"|privileged: true|'; do
-    sed "$change" "$APP_DIR/original-release.yml" >"$RELEASE_SOURCE"
-    commit_release_fixture
+    '.services.backend.ports[1].host_ip="0.0.0.0"' \
+    '.services.backend.environment.PUSH_WORKER_START_PAUSED="false"' \
+    '.services.backend.environment.DB_URL="jdbc:postgresql://other/db"' \
+    '.services.backend.privileged=true' \
+    '.services.backend.environment.JARIHANA_PUSH_WORKER_START_PAUSED="false"' \
+    '.services.backend.environment.SPRING_APPLICATION_JSON="{}"' \
+    '.services.backend.volumes=[{type:"bind",source:"/",target:"/host"}]'; do
+    jq "$change" "$APP_DIR/original-model.json" >"$APP_DIR/release-model.json"
+    rm -f "$APP_DIR/docker-calls"
     reject app_prepare
-    grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
-    [[ ! -e "$APP_DIR/docker-calls" ]]
+    grep -q 'Release Compose violates the deployment contract' "$APP_DIR/rejected.log"
+    [[ $(wc -l <"$APP_DIR/docker-calls") -eq 2 ]]
+    [[ $(tail -1 "$APP_DIR/docker-calls") == compose*' config --no-env-resolution --format json' ]]
+    [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose*.*' -print) ]]
   done
-  awk '{
-    print
-    if ($0 == "    environment:") {
-      print "      JARIHANA_PUSH_WORKER_START_PAUSED: \"${JARIHANA_PUSH_WORKER_START_PAUSED:-}\""
-      print "      JARIHANA_PUSH_WORKER_CONTROL_ENABLED: \"${JARIHANA_PUSH_WORKER_CONTROL_ENABLED:-}\""
-    }
-  }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
-  commit_release_fixture
-  reject app_prepare
-  grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
-  [[ ! -e "$APP_DIR/docker-calls" ]]
 }
 case_prepare_release_compose_checks_before_removal() {
   prepare_release_fixture
   docker() { printf '%s\n' "$*" >> "$APP_DIR/docker-calls"; return 1; }
   reject app_prepare
   grep -q 'Compose configuration invalid' "$APP_DIR/rejected.log"
-  [[ $(cat "$APP_DIR/docker-calls") == compose*' config --quiet' ]]
+  [[ $(cat "$APP_DIR/docker-calls") == compose*' config --no-interpolate --no-env-resolution --format json' ]]
   [[ $(wc -l <"$APP_DIR/docker-calls") -eq 1 ]]
 }
 
@@ -488,7 +512,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_wrong_commit prepare_release_compose_protected_settings prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_env_file prepare_release_compose_wrong_commit prepare_release_compose_protected_settings prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))

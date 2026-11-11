@@ -14,7 +14,6 @@
 
 ```sh
 for file in infra/blue-green-deploy/scripts/actions/*.sh \
-  infra/blue-green-deploy/control/*.sh \
   infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/tests/actions/*.sh; do
   bash -n "$file"
 done
@@ -31,11 +30,15 @@ BG_COMPOSE_IMAGE=<로컬에서-빌드한-백엔드-이미지> \
   bash infra/blue-green-deploy/tests/actions/run-compose-e2e.sh
 bash infra/blue-green-deploy/tests/actions/run-monitoring-acl.sh
 actionlint .github/workflows/backend-bluegreen-deploy.yml \
-  .github/workflows/backend-control-upgrade.yml .github/workflows/backend-control-host.yml \
   .github/workflows/backend-bluegreen-phase.yml \
   .github/workflows/backend-app-operation.yml .github/workflows/backend-migration-review.yml \
   .github/workflows/backend-prod-deploy.yml .github/workflows/frontend-prod-deploy.yml
 ```
+
+기존 `test-app.sh`와 `test-release-workflow.sh`는 main SHA 원본 선택, 다른 SHA 거부,
+v1 검증기 사전 차단과 위험한 Compose 모델을 컨테이너 교체 전에 거부하는 경계를 검사한다.
+Docker 대역을 쓰는 계약 시험과 실제 Compose JSON 파서를 쓰는 검증을 구분한다.
+로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.
 
 시험별 실행 조건과 대역 범위는 [각 하네스](../tests/actions/run-tests.sh)에서 확인한다.
 `run-local-e2e.sh`의 기본 Java 이미지 ID가 로컬에 없다면 검증할 Java 21 이미지를 준비하고

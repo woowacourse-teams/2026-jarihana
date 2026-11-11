@@ -50,6 +50,9 @@ runuser -u jarihana-runner -- bash -c \
   _ "$CONTROL_DIR" "/etc/jarihana-deploy/prod/app-$APP_SLOT.json" "$APP_SLOT"
 ```
 
+위 설치 Compose는 초기 구성과 비릴리스 경로의 기준이다. 일반 prod prepare는 main 배포 SHA의
+Compose를 임시 파일로 읽고 계약을 검증하며, 이 관리자 설치본을 덮어쓰지 않는다.
+
 runner는 [공통 등록 절차](README.md#runner-등록과-부팅-설정)에 따라 jarihana-runner로 실행한다.
 BLUE_GREEN_PROD_A_RUNNER/B_RUNNER의 라벨과 실제 서버를 대응시킨다.
 서비스 기동 뒤 User와 Docker 그룹을 확인하며 root로 대신 실행하지 않는다.

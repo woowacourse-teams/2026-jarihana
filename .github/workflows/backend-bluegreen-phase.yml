@@ -2,9 +2,6 @@ name: Backend Blue-Green Coordinator Phase
 on:
   workflow_call:
     inputs:
-      control_ref:
-        type: string
-        default: ""
       environment:
         type: string
         required: true
@@ -66,7 +63,7 @@ jobs:
       BG_FRONTEND_ONLY: ${{ inputs.frontend_only }}
       BG_BACKEND_ONLY: ${{ inputs.backend_only }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
-      BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_PHASE: ${{ inputs.phase }}
       APP_RESULT: ${{ inputs.app_result }}
       TARGET_RESULT: ${{ inputs.target_result }}
@@ -74,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           persist-credentials: false
       - name: 운영 프론트엔드 제어 기능 확인과 AWS CLI 준비
         if: inputs.environment == 'prod' && inputs.mode == 'deploy' && contains(fromJSON('["plan","switch","observe","seal","frontend-publish","frontend-seal","frontend-recover"]'), inputs.phase)

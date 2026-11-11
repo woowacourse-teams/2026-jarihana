@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on the selected application runner; management access never leaves loopback.
-# APP_RELEASE_COMPOSE_CAPABILITY=1
+# APP_RELEASE_COMPOSE_CAPABILITY=2
 set -Eeuo pipefail
 set +x
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
@@ -229,8 +229,6 @@ app_release_compose() {
   size=$(git -C "$checkout" cat-file -s "$blob") || bg_die 'Release Compose file is missing'
   (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
   git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
-  app_compose_matches_control "$SCRIPT_ROOT/../../controller/app-compose.yml" "$destination" ||
-    bg_die 'Release Compose differs from protected control settings'
   release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
   printf 'Release Compose commit: %s, SHA-256: %s\n' "$source_sha" "${release_hash%% *}"
 }
@@ -241,7 +239,7 @@ app_prepare() {
   project_directory=$(dirname -- "$compose")
   if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
     RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
-    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
+    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"; if [[ -n ${RELEASE_COMPOSE_MODEL:-} ]]; then rm -f -- "$RELEASE_COMPOSE_MODEL"; fi' EXIT
     app_release_compose "$RELEASE_COMPOSE_FILE"
     compose=$RELEASE_COMPOSE_FILE
   else
@@ -255,7 +253,23 @@ app_prepare() {
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"
   app_push_settings
   local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory" --env-file /dev/null -f "$compose")
-  app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
+  app_check
+  if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
+    RELEASE_COMPOSE_MODEL=$(mktemp "$APP_DIR/release-compose-model.XXXXXX")
+    chmod 600 "$RELEASE_COMPOSE_MODEL"
+    "${args[@]}" config --no-interpolate --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
+    jq -e 'all(.services[]; has("env_file") | not)' "$RELEASE_COMPOSE_MODEL" >/dev/null 2>&1 ||
+      bg_die 'Release Compose must receive environment values from the workflow'
+    "${args[@]}" config --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
+    app_validate_release_compose "$RELEASE_COMPOSE_MODEL" || bg_die 'Release Compose violates the deployment contract'
+    # Compose config already escapes literal dollars for reuse as an input file.
+    # Execute this validated snapshot without resolving external inputs again.
+    cp -- "$RELEASE_COMPOSE_MODEL" "$RELEASE_COMPOSE_FILE"
+    rm -f -- "$RELEASE_COMPOSE_MODEL"
+    RELEASE_COMPOSE_MODEL=
+  else
+    "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
+  fi
   app_check
   existing=$(docker ps -aq --no-trunc --filter "name=^/$CONTAINER$") || bg_die 'Cannot enumerate application containers'
   if [[ -n "$existing" ]]; then
