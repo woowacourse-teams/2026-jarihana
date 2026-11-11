@@ -132,6 +132,8 @@ export class Renderer {
     this.chordArcSides = new WeakMap();
     this.nextChordArcSide = { horizontal: 1, vertical: -1 };
     this.hurtUntil = -1;
+    // 맞히거나 맞지 않은 때의 얼굴. 첫 화면 온라인 매칭 카드의 상대 판은 사나운 얼굴(1)을 쓴다.
+    this.restingExpression = 0;
     this.reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.resize = new ResizeObserver(() => this.resizeCanvas());
     this.resize.observe(canvas);
@@ -568,7 +570,7 @@ export class Renderer {
           this.sprite(13, x - vector[0] * 20, y - vector[1] * 20, 28, 28, age * 2, 1 - age / 0.14);
       }
     }
-    let expression = 0;
+    let expression = this.restingExpression ?? 0;
     if (time < this.hurtUntil) expression = 3;
     else if (
       this.lastHit &&

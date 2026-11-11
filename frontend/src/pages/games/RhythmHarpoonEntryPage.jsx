@@ -7,7 +7,6 @@ import {
   RHYTHM_PRACTICE_ENABLED,
   RHYTHM_SINGLE_START_PATH
 } from "../../features/game/rhythm/availability.js";
-import { RhythmBoardArt } from "../../features/game/rhythm/RhythmBoardArt.jsx";
 import { RhythmDemoBoard } from "../../features/game/rhythm/RhythmDemoBoard.jsx";
 import { RhythmModeArt } from "../../features/game/rhythm/RhythmModeArt.jsx";
 import {
@@ -22,7 +21,8 @@ import "./games.css";
 
 // 게임방 목록과 같은 카드 모양으로 싱글 플레이와 온라인 매칭 중 하나를 고르고,
 // 그 아래의 TUTORIAL 카드(따라 하기)로 소리부터 익힐 수 있다.
-// 혼자 연습을 닫아 둔 동안에는 싱글 플레이 대신 공식 도전 카드를 두고, 카드 그림 자리에서 실제 판이 자동으로 돈다.
+// 혼자 연습을 닫아 둔 동안에는 싱글 플레이 대신 공식 도전 카드를 둔다. 두 카드의 그림 자리에서는 실제 판이 자동으로 돌고,
+// 온라인 매칭 카드는 내 판과 상대 판 두 개를 나란히 돌린다.
 // 처음 온 사람(tutorialPrompt.js의 쿠키)에게는 들어오자마자 튜토리얼을 볼지 한 번 묻는다.
 export function RhythmHarpoonEntryPage() {
   useEscapeBack("/games");
@@ -93,7 +93,7 @@ export function RhythmHarpoonEntryPage() {
               className="games-artwork games-card__visual rhythm-entry__visual"
               aria-hidden="true"
             >
-              <RhythmBoardArt variant="duo" />
+              <RhythmDemoBoard variant="duo" />
             </div>
             <div className="games-card__body">
               <h2>온라인 매칭</h2>

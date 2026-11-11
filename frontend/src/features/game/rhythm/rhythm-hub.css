@@ -41,6 +41,11 @@
 .rhythm-entry__visual .rhythm-demo {
   position: absolute;
   inset: 0;
+  container-type: size;
+}
+.rhythm-entry__visual .rhythm-demo__boards {
+  position: absolute;
+  inset: 0;
 }
 .rhythm-entry__visual .rhythm-demo__board {
   position: absolute;
@@ -56,6 +61,21 @@
 }
 .rhythm-entry__visual .rhythm-demo.is-ready .rhythm-demo__board {
   opacity: 1;
+}
+/* 온라인 매칭 카드: 판 두 개를 그림(.rhythm-board-art--duo)과 같은 크기로 나란히 둔다.
+   판은 정사각형이어야 하므로 그림 칸의 너비 절반과 높이 중 작은 쪽에 맞춘다. */
+.rhythm-entry__visual .rhythm-demo--duo .rhythm-demo__boards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.rhythm-entry__visual .rhythm-demo--duo .rhythm-demo__board {
+  position: static;
+  inline-size: min(190px, calc(50cqi - 5px - var(--space-4)), calc(100cqb - 2 * var(--space-4)));
+  block-size: auto;
+  border-radius: 14px;
+  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .rhythm-entry__visual .rhythm-demo__board {

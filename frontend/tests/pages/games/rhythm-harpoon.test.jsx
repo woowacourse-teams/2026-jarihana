@@ -66,7 +66,7 @@ it("opens the rhythm game from the game catalog without loading it in the catalo
   expect(mountPracticeGame).not.toHaveBeenCalled();
 });
 
-it("starts from the official challenge card while practice is closed and plays the real board on it", () => {
+it("starts from the official challenge card while practice is closed and plays real boards on both cards", () => {
   render(<RhythmHarpoonEntryPage />);
   const back = screen.getByRole("link", { name: "게임방" });
   expect(back).toHaveAttribute("href", "/games");
@@ -76,9 +76,15 @@ it("starts from the official challenge card while practice is closed and plays t
   const [singleCard, onlineCard] = screen.getAllByRole("article");
   expect(singleCard).toHaveClass("games-card", "games-card--playable");
   expect(singleCard).toHaveAccessibleName("공식 도전");
-  // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다.
-  expect(mountDemoBoard).toHaveBeenCalledTimes(1);
-  expect(singleCard.querySelector("canvas.rhythm-demo__board")).toBeInTheDocument();
+  // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다. 온라인 매칭 카드는 내 판과 상대 판 두 개다.
+  expect(mountDemoBoard).toHaveBeenCalledTimes(2);
+  expect(singleCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(1);
+  expect(onlineCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(2);
+  const [singleDemo, onlineDemo] = mountDemoBoard.mock.calls.map(([options]) => options);
+  expect(singleCard).toContainElement(singleDemo.canvas);
+  expect(singleDemo.rivalCanvas).toBeNull();
+  expect(onlineCard).toContainElement(onlineDemo.canvas);
+  expect(onlineCard).toContainElement(onlineDemo.rivalCanvas);
   const single = screen.getByRole("link", { name: "공식 도전 시작" });
   expect(singleCard).toContainElement(single);
   expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
