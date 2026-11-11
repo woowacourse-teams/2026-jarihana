@@ -29,6 +29,7 @@ export function createRoomLighting(scene) {
   ambient.name = "room-skylight";
   const sun = new THREE.DirectionalLight(0xffe1b4, 2.1);
   sun.name = "room-sun-moonlight";
+  sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 0.1, far: 80 });
   sun.shadow.normalBias = 0.035;
@@ -121,7 +122,6 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
     sun.intensity = 2.1 * atmosphere.sunlight / 100;
     const angle = THREE.MathUtils.degToRad(atmosphere.sunAngle);
     sun.position.set(Math.sin(angle) * 12, 24, Math.cos(angle) * 12);
-    sun.castShadow = atmosphere.shadows && atmosphere.sunlight > 0;
     sun.shadow.radius = 1 + atmosphere.shadowSoftness / 15;
     lampColor.copy(cool).lerp(warm, warmth);
     let lampStrength = atmosphere.lamps / 100;
@@ -142,7 +142,6 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
       sun.position.set(Math.sin(azimuth) * 28, 4 + elevation * 24, Math.cos(azimuth) * 28);
       sun.color.set(night ? "#a9c4ff" : twilight ? "#ffc18b" : "#fff1d5");
       sun.intensity *= (night ? 0.18 : twilight ? 0.65 : 1.1) * transmission;
-      sun.castShadow = atmosphere.shadows && sun.intensity > 0;
       sun.shadow.radius = Math.max(sun.shadow.radius, overcast ? 6 : 2);
       ambient.color.set(night ? "#899bc5" : twilight ? "#d9a5a0" : overcast ? "#b9c9d4" : "#d1e5ff");
       ambient.groundColor.set(night ? "#4b4c64" : twilight ? "#9b756b" : "#a6aa91");
@@ -158,6 +157,11 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
       generalStrength = night ? 1 : twilight ? 0.8 : overcast ? 0.67 : 0.4;
       windowColor.set(night ? "#566b9c" : twilight ? "#e7b497" : overcast ? "#a3b8c6" : "#b4d8ec");
     }
+    // Keep the shadow shader variant stable, but stop redrawing its map while disabled.
+    const shadows = Boolean(atmosphere.shadows && sun.intensity > 0);
+    sun.shadow.intensity = shadows ? 1 : 0;
+    sun.shadow.autoUpdate = shadows;
+    sun.shadow.needsUpdate = shadows || sun.shadow.map === null;
     if (building) {
       roomMin.value.set(building.minX, -0.025, building.minZ);
       roomMax.value.set(building.maxX, building.height + 0.025, building.maxZ);

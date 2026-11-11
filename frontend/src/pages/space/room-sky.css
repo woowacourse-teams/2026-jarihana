@@ -7,34 +7,6 @@
     radial-gradient(ellipse at center 72%, color-mix(in srgb, var(--sky-horizon) 55%, transparent), transparent 59%),
     linear-gradient(180deg, var(--sky-top), var(--sky-middle) 53%, var(--sky-horizon));
 }
-.room-sky__details { position: absolute; inset: 0; }
-.room-sky__stars {
-  position: absolute;
-  inset: 0 0 38%;
-  opacity: .78;
-  background:
-    radial-gradient(circle at 23px 35px, #eaf2ff 1px, transparent 1.7px) 0 0 / 127px 104px,
-    radial-gradient(circle at 80px 19px, #eaf2ffbf 1px, transparent 1.6px) 12px 15px / 173px 83px,
-    radial-gradient(circle at 49px 59px, #b0c3f08c .75px, transparent 1.4px) 0 0 / 96px 118px;
-  mask-image: linear-gradient(#000 72%, transparent);
-}
-.room-sky__clouds {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 87%;
-  fill: color-mix(in srgb, var(--sky-horizon) 80%, white);
-  opacity: .48;
-  filter: drop-shadow(0 10px 20px color-mix(in srgb, var(--sky-horizon) 70%, transparent));
-}
-.room-sky[data-phase="night"] .room-sky__clouds { fill: #8092b9; opacity: .24; }
-.room-sky:not([data-weather="clear"]) .room-sky__clouds {
-  width: 124%;
-  left: -12%;
-  transform: scaleY(1.35);
-  fill: color-mix(in srgb, var(--sky-middle) 70%, white);
-  opacity: .53;
-}
 .room-sky__precipitation {
   position: absolute;
   inset: -100px 0 0;

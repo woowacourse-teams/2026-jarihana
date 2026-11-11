@@ -90,7 +90,7 @@ function fitFlightProjection(camera, rect, canvasRect, distance) {
 
 export function frameRoomCamera(camera, { layout, template, view = "perspective", floorView = "all", aspect = 1, zoom = 1, focusBuilding = false }) {
   const front = view === "front";
-  const exterior = view === "exterior" && layout.terrace;
+  const exterior = view === "exterior";
   const upper = Boolean(layout.mezzanine) && floorView === "mezzanine";
   const buildingOnly = focusBuilding && view === "perspective" && !upper;
   const closeInterior = view === "perspective" && !upper && aspect >= 1.35;

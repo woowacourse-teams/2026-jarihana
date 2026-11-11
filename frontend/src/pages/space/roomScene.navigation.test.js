@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createRoomScene } from "./roomScene";
+import { createRoomRendering } from "./roomRendering";
 import * as roomState from "./roomState";
 import { pickRoomItem } from "./roomPicking";
 import { createRoomLighting } from "./roomLighting";
@@ -53,9 +54,9 @@ jest.mock("./roomLighting", () => ({ createRoomLighting: jest.fn((scene) => {
   scene.add(light);
   return jest.fn();
 }) }));
-jest.mock("./roomRendering", () => ({ createRoomRendering: (renderer, scene) => ({
+jest.mock("./roomRendering", () => ({ createRoomRendering: jest.fn((renderer, scene) => ({
   render: (camera) => renderer.render(scene, camera), prepareFlight: jest.fn(), resize: jest.fn(), dispose: jest.fn()
-}) }));
+})) }));
 jest.mock("./roomPicking", () => ({ pickRoomItem: jest.fn() }));
 
 let runtime;
@@ -612,4 +613,118 @@ test("live board captions and memory textures replace snapshots, clear on errors
   lateLoad.onLoad(lateLoad.texture);
   expect(dispose).toHaveBeenCalled();
   expect(JSON.stringify(savedRoom)).toBe(saved);
+});
+
+
+test("template loading remains active until shader preparation and the first ready frame complete", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let resolveCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolveCompilation = resolve; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  renderer.render.mockClear();
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  expect(rendering.compile).toHaveBeenCalledTimes(1);
+  expect(renderer.render).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true]]);
+  resolveCompilation(); await Promise.resolve();
+  expect(rendering.prepareAssets).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true]]);
+  while (frames.length) frames.shift()(16);
+  expect(renderer.render).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true], [false]]);
+});
+
+test("a superseded or disposed room cannot release a newer template loader", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  const resolves = [];
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolves.push(resolve); }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(16);
+  resolves[0](); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition).not.toHaveBeenCalledWith(false);
+  runtime.dispose(); runtime = undefined;
+  resolves[1](); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+});
+
+test("a superseded compilation failure cannot cancel a template waiting for its loading paint", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onError = jest.fn();
+  callbacks.onTemplateTransition = jest.fn();
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let rejectCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve, reject) => { rejectCompilation = reject; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  rejectCompilation(new Error("superseded shader"));
+  await Promise.resolve(); await Promise.resolve();
+  expect(callbacks.onError).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition).not.toHaveBeenCalledWith(false);
+  while (frames.length) frames.shift()(16);
+  expect(rendering.compile).toHaveBeenCalledTimes(2);
+});
+
+test("a lost WebGL context invalidates outstanding asset preparation", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onError = jest.fn();
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let resolveCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolveCompilation = resolve; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  renderer.domElement.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+  expect(callbacks.onError).toHaveBeenCalledTimes(1);
+  resolveCompilation(); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+});
+
+test("returning to the preparing template before a queued switch paints eventually releases loading", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  const resolves = [];
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolves.push(resolve); }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  const climbing = roomState.createInitialRoom("climbing");
+  runtime.update(climbing, null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  expect(rendering.compile).toHaveBeenCalledTimes(1);
+  renderer.render.mockClear();
+
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  runtime.update(climbing, null, "perspective", 0.7);
+  while (frames.length) frames.shift()(16);
+  for (const resolve of resolves) resolve();
+  await Promise.resolve();
+  while (frames.length) frames.shift()(32);
+
+  expect(rendering.prepareAssets).toHaveBeenCalledTimes(1);
+  expect(renderer.render).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition).toHaveBeenLastCalledWith(false);
 });

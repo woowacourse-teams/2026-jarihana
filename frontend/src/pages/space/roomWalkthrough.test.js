@@ -316,6 +316,33 @@ test("visiting from the web hero starts in the yard facing the entrance and paus
   walk.dispose();
 });
 
+test("mouse movement over the scene still works on the first visit if pointer lock is denied", () => {
+  const { walk, container } = setup();
+  container.requestPointerLock = () => document.dispatchEvent(new Event("pointerlockerror"));
+  const direction = () => walk.camera.getWorldDirection(new THREE.Vector3()).x;
+  const move = (target) => {
+    const event = new MouseEvent("mousemove", { bubbles: true });
+    Object.defineProperty(event, "movementX", { value: 35 });
+    target.dispatchEvent(event);
+  };
+  try {
+    walk.update("front", "#536bd6");
+    walk.requestVisitPointerLock();
+    walk.update("firstPerson", "#536bd6", false, { allowFlightLook: true });
+    move(document.body);
+    expect(direction()).toBeCloseTo(0);
+    move(container);
+    expect(direction()).toBeGreaterThan(0.1);
+    walk.update("firstPerson", "#536bd6");
+    container.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    const released = direction();
+    move(container);
+    expect(direction()).toBeCloseTo(released);
+  } finally {
+    walk.dispose();
+  }
+});
+
 test("the visit locks the pointer through the camera flight and rotates until Escape releases it", () => {
   const { walk, container } = setup();
   let owner = null;
@@ -337,13 +364,15 @@ test("the visit locks the pointer through the camera flight and rotates until Es
     walk.update("front", "#536bd6");
     walk.requestVisitPointerLock();
     expect(owner).toBe(container);
-    expect(container).not.toHaveFocus();
+    expect(container).toHaveFocus();
 
     walk.update("front", "#536bd6", false);
-    walk.update("firstPerson", "#536bd6", false);
+    walk.update("firstPerson", "#536bd6", false, { allowFlightLook: true });
     expect(owner).toBe(container);
     mouseMove();
-    expect(direction()).toBeCloseTo(0);
+    expect(direction()).toBeGreaterThan(0.1);
+    keyDown("w", "KeyW");
+    expect(frames.size).toBe(0);
 
     walk.update("firstPerson", "#536bd6");
     expect(container.requestPointerLock).toHaveBeenCalledTimes(1);
@@ -467,7 +496,7 @@ test("touch can drag to look without locking the pointer", () => {
   walk.dispose();
 });
 
-test.each(["firstPerson", "thirdPerson"])("%s restores mouse look and movement after using a plant", (view) => {
+test.each(["firstPerson", "thirdPerson"])("%s keeps mouse look locked while choosing a plant action with number keys", (view) => {
   const room = { ...createInitialRoom("lounge"), items: [] };
   const plant = itemInteraction({ id: "qa-plant", kind: "plant", scaleY: 2, rotation: 0, x: PLAYER.spawn.x, z: PLAYER.spawn.z - 1.2 }, 0, false, room);
   const scene = new THREE.Scene();
@@ -491,9 +520,8 @@ test.each(["firstPerson", "thirdPerson"])("%s restores mouse look and movement a
     press("Enter");
     expect(owner).toBe(container);
     press("e", "KeyE");
-    expect(owner).toBeNull();
-    document.body.appendChild(document.createElement("button")).focus();
-    walker.chooseInteraction(0);
+    expect(owner).toBe(container);
+    press("1", "Digit1");
     expect(onInteract).toHaveBeenCalledWith(plant, expect.objectContaining({ id: "water" }));
     expect(owner).toBe(container);
     expect(container).toHaveFocus();
@@ -513,15 +541,16 @@ test.each(["firstPerson", "thirdPerson"])("%s restores mouse look and movement a
 
     walker.command("reset");
     press("e", "KeyE");
-    expect(owner).toBeNull();
+    expect(owner).toBe(container);
     press("e", "KeyE");
     expect(owner).toBe(container);
     press("e", "KeyE");
-    press("Escape");
-    expect(owner).toBeNull();
-    press("e", "KeyE");
     press("2", "Digit2");
     expect(onInteract).toHaveBeenCalledWith(plant, expect.objectContaining({ id: "flowerPink" }));
+    expect(owner).toBe(container);
+    expect(container.requestPointerLock).toHaveBeenCalledTimes(1);
+    expect(document.exitPointerLock).not.toHaveBeenCalled();
+    press("Escape");
     expect(owner).toBeNull();
   } finally {
     walker.dispose();

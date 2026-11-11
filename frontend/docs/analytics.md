@@ -34,8 +34,8 @@ DB 테이블·스키마는 추가하지 않는다.
 ## 아지트 놀러가기 HUD
 
 시점 전환은 기존 `space_mode_first_person`, `space_mode_third_person`을 유지한다.
-더보기는 `group_playbar_toggle`, 조작 도움말 열기·닫기는 `space_play_help_open`, `space_play_help_close`를 사용한다.
-공지·활동·음악 바로가기와 채팅, 인사, 꾸미기는 기존 동작 식별자를 유지한다.
+왼쪽 메뉴는 `group_playbar_toggle`, 시점 설정은 `space_play_settings_toggle`, 조작 도움말 열기·닫기는 `space_play_help_open`, `space_play_help_close`를 사용한다.
+공지·활동·음악 바로가기와 채팅, 꾸미기는 기존 동작 식별자를 유지한다.
 꾸미기 카메라 회전과 광각 조절은 `space_camera_turn_left`, `space_camera_turn_right`, `space_camera_wide_angle`을 사용한다.
 음소거는 방문자 개인 재생 설정의 조작이며 대기열이나 공유 재생 상태 변경과 구분한다.
 

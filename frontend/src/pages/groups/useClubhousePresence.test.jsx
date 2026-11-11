@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useChatSession } from "../../features/chat/ChatSessionProvider.jsx";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { useClubhousePresence } from "./useClubhousePresence.js";
@@ -14,7 +14,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   useInfiniteGroupMembers.mockReturnValue({ data: { pages: [{ items: [{ memberId: 2 }, { memberId: 8 }] }] }, fetchNextPage: jest.fn(), hasNextPage: false });
   session = { activeRoomId: "1", selectBackgroundRoom: jest.fn(), chat: {
-    send: jest.fn().mockResolvedValue(message("11")),
     history: { data: { items: [message("10")], latestSequence: "10", status: "ACTIVE" } }
   } };
   useChatSession.mockImplementation(() => session);
@@ -50,30 +49,10 @@ test("initial history stays silent and only confirmed new messages get eight sec
   expect(hook.result.current.speechMessages).toEqual([]);
 });
 
-test("greetings only send on explicit calls to the currently selected authorized room", async () => {
-  const hook = setup();
-  expect(session.chat.send).not.toHaveBeenCalled();
-  await act(async () => expect(await hook.result.current.greet()).toBe(true));
-  expect(session.chat.send).toHaveBeenCalledTimes(1);
-  session.activeRoomId = "2";
-  hook.rerender();
-  expect(hook.result.current.canGreet).toBe(false);
-  await act(async () => expect(await hook.result.current.greet()).toBe(false));
-  expect(session.chat.send).toHaveBeenCalledTimes(1);
-});
-
-test("failed sends report failure and release the greeting lock", async () => {
-  session.chat.send.mockResolvedValue(false);
-  const hook = setup();
-  await act(async () => expect(hook.result.current.greet()).rejects.toThrow("인사를 보내지 못했어요"));
-  expect(hook.result.current.greetingBusy).toBe(false);
-});
-
-test("visitors do not subscribe or send and immersive departure releases background room", () => {
+test("visitors do not subscribe and immersive departure releases background room", () => {
   const hook = setup();
   expect(session.selectBackgroundRoom).toHaveBeenCalledWith("1");
   hook.rerender({ listen: true, member: false });
   expect(session.selectBackgroundRoom).toHaveBeenLastCalledWith(undefined);
-  expect(hook.result.current.canGreet).toBe(false);
-  expect(session.chat.send).not.toHaveBeenCalled();
+  expect(hook.result.current.speechMessages).toEqual([]);
 });

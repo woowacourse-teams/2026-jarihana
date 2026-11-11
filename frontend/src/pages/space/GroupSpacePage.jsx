@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
@@ -78,11 +78,18 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse }) {
   }, [savedRoom, defaultRoomName]);
   const errors = [space.isError && space.error, group.isError && group.error].filter(Boolean);
   const accessError = errors.find((error) => [401, 403, 404].includes(error.status));
-  if (accessError || (!hasLoaded && (group.isError || space.isError))) {
+  const failed = Boolean(accessError || (!hasLoaded && (group.isError || space.isError)));
+  const pending = group.isPending || space.isPending || !space.isFetchedAfterMount || !group.data || !space.data;
+  const unavailableStatus = failed ? "error" : pending ? "loading" : !room ? "error" : null;
+  const onSceneStatus = clubhouse?.onSceneStatus;
+  useEffect(() => {
+    if (unavailableStatus) onSceneStatus?.(unavailableStatus);
+  }, [onSceneStatus, unavailableStatus]);
+  if (failed) {
     return <SpaceError clubhouse={clubhouse} groupId={groupId} error={accessError ?? errors[0]}
       onRetry={() => { void group.refetch(); void space.refetch(); }} />;
   }
-  if (group.isPending || space.isPending || !space.isFetchedAfterMount || !group.data || !space.data) {
+  if (pending) {
     return <div className="route-loading"><Skeleton aria-label="우리 모임 공간 불러오는 중" /></div>;
   }
   if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} />;

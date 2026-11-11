@@ -29,11 +29,11 @@
 .clubhouse-loading p {
   margin: 0;
   padding: var(--space-1) var(--space-4);
-  border: 1px solid #d9c9bd;
+  border: 1px solid var(--studio-line);
   border-radius: var(--radius-pill);
   background: var(--studio-panel);
   color: var(--studio-ink);
-  box-shadow: 0 3px 0 #674c7933;
+  box-shadow: var(--studio-shadow);
   font-size: var(--text-label);
   font-weight: 700;
 }
