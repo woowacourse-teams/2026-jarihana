@@ -26,7 +26,8 @@ bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 node infra/blue-green-deploy/tests/actions/test-http-metrics.mjs
 # Docker, Java 21, backend bootJar와 필요한 이미지를 준비한 통합 시험
 bash infra/blue-green-deploy/tests/actions/run-local-e2e.sh
-BG_COMPOSE_IMAGE=<로컬에서-빌드한-백엔드-이미지> \
+read -r -p '검증할 로컬 백엔드 이미지: ' BG_COMPOSE_IMAGE
+BG_COMPOSE_IMAGE="$BG_COMPOSE_IMAGE" \
   bash infra/blue-green-deploy/tests/actions/run-compose-e2e.sh
 bash infra/blue-green-deploy/tests/actions/run-monitoring-acl.sh
 actionlint .github/workflows/backend-bluegreen-deploy.yml \

@@ -23,7 +23,7 @@
 | 기존 운영의 EC2 교체, 주소/instance ID 변경 | 새 호스트 준비까지 진행. 기존 저널과 DB 권한 이관은 [수동 조사](../recovery.md#수동-조사)에서 별도 판단 |
 
 `coordinator.sh`의 plan은 기존 저널의 topology digest가 다르거나 미완료 상태면 거부한다.
-이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
+이 경우 실제 상태 확인과 이관안 검토 없이 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
 기존 환경의 첫 적용은 [SHA 배포 전환](../release-sha.md)을 따른다.
 
 ## 필수 설정
@@ -61,7 +61,7 @@ prod는 아래 경로의 환경 부분을 prod로 사용하고 dev 설정을 복
 | --- | --- |
 | `/etc/jarihana-deploy/<env>/coordinator.json` | root 소유, 실제 topology, Nginx와 telemetry 설정 |
 | 각 앱의 같은 경로 아래 `app-A.json` 또는 `app-B.json` | 해당 호스트의 local_slot, 포트와 파일 경로 |
-| `app-compose.yml` | 초기 설치와 dev 등의 비릴리스 경로 기준. 일반 prod prepare는 배포 main SHA의 Compose를 별도 검증해 사용 |
+| `app-compose.yml` | 새 서버의 최초 수동 앱 기동용. 일반 Blue-Green prepare는 prod/dev 모두 해당 실행 SHA의 Compose를 사용하며 이 설치본을 읽지 않음 |
 | `worker-token`, `grant-key`, `known-hosts` | 관리자 소유 비밀 파일과 검증한 Nginx host key |
 | `/var/lib/jarihana-deploy/<env>/state.json` | coordinator 소유 0700 디렉터리, 저널 0600 |
 | 각 앱의 `/var/lib/jarihana-deploy/<env>/app-A` 또는 `app-B` | 해당 runner 소유 0700, worker/stop intent와 잠금, 실행 기록 |

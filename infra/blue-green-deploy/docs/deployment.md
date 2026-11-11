@@ -12,7 +12,7 @@
 
 운영 배포 스크립트, Nginx 템플릿과 앱 Compose는 모두 해당 실행을 시작한 main 커밋의
 `github.sha`를 사용한다. 대기 중 main에 다른 커밋이 들어와도 이번 실행의 SHA는 바뀌지 않는다.
-제어태그 생성, GitHub 변수 변경과 서버의 버전 pin 교체는 필요 없다.
+최초 전환 이후에는 배포 버전을 지정하기 위한 제어태그 생성, GitHub 변수 변경과 서버의 버전 pin 교체가 필요 없다.
 개발 Blue-Green도 같은 방식으로 해당 develop 실행의 SHA를 사용한다.
 서버의 주소, 권한, 토큰과 설치형 watchdog/수집기는 [서버 구성](server-setup/README.md)에서 관리한다.
 
@@ -76,7 +76,8 @@ prepare 로그에 기록한다. 렌더링된 환경 변수와 비밀값은 로�
 Variables와 Secrets는 앱 작업 workflow에서 전달하므로 새 입력이 필요하면 해당 전달 항목도 추가한다.
 원본 임시 파일은 권한 0600으로 만들고 종료 시 삭제한다. 렌더링된 비밀값을 별도 파일로 저장하지 않는다.
 
-`resolve`는 배포 커밋에 앱 Compose가 존재하는지 확인한다. 앱 runner의 `prepare`는 같은 SHA의
+운영 deploy에서 백엔드를 교체하는 경우 `resolve`는 배포 커밋에 앱 Compose가 존재하는지 확인한다.
+frontend-only에서는 이 검사와 앱 `prepare`를 건너뛰고 기존 백엔드를 유지한다. 앱 runner의 `prepare`는 같은 SHA의
 원본을 읽고 Compose 검사를 수행한다. 검사 실패 시 기존 대기 컨테이너의 중지/삭제와 후보 기동 전에 멈춘다.
 이 시점에는 대기 EC2가 시작됐을 수 있으며, 오류 시 두 EC2와 증거를 보존하는 실패 절차를 따른다.
 `prepare` 실패는 이미 만든 배포 저널을 자동 완료로 되돌리지 않는다. `NEEDS_ATTENTION`이나 pending이

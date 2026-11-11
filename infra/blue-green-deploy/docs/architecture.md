@@ -190,8 +190,9 @@ GitHub API 응답의 잔여 요청은 새 plan/bootstrap 900, 일반 진행 500,
 
 요청 예산과 캐시는 [공통 실행 코드](../scripts/actions/common.sh)를 따른다.
 
-watchdog은 검토한 설치용 checkout과 실행 도구를 `/opt/jarihana-deploy`에 준비한다.
-[watchdog unit](../controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
+watchdog의 기본 unit 경로는 `/opt/jarihana-deploy`이며, [운영 설치 절차](server-setup/coordinator.md#watchdog-설치)는
+prod drop-in으로 `WorkingDirectory`와 `ExecStart`를 `/opt/jarihana-prod-deploy/releases/<SETUP_SHA>`의
+설치용 checkout으로 바꾼다. [watchdog unit](../controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
 동일한 저널 잠금과 보호된 설정을 사용한다. pending deadline, heartbeat와 전체 만료를 보고
 NEEDS_ATTENTION만 기록한다. 강제 권한 회수, 허가 재발급이나 EC2 중지는 수행하지 않는다.
 `always()` finalizer도 runner 전원과 네트워크 장애 때 실행을 보장하지 않는다.
