@@ -39,7 +39,7 @@ const INVALID_COPY = {
   EXPIRED: "시작하지 않은 채 시간이 지나 이번 도전은 무효가 됐어요."
 };
 const number = (value) => value.toLocaleString("ko-KR");
-// 공식 도전은 처음부터 다시 할 수 없으므로 키 배치에서 다시 하기 키는 보여 주지 않는다.
+// 랭킹 도전은 처음부터 다시 할 수 없으므로 키 배치에서 다시 하기 키는 보여 주지 않는다.
 const CHALLENGE_KEY_ACTIONS = ["left", "down", "up", "right"];
 const CHALLENGE_SETTINGS_ID = "challenge-settings";
 
@@ -170,7 +170,7 @@ export function RhythmHarpoonChallengePage() {
           <ArrowLeft aria-hidden="true" size={18} />
           {RHYTHM_CHALLENGE_BACK.label}
         </Link>
-        <h1 id="rhythm-challenge-title">공식 도전</h1>
+        <h1 id="rhythm-challenge-title">랭킹 도전</h1>
         <ol className="rhythm-challenge-steps" aria-label="진행 단계">
           {[
             ["options", "옵션"],
@@ -347,7 +347,7 @@ function SettingsDrawer({ open, onClose, options, onChange, settings, onSettings
   }, [open]);
   return (
     <aside
-      aria-label="공식 도전 설정"
+      aria-label="랭킹 도전 설정"
       className={`controls rhythm-drawer rhythm-challenge__drawer${open ? " is-open" : ""}`}
       id={CHALLENGE_SETTINGS_ID}
       inert={open ? undefined : true}
@@ -524,7 +524,7 @@ function ResultStep({ level, result, onRetry, onOptions }) {
           <strong>{number(result.score)}</strong>
         </p>
         <table className="result-table">
-          <caption className="sr-only">공식 도전 결과</caption>
+          <caption className="sr-only">랭킹 도전 결과</caption>
           <thead>
             <tr>
               <th scope="row">

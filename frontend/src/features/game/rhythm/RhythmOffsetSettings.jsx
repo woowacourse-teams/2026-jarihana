@@ -18,7 +18,7 @@ const PLACES = {
     inputId: "lesson-offset",
     action: "rhythm_lesson_offset_change",
     unsaved: "현재 값은 따라 하기에 적용돼요. 이 브라우저에는 저장되지 않아요.",
-    saved: "이 브라우저에 저장했어요. 연습과 공식 도전에도 같은 값이 쓰여요."
+    saved: "이 브라우저에 저장했어요. 연습과 랭킹 도전에도 같은 값이 쓰여요."
   }
 };
 

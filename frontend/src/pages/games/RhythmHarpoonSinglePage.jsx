@@ -13,8 +13,8 @@ import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./rhythm-harpoon.css";
 
-// 혼자 연습과 공식 도전 중 하나를 고른다. 따라 하기는 처음 화면에서 고른다.
-// 혼자 연습을 닫아 둔 동안(availability.js)에는 이 화면 대신 공식 도전의 옵션 화면으로 바로 간다.
+// 혼자 연습과 랭킹 도전 중 하나를 고른다. 따라 하기는 처음 화면에서 고른다.
+// 혼자 연습을 닫아 둔 동안(availability.js)에는 이 화면 대신 랭킹 도전의 옵션 화면으로 바로 간다.
 export function RhythmHarpoonSinglePage() {
   useEscapeBack(RHYTHM_ENTRY_PATH);
   const openChallenge = useOpenChallenge();
@@ -54,7 +54,7 @@ export function RhythmHarpoonSinglePage() {
             >
               <RhythmModeArt kind="record" />
               <span className="eyebrow">RECORD</span>
-              <strong>공식 도전</strong>
+              <strong>랭킹 도전</strong>
               <span>
                 점수가 난이도별 랭킹에 올라가요. 로그인이 필요하고, 시작하면 멈출 수 없어요.
               </span>

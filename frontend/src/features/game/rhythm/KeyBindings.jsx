@@ -8,7 +8,7 @@ function particle(word, withFinal, withoutFinal) {
   return word + (code >= 0 && code < 11172 && code % 28 ? withFinal : withoutFinal);
 }
 
-// actionIds로 보여 줄 동작을 고른다. 공식 도전은 처음부터 다시 할 수 없어 방향 키만 보여 준다.
+// actionIds로 보여 줄 동작을 고른다. 랭킹 도전은 처음부터 다시 할 수 없어 방향 키만 보여 준다.
 // 숨긴 동작의 키도 키 배치에는 남아 있어, 겹치는 키를 고르면 그 동작과 키를 바꾼다.
 export function KeyBindings({ actionIds, keymap, onChange, onCapturingChange }) {
   const [capturing, setCapturing] = useState(null);

@@ -48,7 +48,7 @@ function caughtCopy(result) {
 }
 
 function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext }) {
-  // 연습을 닫아 둔 동안에는 싱글 플레이가 곧 공식 도전이라, 마친 뒤 넘어갈 때 회원 확인을 한다.
+  // 연습을 닫아 둔 동안에는 싱글 플레이가 곧 랭킹 도전이라, 마친 뒤 넘어갈 때 회원 확인을 한다.
   const openChallenge = useOpenChallenge();
   const tryButtons = (again) => (
     <div className="rhythm-lesson__actions">
@@ -133,7 +133,7 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
             onClick={RHYTHM_PRACTICE_ENABLED ? undefined : openChallenge}
             to={RHYTHM_SINGLE_START_PATH}
           >
-            {RHYTHM_PRACTICE_ENABLED ? "싱글 플레이로" : "공식 도전으로"}
+            {RHYTHM_PRACTICE_ENABLED ? "싱글 플레이로" : "랭킹 도전으로"}
           </Link>
           {extra >= 0 && !step.extra ? (
             <button
@@ -168,7 +168,7 @@ export function RhythmHarpoonLessonPage() {
   const [savedSettings] = useState(() => readLessonSettings(browserStorage()));
   const [bpm, setBpm] = useState(savedSettings.bpm);
   const [scrollSpeed, setScrollSpeed] = useState(savedSettings.scrollSpeed);
-  // 입력 지연 보정은 연습, 공식 도전과 같은 저장값을 쓰고 여기서 바꾸면 다음 시도부터 판정에 쓴다.
+  // 입력 지연 보정은 연습, 랭킹 도전과 같은 저장값을 쓰고 여기서 바꾸면 다음 시도부터 판정에 쓴다.
   const [offset, setOffset] = useState(() => readOffset(browserStorage()));
   const [progress, setProgress] = useState(() => readLessonProgress(browserStorage()));
   const [phase, setPhase] = useState("loading");

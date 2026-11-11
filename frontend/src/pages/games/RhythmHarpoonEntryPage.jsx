@@ -21,7 +21,7 @@ import "./games.css";
 
 // 게임방 목록과 같은 카드 모양으로 싱글 플레이와 온라인 매칭 중 하나를 고르고,
 // 그 아래의 TUTORIAL 카드(따라 하기)로 소리부터 익힐 수 있다.
-// 혼자 연습을 닫아 둔 동안에는 싱글 플레이 대신 공식 도전 카드를 둔다. 두 카드의 그림 자리에서는 실제 판이 자동으로 돌고,
+// 혼자 연습을 닫아 둔 동안에는 싱글 플레이 대신 랭킹 도전 카드를 둔다. 두 카드의 그림 자리에서는 실제 판이 자동으로 돌고,
 // 온라인 매칭 카드는 내 판과 상대 판 두 개를 나란히 돌린다.
 // 처음 온 사람(tutorialPrompt.js의 쿠키)에게는 들어오자마자 튜토리얼을 볼지 한 번 묻는다.
 export function RhythmHarpoonEntryPage() {
@@ -63,7 +63,7 @@ export function RhythmHarpoonEntryPage() {
             {RHYTHM_PRACTICE_ENABLED ? (
               <div className="games-card__body">
                 <h2 id="rhythm-entry-single">싱글 플레이</h2>
-                <p>혼자 연습하거나 공식 도전에 나서요.</p>
+                <p>혼자 연습하거나 랭킹 도전에 나서요.</p>
                 <Link
                   className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
                   data-ph-capture-attribute-action="rhythm_single_open"
@@ -75,8 +75,8 @@ export function RhythmHarpoonEntryPage() {
             ) : (
               <div className="games-card__body">
                 <h2 id="rhythm-entry-single">랭킹 도전</h2>
-                <p>난이도를 골라 바로 도전해요. 점수가 랭킹에 올라가고 로그인이 필요해요.</p>
-                {/* 공식 도전은 회원 전용이라 로그인 전이면 여기서 로그인으로 보낸다. */}
+                <p>난이도를 골라 바로 도전해요. 점수가 랭킹에 올라가요.</p>
+                {/* 랭킹 도전은 회원 전용이라 로그인 전이면 여기서 로그인으로 보낸다. */}
                 <Link
                   className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta rhythm-entry__ranked-cta"
                   data-ph-capture-attribute-action="rhythm_ranked_open"

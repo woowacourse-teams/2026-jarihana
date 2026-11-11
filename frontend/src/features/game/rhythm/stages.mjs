@@ -1,7 +1,7 @@
 import { LEVELS } from "./engine.mjs";
 
 // 난이도마다 치는 곡이다. ANOTHER는 스윙 편곡과 전용 채보를, 나머지는 원곡 채보를 단순화해 쓴다.
-// chartVersion은 서버 공식 도전 채보의 판본과 같아야 한다(ranked-run.mjs의 assertRankedVersions).
+// chartVersion은 서버 랭킹 도전 채보의 판본과 같아야 한다(ranked-run.mjs의 assertRankedVersions).
 export const STAGES = Object.freeze({
   original: Object.freeze({
     chartVersion: "bars-13-16-1",

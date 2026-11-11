@@ -14,7 +14,7 @@ const LANE_BUTTONS = [
   ["right", "오른쪽", "→"]
 ];
 
-// 공식 도전의 판이다. 시작 버튼을 누르면 서버에 시작을 알리고 음악을 튼다. 멈추는 버튼은 없다.
+// 랭킹 도전의 판이다. 시작 버튼을 누르면 서버에 시작을 알리고 음악을 튼다. 멈추는 버튼은 없다.
 export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, onError }) {
   const rootReference = useRef(null);
   const callbacks = useRef({ onFinished, onInvalid, onError });
@@ -53,15 +53,15 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
     >
       <div className="rhythm-game__body">
         <div className="game-layout game-layout--ranked">
-          <section className="arena-shell" aria-label="공식 도전 플레이 화면">
-            <div role="application" aria-label="행성이의 리듬 작살 공식 도전 입력">
+          <section className="arena-shell" aria-label="랭킹 도전 플레이 화면">
+            <div role="application" aria-label="행성이의 리듬 작살 랭킹 도전 입력">
               <canvas
                 id="arena"
                 data-ph-capture-attribute-action="rhythm_challenge_arena_focus"
                 width="900"
                 height="900"
                 tabIndex="0"
-                aria-label="공식 도전. 세균 중심이 굵은 판정선에 닿을 때 같은 방향을 눌러요. Esc를 누르면 도전이 무효가 돼요."
+                aria-label="랭킹 도전. 세균 중심이 굵은 판정선에 닿을 때 같은 방향을 눌러요. Esc를 누르면 도전이 무효가 돼요."
               >
                 브라우저의 Canvas 지원이 필요해요.
               </canvas>
@@ -126,7 +126,7 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
             </div>
             <div className="rhythm-hud__card rhythm-hud__stage">
               <span id="loop-info">LOOP 01 / 곡 ×1.00</span>
-              <span>공식 도전 / 멈출 수 없어요</span>
+              <span>랭킹 도전 / 멈출 수 없어요</span>
             </div>
           </div>
         </div>

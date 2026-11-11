@@ -76,7 +76,7 @@ it("starts from the official challenge card while practice is closed and plays r
   const [singleCard, onlineCard] = screen.getAllByRole("article");
   expect(singleCard).toHaveClass("games-card", "games-card--playable");
   expect(singleCard).toHaveAccessibleName("랭킹 도전");
-  expect(screen.queryByText("공식 도전")).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("공식 도전");
   // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다. 온라인 매칭 카드는 내 판과 상대 판 두 개다.
   expect(mountDemoBoard).toHaveBeenCalledTimes(2);
   expect(singleCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(1);
@@ -90,7 +90,8 @@ it("starts from the official challenge card while practice is closed and plays r
   expect(singleCard).toContainElement(single);
   expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
-  expect(singleCard).toHaveTextContent("로그인이 필요해요");
+  expect(singleCard).toHaveTextContent("점수가 랭킹에 올라가요.");
+  expect(singleCard).not.toHaveTextContent("로그인");
   fireEvent.click(single);
   expect(mockLogin).toHaveBeenCalledTimes(1);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
@@ -174,7 +175,7 @@ it("keeps practice and challenge on the single play screen for when practice reo
   expect(screen.queryByRole("link", { name: /따라 하기/ })).not.toBeInTheDocument();
   const practice = screen.getByRole("link", { name: /혼자 연습/ });
   expect(practice).toHaveAttribute("href", "/games/rhythm-harpoon/practice");
-  const challenge = screen.getByRole("link", { name: /공식 도전/ });
+  const challenge = screen.getByRole("link", { name: /랭킹 도전/ });
   expect(challenge).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   expect(challenge).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
   expect(Array.from(practice.parentElement.children)).toEqual([practice, challenge]);
@@ -230,7 +231,7 @@ it("offers the extra 따 step after the three core sounds without counting it to
     settings.onFinish({ stepIndex: 2, auto: false, total: 32, caught: 30, missed: 2, poor: 0, passed: true })
   );
   expect(screen.getByText(/세 소리를 다 익혔어요/)).toBeInTheDocument();
-  const finish = screen.getByRole("link", { name: "공식 도전으로" });
+  const finish = screen.getByRole("link", { name: "랭킹 도전으로" });
   expect(finish).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   fireEvent.click(screen.getByRole("button", { name: "번외: 따 익히기" }));
   expect(screen.getByRole("heading", { name: "따 = 초록, 스윙 엇박" })).toBeInTheDocument();
@@ -259,7 +260,7 @@ it("sets the shared input offset in the lesson drawer and applies it to the next
   fireEvent.change(slider, { target: { value: "20" } });
   expect(player.setOffset).toHaveBeenLastCalledWith(20);
   expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("20");
-  expect(screen.getByText(/연습과 공식 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
+  expect(screen.getByText(/연습과 랭킹 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
 });
 
 it("keeps difficulty above the board and hides the other practice settings while playing", () => {

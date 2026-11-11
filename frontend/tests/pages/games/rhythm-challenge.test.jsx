@@ -150,7 +150,7 @@ it("offers ANOTHER Hardest as an official level and starts from the last practic
 it("opens the detailed settings in a side drawer, keeps a summary and closes it with Esc without leaving", () => {
   render(<RhythmHarpoonChallengePage />);
   const toggle = screen.getByRole("button", { name: "설정 바꾸기" });
-  const drawer = screen.getByRole("complementary", { name: "공식 도전 설정" });
+  const drawer = screen.getByRole("complementary", { name: "랭킹 도전 설정" });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   expect(toggle).toHaveAttribute("aria-controls", drawer.id);
   expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_settings_toggle");
@@ -214,7 +214,7 @@ it("changes volume, display and direction keys on the options step, saves them a
   expect(timing).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_timing_feedback_toggle");
   fireEvent.click(timing);
 
-  // 공식 도전은 처음부터 다시 할 수 없어 다시 하기 키는 보여 주지 않는다.
+  // 랭킹 도전은 처음부터 다시 할 수 없어 다시 하기 키는 보여 주지 않는다.
   expect(screen.queryByRole("button", { name: /다시 하기 키 바꾸기/ })).not.toBeInTheDocument();
   const left = screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 A" });
   fireEvent.click(left);

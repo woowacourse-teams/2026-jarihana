@@ -120,7 +120,7 @@ export function readPracticeSettings(storage) {
   }
 }
 
-// 공식 도전 옵션에서 바꾼 음량과 표시 설정을 연습 설정과 같은 곳에 남긴다.
+// 랭킹 도전 옵션에서 바꾼 음량과 표시 설정을 연습 설정과 같은 곳에 남긴다.
 // 연습에서 마지막으로 고른 난이도와 배속은 건드리지 않고, 저장된 값이 없을 때만 fallback을 쓴다.
 export function writePlaySettings(storage, { volume, timingFeedback, labels }, fallback) {
   const saved = readPracticeSettings(storage);

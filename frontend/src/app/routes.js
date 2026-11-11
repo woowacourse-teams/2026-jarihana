@@ -15,7 +15,7 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "GomokuInvitationPage", path: "/games/gomoku/invite/:token" },
   { access: "public", page: "StickHalvingRoomPage", path: "/games/stick-halving" },
   { access: "public", page: "RhythmHarpoonEntryPage", path: "/games/rhythm-harpoon" },
-  // 혼자 연습을 닫아 둔 동안에는 싱글 플레이가 곧 공식 도전이라 옵션 화면으로 바로 보내고,
+  // 혼자 연습을 닫아 둔 동안에는 싱글 플레이가 곧 랭킹 도전이라 옵션 화면으로 바로 보내고,
   // 연습 주소는 누구나 볼 수 있는 처음 화면으로 보낸다.
   {
     access: "public",
