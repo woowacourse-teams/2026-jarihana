@@ -23,10 +23,19 @@
 복구한다. 정상 롤백도 Actions 결과는 실패다. HTTP만 복구됐으면 전체 복구 성공이 아니다.
 앱 롤백으로 DB 스키마, 저장된 데이터나 이미 발송한 알림을 되돌리지 않는다.
 
+## 앱 Compose와 이전 배포 복구
+
+전환 후 확정 전 자동 롤백은 남아 있는 이전 앱 컨테이너의 트래픽과 worker를 복구한다.
+최신 Compose로 이전 앱을 재생성하지 않으며, Compose를 자동으로 다시 설치하는 rollback job도 없다.
+컨테이너 삭제나 호스트 교체로 이전 앱을 재구성해야 한다면 이전 성공 실행의 소스 SHA와 이미지 digest를
+확인하고, 그 SHA의 앱 Compose를 다시 가져와 사용한다. 환경 변수/secret 호환성과 현재 DB 스키마도
+함께 확인한다. 새 배포의 Compose와 이전 이미지를 임의로 조합하지 않는다.
+이 재구성은 관리자 복구이며, 기존 deploy 입력으로 임의의 과거 backend 트리 배포를 허용하는 변경은 아니다.
+
 ## 복구 허가와 기한
 
 API 복구는 S3 접근과 임시 CLI 준비에 의존하지 않는다. 복구 허가는
-[coordinator의 복구 경로](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
+[coordinator의 복구 경로](../scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
 
 | 복구 작업 | 허가 조건과 기한 |
 | --- | --- |

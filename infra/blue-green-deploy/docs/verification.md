@@ -35,7 +35,13 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
   .github/workflows/backend-prod-deploy.yml .github/workflows/frontend-prod-deploy.yml
 ```
 
-시험별 실행 조건과 대역 범위는 [각 하네스](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/tests/actions/run-tests.sh)에서 확인한다.
+기존 `test-app.sh`와 `test-release-workflow.sh`는 기본/음악 Compose의 같은 main SHA 선택,
+음악 Compose 누락과 다른 SHA 거부,
+v1 검증기 사전 차단과 위험한 Compose 모델을 컨테이너 교체 전에 거부하는 경계를 검사한다.
+Docker 대역을 쓰는 계약 시험과 실제 Compose JSON 파서를 쓰는 검증을 구분한다.
+로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.
+
+시험별 실행 조건과 대역 범위는 [각 하네스](../tests/actions/run-tests.sh)에서 확인한다.
 `run-local-e2e.sh`의 기본 Java 이미지 ID가 로컬에 없다면 검증할 Java 21 이미지를 준비하고
 `BG_E2E_JAVA_IMAGE=<준비한 이미지 ID 또는 digest>`로 지정한다. 두 통합 시험은 dev의 S3 경계 설정을
 명시하되 `IMAGE_CLEANUP_ENABLED=false`로 실행하며 실제 공유 S3 삭제를 시험하지 않는다.
@@ -63,7 +69,7 @@ node infra/monitoring/grafana/deployment/test-provisioning.mjs
 
 관제 구조 검사는 Node.js를 사용한다. PromQL 검사는 Docker의 Prometheus 이미지,
 파일 프로비저닝 검사는 Docker의 Grafana 이미지가 필요하다. 이미지와 준비 절차는
-[모니터링 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/monitoring-deploy.yml)를 따른다.
+[모니터링 workflow](../../../.github/workflows/monitoring-deploy.yml)를 따른다.
 
 ## 검증 범위와 한계
 

@@ -1,5 +1,9 @@
 # 고정 배포 제어 버전 교체
 
+앱 Compose만 변경하고 [배포 계약](deployment.md#운영-백엔드의-compose-선택)을 유지하는 경우에는 이 절차가 필요 없다.
+최초 Compose 검증기 v2 적용, 제어 코드나 watchdog 자체 변경에는 이 절차를 사용한다.
+자동 제어 태그 교체와 root 업그레이드 helper는 제공하지 않는다.
+
 배포 검사 코드는 앱 이미지와 별도로 고정된다. `BLUE_GREEN_CONTROL_REF`만 바꾸면 기존
 완료 저널의 control SHA와 topology digest가 달라 다음 plan이 차단된다. 기존 태그를 이동하거나
 저널의 SHA/digest를 고치지 않고, 관리자가 확인한 정확한 완료 기록에 한해 다음 plan을 허용한다.
@@ -28,7 +32,8 @@
 
 새 `refs/tags/deployment-control-*` 태그는 승인된 커밋에 한 번만 만들고 기존 태그를 이동하지 않는다.
 새 control checkout은 root 소유의 별도 release 디렉터리에 두고 태그와 40자리 SHA를 대조한다.
-세 호스트의 Compose 설치본도 새 release 원본과 비교한다.
+앱 호스트의 설치 Compose는 초기 구성과 비릴리스 경로의 기준 파일로 유지한다.
+일반 운영 prepare에서 사용하는 Compose 원본은 앱 배포 커밋이며 이 설치본과의 byte 일치를 요구하지 않는다.
 
 coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일을 `previous-config.json`이라고 한다.
 원본 저널을 바꾸지 않고 아래 필드를 **새 coordinator.json**에 추가한다. `previous_topology`에는
@@ -71,8 +76,9 @@ coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일
 
 1. 세 호스트의 보호된 설정에 새 `topology.control.ref/sha`를 설치한다. `control_transition`은
    coordinator 설정에만 추가한다. root 소유와 기존 runner/coordinator 읽기 그룹 및 0640 권한을 유지한다.
-2. 필요한 Compose 설치본과 watchdog drop-in의 checkout 경로를 새 release로 맞춘다.
-   앱과 Nginx를 재시작하지 않는다. `systemctl daemon-reload` 후 실제 ExecStart를 대조한다.
+2. 필요한 초기 Compose 설치본을 갱신하고 watchdog drop-in의 `ExecStart`와 `WorkingDirectory`를
+   모두 새 release로 맞춘다. 작업 디렉터리가 더 오래된 SHA를 가리키는 경우도 별도로 확인한다.
+   앱과 Nginx를 재시작하지 않는다. `systemctl daemon-reload` 후 실제 ExecStart와 WorkingDirectory를 대조한다.
 3. coordinator 계정으로 새 checkout의 `bg_config`, `bg_previous_journal`을 실행해 이관 허가와
    백업/원본 일치, 실제 HTTP 슬롯을 검증한다. 이 검사는 저널, worker와 S3 상태를 변경하지 않는다.
    이 단계에서 실패하면 새 배포를 계속 차단하고 보관한 설정과 watchdog 경로로 복구한다.
