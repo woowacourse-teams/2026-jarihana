@@ -7,6 +7,7 @@ import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -104,14 +105,15 @@ class MinigameRunTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.MINIGAME_ROUND_CONFLICT);
 
-        // When: 15초에 다음 막대를 받고 25초 만에 정답을 자른다.
+        // When: 15초에 다음 막대를 받고, 받은 때부터 재면 제한 시간 1초 전에 정답을 자른다.
+        Duration taken = MinigameRun.ROUND_TIME_LIMIT.minusSeconds(1);
         MinigameRun issued = afterFirst.issueRound(2, NOW.plusSeconds(15));
-        RoundCut second = issued.cut(2, issued.currentPuzzle().answerPosition(), NOW.plusSeconds(40));
+        RoundCut second = issued.cut(2, issued.currentPuzzle().answerPosition(), NOW.plusSeconds(15).plus(taken));
 
         // Then
         assertThat(issued.roundEndsAt()).isEqualTo(NOW.plusSeconds(15).plus(MinigameRun.ROUND_TIME_LIMIT));
         assertThat(second.timedOut()).isFalse();
-        assertThat(second.durationMillis()).isEqualTo(25_000);
+        assertThat(second.durationMillis()).isEqualTo(taken.toMillis());
         assertThat(second.score()).isEqualTo(1_000);
     }
 

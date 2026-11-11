@@ -26,14 +26,14 @@ import lombok.NoArgsConstructor;
  * 막대를 내려준 시각부터 자른 시각까지를 걸린 시간으로 잰다. 1번 막대는 판을 시작할 때 내려주고,
  * 2번부터는 결과를 본 회원이 다음 막대를 받을 때 내려준다. 받기 전에는 {@code roundIssuedAt}이 비어 있다.
  * 판은 시작 후 {@link #RUN_TIME_LIMIT} 안에만 다음 막대를 받을 수 있고, 그 뒤로는 이미 받은 막대의 제한 시간 안에서만
- * 자를 수 있다. 그래서 끝난 판은 늦어도 시작 후 11분 3초(판 기한 10분, 막대 제한 시간 60초, 여유 3초) 안에 끝나고, 이벤트 순위는 마감 뒤 그 안에 확정된다.
+ * 자를 수 있다. 그래서 끝난 판은 늦어도 시작 후 10분 13초(판 기한 10분, 막대 제한 시간 10초, 여유 3초) 안에 끝나고, 이벤트 순위는 마감 뒤 그 안에 확정된다.
  */
 @Entity
 @Table(name = "minigame_run")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MinigameRun extends BaseEntity {
 
-    public static final Duration ROUND_TIME_LIMIT = Duration.ofSeconds(60);
+    public static final Duration ROUND_TIME_LIMIT = Duration.ofSeconds(10);
     public static final Duration SUBMIT_GRACE = Duration.ofSeconds(3);
     public static final Duration RUN_TIME_LIMIT = Duration.ofMinutes(10);
 
