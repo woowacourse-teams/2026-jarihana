@@ -7,8 +7,38 @@ import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { SyncDialog } from "./SyncDialog.jsx";
 import { keyLabel, readKeymap, writeKeymap } from "./preferences.mjs";
 import "./rhythm-game.css";
+import "./rhythm-clay.css";
 
 export const RHYTHM_SETTINGS_ID = "rhythm-settings";
+
+// 클레이 스프라이트 시트(SPRITE_ATLAS)의 프레임 번호. 난이도 버튼마다 세균 하나를 붙이고,
+// Hardest는 화난 행성이, 스윙 곡의 ANOTHER는 초록 세균으로 구분한다.
+const SPRITE_FRAME = { angryPlanet: 1, red: 4, blue: 5, yellow: 6, green: 7, burst: 13 };
+const LEVEL_SPRITE = {
+  easy: SPRITE_FRAME.red,
+  medium: SPRITE_FRAME.blue,
+  hard: SPRITE_FRAME.yellow,
+  hardest: SPRITE_FRAME.angryPlanet,
+  anotherHard: SPRITE_FRAME.green,
+  anotherHardest: SPRITE_FRAME.green
+};
+
+// 스프라이트 시트에서 프레임 하나만 잘라 보여 주는 장식 그림이다.
+function SpriteFrame({ className, frame }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      focusable="false"
+      viewBox={SPRITE_ATLAS.frames[frame].join(" ")}
+    >
+      <image href={SPRITE_ATLAS.url} width={SPRITE_ATLAS.width} height={SPRITE_ATLAS.height} />
+    </svg>
+  );
+}
+
+// 하트는 CSS에서 같은 스프라이트 시트를 배경으로 잘라 쓴다. 시트 주소는 public 경로라 변수로 넘긴다.
+const CLAY_STYLE = { "--rhythm-sprite-sheet": `url("${SPRITE_ATLAS.url}")` };
 
 export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
   const rootReference = useRef(null);
@@ -52,14 +82,15 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
     .join(" / ");
   return (
     <div
-      className="rhythm-game"
+      className="rhythm-game rhythm-game--clay"
       ref={rootReference}
+      style={CLAY_STYLE}
       aria-busy={status === "loading"}
     >
       <div className="rhythm-game__body">
         <div className="game-layout game-layout--levels">
           <div className="rhythm-levels">
-            <span className="eyebrow">DIFFICULTY</span>
+            <span className="eyebrow">난이도</span>
             <div id="difficulty" className="difficulty" role="group" aria-label="난이도">
               <button
                 type="button"
@@ -67,7 +98,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_easy"
                 aria-pressed="true"
               >
-                Easy<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.easy} />
+                <span className="level-name">Easy</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>10
                 </small>
@@ -78,7 +111,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_medium"
                 aria-pressed="false"
               >
-                Medium<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.medium} />
+                <span className="level-name">Medium</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>8
                 </small>
@@ -89,7 +124,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_hard"
                 aria-pressed="false"
               >
-                Hard<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.hard} />
+                <span className="level-name">Hard</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>8
                 </small>
@@ -100,7 +137,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_hardest"
                 aria-pressed="false"
               >
-                Hardest<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.hardest} />
+                <span className="level-name">Hardest</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>10
                 </small>
@@ -111,7 +150,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_another_hard"
                 aria-pressed="false"
               >
-                ANOTHER Hard<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.anotherHard} />
+                <span className="level-name">ANOTHER Hard</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>10
                 </small>
@@ -122,7 +163,9 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
                 data-ph-capture-attribute-action="rhythm_difficulty_another_hardest"
                 aria-pressed="false"
               >
-                ANOTHER Hardest<small className="life-badge">
+                <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE.anotherHardest} />
+                <span className="level-name">ANOTHER Hardest</span>
+                <small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>10
                 </small>
@@ -133,20 +176,6 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
             </p>
           </div>
           <section className="arena-shell" aria-label="플레이 화면">
-            <div className="hud">
-              <div>
-                <span className="eyebrow">연습 점수</span>
-                <strong id="score">0</strong>
-              </div>
-              <div className="combo-stat">
-                <span className="eyebrow">COMBO</span>
-                <strong id="combo">0</strong>
-              </div>
-              <div className="life-stat">
-                <span className="eyebrow">LIFE</span>
-                <span id="lives" aria-label="라이프 10개"></span>
-              </div>
-            </div>
             <div role="application" aria-label="행성이의 리듬 작살 게임 입력">
               <canvas
                 id="arena"
@@ -158,10 +187,6 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               >
                 브라우저의 Canvas 지원이 필요해요.
               </canvas>
-            </div>
-            <div className="stage-strip">
-              <span id="position">준비 중</span>
-              <span id="loop-info">LOOP 01 / 곡 ×1.00</span>
             </div>
             <div className="touch-controls" aria-label="터치 방향키">
               <button
@@ -307,6 +332,27 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
             </div>
             <p id="announcer" className="sr-only" aria-live="polite"></p>
           </section>
+
+          {/* 점수, 콤보, 라이프, 진행은 판을 가리지 않도록 판 오른쪽(좁은 화면에서는 판 위)의 카드에 둔다. */}
+          <div className="rhythm-hud">
+            <div className="rhythm-hud__card rhythm-hud__score">
+              <span className="eyebrow">연습 점수</span>
+              <strong id="score">0</strong>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__combo">
+              <SpriteFrame className="rhythm-hud__burst" frame={SPRITE_FRAME.burst} />
+              <strong id="combo">0</strong>
+              <span className="rhythm-hud__tag">COMBO</span>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__lives">
+              <span className="eyebrow">라이프</span>
+              <span id="lives" aria-label="라이프 10개"></span>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__stage">
+              <span id="loop-info">LOOP 01 / 곡 ×1.00</span>
+              <span id="position">준비 중</span>
+            </div>
+          </div>
 
           <aside
             className={settingsOpen ? "controls rhythm-drawer is-open" : "controls rhythm-drawer"}
