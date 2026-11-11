@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { mountRankedGame } from "./mount-ranked-game.mjs";
 import { keyLabel } from "./preferences.mjs";
 import { rhythmRankedApi } from "./rankedApi.js";
+import { CLAY_STYLE, SPRITE_FRAME, SpriteFrame } from "./SpriteFrame.jsx";
 import { STAGES, stageOf } from "./stages.mjs";
 import "./rhythm-game.css";
+import "./rhythm-clay.css";
 
 const LANE_BUTTONS = [
   ["left", "왼쪽", "←"],
@@ -43,24 +45,15 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
     .map(keyLabel)
     .join(" ");
   return (
-    <div className="rhythm-game rhythm-ranked" ref={rootReference} aria-busy={status === "loading"}>
+    <div
+      className="rhythm-game rhythm-game--clay rhythm-ranked"
+      ref={rootReference}
+      style={CLAY_STYLE}
+      aria-busy={status === "loading"}
+    >
       <div className="rhythm-game__body">
-        <div className="game-layout">
+        <div className="game-layout game-layout--ranked">
           <section className="arena-shell" aria-label="공식 도전 플레이 화면">
-            <div className="hud">
-              <div>
-                <span className="eyebrow">점수</span>
-                <strong id="score">0</strong>
-              </div>
-              <div className="combo-stat">
-                <span className="eyebrow">COMBO</span>
-                <strong id="combo">0</strong>
-              </div>
-              <div className="life-stat">
-                <span className="eyebrow">LIFE</span>
-                <span id="lives" aria-label="라이프"></span>
-              </div>
-            </div>
             <div role="application" aria-label="행성이의 리듬 작살 공식 도전 입력">
               <canvas
                 id="arena"
@@ -72,10 +65,6 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
               >
                 브라우저의 Canvas 지원이 필요해요.
               </canvas>
-            </div>
-            <div className="stage-strip">
-              <span>공식 도전 / 멈출 수 없어요</span>
-              <span id="loop-info">LOOP 01 / 곡 ×1.00</span>
             </div>
             <div className="touch-controls" aria-label="터치 방향키">
               {LANE_BUTTONS.map(([lane, label, arrow]) => (
@@ -119,6 +108,27 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
             </div>
             <p id="announcer" className="sr-only" aria-live="polite"></p>
           </section>
+
+          {/* 혼자 연습(RhythmHarpoonGame)과 같이 점수, 콤보, 라이프, 루프를 판 밖 카드에 둔다. */}
+          <div className="rhythm-hud">
+            <div className="rhythm-hud__card rhythm-hud__score">
+              <span className="eyebrow">점수</span>
+              <strong id="score">0</strong>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__combo">
+              <SpriteFrame className="rhythm-hud__burst" frame={SPRITE_FRAME.burst} />
+              <strong id="combo">0</strong>
+              <span className="rhythm-hud__tag">COMBO</span>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__lives">
+              <span className="eyebrow">라이프</span>
+              <span id="lives" aria-label="라이프"></span>
+            </div>
+            <div className="rhythm-hud__card rhythm-hud__stage">
+              <span id="loop-info">LOOP 01 / 곡 ×1.00</span>
+              <span>공식 도전 / 멈출 수 없어요</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

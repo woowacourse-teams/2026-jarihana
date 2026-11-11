@@ -21,8 +21,14 @@ import {
   writeLessonProgress,
   writeLessonSettings
 } from "../../features/game/rhythm/lesson.mjs";
+import {
+  RHYTHM_ENTRY_PATH,
+  RHYTHM_PRACTICE_ENABLED,
+  RHYTHM_SINGLE_START_PATH
+} from "../../features/game/rhythm/availability.js";
 import { mountLessonGame } from "../../features/game/rhythm/mount-lesson-game.mjs";
 import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
+import { useOpenChallenge } from "../../features/game/rhythm/useOpenChallenge.js";
 import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
 import "./rhythm-harpoon.css";
@@ -40,6 +46,8 @@ function caughtCopy(result) {
 }
 
 function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext }) {
+  // 연습을 닫아 둔 동안에는 싱글 플레이가 곧 공식 도전이라, 마친 뒤 넘어갈 때 회원 확인을 한다.
+  const openChallenge = useOpenChallenge();
   const tryButtons = (again) => (
     <div className="rhythm-lesson__actions">
       <button
@@ -85,7 +93,7 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
         <p>
           {phase === "failed"
             ? result?.error
-            : "Esc를 누르거나 다른 창이나 탭으로 이동하면 따라 하기가 멈춰요. 한 번 더 Esc를 누르면 싱글 플레이로 돌아가요."}
+            : "Esc를 누르거나 다른 창이나 탭으로 이동하면 따라 하기가 멈춰요. 한 번 더 Esc를 누르면 처음 화면으로 돌아가요."}
         </p>
         {tryButtons(true)}
       </>
@@ -120,7 +128,8 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
           <Link
             className="button primary"
             data-ph-capture-attribute-action="rhythm_lesson_finish"
-            to="/games/rhythm-harpoon/single"
+            onClick={RHYTHM_PRACTICE_ENABLED ? undefined : openChallenge}
+            to={RHYTHM_SINGLE_START_PATH}
           >
             싱글 플레이로
           </Link>
@@ -148,7 +157,8 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
 }
 
 export function RhythmHarpoonLessonPage() {
-  useEscapeBack("/games/rhythm-harpoon/single");
+  // 따라 하기는 처음 화면에서 고르므로 돌아가기와 건너뛰기도 처음 화면으로 간다.
+  useEscapeBack(RHYTHM_ENTRY_PATH);
   const rootReference = useRef(null);
   const playerReference = useRef(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -224,11 +234,11 @@ export function RhythmHarpoonLessonPage() {
         <Link
           aria-keyshortcuts="Escape"
           className="game-player__back"
-          data-ph-capture-attribute-action="rhythm_single_back"
-          to="/games/rhythm-harpoon/single"
+          data-ph-capture-attribute-action="rhythm_entry_back"
+          to={RHYTHM_ENTRY_PATH}
         >
           <ArrowLeft aria-hidden="true" size={18} />
-          싱글 플레이
+          처음 화면
         </Link>
         <h1 id="rhythm-lesson-title">따라 하기</h1>
         <Button
@@ -254,7 +264,7 @@ export function RhythmHarpoonLessonPage() {
           className="game-player__skip"
           data-ph-capture-attribute-action="rhythm_lesson_skip"
           onClick={() => writeLessonProgress(browserStorage(), skipLesson(progress))}
-          to="/games/rhythm-harpoon/single"
+          to={RHYTHM_ENTRY_PATH}
         >
           건너뛰기
         </Link>

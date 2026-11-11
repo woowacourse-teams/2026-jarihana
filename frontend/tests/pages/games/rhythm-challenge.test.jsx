@@ -164,9 +164,58 @@ it("sets the input offset on the options step, saves it and plays with it", asyn
   expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("-24");
 });
 
+it("changes volume, display and direction keys on the options step, saves them and plays with them", async () => {
+  localStorage.setItem(
+    "haengseong-practice-settings-v1",
+    JSON.stringify({ level: "medium", rate: 1.5, volume: 65, timingFeedback: true, labels: true })
+  );
+  rhythmRankedApi.create.mockResolvedValue(created);
+  render(<RhythmHarpoonChallengePage />);
+  const volume = screen.getByRole("slider", { name: /음량/ });
+  expect(volume).toHaveValue("65");
+  expect(volume).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_volume_change");
+  fireEvent.change(volume, { target: { value: "40" } });
+  const labels = screen.getByRole("checkbox", { name: "세균 위 소리 글자 표시" });
+  expect(labels).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_labels_toggle");
+  fireEvent.click(labels);
+  const timing = screen.getByRole("checkbox", { name: "FAST/SLOW 표시" });
+  expect(timing).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_timing_feedback_toggle");
+  fireEvent.click(timing);
+
+  // 공식 도전은 처음부터 다시 할 수 없어 다시 하기 키는 보여 주지 않는다.
+  expect(screen.queryByRole("button", { name: /다시 하기 키 바꾸기/ })).not.toBeInTheDocument();
+  const left = screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 A" });
+  fireEvent.click(left);
+  fireEvent.keyDown(left, { code: "KeyJ", key: "j" });
+  expect(screen.getByRole("button", { name: "왼쪽 키 바꾸기, 지금 J" })).toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("haengseong-keymap-v1"))).toMatchObject({
+    left: "KeyJ",
+    retry: "KeyR"
+  });
+  expect(JSON.parse(localStorage.getItem("haengseong-practice-settings-v1"))).toEqual({
+    level: "medium",
+    rate: 1.5,
+    volume: 40,
+    timingFeedback: false,
+    labels: false
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  expect(screen.getByText("방향키 또는 J S W D")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
+  await screen.findByTestId("ranked-board");
+  expect(mockBoard.mock.calls.at(-1)[0].settings).toMatchObject({
+    volume: 40,
+    labels: false,
+    timingFeedback: false,
+    keymap: expect.objectContaining({ left: "KeyJ" })
+  });
+});
+
 it("summarizes the options and the no-pause rules before starting", () => {
   render(<RhythmHarpoonChallengePage />);
-  for (const button of screen.getAllByRole("button", { pressed: false })) {
+  const levels = screen.getByRole("group", { name: "난이도" });
+  for (const button of within(levels).getAllByRole("button", { pressed: false })) {
     expect(button).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_level_select");
   }
   fireEvent.click(screen.getByRole("button", { name: /Medium/ }));
@@ -245,5 +294,5 @@ it("goes back one step with Esc and drops a challenge that has not started", asy
   act(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   });
-  expect(mockNavigate).toHaveBeenCalledWith("/games/rhythm-harpoon/single");
+  expect(mockNavigate).toHaveBeenCalledWith("/games/rhythm-harpoon");
 });

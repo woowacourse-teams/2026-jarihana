@@ -1,7 +1,7 @@
 /*
- * 혼자 연습의 클레이 화면. 민트 바탕 위에 흰 클레이 카드를 아래 그림자로 띄우고,
+ * 혼자 연습과 공식 도전의 클레이 화면. 민트 바탕 위에 흰 클레이 카드를 아래 그림자로 띄우고,
  * 난이도는 세균 그림 타일, 점수와 콤보와 라이프는 판 오른쪽 카드에 둔다.
- * 공식 도전과 따라 하기는 rhythm-game.css의 어두운 화면을 그대로 쓰므로 모든 규칙을
+ * 따라 하기는 rhythm-game.css의 어두운 화면을 그대로 쓰므로 모든 규칙을
  * .rhythm-game--clay(판)와 .game-player--clay(도구 막대) 안으로 한정한다.
  */
 .game-player--clay,
@@ -102,7 +102,8 @@
 .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty {
   gap: 12px;
 }
-.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level] {
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level],
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level] {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -121,15 +122,18 @@
     transform 0.12s ease,
     box-shadow 0.12s ease;
 }
-.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:hover:not(:disabled) {
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:hover:not(:disabled),
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 6px 0 var(--clay-base);
 }
-.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:active:not(:disabled) {
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:active:not(:disabled),
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:active:not(:disabled) {
   transform: translateY(var(--clay-press));
   box-shadow: 0 2px 0 var(--clay-base);
 }
-.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level][aria-pressed="true"] {
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level][aria-pressed="true"],
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level][aria-pressed="true"] {
   background: var(--color-brand);
   box-shadow: 0 5px 0 var(--color-brand-display);
   color: var(--color-ink);
@@ -146,7 +150,8 @@
   flex: 1;
   min-inline-size: 0;
 }
-.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge {
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge,
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels .life-badge {
   background: var(--clay-bg);
   color: var(--clay-muted);
   font-weight: var(--font-weight-extrabold);
@@ -671,5 +676,136 @@
   .rhythm-game.rhythm-game--clay .overlay,
   .rhythm-game.rhythm-game--clay .overlay[data-mode="result"] {
     backdrop-filter: none;
+  }
+}
+
+/* 공식 도전: 옵션, 확인, 결과 카드와 랭킹도 흰 클레이 카드다. 단계 표시는 민트 도구 막대 위에 둔다. */
+.game-player--clay .rhythm-challenge-steps li {
+  border-color: var(--clay-line);
+  background: var(--clay-surface);
+  color: var(--clay-muted);
+}
+.game-player--clay .rhythm-challenge-steps li[aria-current="step"] {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__panel,
+.rhythm-game.rhythm-game--clay .rhythm-ranking {
+  border: 0;
+  border-radius: 28px;
+  background: var(--clay-surface);
+  box-shadow: 0 8px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__panel h2,
+.rhythm-game.rhythm-game--clay .rhythm-ranking__heading h2 {
+  font-weight: 900;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__panel a {
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__levels {
+  gap: 10px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__summary div {
+  border-radius: 14px;
+  background: var(--clay-bg);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__summary dd {
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__error {
+  color: var(--color-danger);
+}
+.rhythm-game.rhythm-game--clay .rhythm-result__score strong {
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+/* 랭킹: 1, 2, 3위는 옅은 금, 은, 동 카드, 내 줄은 민트 테두리 */
+.rhythm-game.rhythm-game--clay .rhythm-ranking__mine {
+  border-radius: 14px;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li {
+  border-radius: 14px;
+  background: var(--clay-bg);
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-mine {
+  outline: 2px solid var(--color-brand);
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-gold {
+  background: #fff2c9;
+  box-shadow: inset 0 0 0 1px #e8c860;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-silver {
+  background: #eef1f4;
+  box-shadow: inset 0 0 0 1px #c9d1d9;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-bronze {
+  background: #fbeee3;
+  box-shadow: inset 0 0 0 1px #e0b089;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-gold .rhythm-ranking__rank {
+  color: #8a6400;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-silver .rhythm-ranking__rank {
+  color: #56616b;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li.is-bronze .rhythm-ranking__rank {
+  color: #8a4f1f;
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__list li:is(.is-gold, .is-silver, .is-bronze) .rhythm-ranking__score small,
+.rhythm-game.rhythm-game--clay .rhythm-ranking__score small {
+  color: var(--clay-muted);
+}
+.rhythm-game.rhythm-game--clay .rhythm-ranking__member small {
+  background: var(--color-brand);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__options .rhythm-ranking__list {
+  scrollbar-color: var(--clay-base) transparent;
+}
+
+/* 공식 도전 판: 혼자 연습처럼 판 오른쪽(중간 화면과 휴대폰은 판 위)에 점수 카드를 둔다. */
+.rhythm-game.rhythm-game--clay .game-layout--ranked .arena-shell {
+  grid-area: board;
+}
+@media (min-width: 701px) {
+  .rhythm-game.rhythm-game--clay .game-layout--ranked {
+    grid-template-columns: minmax(0, var(--rhythm-board-size)) 15rem;
+    grid-template-areas: "board hud";
+    gap: 24px;
+  }
+}
+@media (min-width: 701px) and (max-width: 1023px) {
+  .rhythm-game.rhythm-game--clay .game-layout--ranked {
+    --rhythm-board-size: calc(var(--rhythm-board-space) - 2.75rem - 7rem);
+    grid-template-columns: minmax(0, var(--rhythm-board-size));
+    grid-template-areas:
+      "hud"
+      "board";
+    gap: 16px;
+  }
+}
+@media (max-width: 700px) {
+  .rhythm-game.rhythm-game--clay .game-layout--ranked {
+    grid-template-areas:
+      "hud"
+      "board";
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level] {
+    transition: none;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:hover:not(:disabled),
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:active:not(:disabled) {
+    transform: none;
   }
 }

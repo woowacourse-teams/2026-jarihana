@@ -2,25 +2,34 @@ import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
+import { RHYTHM_CHALLENGE_BACK } from "../../features/game/rhythm/availability.js";
 import { HeartIcon } from "../../features/game/rhythm/HeartIcon.jsx";
+import { KeyBindings } from "../../features/game/rhythm/KeyBindings.jsx";
 import { LEVELS } from "../../features/game/rhythm/engine.mjs";
 import { readOffset } from "../../features/game/rhythm/calibration.mjs";
 import { browserStorage } from "../../features/game/rhythm/lesson.mjs";
 import {
   keyLabel,
   readKeymap,
-  readPracticeSettings
+  readPracticeSettings,
+  writeKeymap,
+  writePlaySettings
 } from "../../features/game/rhythm/preferences.mjs";
 import { rhythmRankedApi } from "../../features/game/rhythm/rankedApi.js";
 import { RhythmRankedBoard } from "../../features/game/rhythm/RhythmRankedBoard.jsx";
 import { RhythmRanking } from "../../features/game/rhythm/RhythmRanking.jsx";
 import { RhythmOffsetSettings } from "../../features/game/rhythm/RhythmOffsetSettings.jsx";
+import {
+  CLAY_STYLE,
+  LEVEL_SPRITE,
+  SpriteFrame
+} from "../../features/game/rhythm/SpriteFrame.jsx";
 import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import { toUserMessage } from "../../shared/api";
 import "../../features/game/rhythm/rhythm-challenge.css";
+import "../../features/game/rhythm/rhythm-clay.css";
 import "./rhythm-harpoon.css";
 
-const SINGLE_PATH = "/games/rhythm-harpoon/single";
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
 const INVALID_COPY = {
   ABANDONED: "Esc를 누르거나 다른 창, 탭으로 옮겨서 이번 도전은 무효가 됐어요.",
@@ -30,8 +39,11 @@ const INVALID_COPY = {
   EXPIRED: "시작하지 않은 채 시간이 지나 이번 도전은 무효가 됐어요."
 };
 const number = (value) => value.toLocaleString("ko-KR");
+// 공식 도전은 처음부터 다시 할 수 없으므로 키 배치에서 다시 하기 키는 보여 주지 않는다.
+const CHALLENGE_KEY_ACTIONS = ["left", "down", "up", "right"];
 
-// 판에서 쓰는 개인 설정이다. 연습에서 맞춘 음량, 표시, 키 배치, 입력 지연 보정을 그대로 가져온다.
+// 판에서 쓰는 개인 설정이다. 연습과 같은 저장값의 음량, 표시, 키 배치, 입력 지연 보정을 가져오고,
+// 옵션 단계에서 바꾸면 같은 곳에 다시 남긴다.
 function readRunSettings() {
   const storage = browserStorage();
   const practice = readPracticeSettings(storage);
@@ -67,11 +79,15 @@ export function RhythmHarpoonChallengePage() {
   // 입력 지연 보정은 옵션 단계에서 고른 값을 판에 그대로 쓴다.
   const [boardSettings, setBoardSettings] = useState(null);
 
-  // 확인 단계에 들어올 때마다 연습에서 바꾼 키 배치와 표시 설정을 다시 읽는다.
-  const confirm = () => {
-    setSettings(readRunSettings());
-    setStep("confirm");
-  };
+  // 키 배치와 표시 설정은 옵션 단계에서 바꾸고 바로 저장하므로, 확인 단계는 이 화면의 값을 그대로 쓴다.
+  const confirm = () => setStep("confirm");
+
+  function changeSettings(next) {
+    setSettings(next);
+    const storage = browserStorage();
+    writeKeymap(storage, next.keymap);
+    writePlaySettings(storage, next, { level: options.level, rate: options.scrollSpeed });
+  }
 
   useEscapeBack(() => {
     if (step === "confirm") setStep("options");
@@ -80,7 +96,7 @@ export function RhythmHarpoonChallengePage() {
       if (session) void rhythmRankedApi.abandon(session.challengeId).catch(() => {});
       setSession(null);
       confirm();
-    } else navigate(SINGLE_PATH);
+    } else navigate(RHYTHM_CHALLENGE_BACK.path);
   });
 
   async function startChallenge() {
@@ -127,16 +143,19 @@ export function RhythmHarpoonChallengePage() {
   }, []);
 
   return (
-    <section className="game-player rhythm-challenge-page" aria-labelledby="rhythm-challenge-title">
+    <section
+      className="game-player game-player--rhythm game-player--clay rhythm-challenge-page"
+      aria-labelledby="rhythm-challenge-title"
+    >
       <header className="game-player__toolbar">
         <Link
           aria-keyshortcuts="Escape"
           className="game-player__back"
-          data-ph-capture-attribute-action="rhythm_single_back"
-          to={SINGLE_PATH}
+          data-ph-capture-attribute-action={RHYTHM_CHALLENGE_BACK.action}
+          to={RHYTHM_CHALLENGE_BACK.path}
         >
           <ArrowLeft aria-hidden="true" size={18} />
-          싱글 플레이
+          {RHYTHM_CHALLENGE_BACK.label}
         </Link>
         <h1 id="rhythm-challenge-title">공식 도전</h1>
         <ol className="rhythm-challenge-steps" aria-label="진행 단계">
@@ -166,11 +185,17 @@ export function RhythmHarpoonChallengePage() {
           settings={boardSettings}
         />
       ) : (
-        <div className="rhythm-game">
+        <div className="rhythm-game rhythm-game--clay" style={CLAY_STYLE}>
           <div className="rhythm-game__body rhythm-challenge">
             {step === "options" ? (
               <div className="rhythm-challenge__pair rhythm-challenge__options">
-                <OptionsStep onChange={setOptions} onNext={confirm} options={options} />
+                <OptionsStep
+                  onChange={setOptions}
+                  onNext={confirm}
+                  onSettingsChange={changeSettings}
+                  options={options}
+                  settings={settings}
+                />
                 <RhythmRanking level={options.level} />
               </div>
             ) : null}
@@ -206,7 +231,7 @@ export function RhythmHarpoonChallengePage() {
   );
 }
 
-function OptionsStep({ options, onChange, onNext }) {
+function OptionsStep({ options, onChange, onNext, settings, onSettingsChange }) {
   return (
     <section className="rhythm-challenge__panel" aria-labelledby="rhythm-challenge-options">
       <span className="eyebrow">STEP 1 / OPTIONS</span>
@@ -227,7 +252,8 @@ function OptionsStep({ options, onChange, onNext }) {
               onClick={() => onChange({ ...options, level: id })}
               type="button"
             >
-              {level.name}
+              <SpriteFrame className="level-sprite" frame={LEVEL_SPRITE[id]} />
+              <span className="level-name">{level.name}</span>
               <small className="life-badge">
                 <HeartIcon />
                 <span className="sr-only">라이프</span>
@@ -256,6 +282,52 @@ function OptionsStep({ options, onChange, onNext }) {
       <RhythmOffsetSettings
         offset={options.offset}
         onChange={(offset) => onChange((current) => ({ ...current, offset }))}
+      />
+      {/* 연습에서 바꾸던 음량, 표시, 키 배치를 여기서도 바꾼다. 값은 연습과 같은 곳에 남는다. */}
+      <div className="control-section audio-controls">
+        <label htmlFor="challenge-volume">
+          음량 <output htmlFor="challenge-volume">{settings.volume}%</output>
+        </label>
+        <input
+          data-ph-capture-attribute-action="rhythm_challenge_volume_change"
+          id="challenge-volume"
+          max="100"
+          min="0"
+          onChange={(event) =>
+            onSettingsChange({ ...settings, volume: Number(event.target.value) })
+          }
+          type="range"
+          value={settings.volume}
+        />
+      </div>
+      <div className="control-section">
+        <span className="eyebrow">DISPLAY</span>
+        <label className="check">
+          <input
+            checked={settings.labels}
+            data-ph-capture-attribute-action="rhythm_challenge_labels_toggle"
+            onChange={(event) => onSettingsChange({ ...settings, labels: event.target.checked })}
+            type="checkbox"
+          />
+          세균 위 소리 글자 표시
+        </label>
+        <label className="check">
+          <input
+            checked={settings.timingFeedback}
+            data-ph-capture-attribute-action="rhythm_challenge_timing_feedback_toggle"
+            onChange={(event) =>
+              onSettingsChange({ ...settings, timingFeedback: event.target.checked })
+            }
+            type="checkbox"
+          />
+          FAST/SLOW 표시
+        </label>
+        <p className="small muted">FAST는 빠르게, SLOW는 늦게 눌렀다는 뜻이에요.</p>
+      </div>
+      <KeyBindings
+        actionIds={CHALLENGE_KEY_ACTIONS}
+        keymap={settings.keymap}
+        onChange={(keymap) => onSettingsChange({ ...settings, keymap })}
       />
       <div className="rhythm-challenge__actions">
         <button
@@ -305,13 +377,6 @@ function ConfirmStep({ options, settings, creating, error, onBack, onStart }) {
         <li>Esc를 누르거나 다른 창, 탭으로 옮기면 이번 도전은 기록 없이 무효예요.</li>
         <li>점수는 서버가 입력을 받아 다시 계산하고, 난이도별 최고 기록으로 랭킹에 올라가요.</li>
       </ul>
-      <p className="small muted">
-        키 배치는{" "}
-        <Link data-ph-capture-attribute-action="rhythm_practice_open" to="/games/rhythm-harpoon/practice">
-          혼자 연습
-        </Link>
-        의 설정에서 바꿔요.
-      </p>
       {error ? (
         <p className="rhythm-challenge__error" role="alert">
           {error}
