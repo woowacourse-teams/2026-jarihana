@@ -325,7 +325,8 @@
 }
 /* 휴대폰: 난이도 타일을 줄이고, 상태 카드는 판 바로 위 한 줄에 작게 둔다. */
 @media (max-width: 700px) {
-  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level] {
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level],
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level] {
     gap: 6px;
     min-block-size: 3rem;
     padding: 4px 8px 4px 6px;
@@ -336,8 +337,17 @@
     inline-size: 1.75rem;
     block-size: 1.75rem;
   }
-  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge {
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge,
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels .life-badge {
     padding-inline: 4px 6px;
+  }
+  /* 공식 도전 옵션 카드는 안쪽 여백만큼 타일이 더 좁아 배지 글자를 줄인다. */
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels .life-badge {
+    gap: 2px;
+    font-size: 0.62rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__levels {
+    gap: 8px;
   }
   .rhythm-game.rhythm-game--clay .rhythm-hud {
     gap: 6px;
