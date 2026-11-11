@@ -24,16 +24,17 @@
 
 `coordinator.sh`의 plan은 기존 저널의 topology digest와 control SHA가 다르면 거부한다.
 이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
-서버 구성은 같고 control 버전만 교체한다면 [고정 제어 버전 교체](../control-upgrade.md)의
-명시적 이관 허가와 원본 백업을 준비한다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
+서버 구성은 같고 control 버전만 교체한다면 [자동 교체 helper](../automatic-control.md)를 최초 한 번
+설치한 운영은 main 배포가 원본 백업과 이관 허가를 준비한다. helper 설치 전 환경과 관리자
+복구는 [수동 제어 버전 교체](../control-upgrade.md)를 따른다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
 
 ## 필수 설정
 
 ### 호스트와 네트워크
 
 설치 전에 실제 instance ID, private IP, AWS 계정, VPC, 보안 그룹과 runner 라벨을 확인한다.
-[coordinator 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-coordinator.example.json), [앱 A 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-app-A.example.json),
-[앱 B 예시](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/full-app-B.example.json)의 주소와 ID, SHA는 placeholder다.
+[coordinator 예시](../../controller/full-coordinator.example.json), [앱 A 예시](../../controller/full-app-A.example.json),
+[앱 B 예시](../../controller/full-app-B.example.json)의 주소와 ID, SHA는 placeholder다.
 A/B는 논리 슬롯이며 runner 표시 이름의 A/B와 같다고 가정하지 않는다.
 
 | 위치 | 필요한 준비 |
@@ -62,7 +63,7 @@ prod는 아래 경로의 환경 부분을 prod로 사용하고 dev 설정을 복
 | --- | --- |
 | `/etc/jarihana-deploy/<env>/coordinator.json` | root 소유, 실제 topology, Nginx와 telemetry 설정 |
 | 각 앱의 같은 경로 아래 `app-A.json` 또는 `app-B.json` | 해당 호스트의 local_slot, 포트와 파일 경로 |
-| `app-compose.yml` | 고정 control tag의 [앱 템플릿](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/app-compose.yml)과 byte 단위 일치 |
+| `app-compose.yml` | 고정 control tag의 [앱 템플릿](../../controller/app-compose.yml)과 byte 단위 일치 |
 | `worker-token`, `grant-key`, `known-hosts` | 관리자 소유 비밀 파일과 검증한 Nginx host key |
 | `/var/lib/jarihana-deploy/<env>/state.json` | coordinator 소유 0700 디렉터리, 저널 0600 |
 | 각 앱의 `/var/lib/jarihana-deploy/<env>/app-A` 또는 `app-B` | 해당 runner 소유 0700, worker/stop intent와 잠금, 실행 기록 |
@@ -75,7 +76,7 @@ Docker 접근 권한으로 컨테이너 환경을 읽을 수 있으므로 전용
 
 앱에서 coordinator로 연결하는 SSH는 `jarihana-grant` 계정의 한 환경 저널 읽기만 허용한다.
 앱 private IP로 출발지를 제한하고 `restrict,command=...`로 고정한다.
-root 소유 [허가 조회 helper](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/read-deployment-grant.sh)의 환경을 literal 값으로 고정하고,
+root 소유 [허가 조회 helper](../../controller/read-deployment-grant.sh)의 환경을 literal 값으로 고정하고,
 coordinator 사용자로 인자 없이 실행하는 최소 sudoers만 둔다. shell, 임의 sudo와 Docker 권한은 주지 않는다.
 helper와 앱의 저널 읽기 한도는 4 MiB로 맞춘다.
 
@@ -119,7 +120,7 @@ control tag와 설치본을 맞추는 순서는 [재구성 절차](#재구성-�
 | IAM | EC2 역할 원본과 조직 정책. DescribeInstances, A/B에 한정한 Start/Stop 및 S3/CloudFront 권한은 [보호된 설정](#보호된-설정과-권한) 기준 |
 | control 원본 | 승인된 불변 tag와 40자리 commit SHA. GitHub 변수와 세 호스트의 topology에 동일 값 사용 |
 | 수집기 원본 | 중앙 수집기와 helper를 포함한 별도 승인 commit. control tag에 수집기가 있다고 가정하지 않음 |
-| 앱 비밀 설정 | 운영 담당자의 보호된 DB/JWT/OAuth/초대/푸시/이미지 키 원본. 실제 키 이름은 [앱 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-app-operation.yml)의 env와 대조 |
+| 앱 비밀 설정 | 운영 담당자의 보호된 DB/JWT/OAuth/초대/푸시/이미지 키 원본. 실제 키 이름은 [앱 workflow](../../../../.github/workflows/backend-app-operation.yml)의 env와 대조 |
 | DB 사전 준비 | RDS의 `jarihana_prod`와 접근 역할, TLS 및 migration 권한. 기존 스키마의 baseline을 임의로 바꾸지 않으며 [DB 변경 규칙](../../../../docs/database-changes.md)을 따름 |
 | 상태와 키 | `/etc/jarihana-deploy/prod`, `/var/lib/jarihana-deploy/prod`의 저널, 앱별 intent와 실행 기록, worker-token, grant-key, known-hosts의 보호된 백업 |
 | 프론트 원본 | S3 공개 prefix와 릴리스 원본, state.json/ETag, current/previous/pending manifest. S3와 로컬 coordinator 저널은 별개 |
@@ -231,7 +232,7 @@ GitHub의 runner ID/라벨과 실제 서버를 대응시키고, 같은 라벨을
 ### Nginx와 CloudFront
 
 `current.conf`는 확인된 활성 앱의 실제 upstream을 가리켜야 한다.
-[Nginx Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/nginx/docker-compose.yml)로 시작한다. 설정 디렉터리는 read-only로 mount하고
+[Nginx Compose](../../nginx/docker-compose.yml)로 시작한다. 설정 디렉터리는 read-only로 mount하고
 container 이름과 probe port를 coordinator 설정에 맞춘다. probe는 실제 앱 API를 경유한다.
 
 CloudFront API behavior의 origin은 Nginx의 현재 public DNS와 host 공개 listener 포트다.
@@ -266,15 +267,15 @@ current manifest와 live가 일치하는지 확인한다. 미완료 pending이�
 | 다른 경로 | API Nginx origin과 별도 이미지 origin 및 behavior 유지 |
 
 기본 behavior의 viewer-request 함수는 없거나, 제어 코드가 승인한 `jarihana-group-share-preview`
-하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/frontend.sh)의 preflight와
+하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](../../scripts/actions/frontend.sh)의 preflight와
 대조한다. Lambda@Edge, 다른 함수나 코드 변경, 읽기 실패는 게시 전 차단한다.
 함수를 변경하면 동작 검토와 승인 해시, 제어 릴리스를 함께 갱신한다.
 캐시 조건이 달라지면 변경이나 invalidation으로 우회하지 않고 게시 및 복구 계약을 재검토한다.
 
 ## 앱 Alloy와 조회 경로
 
-[독립 Alloy Compose](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/observability-compose.yml)에서 공통 [config.alloy](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/alloy/config.alloy)와
-[postgres-queries.yaml](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/monitoring/alloy/postgres-queries.yaml)을 사용한다.
+[독립 Alloy Compose](../../controller/observability-compose.yml)에서 공통 [config.alloy](../../../monitoring/alloy/config.alloy)와
+[postgres-queries.yaml](../../../monitoring/alloy/postgres-queries.yaml)을 사용한다.
 HOST_ID는 앱 host_id와 일치해야 하고 APP_METRICS_TARGET은 실제 loopback 관리 포트다.
 앱 호스트 기동 시 Alloy도 자동 시작돼야 한다. 앱 scrape만 있는 임시 설정으로 대체하지 않는다.
 
@@ -307,8 +308,9 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
    기존 운영 환경에서 이 조치를 하는 것은 별도 변경 작업이다. 새 서버의 명령을 기존 호스트에 실행하지 않는다.
    실제 HTTP 대상, 앱 digest와 DB owner를 확인하고 보호된 설정, 저널, intent,
    S3 원본과 state/ETag, CloudFront 설정/ETag 및 활성 WAL을 보존한다.
-2. 검증한 `refs/tags/deployment-control-*`와 SHA를 정한다. BLUE_GREEN_CONTROL_REF,
+2. 검증한 `refs/tags/deployment-control-*`와 SHA를 정한다.
    Nginx/A/B의 topology.control.ref/sha, 설치 Compose와 watchdog checkout을 같은 release로 맞춘다.
+   개발/최초 bootstrap은 BLUE_GREEN_CONTROL_REF도 맞춘다. 일반 운영은 coordinator pin을 읽는다.
    부모 workflow, 앱 이미지와 control checkout은 각각 대조하고 기존 태그는 이동하지 않는다.
 3. [구성 시작 전 준비](#구성-시작-전-준비)를 마치고 [Nginx](coordinator.md),
    [앱 A/B](app-hosts.md)를 각각 구성한다. 교체 호스트의 instance ID, 주소, runner, local_slot,
@@ -318,6 +320,7 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 5. worker 권한이 처음부터 미할당인 환경만 [최초 worker 등록](#최초-worker-등록)을 수행한다.
    기존 owner가 있는 환경에서는 bootstrap을 반복하지 않는다.
 6. [검증 가이드](../verification.md)의 관련 검증과 [상태 확인](../status.md)을 수행한다.
+   자동 교체를 사용할 세 호스트에는 [전용 helper](../automatic-control.md#최초-한-번-설치)도 설치한다.
    실제 인증, 쓰기, 이미지, 채팅과 푸시를 확인한 뒤 [배포 실행](../deployment.md)을 재개한다.
 
 완료 저널도 control SHA와 topology digest에 묶여 있다. pin 변경이나 저널 복사만으로

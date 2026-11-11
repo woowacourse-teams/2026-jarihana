@@ -1,0 +1,36 @@
+name: Production Control Host
+on:
+  workflow_call:
+    inputs:
+      runner:
+        type: string
+        required: true
+      operation:
+        type: string
+        required: true
+    outputs:
+      report:
+        value: ${{ jobs.host.outputs.report }}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  host:
+    runs-on: ["${{ inputs.runner }}"]
+    environment: prod
+    timeout-minutes: 8
+    outputs:
+      report: ${{ steps.host.outputs.report }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OPERATION: ${{ inputs.operation }}
+    steps:
+      - id: host
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GH_TOKEN" | sudo -n /usr/local/sbin/jarihana-control-upgrade "$OPERATION" "$GITHUB_RUN_ID" "$GITHUB_SHA"
+          if [[ $OPERATION == prepare ]]; then
+            report=$(printf '%s\n' "$GH_TOKEN" | sudo -n /usr/local/sbin/jarihana-control-upgrade report "$GITHUB_RUN_ID" "$GITHUB_SHA")
+            printf 'report=%s\n' "$report" >> "$GITHUB_OUTPUT"
+          fi

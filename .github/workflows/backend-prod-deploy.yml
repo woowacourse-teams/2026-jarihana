@@ -13,6 +13,8 @@ on:
       - "infra/monitoring/alloy/postgres-queries.yaml"
       - "infra/scripts/verify-backend.sh"
       - "infra/blue-green-deploy/scripts/**"
+      - "infra/blue-green-deploy/control/**"
+      - ".github/workflows/backend-control-*.yml"
       - "infra/blue-green-deploy/controller/**"
       - "infra/blue-green-deploy/nginx/**"
       - ".github/workflows/backend-prod-deploy.yml"
@@ -72,11 +74,12 @@ jobs:
       (github.event_name == 'workflow_dispatch' &&
       (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')))
     permissions:
-      contents: read
+      contents: write
       packages: read
       actions: write
     uses: ./.github/workflows/backend-bluegreen-deploy.yml
     with:
+      automatic_control: true
       environment: prod
       frontend_only: ${{ inputs.frontend_only || false }}
       backend_only: ${{ inputs.backend_only || false }}

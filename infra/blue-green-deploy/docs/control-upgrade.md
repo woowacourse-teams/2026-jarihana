@@ -1,5 +1,8 @@
 # 고정 배포 제어 버전 교체
 
+일반 운영 배포의 제어 코드/보호 Compose 변경은 [자동 교체](automatic-control.md)를 사용한다.
+아래 절차는 최초 설치, 자동 교체의 복구와 자동화 범위 밖의 관리자 유지보수에 사용한다.
+
 배포 검사 코드는 앱 이미지와 별도로 고정된다. `BLUE_GREEN_CONTROL_REF`만 바꾸면 기존
 완료 저널의 control SHA와 topology digest가 달라 다음 plan이 차단된다. 기존 태그를 이동하거나
 저널의 SHA/digest를 고치지 않고, 관리자가 확인한 정확한 완료 기록에 한해 다음 plan을 허용한다.
@@ -76,7 +79,9 @@ coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일
 3. coordinator 계정으로 새 checkout의 `bg_config`, `bg_previous_journal`을 실행해 이관 허가와
    백업/원본 일치, 실제 HTTP 슬롯을 검증한다. 이 검사는 저널, worker와 S3 상태를 변경하지 않는다.
    이 단계에서 실패하면 새 배포를 계속 차단하고 보관한 설정과 watchdog 경로로 복구한다.
-4. GitHub `BLUE_GREEN_CONTROL_REF`를 새 태그로 맞춘다. 세 호스트 설정, 설치본, watchdog,
+4. 수동 pin을 사용하는 개발/최초 bootstrap은 GitHub `BLUE_GREEN_CONTROL_REF`를 새 태그로 맞춘다.
+   자동 교체가 설치된 일반 운영 배포는 coordinator의 pin을 읽어 workflow 출력으로 전달한다.
+   세 호스트 설정, 설치본, watchdog,
    GitHub pin을 다시 대조하고 runner와 watchdog timer를 재개한 뒤 prod 배포를 활성화한다.
 5. 승인된 main 배포 PR을 머지하고 새로운 실행을 추적한다. 새 plan은 백업된 기존 저널을
    검증한 뒤 평소와 같이 새 배포 저널을 생성한다. 새 저널의 control SHA/topology digest와

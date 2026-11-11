@@ -22,6 +22,7 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 | 구성요소 | 역할 |
 | --- | --- |
 | GitHub Actions | 이미지와 프론트 빌드, 호스트별 작업 순서와 결과 연결 |
+| 제어 버전 선택 workflow와 root helper | main의 제어 변경 감지, 불변 태그 발급, 세 호스트 pin/Compose와 저널 이관 허가 설치 |
 | Nginx와 coordinator | 활성 HTTP 경로 전환, 배포 저널, EC2 시작과 중지, 프론트 파일 게시와 복구 |
 | 앱 A/B와 전용 runner | 자기 호스트의 앱 준비, worker 제어, 관찰과 정상 종료 |
 | RDS | 앱 데이터와 환경별 worker 처리 권한 저장 |
@@ -30,6 +31,12 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 
 정상 배포 순서는 [배포 실행](deployment.md#정상-배포-순서),
 호스트별 통신과 권한은 [서버 구성](server-setup/README.md#호스트와-네트워크)을 따른다.
+
+일반 운영 배포는 coordinator에 설치된 control SHA와 main을 비교한다. 제어 코드나 보호된
+Compose 내용이 바뀌면 GitHub Actions가 새 태그를 만들고, 각 호스트의 관리자 설치 helper가
+완료 저널과 실제 상태를 검증한 뒤 pin을 교체한다. 선택 태그는 배포와 복구 job의 입력으로
+전달하며 GitHub 관리자 토큰으로 저장소 변수를 갱신하지 않는다.
+최초 권한 설치, 자동화 범위와 실패 복구는 [운영 제어 버전 자동 교체](automatic-control.md)를 따른다.
 
 ## worker 인계와 정상 종료
 
@@ -44,7 +51,7 @@ UNASSIGNED가 된 뒤 후보를 activate한다. PAUSE 성공이나 `processDue()
 
 앱 runner가 해당 호스트의 `http://127.0.0.1:<management_port>/actuator/workercontrol`을 사용한다.
 기본 포트는 8081이며 `X-Jarihana-Worker-Control-Token`으로 별도 머신 토큰을 전달한다.
-[앱 실행기](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/app.sh)가 보호된 파일을 읽어 curl stdin 설정으로 전달하므로,
+[앱 실행기](../scripts/actions/app.sh)가 보호된 파일을 읽어 curl stdin 설정으로 전달하므로,
 토큰을 포함한 명령을 셸 인자나 로그에 직접 남기지 않는다. 공개 앱 포트의 접근은 거부한다.
 
 GET 상태에서 version, environment, identity의 hostId/bootId와 아래 항목을 함께 확인한다.
@@ -67,8 +74,8 @@ deadline은 시간대 오프셋 없는 LocalDateTime이며 호스트의 시간�
 명령 ID와 원본 payload를 intent에 먼저 저장한다. 정확히 같은 마지막 명령은 중복 적용하지 않지만,
 응답 유실이나 5xx 뒤에 자동 재전송하거나 새 ID로 재시도하지 않는다.
 충돌은 409, 잘못된 요청은 400, 토큰 오류나 공개 포트 접근은 403으로 처리한다.
-상세 payload와 전이 규칙은 [worker endpoint](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/backend/src/main/java/com/project/jarihana/notificationdelivery/command/controller/WorkerControlEndpoint.java)와
-[권한 서비스](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/backend/src/main/java/com/project/jarihana/notificationdelivery/command/service/WorkerAuthorityService.java)를 따른다.
+상세 payload와 전이 규칙은 [worker endpoint](../../../backend/src/main/java/com/project/jarihana/notificationdelivery/command/controller/WorkerControlEndpoint.java)와
+[권한 서비스](../../../backend/src/main/java/com/project/jarihana/notificationdelivery/command/service/WorkerAuthorityService.java)를 따른다.
 이 API는 HTTP 전환, EC2 중지나 배포 성공을 수행하지 않는다.
 실습 종료의 HANDOFF에서 COMPLETE 전이는 owner가 없고 UNASSIGNED이며 로컬 drain이
 확인된 경우에만 가능하다. COMPLETE/UNASSIGNED는 운영 배포 성공이나 배포 관찰 완료가 아니다.
@@ -177,15 +184,15 @@ GitHub API 응답의 잔여 요청은 새 plan/bootstrap 900, 일반 진행 500,
 헤더 누락, 403/429나 예산 부족이면 실패 경로로 진행하며 제한 해제까지 맹목적으로 기다리지 않는다.
 이 예산은 저장소가 공유하므로 다른 workflow의 소비나 GitHub 장애 중 복구 성공을 보장하지 않는다.
 
-요청 예산과 캐시는 [공통 실행 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/common.sh)를 따른다.
+요청 예산과 캐시는 [공통 실행 코드](../scripts/actions/common.sh)를 따른다.
 
 watchdog은 검토한 control checkout과 실행 도구를 `/opt/jarihana-deploy`에 준비한다.
-[watchdog unit](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
+[watchdog unit](../controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
 동일한 저널 잠금과 보호된 설정을 사용한다. pending deadline, heartbeat와 전체 만료를 보고
 NEEDS_ATTENTION만 기록한다. 강제 권한 회수, 허가 재발급이나 EC2 중지는 수행하지 않는다.
 `always()` finalizer도 runner 전원과 네트워크 장애 때 실행을 보장하지 않는다.
 
-Blue-Green과 [Monitoring Deploy](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/monitoring-deploy.yml)는
+Blue-Green과 [Monitoring Deploy](../../../.github/workflows/monitoring-deploy.yml)는
 jarihana-observed-deployment 잠금을 공유한다. 관측 gateway 재생성과 배포 관찰을 겹치지 않게 한다.
 환경별로 잠금을 나누거나 부모/자식에 같은 잠금을 중복 설정하지 않는다.
 cancel-in-progress=false와 queue=max로 직렬화하고 대기열이 가득 찬 실행 결과도 확인한다.
@@ -198,4 +205,4 @@ cancel-in-progress=false와 queue=max로 직렬화하고 대기열이 가득 찬
 시도하며 다른 실행의 잠금 보유로 경합한 경우에만 검사를 건너뛰고 다음 timer tick에 재확인한다.
 잠금의 실제 오류는 실패로 처리한다. 저널은 잠금을 얻은 뒤 읽고 검증하며, 잠금 대기로 기존
 허가 기한을 연장하거나 저널을 병렬 변경하지 않는다.
-잠금 경계는 [coordinator 진입점](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)을 따른다.
+잠금 경계는 [coordinator 진입점](../scripts/actions/coordinator.sh)을 따른다.

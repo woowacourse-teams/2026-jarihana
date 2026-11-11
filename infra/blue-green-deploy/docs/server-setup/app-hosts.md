@@ -165,7 +165,7 @@ volume 생성/복원과 재부팅, 새 host_id의 로그 도착은 미검증이�
 컨테이너가 있으면 멈춘다. 신규 B 앱은 기동하지 않고 최초 prepare workflow에 맡긴다.
 bootstrap workflow 자체는 앱을 설치하지 않으므로 A의 최초 PAUSED 기동 준비가 필요하다.
 
-관리자가 [앱 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-app-operation.yml)의
+관리자가 [앱 workflow](../../../../.github/workflows/backend-app-operation.yml)의
 env를 기준으로 값을 Bash 형식으로 인용한 `INPUT_DIR/bootstrap.env`를 준비한다.
 GitHub Variables 이름과 프로세스 안의 이름이 다른 OAuth 설정은 workflow의 대응을 그대로 사용한다.
 

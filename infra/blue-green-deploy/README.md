@@ -31,6 +31,7 @@ GitHub Actions가 순서를 연결하고, 각 서버의 전용 runner가 자기 
 - [동작 구조](docs/architecture.md): 구성요소, worker 인계, 프론트 릴리스와 실행 보호 규칙.
 - [서버 구성](docs/server-setup/README.md): 새 Nginx/앱 서버 구성, 필수 입력과 복원 원본, 재구성 순서와 완료 판정.
 - [배포 실행](docs/deployment.md): 적용 버전, workflow 입력과 정상 배포 순서.
+- [운영 제어 버전 자동 교체](docs/automatic-control.md): 변경 감지, 태그 발급, 최초 helper 설치와 실패 복구.
 - [상태 확인](docs/status.md): 실행과 저널, 관찰 기준과 지표 최신성.
 - [장애 복구](docs/recovery.md): 실패 시 처리, 복구 기한과 수동 조사.
 - [검증](docs/verification.md): 배포 스크립트, 계측과 관제 변경의 검증 명령.

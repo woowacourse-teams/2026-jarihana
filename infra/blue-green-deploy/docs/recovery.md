@@ -12,6 +12,7 @@
 
 | 상황 | 처리 |
 | --- | --- |
+| 제어 태그 선택 또는 서버 제어 설치 실패 | 앱 배포를 시작하지 않는다. 저장한 pin/Compose/helper/watchdog 복구를 시도하며, 복구 job도 실패하면 양쪽 EC2와 원본을 보존한다. |
 | 후보 준비 또는 프론트 원본 검증 실패 | 기존 HTTP 유지. worker 인계에 들어갔다면 권한 상태도 확인한다. |
 | 전환 후 배포 확정 전 이상 | 이전 HTTP 복구, 변경한 프론트 복구, 후보 worker 반납, 이전 worker 재개를 시도한다. |
 | 후보 상태 미확정 | 이전 앱 API와 동일 Nginx 세대가 증명될 때만 HTTP 복구. 이전 worker 재개는 보류한다. |
@@ -23,10 +24,15 @@
 복구한다. 정상 롤백도 Actions 결과는 실패다. HTTP만 복구됐으면 전체 복구 성공이 아니다.
 앱 롤백으로 DB 스키마, 저장된 데이터나 이미 발송한 알림을 되돌리지 않는다.
 
+제어 교체 성공 뒤 plan 이전에 실패한 경우에는 새 실행에서 완료 저널과 실제 호스트를 다시
+검증하고 원본이 일치할 때만 이관 허가를 새로 발급한다. 실패한 실행의 Re-run은 사용하지 않는다.
+일부 호스트에 새 pin이 남았거나 저널이 진행됐다면 자동으로 과거 pin을 덮어쓰지 않는다.
+교체 백업과 복구 범위는 [자동 교체의 실패와 재개](automatic-control.md#실패와-재개)를 따른다.
+
 ## 복구 허가와 기한
 
 API 복구는 S3 접근과 임시 CLI 준비에 의존하지 않는다. 복구 허가는
-[coordinator의 복구 경로](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
+[coordinator의 복구 경로](../scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
 
 | 복구 작업 | 허가 조건과 기한 |
 | --- | --- |

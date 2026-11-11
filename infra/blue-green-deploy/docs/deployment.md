@@ -10,9 +10,9 @@
 
 ## 적용 버전
 
-이 문서는 로컬 `origin/main`의 [2f2cc2cc 코드](https://github.com/woowacourse-teams/2026-jarihana/tree/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd)를 기준으로 한다.
-workflow, 스크립트와 설정의 코드 링크도 이 커밋에 고정한다. 명령은 이 기준과 일치하는
-checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도 별도로 대조한다.
+이 문서는 같은 checkout의 workflow, 스크립트와 설정을 기준으로 한다.
+코드 링크도 같은 checkout의 파일을 가리킨다. 서버에 실제 설치된 버전은 보호된
+control ref/SHA와 release 디렉터리, 해당 Actions 실행의 선택 태그를 대조한다.
 문서나 Git 병합만으로 서버 설정과 설치 코드가 갱신되었다고 판단하지 않는다.
 
 점검 제외와 0건 지표 초기화를 도입할 때는 [앱과 제어기의 적용 순서](../../docs/observability/PROBE-METRICS-ROLLOUT.md#앱과-배포-제어기의-적용-순서)를 먼저 따른다.
@@ -21,21 +21,27 @@ checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도
 ## 운영 적용 상태
 
 인프라 ADR 0005/0006의 배포 경로는 운영에서 사용 중이다.
-[Production Release #41106588247](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/41106588247)은
-위 적용 버전으로 프론트 빌드, A/B 전환, HTTP/worker 관찰과 배포 확정을 완료했다.
+[2026-11-11 Production Release #42970839133](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/42970839133)은
+`92a38bb4fb4a7b37ecb58069dcabd25939ed53fb`의 제어 릴리스로 프론트 빌드, A/B 전환,
+HTTP/worker 관찰과 배포 확정을 완료했다. 당시 제어 태그는
+`refs/tags/deployment-control-prod-20261111-01`이며 수동 교체로 설치한 버전이다.
 프론트 게시가 일반 A/B 배포의 `switch` 내부에서 실행되므로,
 이 실행의 frontend-only 전용 `frontend-publish` job이 skipped인 것은 게시 미실행을 뜻하지 않는다.
 
-이 근거는 정상 배포 경로의 운영 적용을 확인한 것이다. 실제 장애를 유발한 프론트/백엔드
+이번 [제어 버전 자동 교체](automatic-control.md)는 코드 구현과 로컬 검증을 마친 상태이며,
+운영 helper 설치와 자동 교체의 실서버 실행은 아직 완료하지 않았다. 사람 리뷰 후 세 호스트에
+helper를 설치하고 main에 반영해야 이후 배포부터 자동 교체가 동작한다.
+
+위 실행 근거는 기존 정상 배포 경로의 운영 적용을 확인한 것이다. 실제 장애를 유발한 프론트/백엔드
 동반 롤백, 취소 복구와 빈 AWS 서버의 전체 재구성까지 검증한 근거는 아니다.
 관측 코드의 Git 병합과 서버 설치도 별개이며, 점검 지표의 적용 경계는
 [배포 점검 지표 적용 상태](../../docs/observability/PROBE-METRICS-ROLLOUT.md)에서 확인한다.
 
 ## 배포 실행
 
-운영 진입점은 [Production Release](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-prod-deploy.yml)다.
+운영 진입점은 [Production Release](../../../.github/workflows/backend-prod-deploy.yml)다.
 배포 대상 경로가 변경된 main push 또는 main의 수동 실행으로
-[공통 배포 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
+[공통 배포 workflow](../../../.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
 `BLUE_GREEN_PROD_ENABLED=true`여야 새 운영 배포를 진행한다. false 또는 미설정이면
 현재 서비스를 유지한 채 새 deploy를 차단한다. 기존 Recreate 배포로 자동 전환하지 않는다.
 명시적인 최초 `bootstrap`만 비활성 상태에서 허용한다. 준비 조건은 [최초 worker 등록](server-setup/README.md#최초-worker-등록)을 따른다.
@@ -51,7 +57,7 @@ checkout에서 실행하고, 서버의 보호된 control ref/SHA와 설치본도
 두 only 입력은 동시에 지정하지 않는다. main push에서는 backend 변경만 있으면 backend-only,
 frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 배포 workflow 변경은 양쪽 배포다.
 독립적인 프론트엔드 운영 게시 workflow는 없으며
-[프론트 빌드 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/frontend-prod-deploy.yml)는 호출형 빌드 전용이다.
+[프론트 빌드 workflow](../../../.github/workflows/frontend-prod-deploy.yml)는 호출형 빌드 전용이다.
 
 백엔드 이미지는 develop의 GitHub-hosted ARM runner가 빌드해 GHCR에 올린 것을 사용한다.
 운영에서는 `tree-<backend 트리 해시>` 또는 지정 SHA를 실제 `sha256` digest로 해석해 고정한다.
@@ -67,20 +73,25 @@ frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 
 릴리스에서 자동으로 적용할 수 있는 변경은 backend의 `environment`에서 허용 목록에 등록한
 선택 환경변수 전달 줄이다. 현재는 `POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"`만 허용한다.
 이미지, DB 주소 구성, 포트, 워커 시작 상태 등 나머지 내용은 승인된 제어 태그의 템플릿과 같아야 한다.
-운영 배포의 `resolve`는 대기 EC2를 켜기 전에 두 파일을 비교한다. 앱 runner의 `prepare`도
+운영 배포의 `resolve`는 선택된 제어 버전과 두 파일을 비교한다. 제어 교체가 필요한 실행은
+앞선 `control` 단계에서 A/B EC2를 켜고 설치를 검증한다. 앱 runner의 `prepare`도
 같은 규칙으로 배포 커밋의 파일을 다시 비교하고, Compose 파싱까지 통과한 뒤 대기 컨테이너를 바꾼다.
 GitHub Variables와 Secrets는 기존 앱 작업 workflow에서 전달한다.
 
 이 workflow를 `main`에 반영하기 전에 `APP_RELEASE_COMPOSE_CAPABILITY=1`과 공통 비교 스크립트
 `release-compose.sh`가 들어 있는 제어 태그를 [제어 버전 교체 절차](control-upgrade.md)에 따라
 설치한다. 구형 제어 태그로는 운영 백엔드 배포가 이미지 선택 단계에서 중단된다.
-이후 보호 설정을 바꾸는 Compose 변경은 그 변경을 포함한 제어 태그의 설치와 함께 반영한다.
+최초 [자동 교체 helper 설치](automatic-control.md)를 마치면 이후 main 배포는 제어 코드와 보호된
+Compose 변경을 감지해 새 태그 발급, 세 서버 pin/Compose 설치와 이관 검증까지 자동으로 수행한다.
+일반 앱 변경은 기존 제어 태그를 유지하며, 서버 구성과 secret 값 변경은 관리자 작업으로 남는다.
 허용 목록의 앱 환경변수 전달 줄은 릴리스와 함께 자동으로 적용된다.
 
 ### 정상 배포 순서
 
 ```text
-이미지 선택과 필요한 프론트 빌드
+설치된 제어 버전과 main 비교
+  → 필요한 경우 새 불변 태그 발급, A/B와 coordinator 교체 및 이관 검증
+  → 이미지 선택과 필요한 프론트 빌드
   → 실제 활성 슬롯 확인, 이전 프론트 원본 검증과 새 원본 보관
   → 대기 EC2 시작, 후보 앱 PAUSED 준비와 readiness 및 관측 준비 확인
   → 이전 worker 신규 선점 중단, 발송과 finish commit 완료, DB 권한 반납
@@ -93,7 +104,9 @@ GitHub Variables와 Secrets는 기존 앱 작업 workflow에서 전달한다.
 ```
 
 관찰 시간과 통과 조건은 [관찰 기준](status.md#관찰-기준)을 따른다.
-프론트엔드만 배포하면 EC2 시작과 worker 교대 없이 현재 API와 새 프론트를 관찰한다.
+프론트엔드만 배포하면 worker 교대 없이 현재 API와 새 프론트를 관찰한다.
+제어 교체가 없으면 대기 EC2도 시작하지 않는다. 제어 교체를 함께 수행하면 설치를 위해
+A/B EC2를 시작하므로, 프론트 전용 배포 후 대기 EC2가 켜진 상태로 남을 수 있다.
 백엔드만 배포하면 공개 프론트 파일은 유지한다. 릴리스 상태 갱신 방식은
 [프론트엔드 릴리스](architecture.md#프론트엔드-릴리스)를 따른다.
 
