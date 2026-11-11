@@ -7,7 +7,7 @@ import { useAuth } from "../auth/index.js";
 import { advanceMusicPlayback, enqueueGroupMusic, fetchGroupMusic, saveMusicPlayback, skipGroupMusic } from "./api.js";
 import { parseYoutubeUrl } from "./youtubeUrl.js";
 import { YoutubePlayer } from "./YoutubePlayer.jsx";
-import { acceptMusicSnapshot, stampMusicSnapshot } from "./timeline.js";
+import { acceptMusicSnapshot, isScheduledTrack, playbackPosition, projectMusicSchedule, stampMusicSnapshot } from "./timeline.js";
 import "./groupMusic.css";
 
 const MusicContext = createContext({ openMusic: () => {}, musicOpen: false, muted: false, toggleMuted: undefined });
@@ -43,7 +43,7 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
   const [notice, setNotice] = useState("");
   const mutating = useRef(false);
   const advanceDenied = useRef(false);
-  const unavailableCheck = useRef({ revision: null, time: -Infinity });
+  const unavailableCheck = useRef({ revision: null, queueId: null, time: -Infinity });
   const addButton = useRef(null);
   const panelToggle = useRef(null);
   const restoreToggleFocus = useRef(false);
@@ -88,20 +88,23 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
 
   function commandPlayback(command) {
     if (!canEdit) return;
-    void changeMusic("playback", () => saveMusicPlayback(groupId, { ...command, expectedRevision: snapshot.playback.revision }));
+    void changeMusic("playback", () => saveMusicPlayback(groupId, {
+      ...command, expectedRevision: snapshot.playback.revision,
+      ...(music.currentQueueId && { expectedCurrentQueueId: music.currentQueueId })
+    }));
   }
 
   function skip() {
     if (!canEdit) return;
-    void changeMusic("playback", () => skipGroupMusic(groupId, snapshot.playback.revision));
+    void changeMusic("playback", () => skipGroupMusic(groupId, snapshot.playback.revision, music.currentQueueId ?? undefined));
   }
 
   const advance = useCallback(async (command) => {
     if (!canAdd || advanceDenied.current) return;
     if (command.checkUnavailable) {
       const previous = unavailableCheck.current;
-      if (previous.revision === command.expectedRevision && performance.now() - previous.time < 10000) return;
-      unavailableCheck.current = { revision: command.expectedRevision, time: performance.now() };
+      if (previous.revision === command.expectedRevision && previous.queueId === command.expectedCurrentQueueId && performance.now() - previous.time < 10000) return;
+      unavailableCheck.current = { revision: command.expectedRevision, queueId: command.expectedCurrentQueueId, time: performance.now() };
     }
     try { onSnapshot(await advanceMusicPlayback(groupId, command)); }
     catch (failure) {
@@ -245,11 +248,31 @@ function useMusicEvents(groupId, enabled, accept) {
   return connected;
 }
 
+function useScheduledPlayback(snapshot) {
+  const [clockSample, setClockSample] = useState(0);
+  const current = useMemo(() => projectMusicSchedule(snapshot, clockSample), [snapshot, clockSample]);
+  useEffect(() => {
+    if (!current?.music.enabled || current.playback.state !== "PLAYING" || !isScheduledTrack(current.music)) return undefined;
+    const synchronizeTime = () => setClockSample(performance.now());
+    const remainingMs = (current.music.durationSeconds - playbackPosition(current)) * 1000;
+    const timeout = setTimeout(synchronizeTime, Math.max(1, Math.min(2147483647, Math.ceil(remainingMs))));
+    document.addEventListener("visibilitychange", synchronizeTime);
+    window.addEventListener("pageshow", synchronizeTime);
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", synchronizeTime);
+      window.removeEventListener("pageshow", synchronizeTime);
+    };
+  }, [current, clockSample]);
+  return current;
+}
+
 function MusicSession({ groupId, memberId, authReady, children }) {
   const [musicOpen, setMusicOpen] = useState(false);
   const [audioPreferences, setAudioPreferences] = useState({ volume: 60, muted: false, listening: true });
   const muteControlRef = useRef(null);
   const [snapshot, setSnapshot] = useState(null);
+  const scheduledSnapshot = useScheduledPlayback(snapshot);
   const [headerSlot, setHeaderSlot] = useState(null);
   const openMusic = useCallback(() => setMusicOpen(true), []);
   const toggleMuted = useCallback(() => {
@@ -274,8 +297,8 @@ function MusicSession({ groupId, memberId, authReady, children }) {
   });
   return <MusicContext.Provider value={context}>
     {children}
-    {headerSlot && snapshot && createPortal(
-      <MusicPanel groupId={groupId} memberId={memberId} snapshot={snapshot} headerSlot={headerSlot}
+    {headerSlot && scheduledSnapshot && createPortal(
+      <MusicPanel groupId={groupId} memberId={memberId} snapshot={scheduledSnapshot} headerSlot={headerSlot}
         expanded={musicOpen} setExpanded={setMusicOpen} audioPreferences={audioPreferences} setAudioPreferences={setAudioPreferences}
         muteControlRef={muteControlRef}
         onSnapshot={accept} refresh={query.refetch} connectionError={!connected && query.isError} />,

@@ -107,8 +107,10 @@ function PlayerInstance({ audioPreferences, onAudioPreferencesChange, snapshot, 
             if (cancelled) return;
             clearTimeout(readyTimeout); setState(-1);
             if ([100, 101, 150].includes(event.data)) {
+              const { playback, music } = latest.current.snapshot;
               void latest.current.onAdvance({
-                expectedRevision: latest.current.snapshot.playback.revision, checkUnavailable: true
+                expectedRevision: playback.revision, checkUnavailable: true,
+                ...(music.currentQueueId && { expectedCurrentQueueId: music.currentQueueId })
               });
             }
             setError([100, 101, 150].includes(event.data)

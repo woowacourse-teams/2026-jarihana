@@ -69,10 +69,11 @@ test("queue accepts only one video and removes the external playlist parameter",
 });
 
 test("server verified duration and skip notice survive snapshot validation", async () => {
+  const queued = { id: "second", title: "다음 곡", url: music.url, durationSeconds: 88, verifiedAt: "2026-11-11T00:00:00Z" };
   wire.mockImplementation(async () => reply({ ...snapshot, music: {
-    ...music, durationSeconds: 205, verifiedAt: "2026-11-11T00:00:00Z", lastSkippedTitle: "삭제된 곡"
+    ...music, durationSeconds: 205, verifiedAt: "2026-11-11T00:00:00Z", lastSkippedTitle: "삭제된 곡", queue: [queued]
   } }));
-  expect((await fetchGroupMusic(41)).music).toMatchObject({ durationSeconds: 205, lastSkippedTitle: "삭제된 곡" });
+  expect((await fetchGroupMusic(41)).music).toMatchObject({ durationSeconds: 205, lastSkippedTitle: "삭제된 곡", queue: [queued] });
 });
 test("invalid shared timestamp or negative playback position cannot enter synchronization", async () => {
   wire.mockImplementationOnce(async () => reply({ ...snapshot, serverTime: "2026-11-09T05:00:10" }));

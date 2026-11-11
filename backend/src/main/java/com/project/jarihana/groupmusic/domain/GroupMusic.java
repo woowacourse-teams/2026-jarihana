@@ -9,7 +9,6 @@ import jakarta.persistence.EnumType;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import java.time.Instant;
-import java.time.Duration;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -101,7 +100,7 @@ public class GroupMusic extends BaseEntity {
 
     public GroupMusic advancePlayback(long expectedRevision, int nextIndex, double duration, Instant now) {
         requirePlayingRevision(expectedRevision);
-        double elapsed = positionSeconds + Math.max(0, Duration.between(anchorTime, now).toMillis() / 1000.0);
+        double elapsed = getPlayback().positionAt(now);
         if (elapsed < duration) {
             throw conflict();
         }
@@ -118,6 +117,11 @@ public class GroupMusic extends BaseEntity {
         requireRevision(expectedRevision);
         return new GroupMusic(id, group, musicJson, revision + 1, getCreatedAt(),
                 state, 0, position, now, playbackRevision + 1);
+    }
+
+    public GroupMusic withProjectedTimeline(String document, MusicPlayback playback) {
+        return new GroupMusic(id, group, document, revision, getCreatedAt(),
+                playback.state(), playback.playlistIndex(), playback.positionSeconds(), playback.anchorTime(), playback.revision());
     }
 
     private GroupMusic withPlayback(PlaybackState state, int index, double position, Instant now) {

@@ -1,4 +1,4 @@
-import { acceptMusicSnapshot, createTimelineFollower, playbackPosition, stampMusicSnapshot } from "./timeline.js";
+import { acceptMusicSnapshot, createTimelineFollower, playbackPosition, projectMusicSchedule, stampMusicSnapshot } from "./timeline.js";
 const base = (extra = {}) => ({ revision: 1, music: { enabled: true }, serverTime: "2026-11-09T10:00:10Z", receivedAt: 1000,
   playback: { state: "PLAYING", playlistIndex: 0, positionSeconds: 5, anchorTime: "2026-11-09T10:00:00Z", revision: 2 }, ...extra });
 function player({ index = 0, time = 0, state = 2, duration = 120 } = {}) {
@@ -90,4 +90,37 @@ test("ended notification can request verification before iframe duration is avai
   follower(p, base(), { onAdvance })({ ended: true });
   await Promise.resolve();
   expect(onAdvance).toHaveBeenCalledWith({ expectedRevision: 2 });
+});
+
+test("schedule skips elapsed songs with no listener, retaining the position within the active song", () => {
+  const next = { id: "b", title: "두 번째 곡", url: "https://youtu.be/lmnopqrstuv", durationSeconds: 8 };
+  const last = { id: "c", title: "세 번째 곡", url: "https://youtu.be/abcdefghijk", durationSeconds: 10 };
+  const original = base({ music: { enabled: true, currentQueueId: "a", durationSeconds: 20, queue: [next, last] } });
+  expect(projectMusicSchedule(original, 4000)).toBe(original);
+  const late = projectMusicSchedule(original, 17000);
+  expect(late.music).toMatchObject({ currentQueueId: "c", title: last.title, queue: [] });
+  expect(late.playback.revision).toBe(original.playback.revision);
+  expect(playbackPosition(late, 17000)).toBe(3);
+  const exhausted = projectMusicSchedule(original, 25000);
+  expect(exhausted.music).toMatchObject({ enabled: false, currentQueueId: null, queue: [] });
+  expect(exhausted.playback).toMatchObject({ state: "PAUSED", positionSeconds: 0 });
+  expect(original.music.queue).toEqual([next, last]);
+});
+
+test("a paused schedule does not consume future songs", () => {
+  const paused = base({ music: { enabled: true, currentQueueId: "a", durationSeconds: 20 },
+    playback: { ...base().playback, state: "PAUSED" } });
+  expect(projectMusicSchedule(paused, 250000)).toBe(paused);
+});
+
+test("an early iframe end waits for the scheduled boundary without sending an advance request", async () => {
+  const p = player({ state: 0 });
+  const onAdvance = jest.fn();
+  const scheduled = base({ music: { enabled: true, currentQueueId: "a", durationSeconds: 20 } });
+  const sync = follower(p, scheduled, { source: { videoId: "abcdefghijk", playlistId: null }, onAdvance });
+  sync({ ended: true });
+  sync();
+  await Promise.resolve();
+  expect(onAdvance).not.toHaveBeenCalled();
+  expect(p.playVideo).not.toHaveBeenCalled();
 });

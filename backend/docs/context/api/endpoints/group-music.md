@@ -6,8 +6,9 @@
 
 ## GET /api/groups/{groupId}/music
 
-그룹 상세처럼 공개 조회한다. 로그인한 현재 ACTIVE 모임장만 `canEdit: true`이고, ACTIVE 모임의 구성원은 `canAdd: true`이다.
-공개 방문자·비구성원·종료 모임에서는 `canAdd: false`이다.
+그룹 상세처럼 공개 조회한다. ACTIVE 모임의 구성원에게는 공통 재생을 제어할 수 있는
+`canEdit: true`와 곡을 신청할 수 있는 `canAdd: true`를 반환한다.
+공개 방문자·비구성원·종료 모임에서는 두 필드 모두 `false`다. 음악 설정 전체 저장은 모임장 권한이다.
 저장 이력이 없을 때 응답은 다음과 같다.
 
 ```json
@@ -50,12 +51,13 @@ ACTIVE 모임의 구성원 누구나 유튜브 단일 영상을 신청할 수 �
 
 - title은 공백이 아닌 1~80자, url은 1~500자이며 아래 유튜브 주소 검증을 따른다.
 - 신청 권한을 확인하고 DB 트랜잭션 밖에서 영상 정보를 조회한다. 그룹 쓰기 잠금을 얻은 뒤 권한을 다시 확인하고 추가한다.
+- 그룹 쓰기 잠금 안에서 이미 끝난 곡을 제외한 시점의 대기열에 추가한다.
 - 추가 요청에는 expectedRevision이 없으며 동시 신청을 모두 보존한다.
 - 재생목록 전용 주소는 400으로 거절한다. 영상과 list 매개변수가 함께 있으면 해당 영상의 watch 주소로 정규화한다.
 - 삭제·비공개·외부 재생 금지 영상은 400 GROUP_MUSIC_VIDEO_UNPLAYABLE이다.
 - 조회 장애·응답 이상·API 키 미설정은 503 GROUP_MUSIC_VERIFICATION_UNAVAILABLE이며 기존 음악을 보존한다.
 - 현재 활성 음악이 없으면 새 항목을 곧바로 index0/position0/PLAYING으로 시작한다.
-- 현재 음악이 있으면 재생·정지 상태, 위치, anchorTime, playback.revision을 그대로 둔 채 대기열 끝에 추가한다.
+- 현재 음악이 있으면 재생·정지 상태, 현재 위치와 playback.revision을 유지하며 대기열 끝에 추가한다.
 - music.queue는 **아직 재생하지 않은 항목만** 담는다. 최대 50개이며 각 항목은 서버 UUID id, title, url, durationSeconds, verifiedAt이다.
   현재 곡의 durationSeconds와 verifiedAt도 music 문서에 저장한다. verifiedAt은 UTC Instant다.
 - 동일한 URL도 다시 신청할 수 있다. music.currentQueueId는 현재 큐 항목 UUID로, 같은 URL을 연속 재생해도 바뀐다.
@@ -68,8 +70,10 @@ queue, currentQueueId, durationSeconds, verifiedAt, lastSkippedTitle은 서버 �
 
 ### POST /api/groups/{groupId}/music/queue/skip
 
-ACTIVE 모임장만 `{ "expectedRevision": 3 }`으로 현재 소스를 건너뛴다. expectedRevision은
-playback.revision이다. 유튜브 재생목록 소스라면 그 목록 전체를 건너뛴다.
+ACTIVE 모임의 구성원이 `{ "expectedRevision": 3, "expectedCurrentQueueId": "..." }`으로
+현재 소스를 건너뛴다. expectedRevision은 playback.revision이다. 대기열의 곡을 대상으로 할 때
+expectedCurrentQueueId에는 music.currentQueueId를 담는다. 이 필드는 기존 클라이언트와 호환하기
+위해 생략할 수 있다. 유튜브 재생목록 소스라면 그 목록 전체를 건너뛴다.
 대기열의 첫 항목을 제거하여 현재 곡으로 선택하고 index0/position0/PLAYING으로 시작한다.
 마지막 소스 뒤에는 enabled=false, url="", title="우리 모임의 음악", queue=[]가 되며
 currentQueueId를 제거하고 PAUSED/position0으로 멈춘다. 설정·재생 revision은 각각 1 증가한다.
@@ -125,7 +129,7 @@ playlists는 모임에서 선택할 수 있는 저장 목록이고, 최상위 ur
 | 400 | GROUP_MUSIC_VIDEO_UNPLAYABLE | 재생할 수 없는 영상 신청 |
 | 503 | GROUP_MUSIC_VERIFICATION_UNAVAILABLE | 유튜브 정보 조회 실패 또는 API 키 미설정 |
 | 401 | UNAUTHENTICATED | 로그인하지 않은 저장 요청 |
-| 403 | GROUP_ACCESS_DENIED | 모임장이 아닌 회원의 저장 |
+| 403 | GROUP_ACCESS_DENIED | 비구성원의 재생 제어·신청 또는 모임장이 아닌 구성원의 설정 저장 |
 | 404 | GROUP_NOT_FOUND | 모임 없음 |
 | 409 | GROUP_ENDED | 종료된 모임 저장 |
 | 409 | GROUP_MUSIC_CONFLICT | revision 불일치 |
@@ -150,34 +154,48 @@ GET과 모든 음악 변경 응답에 `serverTime`과 `playback`을 포함한다
 
 positionSeconds는 anchorTime 순간의 저장 위치다. PLAYING이면 현재 위치는
 `positionSeconds + max(0, serverTime - anchorTime)`이며 위 예시에서는 130초다.
-PAUSED이면 저장 위치 그대로다. 클라이언트는 응답 수신 이후 단조 시계로 경과 시간을 더하고
-변경 이벤트를 받으면 서버 상태를 다시 읽는다. 설정 revision과 playback.revision은 독립적이다.
+PAUSED이면 저장 위치 그대로다. 설정 revision과 playback.revision은 독립적이다.
+
+현재 곡에 music.currentQueueId와 양수의 music.durationSeconds가 있으면 현재 곡과 뒤에 있는
+곡들의 길이가 재생 시간표가 된다. 클라이언트는 응답 수신 후 단조 시계로 경과 시간을 더하고,
+곡 길이만큼 차례로 빼서 해당 시각의 곡과 위치를 계산한다. 경과 시간이 여러 곡의 길이 합을
+넘으면 지난 곡을 모두 제외한다. 대기열이 소진되면 음악이 꺼진 상태로 표시한다.
+
+접속자가 없는 동안에도 같은 방식으로 시간이 흐른다. 서버는 GET 시점에 현재 곡과 남은
+대기열을 계산한다. 재생할 곡이 바뀌었다면 anchorTime을 serverTime으로 두고 그 곡에 진입한
+뒤 경과한 시간을 positionSeconds로 반환한다. 이 계산은 DB와 revision을 변경하지 않는다.
+곡 추가·일시 정지·재개·건너뛰기는 현재 시각의 시간표를 반영한 뒤 저장한다. SSE로 변경을
+받은 클라이언트는 GET으로 갱신한다. 기존 소스에 길이 정보가 없으면 그 곡부터 기존 종료 보고를 사용한다.
 
 ### PUT /api/groups/{groupId}/music/playback
 
-ACTIVE 모임의 현재 모임장만 사용한다. 인증/CSRF가 필요하며 음악이 활성화되어 있어야 한다.
+ACTIVE 모임의 구성원이 사용한다. 인증/CSRF가 필요하며 음악이 활성화되어 있어야 한다.
 
 ```json
-{"expectedRevision":3,"state":"PAUSED","playlistIndex":0,"positionSeconds":130.5}
+{"expectedRevision":3,"expectedCurrentQueueId":"...","state":"PAUSED","playlistIndex":0,"positionSeconds":130.5}
 ```
 
-expectedRevision은 **playback.revision**이다. state는 PLAYING/PAUSED, playlistIndex는 0 이상의
-정수, positionSeconds는 0 이상의 유한수다. 성공 시 서버 현재 시각을 anchorTime으로 저장하고
-playback.revision을 1 증가시킨다. 설정 revision은 유지한다. 재생·정지·탐색은 구성원 전체에 적용된다.
+expectedRevision은 **playback.revision**이다. expectedCurrentQueueId를 보내면 서버가 계산한
+현재 곡과 일치해야 한다. state는 PLAYING/PAUSED, playlistIndex는 0 이상의 정수,
+positionSeconds는 0 이상의 유한수다. 시간표를 사용하는 곡은 서버가 계산한 위치에서
+일시 정지·재개한다. 기존 소스는 모임장의 탐색과 구성원의 다음 재생목록 항목 건너뛰기를 지원한다.
+성공 시 서버 현재 시각을 anchorTime으로 저장하고 playback.revision을 1 증가시킨다.
+설정 revision은 유지한다.
 
 ### POST /api/groups/{groupId}/music/playback/advance
 
-ACTIVE 모임의 로그인한 현재 구성원만 곡 종료 또는 영상 오류를 보고할 수 있다. 인증/CSRF가 필요하다.
+ACTIVE 모임의 구성원이 기존 소스의 곡 종료 또는 영상 오류를 보고할 수 있다.
+시간표를 사용하는 곡은 영상 오류 재확인에만 이 API를 사용한다. 인증/CSRF가 필요하다.
 
 ```json
 {"expectedRevision":3}
 ```
 
 - expectedRevision은 현재 playback.revision과 일치해야 한다. PLAYING 상태와 활성 음악이 필요하다.
-- 영상 길이는 서버가 저장한 durationSeconds를 사용한다. 기존 문서 또는 확인 후 하루가 지난 정보는 YouTube Data API로 다시 확인한다.
+- 영상 길이는 YouTube Data API로 확인한다.
 - 서버 현재 시각과 anchorTime·positionSeconds로 계산한 위치가 확인된 영상 길이 이상일 때만 전환한다.
 - 이전 클라이언트의 playlistIndex, trackDurationSeconds, queueLength 필드는 호환을 위해 무시한다.
-- 큐 모드에서는 다음 신청곡을 index0/position0으로 시작한다. 대기열이 비면 PAUSED로 멈춘다.
+- 기존 소스가 끝나고 신청곡이 남아 있으면 다음 신청곡을 index0/position0으로 시작한다.
 - 기존 저장 재생목록은 서버가 현재 index의 영상과 다음 항목 유무를 조회해 진행한다.
   같은 소스 안에서는 초과 시간을 다음 영상으로 전달한다. 큐 없는 기존 소스의 반복 재생도 지원한다.
 - 그룹 쓰기 잠금과 revision 비교로 같은 종료 지점에 대한 요청 하나만 성공한다.
@@ -189,14 +207,13 @@ ACTIVE 모임의 로그인한 현재 구성원만 곡 종료 또는 영상 오�
 유튜브 오류 100·101·150을 받은 구성원 클라이언트는 다음 요청으로 재확인을 요청한다.
 
 ```json
-{"expectedRevision":3,"checkUnavailable":true}
+{"expectedRevision":3,"expectedCurrentQueueId":"...","checkUnavailable":true}
 ```
 
 서버가 삭제·비공개·외부 재생 금지를 확인하면 대기열을 진행하고 music.lastSkippedTitle로 안내할 곡명을 반환한다.
 서버 조회에서 재생 가능하면 409로 현재 곡을 유지한다. API 장애는 503으로 반환하며 큐와 재생 위치를 유지한다.
 개인 네트워크 오류·자동 재생 차단·플레이어 오류 5·153은 공통 건너뛰기 요청을 보내지 않는다.
-공개 방문자는 공통 타임라인을 읽으며 자동 전환 요청은 구성원에게만 허용한다.
-구성원이 없는 동안 곡이 끝나면 다음 연결 구성원이 종료를 보고하는 시점에 다음 신청곡을 시작한다.
+공개 방문자는 공통 타임라인을 읽을 수 있다.
 
 ### 유튜브 API 설정
 

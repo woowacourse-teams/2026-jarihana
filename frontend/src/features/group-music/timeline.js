@@ -17,6 +17,43 @@ export function playbackPosition(snapshot, now = performance.now()) {
   return Math.max(0, playback.positionSeconds + atReceipt + Math.max(0, now - snapshot.receivedAt) / 1000);
 }
 
+export function isScheduledTrack(music) {
+  return Boolean(music.currentQueueId && Number.isFinite(music.durationSeconds) && music.durationSeconds > 0);
+}
+
+export function projectMusicSchedule(snapshot, now) {
+  if (!snapshot?.music.enabled || snapshot.playback.state !== "PLAYING" || !isScheduledTrack(snapshot.music)) return snapshot;
+  const position = playbackPosition(snapshot, now);
+  if (position < snapshot.music.durationSeconds) return snapshot;
+
+  const { queue = [], ...music } = snapshot.music;
+  let elapsed = music.durationSeconds;
+  let index = 0;
+  while (index < queue.length) {
+    const duration = queue[index].durationSeconds;
+    if (!Number.isFinite(duration) || duration <= 0 || elapsed + duration > position) break;
+    elapsed += duration;
+    index += 1;
+  }
+  const next = queue[index];
+  const anchorTime = new Date(Date.parse(snapshot.playback.anchorTime) + Math.round((elapsed - snapshot.playback.positionSeconds) * 1000)).toISOString();
+  return {
+    ...snapshot,
+    music: {
+      ...music,
+      enabled: Boolean(next),
+      title: next?.title ?? "우리 모임의 음악",
+      url: next?.url ?? "",
+      currentQueueId: next?.id ?? null,
+      durationSeconds: next?.durationSeconds,
+      verifiedAt: next?.verifiedAt,
+      lastSkippedTitle: undefined,
+      queue: queue.slice(index + 1)
+    },
+    playback: { ...snapshot.playback, state: next ? "PLAYING" : "PAUSED", playlistIndex: 0, positionSeconds: 0, anchorTime }
+  };
+}
+
 export function createTimelineFollower({ source, getSnapshot, getPlayer, isListening, isBlocked, onAdvance, now = () => performance.now() }) {
   const durations = new Map();
   let initial = true;
@@ -39,15 +76,19 @@ export function createTimelineFollower({ source, getSnapshot, getPlayer, isListe
     if (actualIndex >= 0 && Number.isFinite(duration) && duration > 0) durations.set(actualIndex, duration);
     const trackDuration = snapshot.music.durationSeconds ?? durations.get(timeline.playlistIndex);
     const playerState = target.getPlayerState();
+    const scheduled = isScheduledTrack(snapshot.music);
 
     if (!isListening()) {
       if (playerState === 1 || playerState === 3) target.pauseVideo();
       return;
     }
-    if (timeline.state === "PLAYING" && (ended || (trackDuration && desired >= trackDuration))) {
-      if (!advancing && now() - lastAdvance >= 10000) {
+    if (timeline.state === "PLAYING" && (ended || (scheduled && playerState === 0) || (trackDuration && desired >= trackDuration))) {
+      if (!scheduled && !advancing && now() - lastAdvance >= 10000) {
         lastAdvance = now(); advancing = true;
-        Promise.resolve().then(() => onAdvance({ expectedRevision: timeline.revision })).catch(() => undefined).finally(() => { advancing = false; });
+        Promise.resolve().then(() => onAdvance({
+          expectedRevision: timeline.revision,
+          ...(snapshot.music.currentQueueId && { expectedCurrentQueueId: snapshot.music.currentQueueId })
+        })).catch(() => undefined).finally(() => { advancing = false; });
       }
       if (playerState === 1 || playerState === 3) target.pauseVideo();
       return;

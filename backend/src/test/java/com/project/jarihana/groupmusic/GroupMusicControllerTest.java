@@ -86,7 +86,7 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
                 .body("data.music.title", equalTo("우리 모임의 음악")).body("data.music.url", equalTo(""))
                 .body("data.canEdit", equalTo(false)).body("data.updatedAt", nullValue());
         request(leader).get(path()).then().statusCode(200).body("data.canEdit", equalTo(true));
-        request(member).get(path()).then().statusCode(200).body("data.canEdit", equalTo(false));
+        request(member).get(path()).then().statusCode(200).body("data.canEdit", equalTo(true));
         given().get("/groups/999999/music").then().statusCode(404);
     }
 
@@ -169,9 +169,9 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    void leaderControlsSharedPlaybackAndMembersCannotSeek() {
+    void leaderCanSeekAndOutsiderCannotControlPlayback() {
         save(leader, MUSIC, 0).then().statusCode(200);
-        control(member, "PAUSED", 0, 42, 1).then().statusCode(403);
+        control(outsider, "PAUSED", 0, 42, 1).then().statusCode(403);
         control(leader, "PAUSED", 2, 42.5, 1).then().statusCode(200)
                 .body("data.playback.state", equalTo("PAUSED")).body("data.playback.revision", equalTo(2));
         given().get(path()).then().statusCode(200).body("data.playback.playlistIndex", equalTo(2))
@@ -299,7 +299,7 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     void memberAddsCurrentTrackThenQueuesWithoutChangingPlayback() {
         // Given / When
         var first = enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200)
-                .body("data.canEdit", equalTo(false)).body("data.canAdd", equalTo(true))
+                .body("data.canEdit", equalTo(true)).body("data.canAdd", equalTo(true))
                 .body("data.music.enabled", equalTo(true)).body("data.music.queue.size()", equalTo(0))
                 .body("data.playback.state", equalTo("PLAYING")).extract().jsonPath();
         control(leader, "PLAYING", 0, 35, first.getLong("data.playback.revision")).then().statusCode(200);
@@ -342,26 +342,92 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("현재 곡이 끝나면 대기열 첫 곡을 꺼내고 마지막 곡 뒤에는 반복 없이 멈춘다")
-    void completionConsumesQueueInOrderAndStopsAfterLastTrack() {
+    @DisplayName("접속자가 없었어도 경과한 곡을 제외하고 현재 곡과 위치를 조회한다")
+    void elapsedQueueIsProjectedWithoutWriting() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+        enqueue(member, "셋째 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
+        setPlaybackElapsed(245);
+
+        // When / Then
+        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("셋째 곡"))
+                .body("data.music.queue.size()", equalTo(0)).body("data.revision", equalTo(3))
+                .body("data.playback.revision", equalTo(1)).body("data.playback.positionSeconds", equalTo(5.0f));
+        assertThat(mapper.readTree(jdbc.queryForObject("SELECT music_json FROM group_music WHERE group_id = ?",
+                String.class, group.getId())).get("title").asString()).isEqualTo("첫 곡");
+    }
+
+    @Test
+    @DisplayName("길이 정보가 없는 기존 곡을 만날 때 진행 위치를 유지하고 종료 보고를 허용한다")
+    void scheduledQueuePreservesElapsedPositionAtLegacyTrack() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "기존 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+        enqueue(member, "셋째 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
+        jdbc.update("""
+                UPDATE group_music SET music_json = (
+                    music_json::jsonb #- '{queue,0,durationSeconds}' #- '{queue,0,verifiedAt}'
+                )::text WHERE group_id = ?
+                """, group.getId());
+        setPlaybackElapsed(125);
+
+        // When / Then
+        String legacyId = given().get(path()).then().statusCode(200)
+                .body("data.music.title", equalTo("기존 곡"))
+                .body("data.playback.positionSeconds", equalTo(5.0f))
+                .extract().path("data.music.currentQueueId");
+        setPlaybackElapsed(245);
+        given().get(path()).then().statusCode(200)
+                .body("data.music.currentQueueId", equalTo(legacyId))
+                .body("data.playback.positionSeconds", equalTo(125.0f));
+        request(member).body(playbackTarget(1, legacyId).toString()).post(path() + "/playback/advance")
+                .then().statusCode(200).body("data.music.title", equalTo("셋째 곡"))
+                .body("data.playback.positionSeconds", equalTo(0.0f));
+    }
+
+    private void setPlaybackElapsed(long seconds) {
+        jdbc.update("UPDATE group_music SET anchor_time = ? WHERE group_id = ?",
+                Timestamp.from(FIXED_NOW.atZone(ZONE).toInstant().minusSeconds(seconds)), group.getId());
+    }
+
+    @Test
+    @DisplayName("대기열의 모든 곡이 지난 뒤 들어오면 재생이 끝나 있고 새 신청곡이 바로 시작한다")
+    void exhaustedScheduleCanStartWithNewEnqueue() {
         // Given
         enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
         enqueue(leader, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
-        enqueue(member, "셋째 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
-        control(leader, "PLAYING", 0, 125, 1).then().statusCode(200);
+        setPlaybackElapsed(240);
 
         // When / Then
-        advance(member, 2, 0, 120, 1).then().statusCode(200)
-                .body("data.music.title", equalTo("둘째 곡")).body("data.music.queue.size()", equalTo(1))
-                .body("data.music.queue[0].title", equalTo("셋째 곡"))
-                .body("data.playback.positionSeconds", equalTo(0.0f)).body("data.playback.revision", equalTo(3));
-        advance(leader, 2, 0, 120, 1).then().statusCode(409);
-        skip(leader, 3).then().statusCode(200).body("data.music.title", equalTo("셋째 곡"))
-                .body("data.music.queue.size()", equalTo(0)).body("data.playback.revision", equalTo(4));
-        control(leader, "PLAYING", 0, 125, 4).then().statusCode(200);
-        advance(member, 5, 0, 120, 1).then().statusCode(200).body("data.music.enabled", equalTo(false))
-                .body("data.music.url", equalTo("")).body("data.music.queue.size()", equalTo(0))
-                .body("data.playback.state", equalTo("PAUSED")).body("data.playback.positionSeconds", equalTo(0.0f));
+        given().get(path()).then().statusCode(200).body("data.music.enabled", equalTo(false))
+                .body("data.music.currentQueueId", nullValue()).body("data.music.queue.size()", equalTo(0))
+                .body("data.playback.state", equalTo("PAUSED")).body("data.playback.revision", equalTo(1));
+        enqueue(member, "새 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200)
+                .body("data.music.title", equalTo("새 곡")).body("data.playback.state", equalTo("PLAYING"))
+                .body("data.playback.positionSeconds", equalTo(0.0f)).body("data.playback.revision", equalTo(2));
+    }
+
+    @Test
+    @DisplayName("모임원이 경과한 첫 곡을 제외한 현재 곡을 일시 정지하고 재개할 수 있다")
+    void memberPausesAndResumesCurrentTrackAtServerPosition() {
+        // Given
+        var first = enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200).extract().jsonPath();
+        var queued = enqueue(leader, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200).extract().jsonPath();
+        setPlaybackElapsed(125);
+        String firstId = first.getString("data.music.currentQueueId");
+        String secondId = queued.getString("data.music.queue[0].id");
+
+        // When / Then
+        control(member, "PAUSED", 0, 117, 1, firstId).then().statusCode(409);
+        control(member, "PAUSED", 0, 117, 1, secondId).then().statusCode(200)
+                .body("data.music.currentQueueId", equalTo(secondId))
+                .body("data.playback.positionSeconds", equalTo(5.0f)).body("data.playback.revision", equalTo(2))
+                .body("data.playback.state", equalTo("PAUSED"));
+        given().get(path()).then().statusCode(200).body("data.playback.positionSeconds", equalTo(5.0f));
+        control(member, "PLAYING", 0, 117, 2, secondId).then().statusCode(200)
+                .body("data.playback.positionSeconds", equalTo(5.0f)).body("data.playback.revision", equalTo(3))
+                .body("data.playback.state", equalTo("PLAYING"));
     }
 
     @Test
@@ -386,8 +452,8 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("활성 모임 구성원만 추가하며 건너뛰기는 모임장과 최신 재생 상태에 한한다")
-    void queueRequiresMembershipAndSkipRequiresLeaderAndRevision() {
+    @DisplayName("활성 모임 구성원만 곡을 추가하고 최신 재생 상태를 건너뛸 수 있다")
+    void queueWritesRequireActiveMembershipAndSkipRequiresRevision() {
         // Given / When / Then
         String body = "{\"title\":\"곡\",\"url\":\"https://youtu.be/abcdefghijk\"}";
         given().cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf).contentType("application/json")
@@ -396,8 +462,9 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
         given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value()).contentType("application/json")
                 .body(body).post(path() + "/queue").then().statusCode(403);
         enqueue(member, "곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
-        skip(member, 1).then().statusCode(403);
-        skip(leader, 0).then().statusCode(409);
+        skip(outsider, 1).then().statusCode(403);
+        skip(member, 0).then().statusCode(409);
+        skip(member, 1).then().statusCode(200).body("data.music.enabled", equalTo(false));
         groups.save(groups.findById(group.getId()).orElseThrow().endAt(FIXED_NOW.plusDays(2)));
         enqueue(member, "곡", "https://youtu.be/abcdefghijk").then().statusCode(409).body("error.code", equalTo("GROUP_ENDED"));
         request(member).get(path()).then().statusCode(200).body("data.canAdd", equalTo(false));
@@ -468,28 +535,31 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("동시에 도착한 곡 종료 보고는 대기열을 한 번만 소비한다")
-    void concurrentCompletionConsumesOnlyOneEntry() throws Exception {
+    @DisplayName("자동 전환 직후 같은 버전의 지난 곡 명령을 거절하고 현재 곡에 대한 동시 건너뛰기를 한 번 처리한다")
+    void staleTrackIdentityAndConcurrentSkipCannotConsumeAnotherEntry() throws Exception {
         // Given
-        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
-        enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+        var first = enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200).extract().jsonPath();
+        var queued = enqueue(member, "둘째 곡", "https://youtu.be/abcdefghijk").then().statusCode(200).extract().jsonPath();
         enqueue(member, "셋째 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
-        control(leader, "PLAYING", 0, 120, 1).then().statusCode(200);
+        setPlaybackElapsed(120);
+        String firstId = first.getString("data.music.currentQueueId");
+        String secondId = queued.getString("data.music.queue[0].id");
         var start = new CountDownLatch(1);
 
         // When
+        skip(member, 1, firstId).then().statusCode(409);
+        reportUnavailable(member, 1, firstId).then().statusCode(409);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> { start.await(); return advance(member, 2, 0, 120, 1).statusCode(); });
-            var second = executor.submit(() -> { start.await(); return advance(leader, 2, 0, 120, 1).statusCode(); });
+            var firstSkip = executor.submit(() -> { start.await(); return skip(member, 1, secondId).statusCode(); });
+            var secondSkip = executor.submit(() -> { start.await(); return skip(leader, 1, secondId).statusCode(); });
             start.countDown();
-            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
+            assertThat(List.of(firstSkip.get(15, TimeUnit.SECONDS), secondSkip.get(15, TimeUnit.SECONDS)))
                     .containsExactlyInAnyOrder(200, 409);
         }
 
         // Then
-        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("둘째 곡"))
-                .body("data.music.queue.size()", equalTo(1)).body("data.music.queue[0].title", equalTo("셋째 곡"))
-                .body("data.playback.revision", equalTo(3));
+        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("셋째 곡"))
+                .body("data.music.queue.size()", equalTo(0)).body("data.playback.revision", equalTo(2));
     }
 
     @Test
@@ -574,18 +644,21 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("영상 길이 없는 종료 요청은 서버가 저장한 길이로 검증하고 다음 신청곡을 처음부터 재생한다")
-    void advancesUsingOnlyServerVerifiedDuration() {
+    @DisplayName("시간표의 다음 곡이 시작된 뒤 추가하면 현재 곡의 남은 시간을 유지한다")
+    void enqueuePersistsProjectedCurrentAndKeepsItsProgress() {
         // Given
         enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
         enqueue(member, "다음 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
-        control(leader, "PLAYING", 0, 125, 1).then().statusCode(200);
+        setPlaybackElapsed(125);
 
         // When / Then
-        request(member).body("{\"expectedRevision\":2}").post(path() + "/playback/advance").then().statusCode(200)
-                .body("data.music.title", equalTo("다음 곡"))
+        enqueue(member, "새 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200)
+                .body("data.music.title", equalTo("다음 곡")).body("data.music.queue[0].title", equalTo("새 곡"))
                 .body("data.music.durationSeconds", equalTo(120.0f))
-                .body("data.playback.positionSeconds", equalTo(0.0f));
+                .body("data.playback.revision", equalTo(1)).body("data.playback.positionSeconds", equalTo(5.0f));
+        request(member).body("{\"expectedRevision\":1}").post(path() + "/playback/advance").then().statusCode(409);
+        assertThat(mapper.readTree(jdbc.queryForObject("SELECT music_json FROM group_music WHERE group_id = ?",
+                String.class, group.getId())).get("title").asString()).isEqualTo("다음 곡");
     }
 
     @Test
@@ -603,8 +676,12 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     private io.restassured.response.Response reportUnavailable(Member caller, long revision) {
-        return request(caller).body("{\"expectedRevision\":" + revision + ",\"checkUnavailable\":true}")
-                .post(path() + "/playback/advance");
+        return reportUnavailable(caller, revision, null);
+    }
+
+    private io.restassured.response.Response reportUnavailable(Member caller, long revision, String queueId) {
+        ObjectNode body = playbackTarget(revision, queueId).put("checkUnavailable", true);
+        return request(caller).body(body.toString()).post(path() + "/playback/advance");
     }
 
     private io.restassured.response.Response enqueue(Member caller, String title, String url) {
@@ -613,13 +690,32 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     }
 
     private io.restassured.response.Response skip(Member caller, long revision) {
-        return request(caller).body("{\"expectedRevision\":" + revision + "}").post(path() + "/queue/skip");
+        return skip(caller, revision, null);
+    }
+
+    private io.restassured.response.Response skip(Member caller, long revision, String queueId) {
+        return request(caller).body(playbackTarget(revision, queueId).toString()).post(path() + "/queue/skip");
     }
 
     private io.restassured.response.Response control(Member caller, String state, int index, double position, long revision) {
-        return request(caller).body("{\"state\":\"" + state + "\",\"playlistIndex\":" + index + ",\"positionSeconds\":" + position
-                + ",\"expectedRevision\":" + revision + "}").put(path() + "/playback");
+        return control(caller, state, index, position, revision, null);
     }
+
+    private io.restassured.response.Response control(Member caller, String state, int index, double position,
+                                                     long revision, String queueId) {
+        ObjectNode body = playbackTarget(revision, queueId).put("state", state).put("playlistIndex", index)
+                .put("positionSeconds", position);
+        return request(caller).body(body.toString()).put(path() + "/playback");
+    }
+
+    private ObjectNode playbackTarget(long revision, String queueId) {
+        ObjectNode body = mapper.createObjectNode().put("expectedRevision", revision);
+        if (queueId != null) {
+            body.put("expectedCurrentQueueId", queueId);
+        }
+        return body;
+    }
+
     private io.restassured.response.Response advance(Member caller, long revision, int index, double duration, int queueLength) {
         return request(caller).body("{\"expectedRevision\":" + revision + ",\"playlistIndex\":" + index + ",\"trackDurationSeconds\":" + duration
                 + ",\"queueLength\":" + queueLength + "}").post(path() + "/playback/advance");

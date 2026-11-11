@@ -36,7 +36,7 @@ public class GroupMusicCommandController {
     public ResponseEntity<ApiResponse<SaveGroupMusicResponse>> skipQueue(
             @LoginMember long memberId, @PathVariable long groupId,
             @Valid @RequestBody SkipMusicQueueRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(SaveGroupMusicResponse.from(service.skipQueue(memberId, groupId, request.expectedRevision()))));
+        return ResponseEntity.ok(ApiResponse.success(SaveGroupMusicResponse.from(service.skipQueue(memberId, groupId, request.expectedRevision(), request.expectedCurrentQueueId()))));
     }
 
     @PutMapping

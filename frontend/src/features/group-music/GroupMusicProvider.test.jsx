@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../auth/index.js";
-import { advanceMusicPlayback, enqueueGroupMusic, fetchGroupMusic, saveMusicPlayback } from "./api.js";
+import { advanceMusicPlayback, enqueueGroupMusic, fetchGroupMusic, saveMusicPlayback, skipGroupMusic } from "./api.js";
 import { loadYoutubeApi } from "./youtubeApi.js";
 import { GroupMusicHeaderSlot, GroupMusicProvider, musicGroupId, useGroupMusic } from "./GroupMusicProvider.jsx";
 let mockPath = "/groups/41";
@@ -168,7 +168,7 @@ test("leaders send shared play/pause/track commands with playback CAS revision",
   await waitFor(() => expect(saveMusicPlayback).toHaveBeenCalledTimes(2));
   expect(saveMusicPlayback.mock.calls[1][1]).toEqual({ state: "PLAYING", playlistIndex: 1, positionSeconds: 0, expectedRevision: 4 });
 });
-test("ordinary group members have local controls but cannot command the room", async () => {
+test("a snapshot without shared playback permission still enables local controls and enqueue", async () => {
   fetchGroupMusic.mockResolvedValue(snapshot({ canEdit: false, canAdd: true })); setup(); const p = await loaded(); openQueue();
   expect(screen.queryByRole("button", { name: "모두 일시 정지" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "모두 다음 영상" })).not.toBeInTheDocument();
@@ -178,6 +178,45 @@ test("ordinary group members have local controls but cannot command the room", a
   fireEvent.change(screen.getByRole("slider", { name: "음량" }), { target: { value: 35 } });
   expect(p.pauseVideo).toHaveBeenCalled(); expect(p.mute).toHaveBeenCalled(); expect(p.setVolume).toHaveBeenLastCalledWith(35);
   expect(saveMusicPlayback).not.toHaveBeenCalled();
+});
+
+test("a scheduled boundary switches to the next entry without SSE or an advance report, even for the same video", async () => {
+  jest.useFakeTimers();
+  try {
+    const url = "https://youtu.be/abcdefghijk";
+    const next = { id: "second", title: "두 번째 신청곡", url, durationSeconds: 40 };
+    fetchGroupMusic.mockResolvedValue(snapshot({ canAdd: true, music: {
+      ...music, title: "첫 번째 신청곡", url, currentQueueId: "first", durationSeconds: 17, queue: [next]
+    } }));
+    const view = setup();
+    const player = await loaded();
+    openQueue();
+    player.actual.state = 0;
+    act(() => player.options.events.onStateChange({ data: 0, target: player }));
+    expect(screen.getByText("첫 번째 신청곡", { selector: "strong" })).toBeVisible();
+    await tick(2300);
+    expect(screen.getByText(next.title, { selector: "strong" })).toBeVisible();
+    expect(players).toHaveLength(2);
+    expect(players[1].options.videoId).toBe(players[0].options.videoId);
+    expect(within(screen.getByRole("region", { name: "다음 곡" })).queryByText(next.title)).not.toBeInTheDocument();
+    expect(player.destroy).toHaveBeenCalledTimes(1);
+    expect(advanceMusicPlayback).not.toHaveBeenCalled();
+    expect(fetchGroupMusic).toHaveBeenCalledTimes(1);
+    view.unmount();
+  } finally { jest.useRealTimers(); }
+});
+
+test("shared commands use the active scheduled entry in addition to the playback revision", async () => {
+  const current = snapshot({ canAdd: true, music: { ...music, url: "https://youtu.be/abcdefghijk", currentQueueId: "playing", durationSeconds: 35 } });
+  fetchGroupMusic.mockResolvedValue(current);
+  saveMusicPlayback.mockResolvedValueOnce({ ...current, playback: { ...current.playback, state: "PAUSED", revision: 4 } });
+  skipGroupMusic.mockResolvedValueOnce(current);
+  setup(); await loaded(); openQueue();
+  fireEvent.click(screen.getByRole("button", { name: "모두 일시 정지" }));
+  await screen.findByRole("button", { name: "모두 재생" });
+  expect(saveMusicPlayback).toHaveBeenCalledWith("41", expect.objectContaining({ expectedRevision: 3, expectedCurrentQueueId: "playing" }));
+  fireEvent.click(screen.getByRole("button", { name: "모두 다음 영상" }));
+  await waitFor(() => expect(skipGroupMusic).toHaveBeenCalledWith("41", 4, "playing"));
 });
 
 test("a signed-in visitor can mute but cannot stop, advance or change the group's playback", async () => {

@@ -14,7 +14,9 @@ const playlistSchema = z.object({
 export const musicSchema = z.object({
   enabled: z.boolean(), autoplay: z.boolean(), title: playlistTitle, url: playlistUrl,
   playlists: z.array(playlistSchema).max(20).optional(),
-  queue: z.array(playlistSchema.extend({ id: z.string().min(1) })).max(50).optional(),
+  queue: z.array(playlistSchema.extend({
+    id: z.string().min(1), durationSeconds: z.number().positive().optional(), verifiedAt: z.string().datetime().optional()
+  })).max(50).optional(),
   currentQueueId: z.string().min(1).nullable().optional(),
   durationSeconds: z.number().positive().optional(),
   verifiedAt: z.string().datetime().optional(),
@@ -55,6 +57,8 @@ export function enqueueGroupMusic(groupId, item) {
   return apiRequest(`groups/${groupId}/music/queue`, { method: "post", json: parsed.data, schema: groupMusicSchema }).then(stampMusicSnapshot);
 }
 
-export function skipGroupMusic(groupId, expectedRevision) {
-  return apiRequest(`groups/${groupId}/music/queue/skip`, { method: "post", json: { expectedRevision }, schema: groupMusicSchema }).then(stampMusicSnapshot);
+export function skipGroupMusic(groupId, expectedRevision, expectedCurrentQueueId) {
+  return apiRequest(`groups/${groupId}/music/queue/skip`, {
+    method: "post", json: { expectedRevision, expectedCurrentQueueId }, schema: groupMusicSchema
+  }).then(stampMusicSnapshot);
 }
