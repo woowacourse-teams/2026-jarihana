@@ -91,7 +91,7 @@ config, journal, nginx, ec2_A/B, nginx_drain과 traffic은 독립된 source다.
 
 저장소의 수정된 수집기는 prod의 `mode=deploy`, `frontend_only=true`, `old==target` 저널을 허용한다.
 backend-only와 공동 배포는 기존처럼 서로 다른 A/B를 요구한다. 두 only 플래그가 동시에 true이거나
-boolean이 아니면 거부하며, 기존 환경, topology, control SHA와 lease 검증을 유지한다.
+boolean이 아니면 거부하며, 기존 환경, topology, 소스 SHA 형식과 lease 검증을 유지한다.
 frontend-only에서 Nginx reload ticket이 없으면 연결 정리 값은 -1이다.
 
 롤백 중이거나 완료된 상태, 또는 `http_recovered=true`인 상태는 `rollback_drain_ticket`을 관측한다.
@@ -185,7 +185,7 @@ systemd 원본은 `infra/monitoring/deployment/systemd/`에서 `/etc/systemd/sys
 
 ### 새 서버의 원본 배치
 
-배포 제어기의 control tag에는 중앙 수집기 원본이 없을 수 있다. 중앙 수집기와 helper를 포함하는
+중앙 수집기는 Actions와 독립된 설치형 도구다. 중앙 수집기와 helper를 포함하는
 별도의 승인 commit을 선택한다. 저장소에 형상 관리한 코드를 쓰며 feature 브랜치의 설치기나
 현재 배포 제어기 helper를 임의로 섞지 않는다.
 

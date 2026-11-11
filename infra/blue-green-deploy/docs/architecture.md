@@ -33,10 +33,9 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 
 ## 앱 Compose와 제어 코드의 버전
 
-일반 운영 배포는 배포를 시작한 main 커밋 SHA에서 앱 Compose를 읽고,
-`docker compose config --quiet`를 거쳐 같은 파일로 후보 컨테이너를 만든다. 앱 환경 변수와 자원 설정을 바꾸기 위해
-제어 태그를 새로 만들거나 서버의 보호된 control pin을 변경하지 않는다.
-제어 코드와 watchdog의 별도 고정 버전은 유지하며, 제어 코드 갱신은 관리자 절차를 따른다.
+일반 운영 배포는 실행을 시작한 main 커밋 SHA의 스크립트와 앱 Compose를 함께 사용한다.
+Compose는 `docker compose config --quiet`를 거쳐 같은 파일로 후보 컨테이너를 만든다.
+배포 도중 main의 새 HEAD를 다시 읽지 않으며 서버에 배포 코드 버전을 별도로 고정하지 않는다.
 원본 선택과 실행 방식은 [Compose 선택](deployment.md#운영-백엔드의-compose-선택)을 따른다.
 
 ## worker 인계와 정상 종료
@@ -110,7 +109,7 @@ s3://techcourse-project-2026/jarihana/
 
 복구 원본은 과거 커밋 재빌드가 아닌 실제 바이트다. 파일의 path, size와 SHA-256을 manifest에
 기록하고, 모든 원본 검증 뒤 release.json을 마지막에 쓴다. 미완성 manifest는 복구 원본이 아니다.
-릴리스는 source SHA, backend digest, run/deployment ID와 control SHA로 연결한다.
+릴리스는 source SHA, backend digest, run/deployment ID로 연결한다.
 최초 baseline의 소스를 모르면 null로 두며 추정하지 않는다. 비밀값은 기록하지 않는다.
 
 릴리스 객체는 기존 객체가 없는 경우에만 생성하고 덮어쓰지 않는다. state.json은 읽은 ETag에
@@ -152,7 +151,7 @@ Nginx 서버의 중앙 수집기는 기존 [중앙 수집기 운영 문서](../.
 요청만 http.server.requests 타이머에서 제외한다. 같은 경로의 일반 요청은 집계하며
 로그, JDBC, CPU와 메모리 지표는 유지한다. 필터 전에는 표시된 점검도 집계된다.
 
-활성 Nginx 설정뿐 아니라 고정 제어 릴리스의 템플릿과 직접 검사 스크립트를 대조한다.
+활성 Nginx 설정뿐 아니라 배포 SHA의 템플릿과 직접 검사 스크립트를 대조한다.
 템플릿에 표시가 없으면 다음 전환에서 수동 설정이 덮어써질 수 있다. 설치 타이머와 prod 전용
 systemd drop-in도 함께 확인하고 코드 병합만으로 모든 경로에 적용됐다고 판단하지 않는다.
 
@@ -163,7 +162,7 @@ systemd drop-in도 함께 확인하고 코드 병합만으로 모든 경로에 �
 
 저널 schema 2를 사용하며 이전 v1 자동 이관과 미완료 저널에서의 새 plan은 허용하지 않는다.
 단계 실행은 현재 GitHub run과 첫 attempt, 저장소, branch, 부모 SHA와 workflow 경로,
-control SHA, 실제 EC2, image와 허가를 대조한다. A/B 앱은 로컬 관리 API만 호출하고
+checkout SHA, 실제 EC2, image와 허가를 대조한다. A/B 앱은 로컬 관리 API만 호출하고
 coordinator가 SSH 원격 명령으로 앱을 배포하지 않는다. SSH는 최신 저널 읽기 전용이다.
 앱 작업 결과와 Nginx 종료 증거를 native outputs로 검증하며 누락 값을 0이나 true로 채우지 않는다.
 
@@ -191,7 +190,7 @@ GitHub API 응답의 잔여 요청은 새 plan/bootstrap 900, 일반 진행 500,
 
 요청 예산과 캐시는 [공통 실행 코드](../scripts/actions/common.sh)를 따른다.
 
-watchdog은 검토한 control checkout과 실행 도구를 `/opt/jarihana-deploy`에 준비한다.
+watchdog은 검토한 설치용 checkout과 실행 도구를 `/opt/jarihana-deploy`에 준비한다.
 [watchdog unit](../controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
 동일한 저널 잠금과 보호된 설정을 사용한다. pending deadline, heartbeat와 전체 만료를 보고
 NEEDS_ATTENTION만 기록한다. 강제 권한 회수, 허가 재발급이나 EC2 중지는 수행하지 않는다.

@@ -19,13 +19,12 @@
 | 구성 상황 | 진행 범위 |
 | --- | --- |
 | 신규 환경, worker 권한 미할당 | 호스트 구성, A의 PAUSED 준비, Nginx 경로 확인 후 최초 worker 등록 |
-| 동일 topology와 pin의 복구 | 보존된 상태와 실제 앱 boot/owner를 대조한 뒤 복구 판단. 복사만으로 재개하지 않음 |
-| 기존 운영의 EC2 교체, 주소/instance ID/control pin 변경 | 새 호스트 준비까지 진행. 기존 저널과 DB 권한 이관은 [수동 조사](../recovery.md#수동-조사)에서 별도 판단 |
+| 동일 topology의 복구 | 보존된 상태와 실제 앱 boot/owner를 대조한 뒤 복구 판단. 복사만으로 재개하지 않음 |
+| 기존 운영의 EC2 교체, 주소/instance ID 변경 | 새 호스트 준비까지 진행. 기존 저널과 DB 권한 이관은 [수동 조사](../recovery.md#수동-조사)에서 별도 판단 |
 
-`coordinator.sh`의 plan은 기존 저널의 topology digest와 control SHA가 다르면 거부한다.
+`coordinator.sh`의 plan은 기존 저널의 topology digest가 다르거나 미완료 상태면 거부한다.
 이 경우 저널 삭제, digest 수정이나 bootstrap 재실행으로 통과시키지 않는다.
-서버 구성은 같고 control 버전만 교체한다면 [고정 제어 버전 교체](../control-upgrade.md)의
-명시적 이관 허가와 원본 백업을 준비한다. 서버/주소 변경과 미해결 상태에는 적용하지 않는다.
+기존 환경의 첫 적용은 [SHA 배포 전환](../release-sha.md)을 따른다.
 
 ## 필수 설정
 
@@ -33,7 +32,7 @@
 
 설치 전에 실제 instance ID, private IP, AWS 계정, VPC, 보안 그룹과 runner 라벨을 확인한다.
 [coordinator 예시](../../controller/full-coordinator.example.json), [앱 A 예시](../../controller/full-app-A.example.json),
-[앱 B 예시](../../controller/full-app-B.example.json)의 주소와 ID, SHA는 placeholder다.
+[앱 B 예시](../../controller/full-app-B.example.json)의 주소와 ID는 placeholder다.
 A/B는 논리 슬롯이며 runner 표시 이름의 A/B와 같다고 가정하지 않는다.
 
 | 위치 | 필요한 준비 |
@@ -89,21 +88,20 @@ AWS CLI 준비와 임시 파일은 `RUNNER_TEMP`의 디스크를 사용하고 �
 
 | 범위 | 설정 |
 | --- | --- |
-| repository | `BLUE_GREEN_PROD_ENABLED`, `BLUE_GREEN_DEV_ENABLED`, `BLUE_GREEN_CONTROL_REF` |
+| repository | `BLUE_GREEN_PROD_ENABLED`, `BLUE_GREEN_DEV_ENABLED` |
 | repository | `BLUE_GREEN_PROD_A_RUNNER`, `BLUE_GREEN_PROD_B_RUNNER` |
 | runner | coordinator는 `jarihana-bluegreen-coordinator`, A/B는 각 호스트만 가진 서로 다른 라벨 |
 | prod environment | `RDS_URL`, 기존 DB, JWT, OAuth, 푸시, S3 Variables/Secrets |
 
 RDS_URL은 endpoint만 지정한다. Compose가 환경별 DB 이름과 TLS JDBC URL을 구성한다.
-`BLUE_GREEN_RDS_URL` 프로세스 별칭도 같은 RDS_URL에서 전달하며 별도 DB를 고르지 않는다.
 활성화 변수는 repository에서만 관리하고 environment에 같은 이름으로 중복 등록하지 않는다.
-구성 중에는 두 활성화 변수를 false로 두고, control ref와 A/B runner 라벨부터 준비한다.
+구성 중에는 두 활성화 변수를 false로 두고, A/B runner 라벨부터 준비한다.
 이 상태에서도 명시적인 최초 bootstrap은 허용된다. 완료 판정 후에만 prod deploy를 활성화한다.
 운영 A/B와 전용 runner는 개발 환경과 구분한다. 공통 엔진은 dev/prod 동시 활성화를
 거부하므로 운영 배포에서는 `BLUE_GREEN_PROD_ENABLED`만 활성화한다.
 
 environment의 배포 branch 제한과 job별 승인 규칙이 허가 기한에 맞는지 확인한다.
-control tag와 설치본을 맞추는 순서는 [재구성 절차](#재구성-절차)를 따른다.
+설치형 도구를 준비하는 순서는 [재구성 절차](#재구성-절차)를 따른다.
 
 ## 구성 시작 전 준비
 
@@ -117,8 +115,8 @@ control tag와 설치본을 맞추는 순서는 [재구성 절차](#재구성-�
 | 호스트 목록 | EC2에서 Nginx/A/B instance ID, private IP, VPC, region, architecture와 host_id 확인 |
 | 네트워크 | SG와 경로의 실제 규칙 확보. Nginx→앱 포트, 앱→Nginx 22, RDS/관측 gateway, GitHub/GHCR outbound를 각각 확인 |
 | IAM | EC2 역할 원본과 조직 정책. DescribeInstances, A/B에 한정한 Start/Stop 및 S3/CloudFront 권한은 [보호된 설정](#보호된-설정과-권한) 기준 |
-| control 원본 | 승인된 불변 tag와 40자리 commit SHA. GitHub 변수와 세 호스트의 topology에 동일 값 사용 |
-| 수집기 원본 | 중앙 수집기와 helper를 포함한 별도 승인 commit. control tag에 수집기가 있다고 가정하지 않음 |
+| 설치용 원본 | 검토된 main의 40자리 commit SHA. 최초 구성과 설치형 도구에만 사용하며 일반 배포 버전은 Actions가 선택 |
+| 수집기 원본 | 중앙 수집기와 helper를 포함한 별도 승인 commit. Actions checkout과 독립적으로 설치 |
 | 앱 비밀 설정 | 운영 담당자의 보호된 DB/JWT/OAuth/초대/푸시/이미지 키 원본. 실제 키 이름은 [앱 workflow](../../../../.github/workflows/backend-app-operation.yml)의 env와 대조 |
 | DB 사전 준비 | RDS의 `jarihana_prod`와 접근 역할, TLS 및 migration 권한. 기존 스키마의 baseline을 임의로 바꾸지 않으며 [DB 변경 규칙](../../../../docs/database-changes.md)을 따름 |
 | 상태와 키 | `/etc/jarihana-deploy/prod`, `/var/lib/jarihana-deploy/prod`의 저널, 앱별 intent와 실행 기록, worker-token, grant-key, known-hosts의 보호된 백업 |
@@ -182,30 +180,29 @@ GNU 구현체로 한정하지 않는다. 기존 설치본에는 uutils 구현체
 코드 사용 옵션이다. 기존 서버의 일부 옵션 대조가 새 OS의 전체 호환성을 증명하지 않는다.
 새 서버에서 [검증](../verification.md)의 관련 계약 검사를 수행한다.
 
-### 고정 제어 릴리스 준비
+### 설치용 소스 준비
 
 Nginx와 앱 A/B에서 각각 관리자 Bash로 준비한다. 아래 변수는 같은 Bash 세션에서 후속
-호스트 문서까지 유지한다. tag 이름이나 SHA가 비어 있거나 다르면 설치를 중단한다.
+호스트 문서까지 유지한다. 설치용 SHA는 검토된 main 커밋으로 정한다.
+이 checkout은 최초 구성과 설치형 도구의 원본이며 Actions의 배포 버전을 고정하지 않는다.
 
 ```bash
-read -r -p '승인 control ref (refs/tags/deployment-control-...): ' CONTROL_REF
-read -r -p '승인 commit SHA: ' CONTROL_SHA
-[[ $CONTROL_REF =~ ^refs/tags/deployment-control-[A-Za-z0-9._-]+$ ]]
-[[ $CONTROL_SHA =~ ^[a-f0-9]{40}$ ]]
-CONTROL_DIR="/opt/jarihana-prod-deploy/releases/$CONTROL_SHA"
+read -r -p '승인 commit SHA: ' SETUP_SHA
+[[ $SETUP_SHA =~ ^[a-f0-9]{40}$ ]]
+SETUP_DIR="/opt/jarihana-prod-deploy/releases/$SETUP_SHA"
 install -d -o root -g root -m 0755 /opt/jarihana-prod-deploy/releases
-test ! -e "$CONTROL_DIR"
-git init "$CONTROL_DIR"
-git -C "$CONTROL_DIR" remote add origin https://github.com/woowacourse-teams/2026-jarihana.git
-git -C "$CONTROL_DIR" fetch --depth=1 origin "$CONTROL_REF"
-test "$(git -C "$CONTROL_DIR" rev-parse 'FETCH_HEAD^{commit}')" = "$CONTROL_SHA"
-git -C "$CONTROL_DIR" checkout --detach "$CONTROL_SHA"
-test -f "$CONTROL_DIR/infra/blue-green-deploy/scripts/actions/coordinator.sh"
+test ! -e "$SETUP_DIR"
+git init "$SETUP_DIR"
+git -C "$SETUP_DIR" remote add origin https://github.com/woowacourse-teams/2026-jarihana.git
+git -C "$SETUP_DIR" fetch --depth=1 origin "$SETUP_SHA"
+test "$(git -C "$SETUP_DIR" rev-parse 'FETCH_HEAD^{commit}')" = "$SETUP_SHA"
+git -C "$SETUP_DIR" checkout --detach "$SETUP_SHA"
+test -f "$SETUP_DIR/infra/blue-green-deploy/scripts/actions/coordinator.sh"
 ```
 
 각 블록은 `set -e`가 활성화된 관리자 Bash에서 실행하고 검사가 실패하면 다음 블록으로
 진행하지 않는다. 이미 있는 릴리스는 덮어쓰지 말고 HEAD와 파일 해시를 대조한다.
-`.git`을 제거한 소스 복사본은 실행 시 control SHA 검증을 통과하지 못한다.
+Actions는 별도 runner 작업 디렉터리에서 실행 SHA를 checkout하고 Git 원본을 검증한다.
 
 ### runner 등록과 부팅 설정
 
@@ -246,7 +243,7 @@ HTTPS viewer 정책, CloudFront origin 접근 제한과 보안 그룹 전체 허
 
 ### 사전 검사와 최초 baseline
 
-제어 릴리스는 `FE_RELEASE_CAPABILITY=3`을 지원해야 한다. coordinator는 공식 AWS CLI
+coordinator는 해당 실행 SHA의 프론트 코드를 사용하며 공식 AWS CLI
 2.38.5를 고정 해시로 검증해 RUNNER_TEMP에 준비하고 job 뒤 정리한다.
 저널 디스크에 최소 2 GiB 여유를 확인한다. 원본은 1,000개 이하, 파일당 64 MiB 이하,
 합계 512 MiB 이하이며 빈 파일, symlink와 특수 파일은 거부한다.
@@ -268,7 +265,7 @@ current manifest와 live가 일치하는지 확인한다. 미완료 pending이�
 기본 behavior의 viewer-request 함수는 없거나, 제어 코드가 승인한 `jarihana-group-share-preview`
 하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](../../scripts/actions/frontend.sh)의 preflight와
 대조한다. Lambda@Edge, 다른 함수나 코드 변경, 읽기 실패는 게시 전 차단한다.
-함수를 변경하면 동작 검토와 승인 해시, 제어 릴리스를 함께 갱신한다.
+함수를 변경하면 동작 검토와 승인 해시를 함께 갱신하고 main에 반영한다.
 캐시 조건이 달라지면 변경이나 invalidation으로 우회하지 않고 게시 및 복구 계약을 재검토한다.
 
 ## 앱 Alloy와 조회 경로
@@ -307,10 +304,8 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
    기존 운영 환경에서 이 조치를 하는 것은 별도 변경 작업이다. 새 서버의 명령을 기존 호스트에 실행하지 않는다.
    실제 HTTP 대상, 앱 digest와 DB owner를 확인하고 보호된 설정, 저널, intent,
    S3 원본과 state/ETag, CloudFront 설정/ETag 및 활성 WAL을 보존한다.
-2. 검증한 `refs/tags/deployment-control-*`와 SHA를 정한다. BLUE_GREEN_CONTROL_REF,
-   Nginx/A/B의 topology.control.ref/sha와 watchdog checkout을 같은 제어 release로 맞춘다.
-   재구성할 앱의 Compose는 해당 앱 배포 SHA에서 가져오고 이미지 digest와 함께 대조한다.
-   부모 workflow, 앱 이미지와 control checkout은 각각 대조하고 기존 태그는 이동하지 않는다.
+2. 검토된 main SHA의 설치용 소스를 준비한다. 재구성할 앱의 Compose는 해당 앱 배포 SHA에서
+   가져오고 당시 이미지 digest와 함께 대조한다. 일반 Actions 배포는 실행 SHA를 자동 선택한다.
 3. [구성 시작 전 준비](#구성-시작-전-준비)를 마치고 [Nginx](coordinator.md),
    [앱 A/B](app-hosts.md)를 각각 구성한다. 교체 호스트의 instance ID, 주소, runner, local_slot,
    known-hosts와 SSH 출발지, 보안 그룹 및 Prometheus allowlist를 실제 호스트와 맞춘다.
@@ -321,14 +316,11 @@ Nginx 서버의 중앙 수집기는 별도 설치 단위다. 실행 계정, time
 6. [검증 가이드](../verification.md)의 관련 검증과 [상태 확인](../status.md)을 수행한다.
    실제 인증, 쓰기, 이미지, 채팅과 푸시를 확인한 뒤 [배포 실행](../deployment.md)을 재개한다.
 
-완료 저널도 control SHA와 topology digest에 묶여 있다. pin 변경이나 저널 복사만으로
-새 구성을 자동 채택하지 않는다. 미해결 intent, ATTENTION, cleanup_deferred 또는 실제 상태와의
-불일치가 있으면 [수동 조사](../recovery.md#수동-조사)를 먼저 수행한다.
-저널의 control SHA와 topology를 직접 바꾸거나 SQL로 처리 권한을 초기화하지 않는다.
-신규 서버로 옮기는 상황에서 기존 owner가 남았거나 새 instance ID로 topology가 달라진 경우는 여기서 멈춘다.
-서버 구성이 바뀐 topology를 자동 이관하는 명령은 없다. control만 바뀌는 경우는
-[고정 제어 버전 교체](../control-upgrade.md)를 따르고, 나머지는 보존 원본과 실제 boot/owner를
-근거로 [수동 조사](../recovery.md#수동-조사)에서 이관안을 별도로 판단해야 한다.
+완료 저널도 실제 호스트 topology digest에 묶여 있다. 미해결 intent, ATTENTION,
+cleanup_deferred 또는 실제 상태와의 불일치가 있으면 [수동 조사](../recovery.md#수동-조사)를 먼저 수행한다.
+새 instance ID를 저널에 대입하거나 SQL로 처리 권한을 초기화하지 않는다.
+호스트 구성이 달라진 경우는 보존 원본과 실제 boot/owner를 근거로 상태 이관안을 별도로 판단한다.
+일반 배포에서 소스 SHA가 달라지는 것만으로는 상태 이관이 필요 없다.
 
 ### 최초 worker 등록
 

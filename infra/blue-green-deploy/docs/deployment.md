@@ -10,10 +10,11 @@
 
 ## 적용 버전
 
-이 문서는 같은 checkout의 workflow와 스크립트를 기준으로 한다.
-운영 앱 Compose는 배포 실행의 main 커밋 SHA에, 배포 제어 코드와 watchdog은 관리자가
-설치한 control ref/SHA에 각각 귀속된다. 두 버전은 같을 필요가 없다.
-Git 병합만으로 서버의 보호 설정과 제어 코드가 갱신되었다고 판단하지 않는다.
+운영 배포 스크립트, Nginx 템플릿과 앱 Compose는 모두 해당 실행을 시작한 main 커밋의
+`github.sha`를 사용한다. 대기 중 main에 다른 커밋이 들어와도 이번 실행의 SHA는 바뀌지 않는다.
+제어태그 생성, GitHub 변수 변경과 서버의 버전 pin 교체는 필요 없다.
+개발 Blue-Green도 같은 방식으로 해당 develop 실행의 SHA를 사용한다.
+서버의 주소, 권한, 토큰과 설치형 watchdog/수집기는 [서버 구성](server-setup/README.md)에서 관리한다.
 
 점검 제외와 0건 지표 초기화를 도입할 때는 [앱과 제어기의 적용 순서](../../docs/observability/PROBE-METRICS-ROLLOUT.md#앱과-배포-제어기의-적용-순서)를 먼저 따른다.
 무트래픽 구간에서 무엇을 확인할 수 있는지는 [상태 확인의 검증 범위](status.md#사용자-요청이-없을-때의-검증-범위)에서 구분한다.
@@ -23,11 +24,11 @@ Git 병합만으로 서버의 보호 설정과 제어 코드가 갱신되었다�
 인프라 ADR 0005/0006의 배포 경로는 운영에서 사용 중이다.
 2026-11-11의 [Production Release #42970839133](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/42970839133)은
 `92a38bb4fb4a7b37ecb58069dcabd25939ed53fb` 제어 코드로 완료됐다.
-당시 제어 태그는 `refs/tags/deployment-control-prod-20261111-01`이다.
 
 아래 main SHA의 Compose 사용 방식은 저장소의 변경이며, 위 실행이 이 변경을 운영에서 검증한 근거는 아니다.
 2026-11-11 서버 조회에서 Nginx와 앱 B는 위 제어 버전이었고 앱 A는 중지되어 내부 설정을 조회하지 않았다.
-이번 변경에서는 서버 설정, 제어 pin과 watchdog을 갱신하지 않는다. 배포 스크립트의 설치 범위는 아래에 따른다.
+이번 PR은 실제 서버 설정과 설치형 도구를 변경하지 않는다. 기존 운영 환경의 최초 전환은
+[SHA 배포 전환](release-sha.md)을 따르며, 그 준비를 마친 이후 일반 배포에는 별도 버전 교체가 없다.
 정상 배포 완료가 장애를 유발한 동반 롤백, 취소 복구와 빈 서버 재구성의 검증까지 의미하지는 않는다.
 
 ## 배포 실행
@@ -83,14 +84,16 @@ Variables와 Secrets는 앱 작업 workflow에서 전달하므로 새 입력이 
 
 ### 배포 스크립트와 서버 설치 범위
 
-이 방식은 이 문서와 같은 버전의 앱 실행 스크립트를 사용한다는 전제다.
-앱 Compose와 제어 태그의 템플릿을 비교하거나 Compose 기능 버전을 판별하는 호환 코드는 두지 않는다.
-Compose 변경에는 새 제어 태그를 만들지 않는다. 배포 제어 코드와 watchdog은 별도의 승인된 제어 릴리스로 관리한다.
+Actions의 앱 작업, coordinator 단계와 queue guardian은 같은 `github.sha`를 checkout한다.
+`bg_init`은 checkout SHA를 부모 workflow의 SHA와 대조하며, GitHub run/저장소/branch,
+실제 EC2와 작업 허가도 계속 검사한다. 이전 경로의 스크립트나 설치된 앱 Compose로 대체하지 않는다.
+서버 설정에는 환경과 호스트 topology를 두고 배포 코드 버전은 저장하지 않는다.
+저널과 프론트 상태는 소스 SHA, 이미지 digest, run/deployment ID로 실행을 식별한다.
 
-저장소 코드를 바꿔도 서버가 사용하는 제어 릴리스가 자동 교체되지는 않는다. 새 서버 구성은
-[서버 구성](server-setup/README.md)을 따르고, 운영 서버에 배포 스크립트를 반영하는 작업은
-[제어 버전 교체](control-upgrade.md)에 따른 별도 설치다. 이 PR은 서버 설정을 변경하지 않는다.
-Python 설치나 제어 태그 자동 교체, root 업그레이드 helper는 추가하지 않는다.
+watchdog은 runner가 멈춰도 저널 만료를 감지하는 설치형 도구다. 앱 Compose를 선택하거나
+배포하지 않으며, 배포 SHA와 watchdog 설치 SHA가 같아야 한다는 조건은 없다.
+watchdog/수집기 자체를 수정할 때는 관리자가 설치본을 갱신한다. 일반 배포 코드는 Actions가 매번 가져온다.
+최초 설치는 [서버 구성](server-setup/README.md), 기존 환경 전환은 [SHA 배포 전환](release-sha.md)을 따른다.
 
 ### 정상 배포 순서
 

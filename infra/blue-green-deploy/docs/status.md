@@ -13,11 +13,12 @@
 
 ```sh
 gh run list --workflow backend-prod-deploy.yml --branch main --limit 5
-# <run-id>를 실제 실행 번호로 치환한다.
-gh run view <run-id>
+# 실제 실행 번호를 입력한다.
+read -r RUN_ID
+gh run view "$RUN_ID"
 ```
 
-진행 단계, 실행 SHA와 control pin, 실제 Nginx 대상, A/B 전원과 이미지, worker owner를
+진행 단계, 실행 SHA와 checkout SHA, 실제 Nginx 대상, A/B 전원과 이미지, worker owner를
 함께 대조한다. coordinator 저널의 switched 의도만으로 실제 경로를 단정하지 않는다.
 Nginx probe는 슬롯, 예상 upstream, 실제 upstream 헤더와 실제 API 성공 응답을 함께 검증한다.
 
@@ -29,8 +30,8 @@ phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_defe
 운영 앱 Compose의 출처는 해당 실행의 prepare 로그에 남은 커밋 SHA와 파일 SHA-256으로 확인한다.
 배포 저널의 `sha`는 그 실행의 소스 커밋이고 `image`는 선택한 백엔드 이미지다.
 frontend-only 실행은 이전 백엔드를 유지하므로 최신 저널의 `sha`를 현재 앱 Compose의 SHA로 사용하지 않는다.
-현재 앱이 만들어진 성공한 backend/both 실행의 prepare 로그를 확인한다. `control_sha`는 별도 제어 코드 버전이다.
-Compose 변경만으로 control_sha가 바뀌어야 하는 것은 아니다. 원본 Git 객체와 로그 해시를 대조하고,
+현재 앱이 만들어진 성공한 backend/both 실행의 prepare 로그를 확인한다.
+실행 스크립트도 그 SHA에서 가져온다. 원본 Git 객체와 로그 해시를 대조하고,
 실제 컨테이너 설정의 비밀값은 출력하지 않는다.
 
 ## 관찰 기준
@@ -48,9 +49,8 @@ HTTP 관찰은 실제 후보 경로와 호스트별 fresh up, 최근 2분 요청
 구분하지 못하므로 함께 제외된다.
 up, 실제 요청 경로와 별도 worker 검사는 유지한다.
 
-이 변경은 저장소 코드의 기준이다. 운영 적용에는 수정한 코드로 고정 제어 릴리스를 만들고
-coordinator와 A/B의 보호된 control ref/SHA, GitHub의 `BLUE_GREEN_CONTROL_REF`를 일치시켜야 한다.
-Git 병합이나 백엔드 이미지 배포만으로 기존 제어 릴리스의 쿼리가 바뀌지는 않는다.
+coordinator의 쿼리는 배포를 시작한 main SHA에서 읽는다. 설치형 수집기와 타이머의 변경은
+관리자 설치가 필요하며, Actions의 배포 코드 갱신과 구분한다.
 
 telemetry 예시의 실패 임계값은 5xx 1%, 평균 응답 1초다. 실제 보호된 설정을
 확인하며 이 응답 시간은 p95가 아니다. up 최신성은 [관측 최신성](#관측-최신성)을 따른다. 총 요청 수가 0인 값과 지표 누락을 구분한다.

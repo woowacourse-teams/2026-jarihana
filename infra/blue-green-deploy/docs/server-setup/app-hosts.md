@@ -1,13 +1,13 @@
 # 앱 A/B 호스트 구성
 
-[서버 구성](README.md)의 입력과 고정 제어 릴리스를 각 호스트에 준비한다.
+[서버 구성](README.md)의 입력과 설치용 소스를 각 호스트에 준비한다.
 이 절차는 새 서버용이며, 기존 앱의 재시작/교체 명령이 아니다. 과거 조회 때의 활성 슬롯을
 현재 상태로 간주하지 않는다. 최근 조회 범위는 [운영 적용 상태](../deployment.md#운영-적용-상태)에 기록하며,
 새 호스트 설치와 아래 최초 기동 명령 전체는 미검증이다.
 
 ## 계정, 슬롯과 보호된 설정
 
-각 서버의 관리자 Bash에서 실행한다. `CONTROL_DIR`는 [릴리스 준비](README.md#고정-제어-릴리스-준비)의
+각 서버의 관리자 Bash에서 실행한다. `SETUP_DIR`는 [릴리스 준비](README.md#설치용-소스-준비)의
 root 소유 Git checkout이다. 동일 서버에 A/B 앱 두 개를 설치하지 않는다.
 
 ```bash
@@ -35,24 +35,24 @@ container_name/project를 채운다. topology 전체는 Nginx와 같아야 한�
 
 ```bash
 test -f "$INPUT_DIR/app-$APP_SLOT.json"
-jq -e --arg slot "$APP_SLOT" --arg ref "$CONTROL_REF" --arg sha "$CONTROL_SHA" \
-  '.local_slot==$slot and .topology.environment=="prod" and .topology.control.ref==$ref and .topology.control.sha==$sha' \
+jq -e --arg slot "$APP_SLOT" \
+  '.local_slot==$slot and .topology.environment=="prod"' \
   "$INPUT_DIR/app-$APP_SLOT.json" >/dev/null
 install -o root -g jarihana-runner -m 0640 "$INPUT_DIR/app-$APP_SLOT.json" \
   "/etc/jarihana-deploy/prod/app-$APP_SLOT.json"
 install -o root -g jarihana-runner -m 0640 \
-  "$CONTROL_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
-cmp -s "$CONTROL_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
+  "$SETUP_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
+cmp -s "$SETUP_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
 runuser -u jarihana-runner -- bash -c \
   'ENVIRONMENT=prod
    source "$1/infra/blue-green-deploy/scripts/actions/common.sh"
    bg_config "$2"
    bg_machine "$(jq -r ".topology.${3,,}.instance_id" "$2")"' \
-  _ "$CONTROL_DIR" "/etc/jarihana-deploy/prod/app-$APP_SLOT.json" "$APP_SLOT"
+  _ "$SETUP_DIR" "/etc/jarihana-deploy/prod/app-$APP_SLOT.json" "$APP_SLOT"
 ```
 
-위 설치 Compose는 초기 구성과 비릴리스 경로의 기준이다. 일반 prod prepare는 main 배포 SHA의
-Compose를 임시 파일로 읽고 Compose 구문을 검사하며, 이 관리자 설치본을 덮어쓰지 않는다.
+위 설치 Compose는 새 서버의 최초 앱 기동용이다. 일반 prepare는 실행 SHA의 Compose를
+임시 파일로 읽으며 이 관리자 설치본으로 대체하지 않는다.
 
 runner는 [공통 등록 절차](README.md#runner-등록과-부팅-설정)에 따라 jarihana-runner로 실행한다.
 BLUE_GREEN_PROD_A_RUNNER/B_RUNNER의 라벨과 실제 서버를 대응시킨다.
@@ -96,7 +96,7 @@ runuser -u jarihana-runner -- bash -c '
     -o StrictHostKeyChecking=yes -o UpdateHostKeys=no \
     -o UserKnownHostsFile=/etc/jarihana-deploy/prod/known-hosts -o ConnectTimeout=3 \
     "jarihana-grant@$(jq -r .coordinator_address "$c")" |
-    jq -e "{environment,phase,run_id,control_sha,topology_digest}"
+    jq -e "{environment,phase,run_id,sha,topology_digest}"
 ' _ "$APP_SLOT"
 ```
 
@@ -110,11 +110,11 @@ runner의 읽기 성공 여부를 판단하지 않는다. 이전 서버의 SSH �
 
 ```bash
 install -d -o root -g root -m 0755 /opt/jarihana-app-observability
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/blue-green-deploy/controller/observability-compose.yml" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/blue-green-deploy/controller/observability-compose.yml" \
   /opt/jarihana-app-observability/docker-compose.yml
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/monitoring/alloy/config.alloy" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/monitoring/alloy/config.alloy" \
   /opt/jarihana-app-observability/config.alloy
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/monitoring/alloy/postgres-queries.yaml" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/monitoring/alloy/postgres-queries.yaml" \
   /opt/jarihana-app-observability/postgres-queries.yaml
 # 아래는 환경 파일의 키 목록이다. 보호 원본에서 실제 값을 준비하며 이 예시로 기동하지 않는다.
 cat > "$INPUT_DIR/alloy.env.example" <<'ENV'

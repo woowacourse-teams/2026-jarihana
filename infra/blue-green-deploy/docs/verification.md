@@ -19,8 +19,8 @@ for file in infra/blue-green-deploy/scripts/actions/*.sh \
 done
 # Linux root 소유 보호파일 fixture를 포함한 계약 시험
 sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
-# 전체 계약 시험에 포함: control 이관 허가, 원본/백업 해시, 만료와 경로 불일치 차단
-sudo bash infra/blue-green-deploy/tests/actions/test-control-transition.sh
+# 전체 계약 시험에 포함: 다음 SHA 배포 허용, 미완료 저널과 topology 불일치 차단
+sudo bash infra/blue-green-deploy/tests/actions/test-previous-journal.sh
 bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 # Docker의 Prometheus promtool로 실제 배포 쿼리의 HTTP/SSE 분리 회귀 검사
 node infra/blue-green-deploy/tests/actions/test-http-metrics.mjs
@@ -42,7 +42,8 @@ Docker 대역을 쓰는 계약 시험과 실제 Compose 파서를 쓰는 검증�
 
 시험별 실행 조건과 대역 범위는 [각 하네스](../tests/actions/run-tests.sh)에서 확인한다.
 `run-local-e2e.sh`의 기본 Java 이미지 ID가 로컬에 없다면 검증할 Java 21 이미지를 준비하고
-`BG_E2E_JAVA_IMAGE=<준비한 이미지 ID 또는 digest>`로 지정한다. 두 통합 시험은 dev의 S3 경계 설정을
+`BG_E2E_JAVA_IMAGE=<준비한 이미지 ID 또는 digest>`로 지정한다. Compose 통합 시험의 도구 이미지에는
+Bash, Git, jq, curl, Docker CLI/Compose와 coreutils가 필요하며, `BG_COMPOSE_TOOLS_IMAGE`로 지정할 수 있다. 두 통합 시험은 dev의 S3 경계 설정을
 명시하되 `IMAGE_CLEANUP_ENABLED=false`로 실행하며 실제 공유 S3 삭제를 시험하지 않는다.
 
 ## 백엔드 계측
