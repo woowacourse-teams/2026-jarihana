@@ -27,7 +27,9 @@ phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_defe
 상태 파일과 환경 전체를 공개 로그에 출력하지 않는다.
 
 운영 앱 Compose의 출처는 해당 실행의 prepare 로그에 남은 커밋 SHA와 파일 SHA-256으로 확인한다.
-배포 저널의 `sha`/`image`는 앱 소스와 이미지이며, `control_sha`는 별도 제어 코드 버전이다.
+배포 저널의 `sha`는 그 실행의 소스 커밋이고 `image`는 선택한 백엔드 이미지다.
+frontend-only 실행은 이전 백엔드를 유지하므로 최신 저널의 `sha`를 현재 앱 Compose의 SHA로 사용하지 않는다.
+현재 앱이 만들어진 성공한 backend/both 실행의 prepare 로그를 확인한다. `control_sha`는 별도 제어 코드 버전이다.
 Compose 변경만으로 control_sha가 바뀌어야 하는 것은 아니다. 원본 Git 객체와 로그 해시를 대조하고,
 실제 컨테이너 설정의 비밀값은 출력하지 않는다.
 

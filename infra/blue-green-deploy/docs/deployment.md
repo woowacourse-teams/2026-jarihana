@@ -67,16 +67,18 @@ runner는 checkout HEAD와 `GITHUB_SHA`가 같은지 확인하고, 작업 디렉
 prepare 로그에 기록한다. 렌더링된 환경 변수와 비밀값은 로그나 artifact에 올리지 않는다.
 
 기존 제어 태그의 Compose와 파일 내용이 같아야 한다는 검사는 사용하지 않는다.
+Python 3/PyYAML로 원본 YAML의 외부 참조와 중복 키를 먼저 거부한 뒤,
 Docker Compose가 실제 환경 변수로 해석한 JSON 모델을 컨테이너 교체 전에 검증한다.
-파일 기반 env 주입은 보간 전 모델에서도 확인해 차단한다. Docker가 literal `$`를 보존하도록 출력한
+`include`, `extends`, `env_file`, `label_file`은 Compose 실행 전에 차단한다. 원본 값은 다시 쓰지 않는다.
+Docker가 literal `$`를 보존하도록 출력한
 검증된 모델 자체를 실행 스냅샷으로 사용해 pull/up에서 외부 파일 재조회로 설정이 달라지지 않게 한다.
 비밀값을 포함할 수 있는 임시 모델과 실행 스냅샷은 권한 0600으로 만들고 종료 시 삭제한다.
 
 | 구분 | 적용 범위 |
 | --- | --- |
 | 앱 릴리스에서 변경 가능 | 일반 앱 환경 변수, 메모리/CPU/PID 제한, 허용된 heap 설정, label, healthcheck와 local/json-file 로그 설정 |
-| 배포 계약으로 검증 | 지정 이미지 digest와 컨테이너 이름, 환경별 DB URL과 프로필, 앱/loopback 관리 포트, worker 제어/PAUSED/host ID/토큰, restart=no와 정상 종료 설정 |
-| 허용하지 않는 실행 구조 | 추가 서비스, build/command/entrypoint 변경, host mount/volume, privileged/capability/user 변경, 외부/host network, env_file와 config/secret 파일 주입 |
+| 배포 계약으로 검증 | 지정 이미지 digest와 컨테이너 이름, 환경별 DB URL과 프로필, Flyway baseline=false, 앱/loopback 관리 포트, worker 제어/PAUSED/host ID/토큰, restart=no와 정상 종료 설정 |
+| 허용하지 않는 실행 구조 | 추가 서비스, build/command/entrypoint 변경, host mount/volume, privileged/capability/user 변경, 외부/host network, include/extends/env_file/label_file와 config/secret 파일 주입 |
 | 설정 우회 차단 | Spring 직접 속성 별칭, SPRING_APPLICATION_JSON, 추가 JVM system property와 launcher 환경 변수 |
 
 JVM heap은 `-Xms<size> -Xmx<size>` 형식이며, 종료 설정은 graceful/90초와 Compose 120초를 유지한다.
@@ -87,12 +89,16 @@ Variables와 Secrets는 앱 작업 workflow에서 전달하므로 새 입력이 
 계약 검사는 앱 runner의 `prepare`에서 수행한다. 이 시점에는 대기 EC2가 시작됐을 수 있지만,
 검사 실패 시 기존 대기 컨테이너의 중지/삭제와 후보 기동, worker 이관, HTTP 전환은 시작하지 않는다.
 오류 시 두 EC2와 증거를 보존하는 기존 실패 절차를 유지한다.
+`prepare` 실패는 이미 만든 배포 저널을 자동 완료로 되돌리지 않는다. `NEEDS_ATTENTION`이나 pending이
+남으면 Compose 수정 후 다시 머지해도 다음 plan이 차단될 수 있으므로 [수동 조사](recovery.md#수동-조사)를 먼저 따른다.
 
 ### 최초 적용과 자동화 범위
 
 이 workflow를 main에 반영하기 전에 `APP_RELEASE_COMPOSE_CAPABILITY=2`의 `app.sh`와
 `app_validate_release_compose`가 포함된 제어 릴리스를 [수동 제어 버전 교체](control-upgrade.md)로
-한 번 설치해야 한다. v1 설치 상태에서는 `resolve`가 새 배포를 차단한다.
+한 번 설치해야 한다. 원본 검증기 `release-compose-source.py`와 앱 호스트의 Python 3/PyYAML도 필요하다.
+v1 또는 원본 검증기가 없는 상태에서는 `resolve`가 백엔드를 교체하는 배포를 차단한다.
+frontend-only는 앱 prepare를 실행하지 않으므로 이 Compose 검사를 거치지 않는다.
 기존 제어 태그 자체와 서버의 보호된 control SHA 검증은 유지한다.
 
 이 최초 적용 후 위 계약을 지키는 앱 Compose 변경에는 제어 태그 교체가 필요 없다.
@@ -116,6 +122,9 @@ Compose를 새로 사용한다는 이유로 이 파일들까지 설치됐다고 
 ```
 
 관찰 시간과 통과 조건은 [관찰 기준](status.md#관찰-기준)을 따른다.
+정상 종료된 이전 컨테이너는 삭제하지 않고 중지된 EC2에 보존한다. 다음 배포에서 그 슬롯을
+후보로 쓸 때 새 Compose 검증과 이전 정상 종료 증거 확인을 마친 뒤 삭제하고 새 컨테이너를 만든다.
+관찰 5분이 지났다는 이유만으로 삭제하거나, 확정 이후 장애를 자동 롤백하지 않는다.
 프론트엔드만 배포하면 EC2 시작과 worker 교대 없이 현재 API와 새 프론트를 관찰한다.
 백엔드만 배포하면 공개 프론트 파일은 유지한다. 릴리스 상태 갱신 방식은
 [프론트엔드 릴리스](architecture.md#프론트엔드-릴리스)를 따른다.

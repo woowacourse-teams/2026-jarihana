@@ -18,12 +18,18 @@
    없는지 확인한다. 완료되지 않은 배포를 버전 교체로 복구하려고 하지 않는다.
 2. 세 호스트의 Actions runner와 coordinator watchdog timer를 유지보수 동안 정지한다.
    실행 중인 job/oneshot이 없음을 먼저 확인한다. 앱, Nginx와 Alloy는 계속 실행한다.
+   중지된 대기 EC2의 설정을 교체하려면 배포 차단과 대기 job 부재를 확인한 뒤 유지보수 목적으로
+   EC2만 시작하고 runner를 정지한다. `restart=no`인 기존 앱 컨테이너를 수동 시작하지 않는다.
 3. GitHub 실제 실행과 coordinator 저널을 대조한다. `COMPLETE`는 sealed 또는 최초 bootstrap
    완료여야 한다. `ROLLED_BACK`은 HTTP/worker 복구가 완료되고 변경한 프론트도 복구돼야 한다.
    pending, cleanup_deferred 또는 앱의 미해결 worker/stop intent가 있으면 중단한다.
-4. Nginx probe의 슬롯/예상 upstream/실제 upstream과 API 성공을 확인한다. A/B의 관리 API를
+4. Nginx probe의 슬롯/예상 upstream/실제 upstream과 API 성공을 확인한다. 실행 중인 앱의 관리 API만
    각 호스트 loopback에서 읽어 현재 boot, 이미지와 DB authority를 대조한다. 서비스 슬롯은
-   ACTIVE worker, COMPLETE authority와 동일 owner여야 하고, 다른 슬롯은 PAUSED/unresolved=0이어야 한다.
+   ACTIVE worker, COMPLETE authority와 동일 owner여야 한다. 대기 앱이 실행 중이면 PAUSED/unresolved=0을 확인한다.
+   정상 종료된 대기 앱은 API가 없으므로 Docker의 컨테이너 ID/이미지 ID/시작 시각/재시작 횟수,
+   종료 코드 0 또는 143과 종료 시각을 로컬 `stop-intent.json`의 resolved/evidence와 대조한다.
+   OOMKilled/Dead/Restarting/Paused가 아니어야 한다. 완료된 bootstrap 직후 아직 앱을 만들지 않은 대기 슬롯은
+   컨테이너와 이전 종료 기록이 없는 초기 상태를 확인한다. 기존 배포에서 컨테이너가 사라졌거나 증거가 다르면 수동 조사로 전환한다.
    토큰은 curl stdin 설정으로 전달하며 출력하지 않는다. 보관된 receipt만으로 실제 worker 상태를 단정하지 않는다.
 5. 보호된 설정, 원본 저널과 앱 intent, S3 state/ETag와 manifest를 보호된 위치에 보관한다.
    아래 이관 허가와 별개로 서비스 복구에 필요한 원본을 보존한다.
@@ -34,6 +40,9 @@
 새 control checkout은 root 소유의 별도 release 디렉터리에 두고 태그와 40자리 SHA를 대조한다.
 앱 호스트의 설치 Compose는 초기 구성과 비릴리스 경로의 기준 파일로 유지한다.
 일반 운영 prepare에서 사용하는 Compose 원본은 앱 배포 커밋이며 이 설치본과의 byte 일치를 요구하지 않는다.
+v2 제어 릴리스에는 `release-compose-source.py`도 포함한다. 각 앱 runner 계정에서
+`python3 -c 'import yaml'` 성공을 확인하며, 없으면 승인된 유지보수에서 Python 3/PyYAML을 준비한다.
+Ubuntu의 패키지 이름은 `python3-yaml`이다. 배포 도중 패키지를 자동 설치하지 않는다.
 
 coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일을 `previous-config.json`이라고 한다.
 원본 저널을 바꾸지 않고 아래 필드를 **새 coordinator.json**에 추가한다. `previous_topology`에는
@@ -83,7 +92,9 @@ coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일
    백업/원본 일치, 실제 HTTP 슬롯을 검증한다. 이 검사는 저널, worker와 S3 상태를 변경하지 않는다.
    이 단계에서 실패하면 새 배포를 계속 차단하고 보관한 설정과 watchdog 경로로 복구한다.
 4. GitHub `BLUE_GREEN_CONTROL_REF`를 새 태그로 맞춘다. 세 호스트 설정, 설치본, watchdog,
-   GitHub pin을 다시 대조하고 runner와 watchdog timer를 재개한 뒤 prod 배포를 활성화한다.
+   GitHub pin을 다시 대조한다. 유지보수 때문에 시작한 대기 EC2는 앱이 중지된 상태를 확인해
+   다시 중지하고, 서비스 호스트의 runner와 watchdog timer를 재개한 뒤 prod 배포를 활성화한다.
+   대기 runner는 다음 EC2 시작 시 자동 기동하도록 기존 서비스 활성화 상태를 유지한다.
 5. 승인된 main 배포 PR을 머지하고 새로운 실행을 추적한다. 새 plan은 백업된 기존 저널을
    검증한 뒤 평소와 같이 새 배포 저널을 생성한다. 새 저널의 control SHA/topology digest와
    API/worker 관찰, 실제 경로, 프론트 상태 및 배포 완료를 확인한다.

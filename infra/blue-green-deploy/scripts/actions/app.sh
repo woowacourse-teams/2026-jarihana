@@ -257,9 +257,8 @@ app_prepare() {
   if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
     RELEASE_COMPOSE_MODEL=$(mktemp "$APP_DIR/release-compose-model.XXXXXX")
     chmod 600 "$RELEASE_COMPOSE_MODEL"
-    "${args[@]}" config --no-interpolate --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
-    jq -e 'all(.services[]; has("env_file") | not)' "$RELEASE_COMPOSE_MODEL" >/dev/null 2>&1 ||
-      bg_die 'Release Compose must receive environment values from the workflow'
+    python3 "$SCRIPT_ROOT/release-compose-source.py" "$compose" >/dev/null 2>&1 ||
+      bg_die 'Release Compose source invalid; require Python 3/PyYAML and one file without external inputs'
     "${args[@]}" config --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
     app_validate_release_compose "$RELEASE_COMPOSE_MODEL" || bg_die 'Release Compose violates the deployment contract'
     # Compose config already escapes literal dollars for reuse as an input file.

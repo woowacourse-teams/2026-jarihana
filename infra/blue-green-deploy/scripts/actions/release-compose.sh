@@ -29,6 +29,7 @@ app_validate_release_compose() {
       (.environment |
         all(.[]; type == "string") and
         .DB_URL == $db and .SPRING_PROFILES_ACTIVE == $environment and .APP_VERSION == $digest and
+        .FLYWAY_BASELINE_ON_MIGRATE == "false" and
         .PUSH_WORKER_CONTROL_ENABLED == "true" and .PUSH_WORKER_START_PAUSED == "true" and
         .PUSH_WORKER_HOST_ID == $host and .PUSH_WORKER_ENVIRONMENT == $environment and
         .WORKER_CONTROL_TOKEN == env.WORKER_CONTROL_TOKEN and

@@ -86,6 +86,11 @@ if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/v1-app.log
 grep -q 'release Compose capability v2' "$TEST_DIR/v1-app.log"
 echo 'PASS release-workflow old_compose_equality_validator_requires_one_time_upgrade'
 printf '%s\n' '# APP_RELEASE_COMPOSE_CAPABILITY=2' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/app.sh"
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/source-validator.log" 2>&1; then exit 1; fi
+[[ ! -e $DOCKER_TRACE ]]
+echo 'PASS release-workflow missing_source_validator_rejected'
+cp "$ROOT/infra/blue-green-deploy/scripts/actions/release-compose-source.py" \
+  "$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/"
 # Hosted resolve checks the installed validator capability. Actual resolved
 # Compose settings are checked on the app host before standby replacement.
 for scope in backend frontend both infra; do
