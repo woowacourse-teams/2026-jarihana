@@ -221,7 +221,7 @@ app_stop_container() {
 
 app_release_compose() {
   local destination=$1 checkout=$BG_RELEASE_COMPOSE_CHECKOUT
-  local source_path=${2:-infra/blue-green-deploy/controller/app-compose.yml}
+  local source_path=infra/blue-green-deploy/controller/app-compose.yml
   local source_sha blob size release_hash
   source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
   [[ "$source_sha" == "$GITHUB_SHA" ]] || bg_die 'Release Compose checkout does not match the deployment commit'
@@ -239,10 +239,8 @@ app_prepare() {
   project_directory=$(dirname -- "$compose")
   if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
     RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
-    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"; for temporary in "${RELEASE_COMPOSE_MODEL:-}" "${RELEASE_COMPOSE_OVERLAY:-}"; do if [[ -n $temporary ]]; then rm -f -- "$temporary"; fi; done' EXIT
+    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"; if [[ -n ${RELEASE_COMPOSE_MODEL:-} ]]; then rm -f -- "$RELEASE_COMPOSE_MODEL"; fi' EXIT
     app_release_compose "$RELEASE_COMPOSE_FILE"
-    RELEASE_COMPOSE_OVERLAY=$(mktemp "$APP_DIR/release-compose-overlay.XXXXXX")
-    app_release_compose "$RELEASE_COMPOSE_OVERLAY" infra/blue-green-deploy/controller/app-music-compose.yml
     compose=$RELEASE_COMPOSE_FILE
   else
     bg_root_file "$compose"
@@ -257,13 +255,12 @@ app_prepare() {
   local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory" --env-file /dev/null -f "$compose")
   app_check
   if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
-    local render_args=("${args[@]}" -f "$RELEASE_COMPOSE_OVERLAY")
     RELEASE_COMPOSE_MODEL=$(mktemp "$APP_DIR/release-compose-model.XXXXXX")
     chmod 600 "$RELEASE_COMPOSE_MODEL"
-    "${render_args[@]}" config --no-interpolate --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
+    "${args[@]}" config --no-interpolate --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
     jq -e 'all(.services[]; has("env_file") | not)' "$RELEASE_COMPOSE_MODEL" >/dev/null 2>&1 ||
       bg_die 'Release Compose must receive environment values from the workflow'
-    "${render_args[@]}" config --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
+    "${args[@]}" config --no-env-resolution --format json >"$RELEASE_COMPOSE_MODEL" 2>/dev/null || bg_die 'Compose configuration invalid'
     app_validate_release_compose "$RELEASE_COMPOSE_MODEL" || bg_die 'Release Compose violates the deployment contract'
     # Compose config already escapes literal dollars for reuse as an input file.
     # Execute this validated snapshot without resolving external inputs again.
@@ -271,7 +268,6 @@ app_prepare() {
     rm -f -- "$RELEASE_COMPOSE_MODEL"
     RELEASE_COMPOSE_MODEL=
   else
-    args+=(-f "$SCRIPT_ROOT/../../controller/app-music-compose.yml")
     "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   fi
   app_check

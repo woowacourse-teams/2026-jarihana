@@ -341,7 +341,6 @@ prepare_db_fixture() {
     local arguments="$*"
     while [[ $1 != -f ]]; do shift; done
     cp "$2" "$APP_DIR/validated-compose.yml"
-    if [[ -n ${RELEASE_COMPOSE_OVERLAY:-} ]]; then cp "$RELEASE_COMPOSE_OVERLAY" "$APP_DIR/validated-overlay.yml"; fi
     if [[ $arguments == *' --format json' ]]; then
       if [[ -f $APP_DIR/release-model.json ]]; then cat "$APP_DIR/release-model.json"
       else release_model_fixture; fi
@@ -355,7 +354,7 @@ case_prepare_single_rds() {
     rm -f "$APP_DIR/docker-calls"
     if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
     grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
-    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *'-f '*'/controller/app-music-compose.yml config --quiet' ]]
+    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *"-f $APP_DIR/compose.yml config --quiet" ]]
     [[ $(sed -n '2p' "$APP_DIR/docker-calls") == "ps -aq --no-trunc --filter name=^/$CONTAINER$" ]]
   done
 }
@@ -383,7 +382,6 @@ prepare_release_fixture() {
   RELEASE_SOURCE=$BG_RELEASE_COMPOSE_CHECKOUT/infra/blue-green-deploy/controller/app-compose.yml
   mkdir -p "$(dirname "$RELEASE_SOURCE")"
   sed 's/mem_limit: 896m/mem_limit: 1g/' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
-  cp "$ROOT/infra/blue-green-deploy/controller/app-music-compose.yml" "$(dirname "$RELEASE_SOURCE")/app-music-compose.yml"
   git init -q "$BG_RELEASE_COMPOSE_CHECKOUT"
   commit_release_fixture
 }
@@ -397,14 +395,11 @@ case_prepare_release_compose() {
   prepare_release_fixture
   rm "$APP_DIR/compose.yml"
   printf '\ninvalid checkout contents\n' >>"$RELEASE_SOURCE"
-  printf '\ninvalid checkout contents\n' >>"$(dirname "$RELEASE_SOURCE")/app-music-compose.yml"
   reject app_prepare
   grep -q 'Cannot enumerate application containers' "$APP_DIR/rejected.log"
   grep -q "Release Compose commit: $GITHUB_SHA" "$APP_DIR/rejected.log"
   git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
     cmp -s - "$APP_DIR/validated-compose.yml"
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-music-compose.yml" |
-    cmp -s - "$APP_DIR/validated-overlay.yml"
   grep -Fxq '      POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
   jq -e '.services.backend.environment.DB_PASSWORD=="test$$value"' "$APP_DIR/execution-compose.json" >/dev/null
   [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose*.*' -print) ]]
@@ -417,9 +412,9 @@ case_prepare_release_compose_env_file() {
   [[ $(wc -l <"$APP_DIR/docker-calls") -eq 1 ]]
   [[ ! -e $APP_DIR/execution-compose.json ]]
 }
-case_prepare_release_compose_missing_overlay() {
+case_prepare_release_compose_missing_file() {
   prepare_release_fixture
-  rm "$(dirname "$RELEASE_SOURCE")/app-music-compose.yml"
+  rm "$RELEASE_SOURCE"
   commit_release_fixture
   reject app_prepare
   grep -q 'Release Compose file is missing' "$APP_DIR/rejected.log"
@@ -526,7 +521,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_env_file prepare_release_compose_missing_overlay prepare_release_compose_wrong_commit prepare_release_compose_protected_settings prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_env_file prepare_release_compose_missing_file prepare_release_compose_wrong_commit prepare_release_compose_protected_settings prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))

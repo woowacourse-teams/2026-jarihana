@@ -58,8 +58,9 @@ frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 
 
 ### 운영 백엔드의 Compose 선택
 
-운영 `prepare`는 배포를 시작한 main 커밋의 `infra/blue-green-deploy/controller/app-compose.yml`과
-`app-music-compose.yml`을 함께 사용한다. 두 파일은 같은 SHA에서 읽고, 합쳐진 실행 모델을 검증한다.
+운영 `prepare`는 배포를 시작한 main 커밋의 `infra/blue-green-deploy/controller/app-compose.yml` 하나를 사용한다.
+음악 기능의 `YOUTUBE_DATA_API_KEY`도 이 파일의 환경 변수에 포함하며,
+앱 작업 workflow가 GitHub Secrets에서 전달한다. 키가 미설정이면 기존처럼 빈 값을 전달한다.
 runner는 checkout HEAD와 `GITHUB_SHA`가 같은지 확인하고, 작업 디렉터리의 수정 파일이 아닌
 해당 Git 객체의 원본을 읽는다. 배포 도중 이동하는 main이나 최근 서버 파일을 다시 선택하지 않는다.
 배포 저널의 `sha`와 `image`는 소스 커밋과 이미지 digest이며, Compose의 커밋과 파일 SHA-256은

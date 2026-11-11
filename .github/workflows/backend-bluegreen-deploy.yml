@@ -143,7 +143,6 @@ jobs:
             fi
             compose=infra/blue-green-deploy/controller/app-compose.yml
             git cat-file -e "$GITHUB_SHA:$compose"
-            git cat-file -e "$GITHUB_SHA:infra/blue-green-deploy/controller/app-music-compose.yml"
           fi
           if [[ "$BG_MODE" == bootstrap ]]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]

@@ -84,9 +84,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: app-release-source
-          sparse-checkout: |
-            infra/blue-green-deploy/controller/app-compose.yml
-            infra/blue-green-deploy/controller/app-music-compose.yml
+          sparse-checkout: infra/blue-green-deploy/controller/app-compose.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: 임시 Docker 인증 디렉터리

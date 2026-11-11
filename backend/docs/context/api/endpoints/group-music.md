@@ -219,7 +219,9 @@ ACTIVE 모임의 구성원이 기존 소스의 곡 종료 또는 영상 오류�
 
 서버 환경 변수 YOUTUBE_DATA_API_KEY에 YouTube Data API v3 사용이 가능한 키를 설정한다.
 GitHub Actions 배포는 같은 이름의 시크릿을 읽는다. 개발 배포는 개발용 Compose로 전달한다.
-운영은 `app-music-compose.yml`을 포함한 제어 버전으로 교체한 후 다음 백엔드 배포의 `prepare`에서 전달한다.
+운영은 배포 main SHA의 `app-compose.yml`에 포함된 환경 변수 매핑으로 `prepare`에서 전달한다.
+키가 미설정이면 기존처럼 빈 값을 전달한다. 최초 검증기 v2 설치 조건은
+[운영 Compose 적용 절차](../../../../../infra/blue-green-deploy/docs/deployment.md#최초-적용과-자동화-범위)를 따른다.
 키는 HTTP X-Goog-Api-Key 헤더로 보내고 클라이언트 응답에 포함하지 않는다.
 연결 제한은 2초, 응답 제한은 3초다. 영상 정보 조회 실패를 영상 삭제로 취급하지 않는다.
 
