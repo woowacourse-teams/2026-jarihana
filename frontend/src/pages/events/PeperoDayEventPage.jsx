@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
@@ -12,7 +12,7 @@ import {
   usePeperoDayRankings,
   usePeperoDayStatus
 } from "../../features/pepero-day";
-import { ROUNDS, StickHalvingGame, createPracticeAdapter, formatPercent } from "../../features/stick-halving";
+import { ROUNDS, StickHalvingGame, formatPercent } from "../../features/stick-halving";
 import {
   Button,
   EmptyState,
@@ -233,30 +233,23 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   );
 }
 
-function ModeChooser({ onStart }) {
+// 순위 도전은 회원만 할 수 있어서, 로그인하지 않았으면 게임 대신 로그인이나 가입 계속하기를 보여 준다.
+function JoinPrompt() {
   const auth = useAuth();
 
-  let rankedAction;
-  if (auth.status === "authenticated") {
-    rankedAction = (
-      <Button
-        data-ph-capture-attribute-action="pepero_ranked_start"
-        onClick={() => onStart("ranked")}
-      >
-        순위 도전 시작
-      </Button>
-    );
-  } else if (auth.status === "signup-required") {
-    rankedAction = (
+  if (auth.status === "loading") return <Skeleton aria-label="로그인 상태를 확인하는 중" className="pepero-day__loading" />;
+
+  let action;
+  if (auth.status === "signup-required") {
+    action = (
       <Link className="ui-button ui-button--primary ui-button--md" data-ph-capture-attribute-action="signup_continue" to="/signup">
         가입 계속하기
       </Link>
     );
   } else {
-    rankedAction = (
+    action = (
       <Button
         data-ph-capture-attribute-action="pepero_ranked_login"
-        disabled={auth.status === "loading"}
         onClick={() => {
           storeReturnTarget(PEPERO_DAY_PATH);
           auth.login();
@@ -268,35 +261,31 @@ function ModeChooser({ onStart }) {
   }
 
   return (
-    <div className="pepero-day__modes">
-      <section className="pepero-day__card pepero-day__mode">
-        <h2>연습하기</h2>
-        <p>로그인 없이 해 봐요. 순위에는 안 들어가요.</p>
-        <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => onStart("practice")} variant="secondary">
-          연습 시작
-        </Button>
-      </section>
-      <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
-        <h2>순위 도전</h2>
-        <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
-        {rankedAction}
-      </section>
-    </div>
+    <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
+      <h2>로그인하고 도전해요</h2>
+      <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
+      {action}
+    </section>
   );
 }
 
 function OpenEvent({ closed, game, setGame }) {
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
   const [finished, setFinished] = useState(null);
+  const member = auth.status === "authenticated";
 
-  // 새 판을 시작할 때마다 새 연결부를 만든다. 순위 도전은 시작하면 남은 횟수가 바뀌므로 상태를 다시 받는다.
-  function start(mode) {
-    const adapter = mode === "ranked"
-      ? createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) })
-      : createPracticeAdapter();
-    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1, mode }));
-  }
+  // 새 판을 시작할 때마다 새 연결부를 만들고, 시작하면 상태를 다시 받는다.
+  const start = useCallback(() => {
+    const adapter = createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) });
+    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1 }));
+  }, [queryClient, setGame]);
+
+  // 회원은 모드를 고르는 단계 없이 페이지를 열자마자 순위 도전 막대를 받는다.
+  useEffect(() => {
+    if (!game && !closed && member) start();
+  }, [closed, game, member, start]);
 
   async function copy(summary) {
     try {
@@ -307,47 +296,40 @@ function OpenEvent({ closed, game, setGame }) {
     }
   }
 
-  if (!game) return closed ? null : <ModeChooser onStart={start} />;
+  if (!game) return closed || member ? null : <JoinPrompt />;
 
-  const ranked = game.mode === "ranked";
   return (
     <section className="pepero-day__card pepero-day__game">
       <StickHalvingGame
         adapter={game.adapter}
-        errorMessage={(error) => (ranked ? RANKED_ERRORS[error?.code] : null) ?? "잠시 뒤 다시 시도해 주세요."}
+        errorMessage={(error) => RANKED_ERRORS[error?.code] ?? "잠시 뒤 다시 시도해 주세요."}
         finalActions={(summary) => (
           <>
-            <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
-              {closed ? "닫기" : "모드 고르기"}
-            </Button>
             {summary.rows.length === ROUNDS.length ? (
               <Button data-ph-capture-attribute-action="pepero_result_copy" onClick={() => copy(summary)} variant="secondary">
                 결과 복사
               </Button>
             ) : null}
-            {ranked || closed ? null : (
-              <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => start("practice")}>
-                새 막대로 다시 하기
+            {closed ? (
+              <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
+                닫기
+              </Button>
+            ) : (
+              <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={start}>
+                새 막대로 다시 도전
               </Button>
             )}
           </>
         )}
         key={game.key}
-        label={ranked ? "순위 도전" : "연습"}
+        label="순위 도전"
         onFinish={(summary) => {
-          if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
-          setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
+          void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+          setFinished({ key: game.key, mode: "ranked", totalScore: summary.totalScore });
         }}
       />
       {finished?.key === game.key ? (
-        <RankingDialog
-          onChallenge={ranked || closed ? null : () => {
-            setFinished(null);
-            setGame(null);
-          }}
-          onClose={() => setFinished(null)}
-          result={finished}
-        />
+        <RankingDialog onChallenge={null} onClose={() => setFinished(null)} result={finished} />
       ) : null}
     </section>
   );
@@ -386,7 +368,7 @@ export function PeperoDayEventPage() {
   return (
     <PageContainer className="pepero-day">
       <PageHeader
-        description="무게표를 보고 막대과자를 같은 무게로 반 나눠 보세요."
+        description="막대과자를 같은 무게로 반 나눠 보세요. 초코와 아몬드가 붙은 곳이 더 무거워요."
         eyebrow="막대과자 데이 이벤트"
         title="공평하게 반띵"
       />
