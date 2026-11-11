@@ -1,7 +1,7 @@
 {
  "title": "Pixel Circuit (Swing 144)",
  "status": "ranked",
- "chartVersion": "swing-another-2",
+ "chartVersion": "swing-another-3",
  "bpm": 144,
  "timeSignature": [
   4,
@@ -3677,8 +3677,7 @@
      "step": 576.0,
      "sample": 2880000,
      "keys": [
-      "left",
-      "down"
+      "left"
      ]
     },
     {

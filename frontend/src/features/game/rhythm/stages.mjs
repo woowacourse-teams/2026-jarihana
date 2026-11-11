@@ -12,8 +12,8 @@ export const STAGES = Object.freeze({
     meta: "128 BPM / 90초 루프"
   }),
   swing: Object.freeze({
-    chartVersion: "swing-another-2",
-    chart: "/game-assets/rhythm-harpoon/assets/swing-chart.json?v=swing-another-2",
+    chartVersion: "swing-another-3",
+    chart: "/game-assets/rhythm-harpoon/assets/swing-chart.json?v=swing-another-3",
     music: "/game-assets/rhythm-harpoon/assets/pixel-circuit-swing.ogg?v=another-1",
     bpmLabel: "144 BPM SWING",
     title: "Pixel Circuit (Swing)",

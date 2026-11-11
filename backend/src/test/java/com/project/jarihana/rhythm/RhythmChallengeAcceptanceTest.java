@@ -108,7 +108,7 @@ class RhythmChallengeAcceptanceTest extends IntegrationTestSupport {
                 .then().statusCode(201)
                 .body("data.level", equalTo("ANOTHER_HARD"))
                 .body("data.rulesVersion", equalTo("rhythm-harpoon-ranked-4"))
-                .body("data.chartVersion", equalTo("swing-another-2"))
+                .body("data.chartVersion", equalTo("swing-another-3"))
                 .body("data.lives", equalTo(10));
         long id = start(player, "ANOTHER_HARDEST");
         double[] first = firstNote("anotherHardest");
