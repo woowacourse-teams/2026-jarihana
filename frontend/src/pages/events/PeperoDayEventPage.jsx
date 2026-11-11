@@ -277,8 +277,7 @@ function StartPrompt({ onStart }) {
   return (
     <section className="pepero-day__card pepero-day__start">
       <CutStickArtwork />
-      <h2>막대 {ROUND_COUNT}개를 {ROUND_TIME_LIMIT_SECONDS}초씩 잘라요</h2>
-      <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
+      <h2>{ROUND_TIME_LIMIT_SECONDS}초 안에 빼빼로 {ROUND_COUNT}개를 같은 무게로 잘라 보세요</h2>
       {action}
     </section>
   );

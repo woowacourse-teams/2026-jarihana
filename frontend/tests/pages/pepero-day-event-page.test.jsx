@@ -75,7 +75,7 @@ it("starts a ranked run when a member presses start and reveals the answer after
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
-  expect(await screen.findByRole("heading", { name: "막대 5개를 10초씩 잘라요" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "10초 안에 빼빼로 5개를 같은 무게로 잘라 보세요" })).toBeInTheDocument();
   expect(createRankedAdapter).not.toHaveBeenCalled();
   await startRun();
 
