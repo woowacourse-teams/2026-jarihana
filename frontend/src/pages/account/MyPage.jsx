@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
+import { MyAvatarCard } from "../../features/avatar/MyAvatarCard.jsx";
+import "./avatar.css";
 import { ProductArt } from "../../features/shop/ProductArt.jsx";
 import { useProfileEquipment } from "../../features/shop/hooks.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
@@ -247,7 +249,7 @@ export function MyPage() {
             <h2>{member.crewName}</h2>
             <p>{memberMetaLabel(member)}</p>
           </Card>
-          <div aria-hidden="true" className="profile-companion" />
+          <MyAvatarCard previewPaused={focusStatus === "loading"} />
         </aside>
         <div className="activity-column">
           {focusStatus === "loading" ? <p role="status">알림에 해당하는 항목을 찾고 있어요…</p> : null}

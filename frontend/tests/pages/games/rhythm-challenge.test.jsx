@@ -100,7 +100,7 @@ beforeEach(() => {
 async function reachBoard() {
   rhythmRankedApi.create.mockResolvedValue(created);
   render(<RhythmHarpoonChallengePage />);
-  fireEvent.click(screen.getByRole("button", { name: /Hardest/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Hardest/ }));
   fireEvent.change(screen.getByLabelText("세균 이동 배속"), { target: { value: "2" } });
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
   fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
@@ -122,13 +122,28 @@ it("walks from options to a confirmed challenge with the server seed", async () 
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
 });
 
-it("starts on Easy when the last practice level is not an official one", () => {
+it("offers ANOTHER Hardest as an official level and starts from the last practice choice", async () => {
   localStorage.setItem(
     "haengseong-practice-settings-v1",
-    JSON.stringify({ level: "another", rate: 1, volume: 65 })
+    JSON.stringify({ level: "anotherHardest", rate: 1, volume: 65 })
   );
+  rhythmRankedApi.create.mockResolvedValue({
+    ...created,
+    level: "ANOTHER_HARDEST",
+    chartVersion: "swing-another-2"
+  });
   render(<RhythmHarpoonChallengePage />);
-  expect(screen.getByRole("button", { name: /Easy/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: /ANOTHER Hardest/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: /^ANOTHER Hard(?!est)/ })).toHaveAttribute("aria-pressed", "false");
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("anotherHardest");
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
+  await screen.findByTestId("ranked-board");
+  expect(rhythmRankedApi.create).toHaveBeenCalledWith({ level: "anotherHardest", scrollSpeed: 1 });
+  expect(mockBoard.mock.calls.at(-1)[0].session).toMatchObject({
+    level: "anotherHardest",
+    chartVersion: "swing-another-2"
+  });
 });
 
 it("sets the input offset on the options step, saves it and plays with it", async () => {

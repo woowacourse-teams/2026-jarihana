@@ -1,4 +1,4 @@
-import { PRACTICE_LEVELS } from "./engine.mjs";
+import { LEVELS } from "./engine.mjs";
 
 // 연습 설정과 키 배치는 이 브라우저의 localStorage에 남겨 다시 접속해도 유지한다.
 const KEYMAP_KEY = "haengseong-keymap-v1";
@@ -109,7 +109,7 @@ export function readPracticeSettings(storage) {
     const parsed = JSON.parse(storage?.getItem(PRACTICE_KEY) ?? "null");
     if (!parsed || typeof parsed !== "object") return null;
     return {
-      level: Object.hasOwn(PRACTICE_LEVELS, parsed.level) ? parsed.level : "easy",
+      level: Object.hasOwn(LEVELS, parsed.level) ? parsed.level : "easy",
       rate: RATES.includes(parsed.rate) ? parsed.rate : 1,
       volume: Number.isInteger(parsed.volume) && parsed.volume >= 0 && parsed.volume <= 100 ? parsed.volume : 65,
       timingFeedback: parsed.timingFeedback !== false,

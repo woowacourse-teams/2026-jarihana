@@ -51,6 +51,10 @@
 .rhythm-game .rhythm-challenge__levels {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+/* 스윙 곡을 치는 번외 난이도는 원곡 난이도 아래 한 줄에 나란히 둔다. */
+.rhythm-game .rhythm-challenge__levels button[data-level="anotherHard"] {
+  margin-top: 0;
+}
 .rhythm-game .rhythm-challenge__levels button {
   display: flex;
   align-items: center;

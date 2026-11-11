@@ -107,11 +107,22 @@ export function RhythmHarpoonGame({ settingsOpen = true, onPlayingChange }) {
               </button>
               <button
                 type="button"
-                data-level="another"
-                data-ph-capture-attribute-action="rhythm_difficulty_another"
+                data-level="anotherHard"
+                data-ph-capture-attribute-action="rhythm_difficulty_another_hard"
                 aria-pressed="false"
               >
-                ANOTHER<small className="life-badge">
+                ANOTHER Hard<small className="life-badge">
+                  <HeartIcon />
+                  <span className="sr-only">라이프</span>10
+                </small>
+              </button>
+              <button
+                type="button"
+                data-level="anotherHardest"
+                data-ph-capture-attribute-action="rhythm_difficulty_another_hardest"
+                aria-pressed="false"
+              >
+                ANOTHER Hardest<small className="life-badge">
                   <HeartIcon />
                   <span className="sr-only">라이프</span>10
                 </small>

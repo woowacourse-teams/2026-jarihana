@@ -86,7 +86,7 @@ public class RhythmChallenge extends BaseEntity {
         this.scrollSpeed = scrollSpeed;
         this.seed = seed;
         this.rulesVersion = chart.getRulesVersion();
-        this.chartVersion = chart.getChartVersion();
+        this.chartVersion = chart.chartVersion(level);
         this.status = RhythmChallengeStatus.CREATED;
         this.loopReached = 1;
         this.lives = lives;
@@ -144,7 +144,7 @@ public class RhythmChallenge extends BaseEntity {
     }
 
     public RhythmEngine newEngine(RhythmChart chart) {
-        if (!chart.getRulesVersion().equals(rulesVersion) || !chart.getChartVersion().equals(chartVersion)) {
+        if (!chart.getRulesVersion().equals(rulesVersion) || !chart.chartVersion(level).equals(chartVersion)) {
             throw new BusinessException(ErrorCode.RHYTHM_CHALLENGE_CONFLICT, "도전을 시작한 뒤 게임 규칙이 바뀌었어요. 새로 도전해 주세요.");
         }
         return RhythmEngine.start(chart, level, scrollSpeed, seed);
