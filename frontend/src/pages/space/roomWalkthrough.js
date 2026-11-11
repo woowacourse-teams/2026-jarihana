@@ -503,9 +503,13 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (playMode && (keys.size || sprintKeys.size) && !container.contains(event.target) && !isPlayHudTarget(event.target)) stop();
   }
   function onKeyUp(event) {
+    const wasMoving = hasMotion();
     sprintKeys.delete(event.code);
     keys.delete(event.code);
-    if (!hasMotion()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; }
+    if (!hasMotion()) {
+      cancelAnimationFrame(frame); frame = 0; lastTime = 0;
+      if (wasMoving) render(false);
+    }
   }
   function look(dx, dy) {
     if (!dx && !dy) return;
@@ -540,6 +544,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   return {
     camera, active,
+    isMoving: hasMotion,
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
     },

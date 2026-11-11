@@ -219,6 +219,7 @@ export function createRoomScene(container, callbacks) {
   const signPosition = new THREE.Vector3();
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let settleTimer;
+  let motionFramePending = false;
   let renderWidth;
   let renderHeight;
   let flight;
@@ -371,6 +372,8 @@ export function createRoomScene(container, callbacks) {
   }
 
   function renderFrame(time) {
+    const motionRequested = motionFramePending;
+    motionFramePending = false;
     if (flight && flight.canvasRect && flight.targetRect) {
       if (flight.startedAt === undefined) {
         flight.startedAt = time;
@@ -396,16 +399,18 @@ export function createRoomScene(container, callbacks) {
       else flight.job.finish();
     } else {
       if (previewKeys.size) movePreview(time);
+      const continuousMotion = walkthrough.isMoving() || cameraControls.isDragging() || previewKeys.size > 0;
       renderFrom(walkthrough.active() ? walkthrough.camera : activePreviewCamera(), {
         walking: walkthrough.active(),
-        moving: settleTimer !== undefined || cameraControls.isDragging() || previewKeys.size > 0,
+        moving: continuousMotion || motionRequested || settleTimer !== undefined,
         preview: view === "front"
       }, time);
-      if (previewKeys.size) render();
+      if (previewKeys.size || (motionRequested && !continuousMotion && settleTimer === undefined)) render();
     }
   }
 
   function renderMoving() {
+    motionFramePending ||= !walkthrough.isMoving();
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(() => {
       settleTimer = undefined;
