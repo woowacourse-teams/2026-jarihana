@@ -225,9 +225,11 @@
   visibility: hidden;
 }
 
-/* 자른 뒤: 점수와 오차, 저울만 두고, 자르는 화면 높이 안에서 위아래 가운데에 둔다. */
+/* 자른 뒤: 점수와 오차, 저울만 두고, 머리 줄(진행, 누적 점수) 바로 아래에 붙인다.
+   숨긴 자르는 화면이 칸 높이를 잡고 있어 버튼 자리는 그대로다. */
 .stick-game__result {
-  align-content: center;
+  align-content: start;
+  margin-block-start: calc(var(--space-5) * -1);
   display: grid;
   gap: var(--space-4);
   min-inline-size: 0;
