@@ -136,11 +136,6 @@ jobs:
             exit 0
           fi
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
-            if [[ ! -f "$control/release-compose.sh" || ! -f "$control/release-compose-source.py" ]] ||
-              ! grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=2' "$control/app.sh"; then
-              echo '::error::Approved control tag lacks release Compose capability v2; install the reviewed validator once before deployment'
-              exit 1
-            fi
             compose=infra/blue-green-deploy/controller/app-compose.yml
             git cat-file -e "$GITHUB_SHA:$compose"
           fi

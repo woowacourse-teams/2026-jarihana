@@ -9,7 +9,6 @@
 
 각 서버의 관리자 Bash에서 실행한다. `CONTROL_DIR`는 [릴리스 준비](README.md#고정-제어-릴리스-준비)의
 root 소유 Git checkout이다. 동일 서버에 A/B 앱 두 개를 설치하지 않는다.
-먼저 Python 3.10+/PyYAML 6.x를 준비하고 실제 runner 계정에서 `python3 -c 'import yaml'`이 성공하는지 확인한다.
 
 ```bash
 set -euo pipefail
@@ -53,7 +52,7 @@ runuser -u jarihana-runner -- bash -c \
 ```
 
 위 설치 Compose는 초기 구성과 비릴리스 경로의 기준이다. 일반 prod prepare는 main 배포 SHA의
-Compose를 임시 파일로 읽고 계약을 검증하며, 이 관리자 설치본을 덮어쓰지 않는다.
+Compose를 임시 파일로 읽고 Compose 구문을 검사하며, 이 관리자 설치본을 덮어쓰지 않는다.
 
 runner는 [공통 등록 절차](README.md#runner-등록과-부팅-설정)에 따라 jarihana-runner로 실행한다.
 BLUE_GREEN_PROD_A_RUNNER/B_RUNNER의 라벨과 실제 서버를 대응시킨다.

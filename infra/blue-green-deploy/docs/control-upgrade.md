@@ -1,7 +1,7 @@
 # 고정 배포 제어 버전 교체
 
-앱 Compose만 변경하고 [배포 계약](deployment.md#운영-백엔드의-compose-선택)을 유지하는 경우에는 이 절차가 필요 없다.
-최초 Compose 검증기 v2 적용, 제어 코드나 watchdog 자체 변경에는 이 절차를 사용한다.
+앱 Compose만 변경하고 [앱 Compose 실행 방식](deployment.md#운영-백엔드의-compose-선택)을 사용하는 경우에는 이 절차가 필요 없다.
+배포 제어 코드나 watchdog 자체를 설치/교체할 때 이 절차를 사용한다.
 자동 제어 태그 교체와 root 업그레이드 helper는 제공하지 않는다.
 
 배포 검사 코드는 앱 이미지와 별도로 고정된다. `BLUE_GREEN_CONTROL_REF`만 바꾸면 기존
@@ -40,9 +40,7 @@
 새 control checkout은 root 소유의 별도 release 디렉터리에 두고 태그와 40자리 SHA를 대조한다.
 앱 호스트의 설치 Compose는 초기 구성과 비릴리스 경로의 기준 파일로 유지한다.
 일반 운영 prepare에서 사용하는 Compose 원본은 앱 배포 커밋이며 이 설치본과의 byte 일치를 요구하지 않는다.
-v2 제어 릴리스에는 `release-compose-source.py`도 포함한다. 각 앱 runner 계정에서
-`python3 -c 'import yaml'` 성공을 확인하며, 없으면 승인된 유지보수에서 Python 3/PyYAML을 준비한다.
-Ubuntu의 패키지 이름은 `python3-yaml`이다. 배포 도중 패키지를 자동 설치하지 않는다.
+
 
 coordinator의 기존 설정을 별도 보호 파일에 보관하고, 그 파일을 `previous-config.json`이라고 한다.
 원본 저널을 바꾸지 않고 아래 필드를 **새 coordinator.json**에 추가한다. `previous_topology`에는

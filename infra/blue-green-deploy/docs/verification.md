@@ -11,7 +11,6 @@
 ## 배포 스크립트와 계약
 
 명령은 [배포 실행의 적용 버전](deployment.md#적용-버전)과 일치하는 저장소 checkout의 루트에서 실행한다. 호스트와 외부 자원 접근이 필요한 시험은 해당 환경에서 수행한다.
-계약 시험에는 Python 3.10+/PyYAML 6.x도 필요하다. CI는 `python3-yaml` 패키지를 준비한다.
 
 ```sh
 for file in infra/blue-green-deploy/scripts/actions/*.sh \
@@ -36,11 +35,9 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
   .github/workflows/backend-prod-deploy.yml .github/workflows/frontend-prod-deploy.yml
 ```
 
-기존 `test-app.sh`와 `test-release-workflow.sh`는 앱 Compose의 main SHA 선택,
-Compose 누락과 다른 SHA 거부, 원본 YAML의 외부 파일 참조/중복 키 거부,
-v1/원본 검증기 누락 사전 차단과 위험한 Compose 모델을 컨테이너 교체 전에 거부하는 경계를 검사한다.
-Flyway baseline=true 또는 설정 누락도 거부한다. 원본 검사는 실제 PyYAML을 호출한다.
-Docker 대역을 쓰는 계약 시험과 실제 Compose JSON 파서를 쓰는 검증을 구분한다.
+기존 `test-app.sh`와 `test-release-workflow.sh`는 main SHA의 앱 Compose 선택,
+파일 누락과 다른 SHA 거부, Compose 검사 실패 시 컨테이너 교체 전에 멈추는 동작을 확인한다.
+Docker 대역을 쓰는 계약 시험과 실제 Compose 파서를 쓰는 검증을 구분한다.
 로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.
 
 시험별 실행 조건과 대역 범위는 [각 하네스](../tests/actions/run-tests.sh)에서 확인한다.

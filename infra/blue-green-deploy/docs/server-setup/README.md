@@ -39,7 +39,7 @@ A/B는 논리 슬롯이며 runner 표시 이름의 A/B와 같다고 가정하지
 | 위치 | 필요한 준비 |
 | --- | --- |
 | Nginx coordinator | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Git, Docker Compose v2, AWS CLI v2와 전용 runner |
-| 앱 A/B | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Asia/Seoul tzdata, Git, OpenSSH, Python 3.10+/PyYAML 6.x, `config --no-env-resolution --format json`을 지원하는 Docker Compose v2와 서로 다른 전용 runner |
+| 앱 A/B | Bash 5+, jq, curl, flock, 아래 coreutils 호환 옵션, Asia/Seoul tzdata, Git, OpenSSH, Docker Compose v2와 서로 다른 전용 runner |
 | 관측 | 앱별 Alloy, Prometheus 읽기 경로와 정확한 environment/host_id |
 | 통신 | Nginx에서 앱 private port, 앱에서 Nginx의 읽기 전용 SSH, 앱에서 RDS, GitHub/GHCR outbound |
 

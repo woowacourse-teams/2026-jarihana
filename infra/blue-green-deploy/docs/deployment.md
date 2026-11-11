@@ -25,9 +25,9 @@ Git 병합만으로 서버의 보호 설정과 제어 코드가 갱신되었다�
 `92a38bb4fb4a7b37ecb58069dcabd25939ed53fb` 제어 코드로 완료됐다.
 당시 제어 태그는 `refs/tags/deployment-control-prod-20261111-01`이다.
 
-아래 Compose 계약 검증 v2는 저장소의 변경이며, 위 실행이 이 변경을 운영에서 검증한 근거는 아니다.
+아래 main SHA의 Compose 사용 방식은 저장소의 변경이며, 위 실행이 이 변경을 운영에서 검증한 근거는 아니다.
 2026-11-11 서버 조회에서 Nginx와 앱 B는 위 제어 버전이었고 앱 A는 중지되어 내부 설정을 조회하지 않았다.
-이번 변경에서는 서버 설정, 제어 pin과 watchdog을 갱신하지 않는다. 최초 적용 조건은 아래에 따른다.
+이번 변경에서는 서버 설정, 제어 pin과 watchdog을 갱신하지 않는다. 배포 스크립트의 설치 범위는 아래에 따른다.
 정상 배포 완료가 장애를 유발한 동반 롤백, 취소 복구와 빈 서버 재구성의 검증까지 의미하지는 않는다.
 
 ## 배포 실행
@@ -66,45 +66,31 @@ runner는 checkout HEAD와 `GITHUB_SHA`가 같은지 확인하고, 작업 디렉
 배포 저널의 `sha`와 `image`는 소스 커밋과 이미지 digest이며, Compose의 커밋과 파일 SHA-256은
 prepare 로그에 기록한다. 렌더링된 환경 변수와 비밀값은 로그나 artifact에 올리지 않는다.
 
-기존 제어 태그의 Compose와 파일 내용이 같아야 한다는 검사는 사용하지 않는다.
-Python 3/PyYAML로 원본 YAML의 외부 참조와 중복 키를 먼저 거부한 뒤,
-Docker Compose가 실제 환경 변수로 해석한 JSON 모델을 컨테이너 교체 전에 검증한다.
-`include`, `extends`, `env_file`, `label_file`은 Compose 실행 전에 차단한다. 원본 값은 다시 쓰지 않는다.
-Docker가 literal `$`를 보존하도록 출력한
-검증된 모델 자체를 실행 스냅샷으로 사용해 pull/up에서 외부 파일 재조회로 설정이 달라지지 않게 한다.
-비밀값을 포함할 수 있는 임시 모델과 실행 스냅샷은 권한 0600으로 만들고 종료 시 삭제한다.
+임시 파일에 읽은 Compose를 `docker compose config --quiet`로 확인한 뒤 같은 파일로 pull/up을 실행한다.
+이 검사는 Compose 문법과 필수 환경 변수 등을 확인한다. 별도의 YAML 파서나 설정 허용 목록 검사는 두지 않는다.
+앱 Compose는 필요한 설정을 한 파일에 작성하며, 변경된 실행 설정은 코드 리뷰와 앱 기동 검증의 대상이다.
 
-| 구분 | 적용 범위 |
-| --- | --- |
-| 앱 릴리스에서 변경 가능 | 일반 앱 환경 변수, 메모리/CPU/PID 제한, 허용된 heap 설정, label, healthcheck와 local/json-file 로그 설정 |
-| 배포 계약으로 검증 | 지정 이미지 digest와 컨테이너 이름, 환경별 DB URL과 프로필, Flyway baseline=false, 앱/loopback 관리 포트, worker 제어/PAUSED/host ID/토큰, restart=no와 정상 종료 설정 |
-| 허용하지 않는 실행 구조 | 추가 서비스, build/command/entrypoint 변경, host mount/volume, privileged/capability/user 변경, 외부/host network, include/extends/env_file/label_file와 config/secret 파일 주입 |
-| 설정 우회 차단 | Spring 직접 속성 별칭, SPRING_APPLICATION_JSON, 추가 JVM system property와 launcher 환경 변수 |
-
-JVM heap은 `-Xms<size> -Xmx<size>` 형식이며, 종료 설정은 graceful/90초와 Compose 120초를 유지한다.
-새로운 실행 구조나 계약 변경은 검증기를 함께 검토해야 한다. 임의의 Compose 변경을 모두 허용하는 기능은 아니다.
+이미지 digest, DB/프로필, 관리 포트와 worker 설정은 앱 Compose에 정의한다.
+기동 후에는 기존 앱 상태/컨테이너 검사와 readiness 확인을 거쳐야 worker 이관과 HTTP 전환을 진행한다.
 Variables와 Secrets는 앱 작업 workflow에서 전달하므로 새 입력이 필요하면 해당 전달 항목도 추가한다.
+원본 임시 파일은 권한 0600으로 만들고 종료 시 삭제한다. 렌더링된 비밀값을 별도 파일로 저장하지 않는다.
 
-`resolve`는 검증기 지원 여부와 배포 커밋의 Compose 존재를 확인한다. 실제 변수와 호스트 설정을 쓰는
-계약 검사는 앱 runner의 `prepare`에서 수행한다. 이 시점에는 대기 EC2가 시작됐을 수 있지만,
-검사 실패 시 기존 대기 컨테이너의 중지/삭제와 후보 기동, worker 이관, HTTP 전환은 시작하지 않는다.
-오류 시 두 EC2와 증거를 보존하는 기존 실패 절차를 유지한다.
+`resolve`는 배포 커밋에 앱 Compose가 존재하는지 확인한다. 앱 runner의 `prepare`는 같은 SHA의
+원본을 읽고 Compose 검사를 수행한다. 검사 실패 시 기존 대기 컨테이너의 중지/삭제와 후보 기동 전에 멈춘다.
+이 시점에는 대기 EC2가 시작됐을 수 있으며, 오류 시 두 EC2와 증거를 보존하는 실패 절차를 따른다.
 `prepare` 실패는 이미 만든 배포 저널을 자동 완료로 되돌리지 않는다. `NEEDS_ATTENTION`이나 pending이
 남으면 Compose 수정 후 다시 머지해도 다음 plan이 차단될 수 있으므로 [수동 조사](recovery.md#수동-조사)를 먼저 따른다.
 
-### 최초 적용과 자동화 범위
+### 배포 스크립트와 서버 설치 범위
 
-이 workflow를 main에 반영하기 전에 `APP_RELEASE_COMPOSE_CAPABILITY=2`의 `app.sh`와
-`app_validate_release_compose`가 포함된 제어 릴리스를 [수동 제어 버전 교체](control-upgrade.md)로
-한 번 설치해야 한다. 원본 검증기 `release-compose-source.py`와 앱 호스트의 Python 3/PyYAML도 필요하다.
-v1 또는 원본 검증기가 없는 상태에서는 `resolve`가 백엔드를 교체하는 배포를 차단한다.
-frontend-only는 앱 prepare를 실행하지 않으므로 이 Compose 검사를 거치지 않는다.
-기존 제어 태그 자체와 서버의 보호된 control SHA 검증은 유지한다.
+이 방식은 이 문서와 같은 버전의 앱 실행 스크립트를 사용한다는 전제다.
+앱 Compose와 제어 태그의 템플릿을 비교하거나 Compose 기능 버전을 판별하는 호환 코드는 두지 않는다.
+Compose 변경에는 새 제어 태그를 만들지 않는다. 배포 제어 코드와 watchdog은 별도의 승인된 제어 릴리스로 관리한다.
 
-이 최초 적용 후 위 계약을 지키는 앱 Compose 변경에는 제어 태그 교체가 필요 없다.
-제어 태그 자동 발급, root 업그레이드 helper, 세 호스트 pin 자동 교체 기능은 제공하지 않는다.
-제어 스크립트 자체, Nginx/관측 Compose, systemd, topology와 secret 저장 설정은 별도 관리 대상이다.
-Compose를 새로 사용한다는 이유로 이 파일들까지 설치됐다고 판단하지 않는다.
+저장소 코드를 바꿔도 서버가 사용하는 제어 릴리스가 자동 교체되지는 않는다. 새 서버 구성은
+[서버 구성](server-setup/README.md)을 따르고, 운영 서버에 배포 스크립트를 반영하는 작업은
+[제어 버전 교체](control-upgrade.md)에 따른 별도 설치다. 이 PR은 서버 설정을 변경하지 않는다.
+Python 설치나 제어 태그 자동 교체, root 업그레이드 helper는 추가하지 않는다.
 
 ### 정상 배포 순서
 
