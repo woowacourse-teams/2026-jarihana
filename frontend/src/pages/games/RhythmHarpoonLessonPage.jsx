@@ -133,7 +133,7 @@ function OverlayCard({ phase, step, result, progress, onListen, onTry, onNext })
             onClick={RHYTHM_PRACTICE_ENABLED ? undefined : openChallenge}
             to={RHYTHM_SINGLE_START_PATH}
           >
-            싱글 플레이로
+            {RHYTHM_PRACTICE_ENABLED ? "싱글 플레이로" : "공식 도전으로"}
           </Link>
           {extra >= 0 && !step.extra ? (
             <button

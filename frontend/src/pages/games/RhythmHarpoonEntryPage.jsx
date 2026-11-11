@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft, Music2 } from "lucide-react";
+import { ArrowLeft, Music2, Trophy } from "lucide-react";
 
 import {
   RHYTHM_LESSON_PATH,
@@ -8,6 +8,7 @@ import {
   RHYTHM_SINGLE_START_PATH
 } from "../../features/game/rhythm/availability.js";
 import { RhythmBoardArt } from "../../features/game/rhythm/RhythmBoardArt.jsx";
+import { RhythmDemoBoard } from "../../features/game/rhythm/RhythmDemoBoard.jsx";
 import { RhythmModeArt } from "../../features/game/rhythm/RhythmModeArt.jsx";
 import {
   rememberRhythmTutorialOffered,
@@ -21,6 +22,7 @@ import "./games.css";
 
 // 게임방 목록과 같은 카드 모양으로 싱글 플레이와 온라인 매칭 중 하나를 고르고,
 // 그 아래의 TUTORIAL 카드(따라 하기)로 소리부터 익힐 수 있다.
+// 혼자 연습을 닫아 둔 동안에는 싱글 플레이 대신 공식 도전 카드를 두고, 카드 그림 자리에서 실제 판이 자동으로 돈다.
 // 처음 온 사람(tutorialPrompt.js의 쿠키)에게는 들어오자마자 튜토리얼을 볼지 한 번 묻는다.
 export function RhythmHarpoonEntryPage() {
   useEscapeBack("/games");
@@ -56,25 +58,35 @@ export function RhythmHarpoonEntryPage() {
               className="games-artwork games-card__visual rhythm-entry__visual"
               aria-hidden="true"
             >
-              <RhythmBoardArt />
+              <RhythmDemoBoard />
             </div>
-            <div className="games-card__body">
-              <h2 id="rhythm-entry-single">싱글 플레이</h2>
-              <p>
-                {RHYTHM_PRACTICE_ENABLED
-                  ? "혼자 연습하거나 공식 도전에 나서요."
-                  : "난이도와 옵션을 골라 바로 도전해요. 점수가 랭킹에 올라가고 로그인이 필요해요."}
-              </p>
-              {/* 연습을 닫아 둔 동안에는 싱글 플레이가 곧 공식 도전이라 회원 확인을 여기서 한다. */}
-              <Link
-                className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
-                data-ph-capture-attribute-action="rhythm_single_open"
-                onClick={RHYTHM_PRACTICE_ENABLED ? undefined : openChallenge}
-                to={RHYTHM_SINGLE_START_PATH}
-              >
-                <Music2 size={20} aria-hidden="true" /> 싱글 플레이 시작
-              </Link>
-            </div>
+            {RHYTHM_PRACTICE_ENABLED ? (
+              <div className="games-card__body">
+                <h2 id="rhythm-entry-single">싱글 플레이</h2>
+                <p>혼자 연습하거나 공식 도전에 나서요.</p>
+                <Link
+                  className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
+                  data-ph-capture-attribute-action="rhythm_single_open"
+                  to={RHYTHM_SINGLE_START_PATH}
+                >
+                  <Music2 size={20} aria-hidden="true" /> 싱글 플레이 시작
+                </Link>
+              </div>
+            ) : (
+              <div className="games-card__body">
+                <h2 id="rhythm-entry-single">공식 도전</h2>
+                <p>난이도를 골라 바로 도전해요. 점수가 랭킹에 올라가고 로그인이 필요해요.</p>
+                {/* 공식 도전은 회원 전용이라 로그인 전이면 여기서 로그인으로 보낸다. */}
+                <Link
+                  className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
+                  data-ph-capture-attribute-action="rhythm_ranked_open"
+                  onClick={openChallenge}
+                  to={RHYTHM_SINGLE_START_PATH}
+                >
+                  <Trophy size={20} aria-hidden="true" /> 공식 도전 시작
+                </Link>
+              </div>
+            )}
           </article>
           <article className="games-card games-card--soon" aria-label="온라인 매칭, 준비 중">
             <div

@@ -8,6 +8,7 @@ import { RhythmHarpoonSinglePage } from "../../../src/pages/games/RhythmHarpoonS
 import { RhythmHarpoonLessonPage } from "../../../src/pages/games/RhythmHarpoonLessonPage.jsx";
 import { mountPracticeGame } from "../../../src/features/game/rhythm/mount-practice-game.mjs";
 import { mountLessonGame } from "../../../src/features/game/rhythm/mount-lesson-game.mjs";
+import { mountDemoBoard } from "../../../src/features/game/rhythm/mount-demo-board.mjs";
 import { storeReturnTarget } from "../../../src/features/auth";
 
 const mockNavigate = jest.fn();
@@ -35,6 +36,10 @@ jest.mock("../../../src/features/game/rhythm/mount-practice-game.mjs", () => ({
 jest.mock("../../../src/features/game/rhythm/mount-lesson-game.mjs", () => ({
   mountLessonGame: jest.fn()
 }));
+// 첫 화면 카드의 실제 판 재생(Canvas, 채보 요청)은 여기서 돌리지 않는다.
+jest.mock("../../../src/features/game/rhythm/mount-demo-board.mjs", () => ({
+  mountDemoBoard: jest.fn(() => () => {})
+}));
 
 beforeEach(() => {
   mockNavigate.mockClear();
@@ -61,19 +66,23 @@ it("opens the rhythm game from the game catalog without loading it in the catalo
   expect(mountPracticeGame).not.toHaveBeenCalled();
 });
 
-it("starts from two game room cards, opens the challenge options for single play while practice is closed", () => {
+it("starts from the official challenge card while practice is closed and plays the real board on it", () => {
   render(<RhythmHarpoonEntryPage />);
   const back = screen.getByRole("link", { name: "게임방" });
   expect(back).toHaveAttribute("href", "/games");
   expect(back).toHaveAttribute("data-ph-capture-attribute-action", "games_back");
   expect(screen.getByRole("heading", { level: 1, name: "행성이의 리듬 작살" })).toBeInTheDocument();
+  expect(screen.queryByText("싱글 플레이")).not.toBeInTheDocument();
   const [singleCard, onlineCard] = screen.getAllByRole("article");
   expect(singleCard).toHaveClass("games-card", "games-card--playable");
-  expect(singleCard).toHaveAccessibleName("싱글 플레이");
-  const single = screen.getByRole("link", { name: "싱글 플레이 시작" });
+  expect(singleCard).toHaveAccessibleName("공식 도전");
+  // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다.
+  expect(mountDemoBoard).toHaveBeenCalledTimes(1);
+  expect(singleCard.querySelector("canvas.rhythm-demo__board")).toBeInTheDocument();
+  const single = screen.getByRole("link", { name: "공식 도전 시작" });
   expect(singleCard).toContainElement(single);
   expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
-  expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_single_open");
+  expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
   expect(singleCard).toHaveTextContent("로그인이 필요해요");
   fireEvent.click(single);
   expect(mockLogin).toHaveBeenCalledTimes(1);
@@ -214,7 +223,8 @@ it("offers the extra 따 step after the three core sounds without counting it to
     settings.onFinish({ stepIndex: 2, auto: false, total: 32, caught: 30, missed: 2, poor: 0, passed: true })
   );
   expect(screen.getByText(/세 소리를 다 익혔어요/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "싱글 플레이로" })).toBeInTheDocument();
+  const finish = screen.getByRole("link", { name: "공식 도전으로" });
+  expect(finish).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   fireEvent.click(screen.getByRole("button", { name: "번외: 따 익히기" }));
   expect(screen.getByRole("heading", { name: "따 = 초록, 스윙 엇박" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "스윙 144" })).toBeInTheDocument();

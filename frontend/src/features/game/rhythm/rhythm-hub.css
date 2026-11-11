@@ -37,6 +37,31 @@
   max-inline-size: calc(50% - 5px);
   max-block-size: 190px;
 }
+/* 첫 화면 카드 그림 자리의 실제 판 재생(RhythmDemoBoard). 불러오는 동안은 그림을 두고, 준비되면 판으로 바꾼다. */
+.rhythm-entry__visual .rhythm-demo {
+  position: absolute;
+  inset: 0;
+}
+.rhythm-entry__visual .rhythm-demo__board {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  inline-size: auto;
+  block-size: min(250px, calc(100% - 2 * var(--space-4)));
+  aspect-ratio: 1;
+  border-radius: 18px;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 200ms;
+}
+.rhythm-entry__visual .rhythm-demo.is-ready .rhythm-demo__board {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-entry__visual .rhythm-demo__board {
+    transition: none;
+  }
+}
 /* 첫 화면의 따라 하기: 싱글 플레이와 온라인 매칭 카드 아래 전체 너비의 낮은 초록 카드.
    그림을 글 왼쪽에 두고, 싱글 플레이 화면에 있던 따라 하기 카드와 같은 색을 쓴다. */
 .rhythm-entry-lesson {
