@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button, ErrorState, Modal, Skeleton } from "../../shared/ui";
 import { CutFacts, CutResult, formatPercent, prefersReducedMotion } from "./CutResult";
-import { ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
+import { DISPLAY_MAX_PER_STICK, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM, formatPoints } from "./puzzle";
 import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
 
@@ -55,8 +55,8 @@ function CountUpPoints({ score }) {
   const value = still ? score : shown;
   return (
     <span className="stick-game__points">
-      <span aria-hidden="true">+{value.toLocaleString("ko-KR")}점</span>
-      <span className="ui-sr-only">+{score.toLocaleString("ko-KR")}점</span>
+      <span aria-hidden="true">+{formatPoints(value)}점</span>
+      <span className="ui-sr-only">+{formatPoints(score)}점</span>
     </span>
   );
 }
@@ -250,8 +250,8 @@ export function StickHalvingGame({
       <section aria-label="최종 결과" className="stick-game stick-game--final">
         <p className="stick-game__eyebrow">최종 결과</p>
         <p className="stick-game__final-score">
-          <span>{totalScore.toLocaleString("ko-KR")}</span>
-          <small>/ 5,000점</small>
+          <span>{formatPoints(totalScore)}</span>
+          <small>/ {DISPLAY_MAX_PER_STICK * ROUND_COUNT}점</small>
         </p>
         <div className="stick-game__table-wrap">
           <table className="stick-game__table">
@@ -267,7 +267,7 @@ export function StickHalvingGame({
                 <tr key={row.round}>
                   <td>{row.name}</td>
                   <td className="stick-game__number">{formatPercent(row.errorRate)}</td>
-                  <td className="stick-game__number">{row.score.toLocaleString("ko-KR")}</td>
+                  <td className="stick-game__number">{formatPoints(row.score)}</td>
                 </tr>
               ))}
             </tbody>
@@ -293,7 +293,7 @@ export function StickHalvingGame({
         <Progress round={round} />
         <div className="stick-game__meta">
           {label ? <span className="stick-game__mode">{label}</span> : null}
-          <p className="stick-game__running">누적 <strong>{totalScore.toLocaleString("ko-KR")}</strong>점</p>
+          <p className="stick-game__running">누적 <strong>{formatPoints(totalScore)}</strong>점</p>
         </div>
       </div>
       <div className="stick-game__stage">

@@ -85,7 +85,7 @@ it("starts a ranked run when a member presses start and reveals the answer after
   expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
-  expect(await within(screen.getByRole("region", { name: "게임" })).findByRole("status")).toHaveTextContent(/\+\d+점/);
+  expect(await within(screen.getByRole("region", { name: "게임" })).findByRole("status")).toHaveTextContent(/\+[\d.]+점/);
   expect(within(screen.getByRole("region", { name: "게임" })).getByText(/^오차 \d/)).toBeInTheDocument();
   expect(screen.queryByText(/^정답/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "분석하기" }));
@@ -232,5 +232,5 @@ it("keeps the final ranking after the event closes", async () => {
 
   expect(await screen.findByRole("heading", { name: "이벤트가 끝났어요" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "GitHub로 로그인하고 도전하기" })).not.toBeInTheDocument();
-  expect(await screen.findByText("4,820점")).toBeInTheDocument();
+  expect(await screen.findByText("96.4점")).toBeInTheDocument();
 });

@@ -18,7 +18,8 @@ import {
   ROUND_COUNT,
   ROUND_TIME_LIMIT_SECONDS,
   StickHalvingGame,
-  formatPercent
+  formatPercent,
+  formatPoints
 } from "../../features/stick-halving";
 import {
   Button,
@@ -65,8 +66,8 @@ function formatDuration(milliseconds) {
 }
 
 function resultText(summary) {
-  return [`공평하게 반띵 ${summary.totalScore.toLocaleString("ko-KR")}점 (5,000점 만점)`]
-    .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${row.score.toLocaleString("ko-KR")}점`))
+  return [`공평하게 반띵 ${formatPoints(summary.totalScore)}점 (100점 만점)`]
+    .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${formatPoints(row.score)}점`))
     .join("\n");
 }
 
@@ -106,7 +107,7 @@ function RankingRow({ item, me }) {
     <li className={me && item.rank === me.rank ? "pepero-day__ranking-item--me" : undefined}>
       <span className="pepero-day__rank">{item.rank}</span>
       <span className="pepero-day__nickname">{item.nickname}</span>
-      <span className="pepero-day__score">{item.totalScore.toLocaleString("ko-KR")}점</span>
+      <span className="pepero-day__score">{formatPoints(item.totalScore)}점</span>
       <span className="pepero-day__duration">{formatDuration(item.totalDurationMillis)}</span>
     </li>
   );
@@ -152,7 +153,7 @@ export function Ranking({
       <SectionHeader description={description} title={title} />
       {me ? (
         <p className="pepero-day__me">
-          내 순위 <strong>{me.rank}위</strong>, {me.totalScore.toLocaleString("ko-KR")}점
+          내 순위 <strong>{me.rank}위</strong>, {formatPoints(me.totalScore)}점
         </p>
       ) : null}
       {items.length ? (
@@ -196,7 +197,7 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
           {ranked && data.me ? (
             <>
               내 순위 <strong>{data.me.rank}위</strong>
-              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${data.me.totalScore.toLocaleString("ko-KR")}점` : null}
+              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${formatPoints(data.me.totalScore)}점` : null}
             </>
           ) : null}
           {ranked ? null : (
@@ -217,7 +218,7 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   return (
     <Modal
       closeAction="pepero_ranking_dismiss"
-      description={`이번 판 ${result.totalScore.toLocaleString("ko-KR")}점`}
+      description={`이번 판 ${formatPoints(result.totalScore)}점`}
       onOpenChange={(next) => {
         if (!next) onClose();
       }}

@@ -5,6 +5,7 @@ export { StickHalvingGame } from "./StickHalvingGame";
 export {
   ROUND_COUNT,
   ROUND_TIME_LIMIT_SECONDS,
+  formatPoints,
   ROUNDS,
   STICK_LENGTH_CM,
   generatePracticeStick,

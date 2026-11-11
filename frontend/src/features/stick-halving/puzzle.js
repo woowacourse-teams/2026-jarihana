@@ -7,6 +7,11 @@ export const CELL_CM = STICK_LENGTH_CM / STICK_CELLS;
 export const ROUND_COUNT = 5;
 export const ROUND_TIME_LIMIT_SECONDS = 10;
 export const MAX_SCORE = 1000;
+// 화면은 100점 만점(막대당 20점)으로 보여 준다. 서버와 순위는 막대당 1000점으로 저장하므로,
+// 이미 쌓인 기록과 순위가 그대로 이어지도록 저장값을 50으로 나눠 소수 한 자리까지만 보여 준다.
+export const DISPLAY_MAX_PER_STICK = 20;
+export const formatPoints = (score) =>
+  ((score * DISPLAY_MAX_PER_STICK) / MAX_SCORE).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 export const ZERO_SCORE_ERROR_RATE = 0.1;
 
 // 칼이 설 수 있는 간격이다. 칸 무게(100, 150, 200mg)와 아몬드 무게(50, 100mg)로는 정답이
