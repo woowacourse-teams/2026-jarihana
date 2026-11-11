@@ -2,7 +2,10 @@ name: Backend Blue-Green Deployment
 on:
   workflow_call:
     inputs:
-      automatic_control:
+      control_ref:
+        type: string
+        default: ""
+      parent_observed_lock:
         type: boolean
         default: false
       environment:
@@ -25,20 +28,12 @@ permissions:
   actions: read
   packages: read
 concurrency:
-  # Monitoring recreates the query gateway; keep it outside the observation window.
-  group: jarihana-observed-deployment
+  # Production holds the shared lock in its parent, including the control upgrade.
+  group: ${{ inputs.parent_observed_lock && format('jarihana-observed-child-{0}', github.run_id) || 'jarihana-observed-deployment' }}
   cancel-in-progress: false
   queue: max
 jobs:
-  control:
-    if: inputs.automatic_control && inputs.environment == 'prod' && inputs.mode == 'deploy'
-    permissions:
-      contents: write
-      actions: read
-    uses: ./.github/workflows/backend-control-upgrade.yml
   resolve:
-    needs: control
-    if: always() && !cancelled() && (needs.control.result == 'success' || needs.control.result == 'skipped')
     runs-on: ubuntu-24.04-arm
     environment: ${{ inputs.environment }}
     timeout-minutes: 10
@@ -46,17 +41,17 @@ jobs:
       contents: read
       packages: read
     outputs:
-      control_ref: ${{ needs.control.outputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+      control_ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
       digest: ${{ steps.image.outputs.digest }}
       frontend_only: ${{ steps.image.outputs.frontend_only }}
       backend_only: ${{ steps.image.outputs.backend_only }}
     env:
-      BG_CONTROL_REF: ${{ needs.control.outputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+      BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
     steps:
       - name: 보호된 배포 제어 코드 checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.control.outputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
           path: deployment-control
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -80,7 +75,7 @@ jobs:
           BG_MODE: ${{ inputs.mode }}
           BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
-          BG_CONTROL_REF: ${{ needs.control.outputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
+          BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
           RDS_URL: ${{ vars.RDS_URL }}
           BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
           BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
@@ -208,18 +203,19 @@ jobs:
       frontend_artifact_id: ${{ needs.frontend-build.outputs.artifact_id }}
   queue-guardian:
     name: deployment-queue-guardian
+    if: inputs.parent_observed_lock != true
     runs-on: ubuntu-latest
     timeout-minutes: 125
     permissions:
       contents: read
       actions: write
     env:
-      BG_CONTROL_REF: ${{ inputs.automatic_control && github.sha || vars.BLUE_GREEN_CONTROL_REF }}
+      BG_CONTROL_REF: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.automatic_control && github.sha || vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ inputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
           persist-credentials: false
       - name: 전용 runner queue와 전체 실행 기한 감시
         shell: bash
@@ -548,7 +544,7 @@ jobs:
     # The parallel guardian exits when this job completes; do not depend on the guardian here.
     name: deployment-result
     if: always()
-    needs: [control, resolve, plan, finish-bootstrap, stop-ec2, finish-rollback, interrupt, seal, frontend-seal, frontend-recover]
+    needs: [resolve, plan, finish-bootstrap, stop-ec2, finish-rollback, interrupt, seal, frontend-seal, frontend-recover]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
@@ -563,13 +559,8 @@ jobs:
           DEPLOY: ${{ needs.stop-ec2.result }}
           ROLLBACK: ${{ needs.finish-rollback.result }}
           CLEANUP_DEFERRED: ${{ needs.seal.outputs.cleanup_deferred }}
-          CONTROL_RESULT: ${{ needs.control.result }}
         shell: bash
         run: |
-          if [[ "$CONTROL_RESULT" == failure || "$CONTROL_RESULT" == cancelled ]]; then
-            echo '제어 버전 교체 실패: 앱 배포를 시작하지 않았습니다. control job의 복구 결과와 세 호스트의 /var/backups/jarihana-control/automatic/<run-id>를 확인하세요.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
           printf '운영/개발 제어 태그: %s\n' "$BG_CONTROL_REF" >> "$GITHUB_STEP_SUMMARY"
           printf '이번 배포/롤백 대상: %s\n' "$RELEASE_SCOPE" >> "$GITHUB_STEP_SUMMARY"
           printf '초기 등록: %s / 백엔드 배포: %s / 백엔드 롤백: %s\n' "$BOOTSTRAP" "$DEPLOY" "$ROLLBACK" >> "$GITHUB_STEP_SUMMARY"

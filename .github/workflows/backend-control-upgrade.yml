@@ -1,6 +1,10 @@
 name: Production Control Upgrade
 on:
   workflow_call:
+    inputs:
+      enabled:
+        type: boolean
+        default: true
     outputs:
       control_ref:
         value: ${{ jobs.ready.outputs.control_ref }}
@@ -9,6 +13,7 @@ permissions:
   actions: read
 jobs:
   select:
+    if: inputs.enabled
     runs-on: [jarihana-bluegreen-coordinator]
     environment: prod
     timeout-minutes: 10
@@ -125,14 +130,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
-      control_ref: ${{ needs.select.outputs.control_ref }}
+      control_ref: ${{ inputs.enabled && needs.select.outputs.control_ref || vars.BLUE_GREEN_CONTROL_REF }}
     env:
+      ENABLED: ${{ inputs.enabled }}
       SELECT_RESULT: ${{ needs.select.result }}
       CHANGED: ${{ needs.select.outputs.changed }}
       FINISH_RESULT: ${{ needs.finish.result }}
       CONTROL_REF: ${{ needs.select.outputs.control_ref }}
     steps:
       - run: |
+          if [[ "$ENABLED" != true ]]; then exit 0; fi
           test "$SELECT_RESULT" = success
           test "$CHANGED" = false || test "$FINISH_RESULT" = success
           printf '운영 제어 태그: %s / 이번 실행에서 교체: %s\n' "$CONTROL_REF" "$CHANGED" >> "$GITHUB_STEP_SUMMARY"

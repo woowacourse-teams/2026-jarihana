@@ -19,8 +19,10 @@ GitHub 관리자 토큰이나 변수 쓰기 권한은 사용하지 않는다.
 대상 SHA가 일치할 때만 재사용하며, 기존 태그를 이동하거나 삭제하지 않는다.
 
 1. 기존 운영 배포와 관제 작업이 사용하는 concurrency 안에서 태그를 선택한다.
+   Production Release 부모가 제어 교체와 앱 배포 전체에 공유 잠금을 유지한다.
+   개발 배포는 기존 공통 workflow의 잠금을 사용하며 태그 쓰기 권한을 요구하지 않는다.
 2. coordinator의 보호된 설정에 등록된 A/B EC2를 시작한다. 대기 컨테이너는 시작하지 않는다.
-   hosted queue guardian이 runner 대기를 300초로 제한한다.
+   부모의 hosted queue guardian이 runner 대기를 300초로 제한하고 `production-result`까지 감시한다.
 3. 세 호스트의 root helper가 GitHub API로 main 운영 실행의 저장소 ID, SHA, 이벤트와 첫 실행을
    확인하고, 고정 저장소의 태그를 root 소유 release 디렉터리로 받는다.
 4. 완료 저널, 실제 HTTP 경로, 활성 앱의 boot/이미지/worker 소유권, 앱 intent를 대조한다.
