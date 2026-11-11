@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button, ErrorState, Skeleton } from "../../shared/ui";
+import { Button, ErrorState, Modal, Skeleton } from "../../shared/ui";
 import { CutFacts, CutResult, formatPercent, prefersReducedMotion } from "./CutResult";
-import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
+import { ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
 import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
 
@@ -61,8 +61,8 @@ function CountUpPoints({ score }) {
   );
 }
 
-// 몇 번째 막대인지 점 5개와 숫자로 보여 준다.
-function Progress({ name, round }) {
+// 몇 번째 막대인지 점 5개와 숫자로 보여 준다. 막대 유형 이름은 보여 주지 않는다.
+function Progress({ round }) {
   return (
     <p className="stick-game__progress">
       <span aria-hidden="true" className="stick-game__dots">
@@ -72,7 +72,6 @@ function Progress({ name, round }) {
         })}
       </span>
       <span className="stick-game__round-count">{round}/{ROUND_COUNT}</span>
-      <span className="stick-game__round-name">{name}</span>
     </p>
   );
 }
@@ -100,6 +99,7 @@ export function StickHalvingGame({
   const [rows, setRows] = useState([]);
   const [totalScore, setTotalScore] = useState(0);
   const [error, setError] = useState(null);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const positionReference = useRef(position);
   const phaseReference = useRef(phase);
   const startedReference = useRef(false);
@@ -128,6 +128,7 @@ export function StickHalvingGame({
     setStick(nextStick);
     setPosition(clampPosition(nextStick.startPosition));
     setOutcome(null);
+    setAnalysisOpen(false);
     setDeadline(remainingMillis == null ? Date.now() + timeLimitSeconds * 1000 : requestedAt + remainingMillis);
     setNow(Date.now());
     setPhase("play");
@@ -157,7 +158,7 @@ export function StickHalvingGame({
           ...previous,
           {
             errorRate: result.errorRate,
-            name: `${round} ${ROUNDS[round - 1].name}`,
+            name: `${round}번 막대`,
             round,
             score: result.score
           }
@@ -205,7 +206,10 @@ export function StickHalvingGame({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [phase, submit]);
 
-  function next() {
+  // 자르기와 다음 막대는 같은 자리의 같은 버튼이다. 자르기를 두 번 빠르게 눌러 두 번째 클릭이
+  // 다음 막대로 넘어가면 결과를 못 보므로, 더블클릭의 두 번째 클릭(detail > 1)은 무시한다.
+  function next(event) {
+    if (event?.detail > 1) return;
     if (!outcome || phaseReference.current !== "result") return;
     if (outcome.finished) {
       setPhase("final");
@@ -274,22 +278,11 @@ export function StickHalvingGame({
     );
   }
 
-  const info = ROUNDS[round - 1];
   const showingResult = (phase === "result" || phase === "issuing") && outcome;
-  const board = (
-    <StickBoard
-      answerPosition={showingResult ? outcome.answerPosition : null}
-      locked={phase !== "play"}
-      onPositionChange={setPosition}
-      onSubmit={() => submit(false)}
-      position={showingResult ? outcome.position : position}
-      stick={stick}
-    />
-  );
 
-  // 자를 때는 제목, 남은 시간, 막대, 자르기 버튼을 위에서 아래로 한 줄에 둔다.
-  // 자른 뒤에는 넓은 화면에서 왼쪽에 자른 막대와 오차, 오른쪽에 점수와 저울, 다음 막대 버튼을 둔다.
-  // 결과는 한꺼번에 나타나지 않고 조각이 벌어진 뒤 점수, 오차, 저울, 버튼 순서로 떠오른다(stick-halving.css).
+  // 자르는 화면과 결과 화면을 같은 칸에 겹쳐 두어 높이를 맞춘다. 결과를 보는 동안 자르는 화면은 숨기지만
+  // 자리는 차지하므로, 그 아래 버튼 줄이 움직이지 않는다. 자르기와 다음 막대는 같은 버튼이 이름만 바뀐다.
+  // 결과는 점수와 오차, 저울 순서로 떠오르고(stick-halving.css), 자른 위치와 정답은 분석하기 모달에서 본다.
   return (
     <section
       aria-label="게임"
@@ -297,62 +290,88 @@ export function StickHalvingGame({
       ref={sectionReference}
     >
       <div className="stick-game__head">
-        <Progress name={info.name} round={round} />
+        <Progress round={round} />
         <div className="stick-game__meta">
           {label ? <span className="stick-game__mode">{label}</span> : null}
           <p className="stick-game__running">누적 <strong>{totalScore.toLocaleString("ko-KR")}</strong>점</p>
         </div>
       </div>
-      {showingResult ? (
-        <div className="stick-game__result">
-          <p className="stick-game__verdict" role="status">
-            <span className="stick-game__comment">
-              {commentFor(round, outcome.errorRate, outcome.position)}
-            </span>
-            <CountUpPoints score={outcome.score} />
-          </p>
-          <div className="stick-game__board">{board}</div>
-          <div className="stick-game__facts">
-            <CutFacts position={outcome.position} result={outcome} />
-          </div>
-          <div className="stick-game__balance">
-            <CutResult position={outcome.position} stick={stick} />
-          </div>
-          <Button
-            className="stick-game__primary stick-game__next"
-            data-ph-capture-attribute-action="stick_next_round"
-            onClick={next}
-            pending={phase === "issuing"}
-            size="lg"
-          >
-            {outcome.finished ? "최종 결과 보기" : "다음 막대"}
-          </Button>
-        </div>
-      ) : (
-        <div className="stick-game__play">
+      <div className="stick-game__stage">
+        <div
+          aria-hidden={showingResult ? true : undefined}
+          className={`stick-game__play${showingResult ? " stick-game__layer--hidden" : ""}`}
+          inert={showingResult ? true : undefined}
+          key={round}
+        >
           <div className="stick-game__lead">
             <h2 className="stick-game__title">같은 무게가 되게 반으로 잘라 보세요</h2>
             <p className="stick-game__subtitle">초코와 아몬드가 붙은 곳이 더 무거워요</p>
           </div>
           <Timer deadline={deadline} limitSeconds={timeLimitSeconds} now={now} />
-          {board}
+          <StickBoard
+            locked={phase !== "play"}
+            onPositionChange={setPosition}
+            onSubmit={() => submit(false)}
+            position={showingResult ? outcome.position : position}
+            stick={stick}
+          />
           <p className="stick-game__hint">
             <span className="stick-game__hint-touch">막대를 끌어서 칼을 옮겨요</span>
             <span className="stick-game__keys">
               막대를 끌거나 <kbd>←</kbd><kbd>→</kbd>로 옮기고 <kbd>Enter</kbd>로 잘라요
             </span>
           </p>
-          <Button
-            className="stick-game__primary"
-            data-ph-capture-attribute-action="stick_cut_submit"
-            onClick={() => submit(false)}
-            pending={phase === "cutting"}
-            size="lg"
-          >
-            자르기
-          </Button>
         </div>
-      )}
+        {showingResult ? (
+          <div className="stick-game__result">
+            <p className="stick-game__verdict" role="status">
+              <span className="stick-game__comment">{commentFor(round, outcome.errorRate, outcome.position)}</span>
+              <span className="stick-game__score-line">
+                <CountUpPoints score={outcome.score} />
+                <span className="stick-game__error">오차 {formatPercent(outcome.errorRate)}</span>
+              </span>
+            </p>
+            <div className="stick-game__balance">
+              <CutResult position={outcome.position} stick={stick} />
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="stick-game__actions">
+        <Button
+          className="stick-game__primary"
+          data-ph-capture-attribute-action={showingResult ? "stick_next_round" : "stick_cut_submit"}
+          onClick={showingResult ? next : () => submit(false)}
+          pending={phase === "cutting" || phase === "issuing"}
+          size="lg"
+        >
+          {showingResult ? (outcome.finished ? "최종 결과 보기" : "다음 막대") : "자르기"}
+        </Button>
+        {showingResult ? (
+          <button
+            className="stick-game__analyze"
+            data-ph-capture-attribute-action="stick_cut_analyze"
+            onClick={() => setAnalysisOpen(true)}
+            type="button"
+          >
+            분석하기
+          </button>
+        ) : (
+          <span aria-hidden="true" className="stick-game__analyze stick-game__analyze--placeholder" />
+        )}
+      </div>
+      {showingResult ? (
+        <Modal
+          closeAction="stick_analysis_close"
+          onOpenChange={setAnalysisOpen}
+          open={analysisOpen}
+          panelClassName="stick-analysis"
+          title={`${round}번 막대 분석`}
+        >
+          <StickBoard answerPosition={outcome.answerPosition} locked position={outcome.position} stick={stick} />
+          <CutFacts position={outcome.position} result={outcome} />
+        </Modal>
+      ) : null}
     </section>
   );
 }

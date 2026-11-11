@@ -48,11 +48,6 @@
   inline-size: 1.125rem;
 }
 
-.stick-game__round-name {
-  color: var(--color-ink);
-  font-weight: var(--font-weight-bold);
-}
-
 .stick-game__meta {
   align-items: center;
   display: flex;
@@ -181,32 +176,84 @@
   padding: 0 0.375rem;
 }
 
-/* 자르기와 다음 막대는 꽉 찬 큰 버튼 하나로 둔다. */
-.stick-game__primary {
-  inline-size: 100%;
+/* 자르는 화면과 결과 화면을 같은 칸에 겹친다. 결과를 보는 동안 자르는 화면은 숨기되 자리는 남긴다. */
+.stick-game__stage {
+  display: grid;
+  min-inline-size: 0;
 }
 
-/* 자른 뒤: 좁은 화면에서는 점수, 막대, 오차, 저울, 다음 막대 순서로 쌓는다. */
+.stick-game__stage > * {
+  grid-area: 1 / 1;
+}
+
+.stick-game__layer--hidden {
+  visibility: hidden;
+}
+
+/* 자르기와 다음 막대는 같은 자리의 같은 버튼이다. 분석하기는 그 아래 작은 글자 버튼이고,
+   자르는 동안에도 같은 높이를 비워 두어 버튼 줄의 높이가 바뀌지 않게 한다. */
+.stick-game__actions {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+}
+
+.stick-game__primary {
+  inline-size: min(100%, 12rem);
+}
+
+.stick-game__analyze {
+  background: none;
+  block-size: var(--touch-target);
+  border: 0;
+  color: var(--color-text-brand);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+  padding: 0 var(--space-3);
+}
+
+.stick-game__analyze:hover {
+  text-decoration: underline;
+}
+
+.stick-game__analyze:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.stick-game__analyze--placeholder {
+  visibility: hidden;
+}
+
+/* 자른 뒤: 점수와 오차, 저울만 두고, 자르는 화면 높이 안에서 위아래 가운데에 둔다. */
 .stick-game__result {
+  align-content: center;
   display: grid;
   gap: var(--space-4);
-  grid-template-areas:
-    "verdict"
-    "board"
-    "facts"
-    "balance"
-    "next";
+  min-inline-size: 0;
 }
 
+/* 점수 정보는 저울 위 가운데에 모은다. */
 .stick-game__verdict {
   display: grid;
   gap: var(--space-1);
-  grid-area: verdict;
+  justify-items: center;
   margin: 0;
+  text-align: center;
 }
 
 .stick-game__comment {
   color: var(--color-text-muted);
+}
+
+.stick-game__score-line {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  justify-content: center;
 }
 
 .stick-game__points {
@@ -218,47 +265,23 @@
   line-height: 1.1;
 }
 
-.stick-game__board {
-  grid-area: board;
-  min-inline-size: 0;
-}
-
-.stick-game__facts {
-  grid-area: facts;
+.stick-game__error {
+  color: var(--color-text-muted);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .stick-game__balance {
-  grid-area: balance;
+  inline-size: min(100%, 30rem);
   justify-self: center;
-  inline-size: min(100%, 24rem);
 }
 
-.stick-game__next {
-  grid-area: next;
+/* 분석하기 모달: 자른 막대와 정답선, 오차와 두 위치 */
+.stick-analysis .ui-dialog__content {
+  display: grid;
+  gap: var(--space-4);
 }
 
-/* 넓은 화면: 왼쪽에 자른 막대와 오차, 오른쪽에 점수, 저울, 다음 막대 */
-@media (min-width: 720px) {
-  .stick-game__result {
-    align-items: start;
-    column-gap: var(--space-8);
-    grid-template-areas:
-      "board verdict"
-      "facts balance"
-      "facts next";
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .stick-game__next {
-    align-self: end;
-  }
-
-  .stick-game--result .stick-board__labels .stick-board__label--odd {
-    display: none;
-  }
-}
-
-.stick-game__board .stick-board:focus-visible,
 .stick-board:focus-visible {
   outline: var(--border-strong) solid var(--color-brand);
   outline-offset: 2px;
@@ -558,8 +581,8 @@
   }
 }
 
-/* 자른 뒤의 흐름: 두 조각이 벌어지고(0~0.45초), 정답선이 나타나고, 점수, 오차, 저울, 다음 막대 버튼이
-   차례로 떠오른다. 다음 막대의 자르는 화면은 살짝 나타난다. */
+/* 자른 뒤의 흐름: 점수와 오차, 저울, 버튼이 차례로 떠오른다. 분석하기 모달의 막대는 두 조각이 벌어진 뒤
+   정답선이 나타난다. 다음 막대의 자르는 화면은 살짝 나타난다. */
 @keyframes stick-rise {
   from {
     opacity: 0;
@@ -592,20 +615,13 @@
 }
 
 .stick-game--result .stick-game__verdict {
-  animation: stick-rise 0.35s ease-out 0.15s both;
-}
-
-.stick-game--result .stick-game__facts {
-  animation: stick-rise 0.35s ease-out 0.5s both;
+  animation: stick-rise 0.35s ease-out both;
 }
 
 .stick-game--result .stick-game__balance {
-  animation: stick-rise 0.35s ease-out 0.65s both;
+  animation: stick-rise 0.35s ease-out 0.25s both;
 }
 
-.stick-game--result .stick-game__next {
-  animation: stick-rise 0.35s ease-out 0.85s both;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .stick-board__piece {
@@ -616,9 +632,7 @@
   .stick-board__pieces .stick-board__piece,
   .stick-board__answer,
   .stick-game--result .stick-game__verdict,
-  .stick-game--result .stick-game__facts,
-  .stick-game--result .stick-game__balance,
-  .stick-game--result .stick-game__next {
+  .stick-game--result .stick-game__balance {
     animation: none;
   }
 }

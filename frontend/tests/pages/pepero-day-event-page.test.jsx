@@ -85,9 +85,14 @@ it("starts a ranked run when a member presses start and reveals the answer after
   expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
-  expect(await screen.findByText(/^정답/)).toBeInTheDocument();
-  expect(within(screen.getByRole("region", { name: "게임" })).getByRole("status")).toHaveTextContent(/\+\d+점/);
-  expect(screen.getByText("오차")).toBeInTheDocument();
+  expect(await within(screen.getByRole("region", { name: "게임" })).findByRole("status")).toHaveTextContent(/\+\d+점/);
+  expect(within(screen.getByRole("region", { name: "게임" })).getByText(/^오차 \d/)).toBeInTheDocument();
+  expect(screen.queryByText(/^정답/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "분석하기" }));
+  const analysis = await screen.findByRole("dialog", { name: "1번 막대 분석" });
+  expect(within(analysis).getByText("정답")).toBeInTheDocument();
+  expect(within(analysis).getByText("내가 자른 곳")).toBeInTheDocument();
+  fireEvent.click(within(analysis).getAllByRole("button", { name: "닫기" }).at(-1));
   expect(screen.getByRole("button", { name: "다음 막대" })).toHaveAttribute(
     "data-ph-capture-attribute-action",
     "stick_next_round"

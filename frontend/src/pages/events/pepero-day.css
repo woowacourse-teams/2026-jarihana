@@ -172,9 +172,12 @@
   min-inline-size: min(100%, 16rem);
 }
 
-.pepero-day__game {
+/* 게임 영역은 테두리 없이 페이지 위에 바로 둔다. */
+.pepero-day__card.pepero-day__game {
+  border-color: transparent;
   display: grid;
   gap: var(--space-3);
+  padding-inline: 0;
 }
 
 .pepero-day__ranking {
