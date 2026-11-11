@@ -12,6 +12,9 @@ spring:
       initialize-schema: never
 
 jarihana:
+  group-space:
+    weather:
+      enabled: ${GROUP_SPACE_WEATHER_ENABLED:true}
   minigame:
     pepero-day:
       always-open: true

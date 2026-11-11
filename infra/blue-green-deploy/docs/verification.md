@@ -35,7 +35,8 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
   .github/workflows/backend-prod-deploy.yml .github/workflows/frontend-prod-deploy.yml
 ```
 
-기존 `test-app.sh`와 `test-release-workflow.sh`는 main SHA 원본 선택, 다른 SHA 거부,
+기존 `test-app.sh`와 `test-release-workflow.sh`는 기본/음악 Compose의 같은 main SHA 선택,
+음악 Compose 누락과 다른 SHA 거부,
 v1 검증기 사전 차단과 위험한 Compose 모델을 컨테이너 교체 전에 거부하는 경계를 검사한다.
 Docker 대역을 쓰는 계약 시험과 실제 Compose JSON 파서를 쓰는 검증을 구분한다.
 로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.

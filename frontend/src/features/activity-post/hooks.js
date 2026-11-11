@@ -53,10 +53,11 @@ export function useInfiniteActivityReactors({ target, emoji, viewerKey = "anonym
   });
 }
 
-export function useInfiniteActivityPosts({ groupId, mine = false, viewerKey = "anonymous" } = {}) {
+export function useInfiniteActivityPosts({ groupId, mine = false, viewerKey = "anonymous", enabled = true } = {}) {
   const filters = { groupId: groupId ? String(groupId) : null, mine };
   return useInfiniteQuery({
     queryKey: activityPostKeys.feed({ ...filters, viewerKey }),
+    enabled,
     initialPageParam: null,
     queryFn: ({ pageParam }) => fetchActivityPosts({ ...filters, cursor: pageParam }),
     getNextPageParam: getSafeNextCursor,
