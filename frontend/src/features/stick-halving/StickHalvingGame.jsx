@@ -202,8 +202,8 @@ export function StickHalvingGame({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [phase, submit]);
 
-  // 자르기와 다음 막대는 같은 자리의 같은 버튼이다. 자르기를 두 번 빠르게 눌러 두 번째 클릭이
-  // 다음 막대로 넘어가면 결과를 못 보므로, 더블클릭의 두 번째 클릭(detail > 1)은 무시한다.
+  // 자르기와 다음 막대는 같은 자리의 같은 버튼이라 커서를 옮기지 않고 이어서 누를 수 있다. 다만 더블클릭의
+  // 두 번째 클릭(detail > 1)이 결과를 건너뛰거나 새 막대를 바로 자르지 않도록 양쪽 모두 무시한다.
   function next(event) {
     if (event?.detail > 1) return;
     if (!outcome || phaseReference.current !== "result") return;
@@ -284,7 +284,8 @@ export function StickHalvingGame({
 
   // 자르는 화면과 결과 화면을 같은 칸에 겹쳐 두어 높이를 맞춘다. 결과를 보는 동안 자르는 화면은 숨기지만
   // 자리는 차지하므로, 그 아래 버튼 줄이 움직이지 않는다. 자르기와 다음 막대는 같은 버튼이 이름만 바뀐다.
-  // 결과는 점수와 오차, 저울 순서로 떠오르고(stick-halving.css), 자른 위치와 정답은 분석하기 모달에서 본다.
+  // 결과의 한 줄 평과 점수는 머리 줄 가운데(왼쪽 진행, 오른쪽 누적 점수 사이)에, 저울은 그 아래에 둔다.
+  // 점수와 저울이 차례로 떠오르고(stick-halving.css), 자른 위치와 정답은 분석하기 모달에서 본다.
   return (
     <section
       aria-label="게임"
@@ -292,6 +293,15 @@ export function StickHalvingGame({
     >
       <div className="stick-game__head">
         <Progress round={round} />
+        {showingResult ? (
+          <p className="stick-game__verdict" role="status">
+            <span className="stick-game__comment">{commentFor(round, outcome.errorRate, outcome.position)}</span>
+            <span className="stick-game__score-line">
+              <CountUpPoints score={outcome.score} />
+              <span className="stick-game__error">오차 {formatPercent(outcome.errorRate)}</span>
+            </span>
+          </p>
+        ) : null}
         <div className="stick-game__meta">
           {label ? <span className="stick-game__mode">{label}</span> : null}
           <p className="stick-game__running">누적 <strong>{formatPoints(totalScore)}</strong>점</p>
@@ -325,13 +335,6 @@ export function StickHalvingGame({
         </div>
         {showingResult ? (
           <div className="stick-game__result">
-            <p className="stick-game__verdict" role="status">
-              <span className="stick-game__comment">{commentFor(round, outcome.errorRate, outcome.position)}</span>
-              <span className="stick-game__score-line">
-                <CountUpPoints score={outcome.score} />
-                <span className="stick-game__error">오차 {formatPercent(outcome.errorRate)}</span>
-              </span>
-            </p>
             <div className="stick-game__balance">
               <CutResult position={outcome.position} stick={stick} />
             </div>
@@ -342,7 +345,10 @@ export function StickHalvingGame({
         <Button
           className="stick-game__primary"
           data-ph-capture-attribute-action={showingResult ? "stick_next_round" : "stick_cut_submit"}
-          onClick={showingResult ? next : () => submit(false)}
+          onClick={showingResult ? next : (event) => {
+            if (event.detail > 1) return;
+            submit(false);
+          }}
           pending={phase === "cutting" || phase === "issuing"}
           size="lg"
         >

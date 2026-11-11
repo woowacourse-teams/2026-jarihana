@@ -126,3 +126,29 @@ it("keeps the scroll position when the next stick starts, since the button stays
   expect(scrollIntoView).not.toHaveBeenCalled();
   delete Element.prototype.scrollIntoView;
 });
+
+it("cuts and asks for the next stick with the same button, ignoring the second click of a double-click", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  render(<StickHalvingGame adapter={adapter} />);
+  await timerShows("30초 남음");
+  const cutButton = screen.getByRole("button", { name: "자르기" });
+
+  // When: 자르고, 같은 자리의 다음 막대를 더블클릭한다.
+  fireEvent.click(cutButton);
+  const nextButton = await screen.findByRole("button", { name: "다음 막대" });
+  fireEvent.click(nextButton, { detail: 2 });
+
+  // Then: 같은 버튼이고, 두 번째 클릭으로는 넘어가지 않는다.
+  expect(nextButton).toBe(cutButton);
+  expect(adapter.next).not.toHaveBeenCalled();
+
+  // When: 한 번 눌러 다음 막대를 받고, 같은 자리의 자르기를 더블클릭한다.
+  fireEvent.click(nextButton);
+  const secondCut = await screen.findByRole("button", { name: "자르기" });
+  fireEvent.click(secondCut, { detail: 2 });
+
+  // Then: 새 막대를 바로 자르지 않는다.
+  expect(secondCut).toBe(cutButton);
+  expect(adapter.cut).toHaveBeenCalledTimes(1);
+});

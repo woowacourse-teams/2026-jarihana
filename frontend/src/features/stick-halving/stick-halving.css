@@ -4,12 +4,32 @@
   min-width: 0;
 }
 
+/* 머리 줄: 왼쪽 진행, 오른쪽 누적 점수. 결과의 한 줄 평과 점수는 이 줄 가운데에 겹쳐 두어
+   줄 높이를 바꾸지 않는다. 그래야 자르기와 다음 막대 버튼이 같은 자리에 남는다. */
 .stick-game__head {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   justify-content: space-between;
+  position: relative;
+}
+
+.stick-game__head .stick-game__verdict {
+  inline-size: max-content;
+  inset-block-start: 0;
+  inset-inline: 0;
+  margin-inline: auto;
+  max-inline-size: 100%;
+  position: absolute;
+  z-index: 1;
+}
+
+/* 좁은 화면에서는 진행과 누적 점수 줄 아래 가운데로 내린다. */
+@media (max-width: 520px) {
+  .stick-game__head .stick-game__verdict {
+    inset-block-start: calc(100% + var(--space-2));
+  }
 }
 
 /* 진행: 지금 막대는 긴 점, 지난 막대는 진한 점, 남은 막대는 옅은 점 */
@@ -230,11 +250,10 @@
   visibility: hidden;
 }
 
-/* 자른 뒤: 점수와 오차, 저울만 두고, 머리 줄(진행, 누적 점수) 바로 아래에 붙인다.
+/* 자른 뒤: 저울만 두고 자르는 화면 높이 안에서 위아래 가운데에 둔다.
    숨긴 자르는 화면이 칸 높이를 잡고 있어 버튼 자리는 그대로다. */
 .stick-game__result {
-  align-content: start;
-  margin-block-start: calc(var(--space-5) * -1);
+  align-content: center;
   display: grid;
   gap: var(--space-4);
   min-inline-size: 0;
@@ -417,8 +436,8 @@
 }
 
 /* 막대 */
+/* 막대는 배경 없이 페이지 위에 바로 그린다. */
 .stick-board {
-  background: var(--color-surface-sunken);
   border-radius: var(--radius-md, 0.875rem);
   cursor: ew-resize;
   padding-block-start: var(--space-2);
