@@ -249,3 +249,24 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     }
   });
 });
+
+it('커스텀 외형을 대치 렌더러에 전달하고 비우면 모델도 숨긴다', () => {
+  const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+  const stage = document.createElement('div'); document.body.append(stage);
+  const visuals = { draw: jest.fn(), hide: jest.fn(), dispose: jest.fn() };
+  const duel = createCharacterDuel(stage, jest.fn(), jest.fn(), visuals);
+  const parent = { ...original, appearance: AVATAR_PRESETS[0].appearance };
+  const post = { ...reply, appearance: AVATAR_PRESETS[4].appearance, replyTo: parent };
+  try {
+    duel.setLayout([{ x: 100, y: 350 }, { x: 300, y: 350 }], 400);
+    duel.prepare(post, true, true);
+    expect(visuals.draw).not.toHaveBeenCalled();
+    duel.emerge(0, { x: 200, y: 250 }, true);
+    duel.emerge(1, { x: 200, y: 250 }, true);
+    expect(visuals.draw.mock.calls.find(call => call[0] === 0)[1].appearance).toEqual(parent.appearance);
+    expect(visuals.draw.mock.calls.find(call => call[0] === 1)[1].appearance).toEqual(post.appearance);
+    expect(visuals.draw.mock.lastCall[2].motion).toMatchObject({ phase: 'settled', seated: 1 });
+    visuals.hide.mockClear(); duel.clear();
+    expect(visuals.hide).toHaveBeenCalledWith(0); expect(visuals.hide).toHaveBeenCalledWith(1);
+  } finally { duel.dispose(); stage.remove(); }
+});

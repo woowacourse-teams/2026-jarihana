@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run from any directory. Linux + Bash + jq + coreutils; no production credentials.
+# Run from any directory. Linux + Bash + Git + jq + coreutils; no production credentials.
 set -euo pipefail
 DIRECTORY=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$DIRECTORY/../../../.." && pwd)

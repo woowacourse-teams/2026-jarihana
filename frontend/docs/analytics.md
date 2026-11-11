@@ -1,5 +1,17 @@
 # PostHog 행동 분석
 
+## 상점 미리보기
+
+진입은 `shop_open`, 카테고리는 `shop_category_change`, 상품 선택은 `shop_product_select`, 마이페이지 이동은
+`shop_profile_open`이다. 구매창 열기·닫기·취소·확정은 `shop_purchase_open`,
+`shop_purchase_dismiss`, `shop_purchase_cancel`, `shop_purchase_confirm`을 사용한다.
+착용/해제는 `shop_equipment_toggle`, 조회 재시도는 `shop_load_retry`다.
+실제 포인트 조회 재시도는 `shop_points_retry`다.
+모바일 미리보기에서 선택했던 상품으로 돌아가기는 `shop_product_list_return`을 사용한다.
+상품·외형·잔액·요청 키를 action에 포함하지 않는다.
+잔액과 외형 미리보기는 `data-ph-private`로 가린다. 체험 구매에 실제 구매 성공 이벤트를
+발행하지 않으며 분석 전송 허용 목록을 확장하지 않는다.
+
 ## 헤더 자리 메뉴
 
 상위 `자리` disclosure 버튼은 `group_navigation_toggle`을 사용한다. 하위 `뭐있나?`, `뭐했나?`,
@@ -25,6 +37,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | --- | --- |
 | 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
 | 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 이전 요청 불러오기 / 새 공지 쓰기 / 이전 요청 다시 보내기 | `group_announcement_create_restore`, `group_announcement_create_start_new`, `group_announcement_create_resubmit` |
 | 공지 수정 모달 열기·닫기·취소·저장 | `group_announcement_edit_open`, `group_announcement_edit_dismiss`, `group_announcement_edit_cancel`, `group_announcement_edit_submit` |
 | 공지 숨김 확인 열기·닫기·취소·확정 | `group_announcement_delete_open`, `group_announcement_delete_dismiss`, `group_announcement_delete_cancel`, `group_announcement_delete_confirm` |
 | 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
@@ -53,20 +66,14 @@ DB 테이블·스키마는 추가하지 않는다.
 
 ## 회원가입 UI의 고정 식별자
 
-가입 화면은 첫 화면에서 부트캠프 또는 회사를 고른 뒤 한 화면에 질문 하나씩 묻는다. 단계별 action으로 어느 질문에서 이탈하는지 구분한다. 닉네임, 캠프 이름, 회사명 같은 입력값은 action에 넣지 않는다.
+가입 화면은 닉네임 한 단계만 묻는다. 우아한테크코스 크루 여부와 기수, 과정은 서버가 GitHub 계정을 크루 명단과 대조해 정하므로 화면에서 고르는 동작이 없다. 닉네임 같은 입력값은 action에 넣지 않는다.
 
 | 동작 | action |
 | --- | --- |
-| 첫 화면에서 부트캠프, 회사 선택 | `signup_member_type_select` |
-| 이전 단계, 다음 단계 | `signup_step_back`, `signup_step_next` |
-| 부트캠프 선택, 직접 입력한 캠프 이름, 캠프 기수 | `signup_bootcamp_select`, `signup_bootcamp_name_input`, `signup_bootcamp_cohort_input` |
-| 우아한테크코스를 고른 뒤 크루 인증 시작 | `signup_crew_verification_start` |
-| 수강 상태, 공부 분야, 직무, 연차 선택 | `signup_bootcamp_status_select`, `signup_field_select`, `signup_job_select`, `signup_career_select` |
-| 닉네임, 크루 과정, 크루 기수 | `signup_name_input`, `signup_course_select`, `signup_generation_select` |
-| 회사명, 회사명 공개 여부 | `signup_company_input`, `signup_company_public_toggle` |
+| 닉네임 입력 | `signup_name_input` |
 | 가입 완료하기, 확인, 확인 창 닫기와 취소 | `signup_submit`, `signup_confirm`, `signup_confirmation_dismiss` |
 
-가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 크루 인증 방법이 정해지기 전까지 `signup_crew_verification_start`는 크루 프로필 입력으로 바로 넘어가는 클릭이며, 인증 성공을 뜻하지 않는다.
+가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 이전 단계형 가입 화면의 `signup_member_type_select`, `signup_step_back`, `signup_step_next`, `signup_bootcamp_*`, `signup_crew_verification_start`, `signup_field_select`, `signup_job_select`, `signup_career_select`, `signup_course_select`, `signup_generation_select`, `signup_company_*`는 더 이상 수집되지 않는다. 이전 기간 데이터를 볼 때만 쓴다.
 
 ## 자유게시판 모임 제안
 
@@ -377,15 +384,15 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 
 리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
 준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
-소리 미리 듣기는 `rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`,
-접힌 튜토리얼 펼치기는 `rhythm_tutorial_toggle`, 따라 하기 진입은 `rhythm_lesson_open`,
-혼자 연습은 `rhythm_practice_open`, 공식 도전은 `rhythm_ranked_open`이다.
+따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 공식 도전은 `rhythm_ranked_open`이다.
+예전 싱글 플레이 화면의 소리 미리 듣기(`rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`)와
+접힌 튜토리얼 펼치기(`rhythm_tutorial_toggle`)는 화면에서 빠져 더 이상 기록되지 않는다.
 공식 도전 화면의 난이도 선택은 `rhythm_challenge_level_select`, 배속 선택은 `rhythm_challenge_speed_change`,
 입력 지연 보정 슬라이더는 `rhythm_challenge_offset_change`이며 싱크 진단 창은 연습과 같은 `rhythm_sync_*` 식별자를 쓴다.
 다음 단계는 `rhythm_challenge_next`, 도전 만들기는 `rhythm_challenge_start`, 판의 시작 버튼은 `rhythm_challenge_play`,
 옵션으로 돌아가기는 `rhythm_challenge_options`, 다시 도전은 `rhythm_challenge_retry`이다. 판의 Canvas 포커스는
 `rhythm_challenge_arena_focus`, 터치 방향 버튼은 `rhythm_challenge_input_left`, `rhythm_challenge_input_down`,
-`rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 결과 옆 랭킹의 더 보기와 다시 불러오기는
+`rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 옵션과 결과 옆 랭킹의 더 보기와 다시 불러오기는
 `rhythm_ranking_more`, `rhythm_ranking_retry`이다. 공식 도전의 점수와 입력은 분석 이벤트로 보내지 않는다.
 따라 하기와 연습 화면의 싱글 플레이 복귀는 `rhythm_single_back`이다. 따라 하기의 단계 선택은
 `rhythm_lesson_step_kung`, `rhythm_lesson_step_chak`, `rhythm_lesson_step_chi`, 빠르기는
@@ -450,3 +457,36 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 ## 오목 관전
 
 고정 action은 gomoku_observation_open, gomoku_observation_retry, gomoku_observation_leave, gomoku_observation_lobby_open이다. 관전 식별자와 메시지 내용은 분석에 보내지 않으며 기존 채팅 마스킹을 유지한다.
+
+## 아바타 시제품
+
+독립 시제품의 홈 이동, 스타일 선택, 동작 선택, 회전, 얼굴 이미지 받기, 받아치기 체험은 각각
+`avatar_lab_home`, `avatar_lab_preset_select`, `avatar_lab_pose_change`, `avatar_lab_rotate`,
+`avatar_lab_portrait_download`, `avatar_lab_clash`로 식별한다. 시제품은 분석 SDK를 초기화하지 않으며
+체험 메시지·외형 선택값을 분석으로 보내지 않는다. 기존 토론 iframe의 interaction 메시지도 시제품 호스트에서 수집하지 않는다.
+
+파츠 편집의 카테고리 이동은 `avatar_lab_category_change`, 추천 스타일 펼치기는 `avatar_lab_presets_toggle`,
+되돌리기·다시 하기는 `avatar_lab_undo`, `avatar_lab_redo`, 초기화는 `avatar_lab_reset`이다.
+파츠 선택은 `avatar_lab_face_change`, `avatar_lab_skin_change`, `avatar_lab_hair_change`,
+`avatar_lab_hair_color_change`, `avatar_lab_eyes_change`, `avatar_lab_eyebrows_change`,
+`avatar_lab_nose_change`, `avatar_lab_mouth_change`, `avatar_lab_glasses_change`, `avatar_lab_outfit_change`,
+`avatar_lab_shoes_change`, `avatar_lab_shoe_color_change`, `avatar_lab_hat_change`, `avatar_lab_hat_color_change`,
+`avatar_lab_bag_change`, `avatar_lab_bag_color_change`, `avatar_lab_handheld_change`다.
+색상·파츠 값과 외형 데이터를 action에 넣지 않으며 기존 시제품의 미수집 정책을 유지한다.
+
+회원 편집기의 iframe도 분석 SDK를 초기화하지 않는다. 따라서 iframe 내부의 파츠 선택·추천 조합·동작·회전 등
+`avatar_lab_*` 속성은 현재 실제로 수집되지 않는다. 부모로 action이나 외형 값을 중계하지 않으며,
+식별자는 향후 계측을 위한 고정 이름으로만 유지한다. 아래 회원 관리 action 중 부모 문서의 진입·저장·삭제 등만
+기존 앱 분석 설정에 따라 수집한다.
+
+## 회원 아바타 관리
+
+마이페이지 진입은 `my_avatar_edit_open`, 재조회는 `avatar_load_retry`, 마이페이지 복귀는
+`avatar_back_to_my`, 서버 저장은 `avatar_save`다. 삭제 열기·닫기·취소·확인은
+`avatar_delete_open`, `avatar_delete_close`, `avatar_delete_cancel`, `avatar_delete_confirm`이다.
+미저장 이탈 확인은 `avatar_leave_close`, `avatar_leave_cancel`, `avatar_leave_confirm`을 사용한다.
+같은 파츠 편집기를 재사용하므로 내부의 기존 `avatar_lab_*` 식별자는 유지한다.
+회원용 추천 조합은 항상 펼쳐 보여 주므로 `avatar_lab_presets_toggle`은 체험판에만 남는다.
+회원 편집기의 전체 보기·얼굴 확대는 `avatar_lab_view_change`로 구분하며 파츠 값은 포함하지 않는다.
+편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
+부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.

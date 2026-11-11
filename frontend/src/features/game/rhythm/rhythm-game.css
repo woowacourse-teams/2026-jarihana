@@ -881,6 +881,17 @@
 .rhythm-game .difficulty button[data-level="hardest"] {
   --level: #ff6b6b;
 }
+/* ANOTHER는 스윙 곡의 번외 채보라 원곡 난이도와 한 칸 띄운다. */
+.rhythm-game .difficulty button[data-level="anotherHard"] {
+  --level: #ffc94d;
+  margin-top: 6px;
+}
+.rhythm-game .difficulty button[data-level="anotherHardest"] {
+  --level: #ff9f43;
+}
+.rhythm-game .note-legend span[hidden] {
+  display: none;
+}
 .rhythm-game .difficulty button[data-level] {
   border-color: color-mix(in srgb, var(--level) 55%, transparent);
   background: color-mix(in srgb, var(--level) 12%, transparent);
@@ -919,6 +930,9 @@
 @media (max-width: 700px) {
   .rhythm-game .rhythm-levels .difficulty {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rhythm-game .difficulty button[data-level="anotherHard"] {
+    margin-top: 0;
   }
 }
 /* 키 배치 */

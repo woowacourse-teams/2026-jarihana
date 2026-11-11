@@ -24,13 +24,19 @@
 
 - `RhythmEngine`은 프론트엔드 `engine.mjs`의 판정을 같은 연산 순서로 옮긴 것이다. 루프 배치, 템포 상승, 시드 기반 방향 섞기,
   계단 회전과 판정 폭, 헛공격, Uh oh, 라이프 감소와 완주 충전이 같다.
-- 실제 루프 종료 시점에 Hardest는 하트 5개, Easy, Medium, Hard는 3개를 충전하며 최대 라이프를 넘지 않는다.
+- 실제 루프 종료 시점에 Hardest와 ANOTHER Hardest는 하트 5개, Easy, Medium, Hard, ANOTHER Hard는 3개를 충전하며 최대 라이프를 넘지 않는다.
   다음 루프를 미리 배치할 때는 충전하지 않는다. 완주 전에 라이프를 모두 잃으면 부활하지 않는다.
   입력 묶음이 경계를 넘어 도착해도 피해와 충전을 발생 시각 순으로 처리하고, 저장된 묶음을 다시 계산해도 중복 지급하지 않는다.
   완주 충전은 `rhythm-harpoon-ranked-2`부터 적용했다.
+- 곡 배속은 난이도별 가속 시작 루프(`speedUpFromLoop`)부터 매 루프 0.05씩 오른다. Easy와 Medium은 2루프, Hard와 ANOTHER Hard는 3루프,
+  Hardest와 ANOTHER Hardest는 6루프이며 채보 파일의 난이도별 값으로 읽는다. `rhythm-harpoon-ranked-4`부터 적용했다.
 - 판정 범위 밖의 입력은 헛공격으로 300점을 깎고 콤보와 라이프는 그대로 둔다. 따로 무시하던 구간(일찍 200~230ms, 늦게 150~180ms)은 없앴다.
   이 규칙은 `rhythm-harpoon-ranked-3`이며 판본마다 랭킹을 구분한다.
 - 난이도별 단순화 채보와 계단 회전표는 프론트엔드 엔진이 만든 `rhythm-harpoon/ranked-chart.json`을 읽는다.
+  ANOTHER Hard와 ANOTHER Hardest는 스윙 편곡(144 BPM, 80초)을 치므로 그 난이도 안의 `song`에 채보 판본, 빠르기, 샘플레이트,
+  길이를 따로 두고, 도전의 `chart_version`에도 그 곡의 판본을 남긴다. 셋잇단 자리라 채보의 step은 실수다.
+  마지막 노트와 다음 루프 첫 노트가 붙어 있어(`loopSeamGuard`) 둘이 같은 방향이면 다음 루프 배치를 같은 순서의 난수로 다시 섞는다.
+  기존 네 난이도의 계산은 바꾸지 않아 규칙 판본은 `rhythm-harpoon-ranked-4`를 유지한다.
   채보, 판정, 라이프를 바꾸면 `frontend/scripts/export-rhythm-ranked-fixtures.mjs`로 채보와 대조 입력(`golden-replays.json`)을
   다시 만들고 규칙 판본(`rulesVersion`)을 올린다. 두 엔진이 대조 입력에서 같은 결과를 내는지 양쪽 테스트가 확인한다.
 - 계산 상태는 진행 중인 판마다 메모리에 둔다. 서버가 다시 떴거나 순번이 맞지 않으면 저장한 묶음

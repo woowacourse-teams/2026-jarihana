@@ -58,7 +58,7 @@ const created = {
   level: "HARDEST",
   scrollSpeed: 2,
   seed: 987654,
-  rulesVersion: "rhythm-harpoon-ranked-3",
+  rulesVersion: "rhythm-harpoon-ranked-4",
   chartVersion: "bars-13-16-1",
   status: "CREATED"
 };
@@ -100,7 +100,7 @@ beforeEach(() => {
 async function reachBoard() {
   rhythmRankedApi.create.mockResolvedValue(created);
   render(<RhythmHarpoonChallengePage />);
-  fireEvent.click(screen.getByRole("button", { name: /Hardest/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Hardest/ }));
   fireEvent.change(screen.getByLabelText("세균 이동 배속"), { target: { value: "2" } });
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
   fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
@@ -117,9 +117,33 @@ it("walks from options to a confirmed challenge with the server seed", async () 
     level: "hardest",
     scrollSpeed: 2,
     chartVersion: "bars-13-16-1",
-    rulesVersion: "rhythm-harpoon-ranked-3"
+    rulesVersion: "rhythm-harpoon-ranked-4"
   });
   expect(screen.getByRole("listitem", { current: "step" })).toHaveTextContent("도전");
+});
+
+it("offers ANOTHER Hardest as an official level and starts from the last practice choice", async () => {
+  localStorage.setItem(
+    "haengseong-practice-settings-v1",
+    JSON.stringify({ level: "anotherHardest", rate: 1, volume: 65 })
+  );
+  rhythmRankedApi.create.mockResolvedValue({
+    ...created,
+    level: "ANOTHER_HARDEST",
+    chartVersion: "swing-another-2"
+  });
+  render(<RhythmHarpoonChallengePage />);
+  expect(screen.getByRole("button", { name: /ANOTHER Hardest/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: /^ANOTHER Hard(?!est)/ })).toHaveAttribute("aria-pressed", "false");
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("anotherHardest");
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
+  await screen.findByTestId("ranked-board");
+  expect(rhythmRankedApi.create).toHaveBeenCalledWith({ level: "anotherHardest", scrollSpeed: 1 });
+  expect(mockBoard.mock.calls.at(-1)[0].session).toMatchObject({
+    level: "anotherHardest",
+    chartVersion: "swing-another-2"
+  });
 });
 
 it("sets the input offset on the options step, saves it and plays with it", async () => {
@@ -159,6 +183,19 @@ it("summarizes the options and the no-pause rules before starting", () => {
   expect(screen.getByRole("heading", { name: "옵션 설정" })).toBeInTheDocument();
 });
 
+it("shows the chosen level ranking next to the options and follows a new level choice", () => {
+  render(<RhythmHarpoonChallengePage />);
+  const options = screen.getByRole("region", { name: "옵션 설정" });
+  expect(screen.getByRole("region", { name: "Easy 랭킹" }).parentElement).toBe(options.parentElement);
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("easy");
+  fireEvent.click(screen.getByRole("button", { name: /Medium/ }));
+  const ranking = screen.getByRole("region", { name: "Medium 랭킹" });
+  expect(ranking.parentElement).toBe(options.parentElement);
+  expect(screen.queryByRole("region", { name: "Easy 랭킹" })).not.toBeInTheDocument();
+  expect(useRhythmRanking).toHaveBeenLastCalledWith("medium");
+  expect(within(ranking).getByText("2위")).toBeInTheDocument();
+});
+
 it("shows the server result next to the level ranking with the player marked", async () => {
   await reachBoard();
   fireEvent.click(screen.getByRole("button", { name: "finish" }));
@@ -170,7 +207,8 @@ it("shows the server result next to the level ranking with the player marked", a
   expect(useRhythmRanking).toHaveBeenCalledWith("hardest");
   const rows = within(ranking).getAllByRole("listitem");
   expect(rows).toHaveLength(2);
-  expect(rows[1]).toHaveClass("is-mine");
+  expect(rows[0]).toHaveClass("is-gold");
+  expect(rows[1]).toHaveClass("is-silver", "is-mine");
   expect(rows[1]).toHaveTextContent("나");
   expect(within(ranking).getByText("2위")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "다시 도전" }));

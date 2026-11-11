@@ -7,14 +7,19 @@ import {
   RANKED_RULES_VERSION,
   applyRankedBatch,
   createSeededRandom,
+  rankedChartVersion,
   summarizeRankedEngine
 } from "../src/features/game/rhythm/ranked-run.mjs";
+import { stageOf } from "../src/features/game/rhythm/stages.mjs";
 
 // 공식 도전의 서버 재계산이 쓰는 채보와 JS/Java 대조 데이터를 만든다.
 // 출력 파일은 export-rhythm-ranked-fixtures.mjs가 쓰고, 테스트가 최신 상태인지 확인한다.
 
 export const CHART_PATH = fileURLToPath(
   new URL("../public/game-assets/rhythm-harpoon/assets/chart.json", import.meta.url)
+);
+export const SWING_CHART_PATH = fileURLToPath(
+  new URL("../public/game-assets/rhythm-harpoon/assets/swing-chart.json", import.meta.url)
 );
 export const SERVER_CHART_PATH = fileURLToPath(
   new URL("../../backend/src/main/resources/rhythm-harpoon/ranked-chart.json", import.meta.url)
@@ -26,6 +31,13 @@ export const GOLDEN_REPLAYS_PATH = fileURLToPath(
 export function readChart() {
   return JSON.parse(readFileSync(CHART_PATH, "utf8"));
 }
+
+export function readSwingChart() {
+  return JSON.parse(readFileSync(SWING_CHART_PATH, "utf8"));
+}
+
+// ANOTHER는 스윙 곡을 치고, 나머지 난이도는 원곡을 친다.
+const chartFor = (level, chart, swingChart) => (stageOf(level) === "swing" ? swingChart : chart);
 
 function permutations(items) {
   if (items.length <= 1) return [items.slice()];
@@ -46,14 +58,30 @@ function staircaseTable(chart, level) {
   return table;
 }
 
-export function buildRankedChart(chart) {
+// 원곡과 다른 곡을 치는 난이도는 곡 정보(채보 판본, 빠르기, 길이)를 난이도 안에 따로 적는다.
+export function buildRankedChart(chart, swingChart = readSwingChart()) {
   const levels = {};
   for (const level of Object.keys(LEVELS)) {
+    const source = chartFor(level, chart, swingChart);
+    if (source.chartVersion !== rankedChartVersion(level))
+      throw new Error(level + " 채보 판본이 stages.mjs와 다릅니다.");
     levels[level] = {
       lives: LEVELS[level].lives,
       loopHeal: LEVELS[level].loopHeal,
-      events: simplifyChart(chart, level).map(({ step, sample, keys }) => [step, sample, keys]),
-      staircases: staircaseTable(chart, level)
+      speedUpFromLoop: LEVELS[level].speedUpFromLoop,
+      ...(source === chart
+        ? {}
+        : {
+            song: {
+              chartVersion: source.chartVersion,
+              bpm: source.bpm,
+              sampleRateHz: source.sampleRateHz,
+              durationSeconds: source.durationSeconds
+            }
+          }),
+      ...(LEVELS[level].loopSeamGuard ? { loopSeamGuard: true } : {}),
+      events: simplifyChart(source, level).map(({ step, sample, keys }) => [step, sample, keys]),
+      staircases: staircaseTable(source, level)
     };
   }
   return {
@@ -122,11 +150,12 @@ const masher = (hz) => (engine, from, until) => {
   return presses;
 };
 
-// 각 루프 초반에만 일부러 놓치고 나머지는 정확히 눌러 두 번의 완주 충전을 대조한다.
+// 처음 두 루프의 초반에만 일부러 놓치고 나머지는 정확히 눌러 두 번의 완주 충전을 대조한다.
+// Easy와 Medium은 2루프부터 빨라져 182초 안에 3루프로 넘어가므로, 3루프는 놓치지 않고 빨라진 판정만 대조한다.
 const loopRechargePlayer = (engine, from, until) => {
   const skipped = new Set();
-  const count = engine.level === "hardest" ? 6 : 5;
-  for (const loop of engine.loops) {
+  const count = engine.level === "hardest" || engine.level === "anotherHardest" ? 6 : 5;
+  for (const loop of engine.loops.filter((loop) => loop.number <= 2)) {
     for (const group of engine.groups.filter((group) => group.notes[0].loop === loop.number).slice(0, count)) {
       skipped.add(group);
     }
@@ -136,9 +165,9 @@ const loopRechargePlayer = (engine, from, until) => {
     .map((note) => [LANES.indexOf(note.lane), note.at]);
 };
 
-export function buildGoldenReplays(chart) {
+export function buildGoldenReplays(chart, swingChart = readSwingChart()) {
   const scenarios = [];
-  for (const level of Object.keys(LEVELS)) {
+  for (const level of ["easy", "medium", "hard", "hardest"]) {
     // Hard와 Hardest는 두 번째 루프의 계단(31~32마디)까지 가야 섞인 방향 배치의 회전을 대조할 수 있다.
     const seconds = level === "hard" || level === "hardest" ? 160 : 100;
     scenarios.push(
@@ -178,6 +207,31 @@ export function buildGoldenReplays(chart) {
       human(0.06, 0.45, 0.2)
     )
   );
+  // ANOTHER는 스윙 곡이라 시나리오를 따로 둔다. 네 번의 루프 경계(다시 섞기)와 매 루프 계단 회전을 지나도록 길게 친다.
+  for (const level of ["anotherHard", "anotherHardest"]) {
+    scenarios.push(
+      replay(
+        swingChart,
+        { name: level + "-steady-player", level, seed: 20261110, scrollSpeed: 1.5, startLoop: 1, seconds: 330 },
+        human(0.02, 0.004, 0.08)
+      ),
+      replay(
+        swingChart,
+        { name: level + "-four-key-masher", level, seed: 7, scrollSpeed: 1, startLoop: 1, seconds: 40 },
+        masher(7)
+      ),
+      replay(
+        swingChart,
+        { name: level + "-loop-recharge", level, seed: 20261108, scrollSpeed: 1, startLoop: 1, seconds: 162 },
+        loopRechargePlayer
+      ),
+      replay(
+        swingChart,
+        { name: level + "-accelerated-loop-12", level, seed: 4242, scrollSpeed: 2, startLoop: 12, seconds: 30 },
+        human(0.02, 0.05, 0.05)
+      )
+    );
+  }
   return { rulesVersion: RANKED_RULES_VERSION, chartVersion: RANKED_CHART_VERSION, scenarios };
 }
 

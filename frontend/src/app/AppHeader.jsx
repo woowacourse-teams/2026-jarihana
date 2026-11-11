@@ -19,6 +19,7 @@ import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
+import { PeperoStickIcon } from "./PeperoStickIcon";
 import { ProfileMenu } from "./ProfileMenu";
 import { GroupNavigation, isGroupNavigationActive } from "./GroupNavigation";
 
@@ -31,10 +32,14 @@ const SPARRING_LINK = {
 };
 
 // 빼빼로데이 이벤트 진입점이다. 서버가 이벤트를 진행 중(OPEN)이라고 할 때만 보인다.
+// 이름이 다른 메뉴보다 길어서 이 링크의 칸만 다른 칸(5.25rem)의 NAV_WEIGHT배로 넓힌다(navLayout).
+
 const PEPERO_DAY_LINK = {
   action: "pepero_day_view",
+  navWeight: 8.5 / 5.25,
+  icon: PeperoStickIcon,
   isActive: (pathname) => pathname === PEPERO_DAY_PATH,
-  label: "반띵 게임",
+  label: "공평하게 반띵",
   requiresAuth: false,
   to: PEPERO_DAY_PATH
 };
@@ -61,6 +66,22 @@ const MEMBER_LINKS = [
 
 const DESKTOP_MEMBER_LINKS = [SPARRING_LINK, GAMES_LINK];
 
+// 주요 메뉴 칸의 너비 비율이다. 모든 칸이 같으면 기본 CSS(같은 칸, 밑줄을 칸 단위로 이동)를 그대로 쓰고,
+// 넓은 칸이 있으면 칸 비율과 활성 밑줄의 시작 위치, 길이를 비율로 계산해 넘긴다.
+function navLayout(links, activeMenuIndex) {
+  const weights = [1, ...links.map((link) => link.navWeight ?? 1)];
+  if (weights.every((weight) => weight === 1)) return null;
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const active = Math.max(0, activeMenuIndex);
+  const before = weights.slice(0, active).reduce((sum, weight) => sum + weight, 0);
+  return {
+    "--header-active-size": `${(weights[active] / total) * 100}%`,
+    "--header-active-start": `${(before / total) * 100}%`,
+    "--header-nav-item-count": total,
+    gridTemplateColumns: weights.map((weight) => `minmax(0, ${weight}fr)`).join(" ")
+  };
+}
+
 function withEventLink(links, eventOpen) {
   if (!eventOpen) return links;
   const createIndex = links.findIndex((link) => link.requiresAuth);
@@ -73,6 +94,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
 
   return links.map((link) => {
     const isActive = link.isActive(pathname);
+    const Icon = link.icon;
     return (
       <Link
         aria-current={isActive ? "page" : undefined}
@@ -88,6 +110,7 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
         }}
         to={link.to}
       >
+        {Icon ? <Icon /> : null}
         {link.label}
       </Link>
     );
@@ -217,6 +240,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
   const mobileLinks = withEventLink(MEMBER_LINKS, eventOpen);
   const activeLinkIndex = desktopLinks.findIndex((link) => link.isActive(pathname));
   const activeMenuIndex = isGroupNavigationActive(pathname) ? 0 : activeLinkIndex >= 0 ? activeLinkIndex + 1 : -1;
+  const weightedNav = navLayout(desktopLinks, activeMenuIndex);
   const navigationKey = `${pathname}${search}${hash}`;
   const navigate = useNavigate();
   const { success } = useToast();
@@ -300,11 +324,12 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
 
           <nav
             aria-label="주요 메뉴"
-            className="app-header__primary-nav"
+            className={`app-header__primary-nav${weightedNav ? " app-header__primary-nav--weighted" : ""}`}
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": desktopLinks.length + 1
+              "--header-nav-item-count": desktopLinks.length + 1,
+              ...weightedNav
             }}
           >
             <GroupNavigation key={navigationKey} />

@@ -22,6 +22,8 @@ import com.project.jarihana.member.domain.Member;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.project.jarihana.points.command.service.PointRewardService;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class ActivityPostCommandService {
     private final ImageLifecycleService imageLifecycleService;
     private final ImageReferenceService imageReferenceService;
     private final Clock clock;
+    private final PointRewardService pointRewards;
 
     public ActivityPostCommandService(
             ActivityPostCommandRepository activityPostCommandRepository,
@@ -49,7 +52,8 @@ public class ActivityPostCommandService {
             MemberRepository memberRepository,
             ImageLifecycleService imageLifecycleService,
             ImageReferenceService imageReferenceService,
-            Clock clock
+            Clock clock,
+            PointRewardService pointRewards
     ) {
         this.activityPostCommandRepository = activityPostCommandRepository;
         this.activityPostPhotoCommandRepository = activityPostPhotoCommandRepository;
@@ -59,6 +63,7 @@ public class ActivityPostCommandService {
         this.imageLifecycleService = imageLifecycleService;
         this.imageReferenceService = imageReferenceService;
         this.clock = clock;
+        this.pointRewards = pointRewards;
     }
 
     @Transactional
@@ -92,6 +97,7 @@ public class ActivityPostCommandService {
                 java.util.List.of(image),
                 now
         );
+        pointRewards.activityPublished(post.getId(), groupId, memberId, activityDate, now);
         return new SaveActivityPostResult(post.getId());
     }
 

@@ -6,6 +6,7 @@ import {
   STICK_LENGTH_CM,
   answerPosition,
   composition,
+  formatPoints,
   errorRateAt,
   generatePracticeStick,
   leftMilligrams,
@@ -17,6 +18,14 @@ import { createPracticeAdapter } from "../../src/features/stick-halving/practice
 const sum = (mix) => mix.biscuit + mix.thin + mix.thick + mix.almond;
 
 describe("반 나누기 막대", () => {
+  it("shows stored scores on a 100-point scale, 20 points per stick", () => {
+    expect(formatPoints(1000)).toBe("20");
+    expect(formatPoints(824)).toBe("16.5");
+    expect(formatPoints(0)).toBe("0");
+    expect(formatPoints(4820)).toBe("96.4");
+    expect(formatPoints(5000)).toBe("100");
+  });
+
   it("weighs each half-centimeter cell by chocolate level and adds almonds left of the cut", () => {
     const stick = {
       almonds: [{ cell: 3, size: "LARGE" }],

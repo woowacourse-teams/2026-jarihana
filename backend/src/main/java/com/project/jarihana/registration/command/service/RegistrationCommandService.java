@@ -15,6 +15,7 @@ import com.project.jarihana.recruitment.command.repository.GroupRecruitmentComma
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.recruitment.domain.RecruitmentPhase;
+import com.project.jarihana.points.command.service.PointRewardService;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationCommand;
 import com.project.jarihana.registration.command.service.dto.CreateRegistrationResult;
@@ -45,6 +46,7 @@ public class RegistrationCommandService {
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final ConcurrentCommandExecutor concurrentCommands;
+    private final PointRewardService pointRewards;
 
     public CreateRegistrationResult createRegistration(
             long memberId,
@@ -153,7 +155,8 @@ public class RegistrationCommandService {
                 now,
                 approvedCount
         );
-        groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), member, now));
+        GroupMember membership = groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), member, now));
+        pointRewards.groupJoined(recruitment.getGroup().getId(), membership.getId(), member.getId(), now);
         events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, recruitment.getGroup().getId(), member.getId()));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return registration;
@@ -295,7 +298,8 @@ public class RegistrationCommandService {
                 registration.approve(DecisionActor.member(memberId), now, approvedCount)
         );
         registrationRepository.flush();
-        groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
+        GroupMember membership = groupMemberRepository.save(GroupMember.createMember(recruitment.getGroup(), applicant, now));
+        pointRewards.groupJoined(groupId, membership.getId(), applicant.getId(), now);
         events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, groupId, applicant.getId()));
         closeRecruitmentIfFull(recruitment, approvedCount + 1, now);
         return approvedRegistration;

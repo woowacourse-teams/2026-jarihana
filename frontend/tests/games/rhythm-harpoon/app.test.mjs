@@ -22,6 +22,7 @@ import {
   readPracticeSettings,
   writePracticeSettings
 } from "../../../src/features/game/rhythm/preferences.mjs";
+import { STAGES, stageOf } from "../../../src/features/game/rhythm/stages.mjs";
 
 const source = readFileSync(
   new URL("../../../src/features/game/rhythm/mount-practice-game.mjs", import.meta.url),
@@ -240,6 +241,8 @@ async function application({
       laneForKey,
       readPracticeSettings,
       writePracticeSettings,
+      STAGES,
+      stageOf,
       Image,
       AudioContext,
       AbortController,

@@ -24,25 +24,62 @@ export const JUDGMENTS = [
 ];
 export const ATTACK_DURATION = 0.18;
 export const APPROACH_SECONDS = 1.25;
+// speedUpFromLoop부터 곡 배속이 매 루프 +0.05 오른다. 기본 패턴이 쉬운 난이도일수록 일찍 빨라진다.
 export const LEVELS = {
-  easy: { name: "Easy", lives: 10, loopHeal: 3, description: "정박 위주의 단타로 리듬을 익혀요." },
+  easy: {
+    name: "Easy",
+    lives: 10,
+    loopHeal: 3,
+    speedUpFromLoop: 2,
+    description: "정박 위주의 단타로 리듬을 익혀요."
+  },
   medium: {
     name: "Medium",
     lives: 8,
     loopHeal: 3,
+    speedUpFromLoop: 2,
     description: "한 박 간격의 축연타와 8분 엇박 단타가 나와요."
   },
   hard: {
     name: "Hard",
     lives: 8,
     loopHeal: 3,
+    speedUpFromLoop: 3,
     description: "2키 동시타와 16분 엇박, 박을 넘나드는 리듬에 도전해요."
   },
-  hardest: { name: "Hardest", lives: 10, loopHeal: 5, description: "라이프 10개, 자신 있게 드립니다!" }
+  hardest: {
+    name: "Hardest",
+    lives: 10,
+    loopHeal: 5,
+    speedUpFromLoop: 6,
+    description: "라이프 10개, 자신 있게 드립니다!"
+  },
+  // ANOTHER는 스윙 곡(stages.mjs의 swing)의 번외 채보다. 채보를 단순화하지 않고 swing-chart.json의 난이도별 채보를 그대로 친다.
+  // 충전과 가속은 원곡의 같은 이름 난이도를 따르고, 라이프는 둘 다 10개다.
+  // loopSeamGuard: 마지막 노트와 다음 루프 첫 노트가 붙어 있어 둘이 같은 레인에 오지 않게 다음 루프를 다시 섞는다.
+  anotherHard: {
+    name: "ANOTHER Hard",
+    song: "swing",
+    lives: 10,
+    loopHeal: 3,
+    speedUpFromLoop: 3,
+    loopSeamGuard: true,
+    description: "스윙 144 BPM 번외 채보. 셋잇단 계단이 방향을 바꾸지 않아요."
+  },
+  anotherHardest: {
+    name: "ANOTHER Hardest",
+    song: "swing",
+    lives: 10,
+    loopHeal: 5,
+    speedUpFromLoop: 6,
+    loopSeamGuard: true,
+    description: "스윙 144 BPM 번외 채보. 방향이 바뀌는 셋잇단 계단과 동시타가 나와요."
+  }
 };
 
-export function rateForLoop(loopNumber) {
-  return Math.round((1 + Math.max(0, loopNumber - 5) * 0.05) * 100) / 100;
+export function rateForLoop(loopNumber, level) {
+  const spedUpLoops = Math.max(0, loopNumber - LEVELS[level].speedUpFromLoop + 1);
+  return Math.round((1 + spedUpLoops * 0.05) * 100) / 100;
 }
 
 export function noteColor(step) {
@@ -65,11 +102,21 @@ export function shuffleLanes(previous, random = Math.random) {
   return map;
 }
 
+// 계단 구간은 루프마다 레인을 섞지 않고 통째로 돌린다. 앞뒤 노트와 같은 레인이 gap step 안에 붙지 않게 한다.
+// 스윙 계단은 셋잇단 격자라 step이 정수가 아니고, 같은 레인을 한 박의 2/3(8/3 step) 띄운다.
+const STAIRCASE_RULES = {
+  hard: { pattern: "roll", gap: 4 },
+  hardest: { pattern: "roll", gap: 2 },
+  anotherHard: { pattern: "stairs", gap: 8 / 3 },
+  anotherHardest: { pattern: "stairs", gap: 8 / 3 }
+};
+
 function staircaseRotations(chart, events, level, map) {
-  if (level !== "hard" && level !== "hardest") return [];
-  const gap = level === "hard" ? 4 : 2;
+  const rule = STAIRCASE_RULES[level];
+  if (!rule) return [];
+  const gap = rule.gap;
   return chart.sections
-    .filter((section) => section.pattern === "roll")
+    .filter((section) => section.pattern === rule.pattern)
     .map((section) => {
       const start = (section.startBar - 1) * 16;
       const end = start + section.bars * 16;
@@ -86,7 +133,7 @@ function staircaseRotations(chart, events, level, map) {
           event.keys.every((key) =>
             neighbors.every(
               (neighbor) =>
-                Math.abs(neighbor.step - event.step) >=
+                Math.abs(neighbor.step - event.step) + 0.000001 >=
                   (level === "hard" && chart.sections.some((item) =>
                     (item.role === "alternatingTrill" || (!chart.playbackBarOrder && item.startBar === 41 && item.pattern === "offbeat")) &&
                     neighbor.step >= (item.startBar - 1) * 16 && neighbor.step < (item.startBar - 1 + item.bars) * 16
@@ -265,6 +312,11 @@ function doubleTapChart(events, chart, level) {
 
 function simplifySourceChart(chart, level) {
   if (!LEVELS[level]) throw new Error("Unknown difficulty");
+  if (LEVELS[level].song === "swing") {
+    const own = chart.levels?.[level];
+    if (!own) throw new Error("ANOTHER는 스윙 채보로만 칠 수 있어요.");
+    return own.events.map(({ step, sample, keys }) => ({ step, sample, keys: keys.slice() }));
+  }
   const patterns = new Map();
   for (const section of chart.sections) {
     for (let bar = section.startBar - 1; bar < section.startBar - 1 + section.bars; bar++) {
@@ -373,6 +425,8 @@ export class GameEngine {
     this.lives = this.maxLives;
     this.loopHeal = LEVELS[this.level].loopHeal;
     this.nextLoopToHeal = 0;
+    // 루프 완주로 하트가 찰 때마다 화면에 "Loop n / ♥ +k / SPEED UP"을 띄우려고 남기는 기록이다. 점수와 판정에는 쓰지 않는다.
+    this.loopHeals = [];
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;
@@ -394,7 +448,7 @@ export class GameEngine {
     ) {
       throw new RangeError("세균 이동 배속은 1.0부터 3.0까지 0.25 단위로 설정할 수 있어요.");
     }
-    const rate = rateForLoop(this.startLoop);
+    const rate = rateForLoop(this.startLoop, this.level);
     const countInDuration = ((60 / chart.bpm) * 4) / rate;
     this.leadIn = Math.max(countInDuration, APPROACH_SECONDS / this.scrollSpeed / rate);
     this.countInStart = this.leadIn - countInDuration;
@@ -403,8 +457,10 @@ export class GameEngine {
   }
 
   appendLoop(number, start, offset, map) {
-    const rate = rateForLoop(number);
-    const travelDuration = APPROACH_SECONDS / this.scrollSpeed / rate;
+    const rate = rateForLoop(number, this.level);
+    // 세균이 다가오는 시간은 고른 이동 배속으로만 정한다. 루프마다 곡이 빨라져도 세균의 이동 속도는 그대로다.
+    // 화면 표시에만 쓰는 값이라 판정과 서버 재계산(RhythmEngine)에는 영향이 없다.
+    const travelDuration = APPROACH_SECONDS / this.scrollSpeed;
     const duration = (this.chart.durationSeconds - offset) / rate;
     const stairRotations = staircaseRotations(this.chart, this.sourceEvents, this.level, map);
     const loop = {
@@ -452,7 +508,19 @@ export class GameEngine {
 
   appendNextLoop() {
     const last = this.loops[this.loops.length - 1];
-    return this.appendLoop(last.number + 1, last.end, 0, shuffleLanes(last.map, this.random));
+    let map = shuffleLanes(last.map, this.random);
+    // ANOTHER는 마지막 계단 노트와 다음 루프 첫 노트가 139ms 간격이다. 둘이 같은 레인에 오면 다시 섞는다.
+    // 서버 RhythmEngine도 같은 순서로 난수를 써야 하므로 바꿀 때는 함께 바꾼다.
+    if (LEVELS[this.level].loopSeamGuard) {
+      const lastStep = this.sourceEvents[this.sourceEvents.length - 1].step;
+      const endingLanes = this.notes
+        .filter((note) => note.loop === last.number && note.step === lastStep)
+        .map((note) => note.lane);
+      const opening = this.sourceEvents[0].keys;
+      while (opening.some((key) => endingLanes.includes(map[LANES.indexOf(key)])))
+        map = shuffleLanes(last.map, this.random);
+    }
+    return this.appendLoop(last.number + 1, last.end, 0, map);
   }
 
   currentLoop(time = this.elapsed) {
@@ -461,7 +529,17 @@ export class GameEngine {
 
   healCompletedLoops(time) {
     while (this.nextLoopToHeal < this.loops.length && this.loops[this.nextLoopToHeal].end <= time) {
+      const before = this.lives;
       this.lives = Math.min(this.maxLives, this.lives + this.loopHeal);
+      const completed = this.loops[this.nextLoopToHeal];
+      const rate = rateForLoop(completed.number + 1, this.level);
+      this.loopHeals.push({
+        at: completed.end,
+        loop: completed.number + 1,
+        amount: this.lives - before,
+        rate,
+        speedUp: rate > completed.rate
+      });
       this.nextLoopToHeal++;
     }
   }

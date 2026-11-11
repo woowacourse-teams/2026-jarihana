@@ -37,11 +37,14 @@ const loadProposalPages = () => import("../pages/proposals/index.js");
 
 const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
+  ShopPage: lazyNamed(() => import("../pages/shop/ShopPage.jsx"), "ShopPage"),
   GamesPage: lazyNamed(() => import("../pages/games/index.jsx"), "GamesPage"),
   GomokuLobbyPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuLobbyPage"),
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
   GomokuObservationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuObservationPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
+
+  AvatarPage: lazyNamed(loadAccountPages, "AvatarPage"),
   StickHalvingRoomPage: lazyNamed(() => import("../pages/games/StickHalvingRoomPage.jsx"), "StickHalvingRoomPage"),
   RhythmHarpoonEntryPage: lazyNamed(
     () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
@@ -80,6 +83,7 @@ export const lazyPageRegistry = Object.freeze({
   LandingPage: lazyNamed(() => import("../pages/landing/LandingPage.jsx"), "LandingPage"),
   MyGroupsPage: lazyNamed(loadAccountPages, "MyGroupsPage"),
   MyPage: lazyNamed(loadAccountPages, "MyPage"),
+  MyPointsPage: lazyNamed(loadAccountPages, "MyPointsPage"),
   MyRegistrationsPage: lazyNamed(loadAccountPages, "MyRegistrationsPage"),
   NotFoundPage: lazyNamed(() => import("../pages/index.js"), "NotFoundPage"),
   OAuthCallbackPage: lazyNamed(loadAccountPages, "OAuthCallbackPage"),

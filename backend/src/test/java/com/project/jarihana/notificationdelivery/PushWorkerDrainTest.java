@@ -95,6 +95,7 @@ class PushWorkerDrainTest extends PushIntegrationTestSupport {
 
                 // When
                 admission.pause();
+                assertThat(running.get(5, TimeUnit.SECONDS)).isEqualTo(1);
 
                 // Then
                 assertThat(transport.requests()).hasSize(1);

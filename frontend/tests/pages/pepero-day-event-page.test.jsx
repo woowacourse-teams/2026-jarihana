@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { storeReturnTarget, useAuth } from "../../src/features/auth";
-import { getPeperoDayRankings, getPeperoDayStatus } from "../../src/features/pepero-day/api";
+import { createRankedAdapter, getPeperoDayRankings, getPeperoDayStatus } from "../../src/features/pepero-day/api";
 import { PeperoDayEventPage } from "../../src/pages/events/PeperoDayEventPage.jsx";
 import { ToastProvider } from "../../src/shared/ui";
 
@@ -16,11 +16,17 @@ jest.mock("react-router", () => ({
 jest.mock("../../src/features/auth", () => ({ storeReturnTarget: jest.fn(), useAuth: jest.fn() }));
 jest.mock("../../src/features/pepero-day/api", () => ({
   ...jest.requireActual("../../src/features/pepero-day/api"),
+  // 서버 대신 브라우저에서 같은 규칙으로 막대를 만들고 판정하는 연결부로 순위 도전을 흉내 낸다.
+  createRankedAdapter: jest.fn(() =>
+    jest.requireActual("../../src/features/stick-halving/practiceAdapter").createPracticeAdapter()
+  ),
   getPeperoDayRankings: jest.fn(),
   getPeperoDayStatus: jest.fn()
 }));
 
 const login = jest.fn();
+const startRun = async () => fireEvent.click(await screen.findByRole("button", { name: "시작하기" }));
+const asMember = () => useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
 const status = (overrides) => ({
   closesAt: "2026-11-12T10:00:00",
   gameRoomOpen: false,
@@ -50,62 +56,82 @@ beforeEach(() => {
   });
 });
 
-it("offers practice to everyone and asks anonymous visitors to log in for ranked runs", async () => {
+it("asks anonymous visitors to log in instead of offering a practice run", async () => {
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
 
   expect(await screen.findByRole("heading", { name: "공평하게 반띵" })).toBeInTheDocument();
-  expect(screen.getByText(/11월 11일 00:00 ~ 11월 12일 10:00/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "연습 시작" })).toHaveAttribute(
-    "data-ph-capture-attribute-action",
-    "pepero_practice_start"
-  );
+  expect(screen.getByText("11월 12일 10시까지")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "연습 시작" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "자르기" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" }));
   expect(storeReturnTarget).toHaveBeenCalledWith("/events/pepero-day");
   expect(login).toHaveBeenCalled();
   expect(await screen.findByText("모카")).toBeInTheDocument();
+  expect(createRankedAdapter).not.toHaveBeenCalled();
 });
 
-it("plays a practice stick in the browser and reveals the answer after cutting", async () => {
+it("starts a ranked run when a member presses start and reveals the answer after cutting", async () => {
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  expect(await screen.findByRole("heading", { name: "10초 안에 빼빼로 5개를 같은 무게로 잘라 보세요" })).toBeInTheDocument();
+  expect(createRankedAdapter).not.toHaveBeenCalled();
+  await startRun();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
-  expect(await screen.findByRole("region", { name: "무게표" })).toBeInTheDocument();
-  expect(screen.getByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
+  expect(await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
+  expect(createRankedAdapter).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("순위 도전")).not.toBeInTheDocument();
+  expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
-  expect(await screen.findByText(/왼쪽 끝부터 정답/)).toBeInTheDocument();
-  expect(screen.getByLabelText("양쪽 조각의 무게 구성")).toBeInTheDocument();
+  expect(await within(screen.getByRole("region", { name: "게임" })).findByRole("status")).toHaveTextContent(/\+[\d.]+점/);
+  expect(within(screen.getByRole("region", { name: "게임" })).getByText(/^오차 \d/)).toBeInTheDocument();
+  expect(screen.queryByText(/^정답/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "분석하기" }));
+  const analysis = await screen.findByRole("dialog", { name: "1번 막대 분석" });
+  expect(within(analysis).getByText("정답")).toBeInTheDocument();
+  expect(within(analysis).getByText("내가 자른 곳")).toBeInTheDocument();
+  fireEvent.click(within(analysis).getAllByRole("button", { name: "닫기" }).at(-1));
   expect(screen.getByRole("button", { name: "다음 막대" })).toHaveAttribute(
     "data-ph-capture-attribute-action",
     "stick_next_round"
   );
 });
 
-it("opens the ranking dialog after five practice sticks and points to the ranked mode", async () => {
+it("hides the ranking while playing and shows the final table and ranking without a dialog", async () => {
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  expect(await screen.findByRole("region", { name: "순위" })).toBeInTheDocument();
+  await startRun();
+  expect(screen.queryByRole("region", { name: "순위" })).not.toBeInTheDocument();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
   for (let round = 1; round <= 5; round += 1) {
     fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
     fireEvent.click(await screen.findByRole("button", { name: round === 5 ? "최종 결과 보기" : "다음 막대" }));
   }
 
-  const dialog = await screen.findByRole("dialog", { name: "연습 결과" });
-  expect(dialog).toHaveTextContent(/연습 점수는 순위에 들어가지 않아요\. 이 점수였다면 \d+위예요\./);
-  expect(within(dialog).getByText("모카")).toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "순위 도전하러 가기" }));
+  const final = await screen.findByRole("region", { name: "최종 결과" });
+  expect(within(final).getAllByRole("row")).toHaveLength(6);
+  expect(within(final).getByText("/ 100점")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" })).toBeInTheDocument();
+  expect(await screen.findByRole("region", { name: "순위" })).toBeInTheDocument();
+  expect(screen.getByText("모카")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "새 막대로 다시 도전" }));
+  expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
+  expect(createRankedAdapter).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5/);
+  expect(screen.queryByRole("region", { name: "순위" })).not.toBeInTheDocument();
 });
 
 it("moves the knife with the arrow keys even when the stick is not focused, one step per press", async () => {
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   const { container } = mount();
+  await startRun();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
   const slider = await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
   const knifeX = () => Number(container.querySelector(".stick-board__knife").getAttribute("transform").match(/[\d.]+/)[0]);
   const stepUnits = 952 / 12 / 48;
@@ -126,32 +152,21 @@ it("moves the knife with the arrow keys even when the stick is not focused, one 
 });
 
 it("cuts with Enter without focusing the stick, but not while another button has focus", async () => {
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  await startRun();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
   await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
 
-  const nudge = screen.getByRole("button", { name: "칼을 오른쪽으로 조금 옮기기" });
-  fireEvent.keyDown(nudge, { key: "Enter" });
-  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole("button", { name: "자르기" }), { key: "Enter" });
+  expect(screen.queryByRole("button", { name: "다음 막대" })).not.toBeInTheDocument();
 
   fireEvent.keyDown(document.body, { key: "Enter", repeat: true });
-  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "다음 막대" })).not.toBeInTheDocument();
 
   fireEvent.keyDown(document.body, { key: "Enter" });
-  expect(await screen.findByText(/왼쪽 끝부터 정답/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "다음 막대" })).toBeInTheDocument();
-});
-
-it("lets members start ranked runs without an attempt limit", async () => {
-  useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
-  getPeperoDayStatus.mockResolvedValue(status());
-  mount();
-
-  expect(await screen.findByText("횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeEnabled();
-  expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "다음 막대" })).toBeInTheDocument();
 });
 
 it("shows only a countdown before the event opens", async () => {
@@ -159,16 +174,17 @@ it("shows only a countdown before the event opens", async () => {
   mount();
 
   expect(await screen.findByText("11월 11일 00:00에 열려요")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "연습 시작" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "GitHub로 로그인하고 도전하기" })).not.toBeInTheDocument();
   expect(getPeperoDayRankings).not.toHaveBeenCalled();
 });
 
 it("lets a game in progress finish when the event closes mid-play", async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount(client);
+  await startRun();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
 
   getPeperoDayStatus.mockResolvedValue(status({ serverTime: "2026-11-12T10:00:01", status: "CLOSED" }));
@@ -181,21 +197,22 @@ it("lets a game in progress finish when the event closes mid-play", async () => 
 
 it("keeps the game in progress when refreshing the status fails around closing time", async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount(client);
+  await startRun();
 
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
   fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
   const next = await screen.findByRole("button", { name: "다음 막대" });
 
   getPeperoDayStatus.mockRejectedValue(new Error("network"));
   await act(() => client.invalidateQueries());
 
-  expect(client.getQueryState(["pepero-day", "status", "anonymous"]).status).toBe("error");
+  expect(client.getQueryState(["pepero-day", "status", "member-7"]).status).toBe("error");
   expect(screen.queryByText("이벤트를 불러오지 못했어요")).not.toBeInTheDocument();
   fireEvent.click(next);
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\s*\/ 5/);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/);
 });
 
 it("tells when the game moves to the game room, then links there once it has", async () => {
@@ -219,6 +236,6 @@ it("keeps the final ranking after the event closes", async () => {
   mount();
 
   expect(await screen.findByRole("heading", { name: "이벤트가 끝났어요" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "연습 시작" })).not.toBeInTheDocument();
-  expect(await screen.findByText("4,820점")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "GitHub로 로그인하고 도전하기" })).not.toBeInTheDocument();
+  expect(await screen.findByText("96.4점")).toBeInTheDocument();
 });

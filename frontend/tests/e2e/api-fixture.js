@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect } from "playwright/test";
+import { AVATAR_BASIC_APPEARANCE } from "../../public/sparring-arena/src/avatar-appearance.js";
 
 export async function prepareVisualCapture(pageInstance) {
   await pageInstance.evaluate(async () => {
@@ -285,6 +286,8 @@ function match(pathname, pattern) {
 
 export async function installApiFixture(pageInstance, options = {}) {
   const state = {
+    activeMember: leader,
+    avatar: { customized: false, appearance: { ...AVATAR_BASIC_APPEARANCE } },
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
     errorStatus: options.errorStatus ?? null,
@@ -389,6 +392,26 @@ export async function installApiFixture(pageInstance, options = {}) {
       );
     }
 
+    if (path === "/members/me/avatar") {
+      if (state.auth !== "authenticated") return json(route, failure("UNAUTHENTICATED"), 401);
+      if (method === "GET") return json(route, success(state.avatar));
+      const expectedMemberId = method === "PUT"
+        ? request.postDataJSON().expectedMemberId : url.searchParams.get("expectedMemberId");
+      if (String(expectedMemberId) !== String(state.activeMember.id)) return json(route, failure("ACCOUNT_CHANGED"), 409);
+      if (method === "PUT") state.avatar = { customized: true, appearance: request.postDataJSON().appearance };
+      if (method === "DELETE") state.avatar = { customized: false, appearance: { ...AVATAR_BASIC_APPEARANCE } };
+      return route.fulfill({ status: 204 });
+    }
+    if (path === "/members/me/points" && method === "GET") {
+      return json(route, success({
+        enabled: false, balance: 0, processing: false, resetsAt: "2026-11-09T00:00:00",
+        weeklyQuotas: []
+      }));
+    }
+    if (path === "/members/me/shop/equipment" && method === "GET") {
+      if (state.auth !== "authenticated") return json(route, failure("UNAUTHENTICATED"), 401);
+      return json(route, success([]));
+    }
     if (path === "/members/me" && method === "GET") {
       state.memberProfileReads += 1;
       if (state.expireMemberProfileAfterBootstrap && state.memberProfileReads === 2) {
@@ -403,7 +426,7 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(
         route,
         success({
-          member: { ...leader, bootcamp: null, career: null, company: null, field: null },
+          member: { ...state.activeMember, bootcamp: null, career: null, company: null, field: null },
           signupCompleted: true
         })
       );

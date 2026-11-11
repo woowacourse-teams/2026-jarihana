@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { useProfileEquipment } from "../../../src/features/shop/hooks.js";
 import { useAuth } from "../../../src/features/auth/index.js";
 import { useInfiniteGroups } from "../../../src/features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../../src/features/registration/index.js";
@@ -14,7 +15,12 @@ jest.mock("react-router", () => ({
     </a>
   )
 }));
+jest.mock("../../../src/features/shop/hooks.js", () => ({ useProfileEquipment: jest.fn(() => ({})) }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/features/avatar/MyAvatarCard.jsx", () => ({ MyAvatarCard: () => <section aria-label="내 아바타" /> }));
+jest.mock("../../../src/features/points/hooks", () => ({
+  usePointSummary: () => ({ data: { enabled: false } })
+}));
 jest.mock("../../../src/features/group/index.js", () => ({ useInfiniteGroups: jest.fn() }));
 jest.mock("../../../src/features/registration/index.js", () => ({
   useInfiniteMyRegistrations: jest.fn()
@@ -234,4 +240,14 @@ describe("MyPage", () => {
       "/groups"
     );
   });
+});
+
+it("적용한 프로필 프레임과 캐릭터 아바타 카드를 마이페이지에 함께 표시한다", () => {
+  useProfileEquipment.mockReturnValueOnce({ data: [{
+    itemId: "sleepy-bear-frame", slot: "frame", name: "꾸벅 곰돌이 프레임",
+    preview: { type: "profile", art: "bearFrame", tone: "cocoa" }
+  }] });
+  renderMyPage();
+  expect(screen.getByRole("img", { name: "꾸벅 곰돌이 프레임이 적용된 프로필" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "내 아바타" })).toBeInTheDocument();
 });

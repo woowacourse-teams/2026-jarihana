@@ -1,7 +1,7 @@
 import { LEVELS } from "./engine.mjs";
 import { createPracticeRun, summarizePracticeRun } from "./practice-session.mjs";
 import { MusicTransport } from "./audio.mjs";
-import { Renderer } from "./render.mjs";
+import { Renderer, loopHealAnnouncement } from "./render.mjs";
 import { SPRITE_ATLAS } from "./sprite-atlas.mjs";
 import { SyncCalibrationUI } from "./sync-ui.mjs";
 import { readOffset, writeOffset } from "./calibration.mjs";
@@ -13,6 +13,9 @@ import {
   readPracticeSettings,
   writePracticeSettings
 } from "./preferences.mjs";
+import { STAGES, stageOf } from "./stages.mjs";
+
+const kickerOf = (level) => "ARROWS + WASD / " + STAGES[stageOf(level)].bpmLabel;
 
 export function mountPracticeGame({ root, onReady, onError, onPlayingChange, keyBindings }) {
   const document = root.ownerDocument;
@@ -38,6 +41,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   let transport = null;
   let chart = null;
   let lastHud = -1;
+  let announcedHeal = null;
   let lastFrame = 0;
   let actionPending = false;
   let restartRequested = false;
@@ -46,6 +50,8 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   let disposed = false;
   let frameRequest = null;
   let audioContext = null;
+  const stages = new Map();
+  const pendingStages = new Map();
   let offsetStorage;
   try {
     offsetStorage = window.localStorage;
@@ -61,12 +67,22 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     choices.forEach((choice) =>
       choice.setAttribute("aria-pressed", String(choice.dataset.level === level))
     );
-    $("difficulty-copy").textContent = LEVELS[level].description;
+    showLevelCopy();
     $("rate").value = String(saved.rate);
     $("volume").value = String(saved.volume);
     $("volume-value").textContent = saved.volume + "%";
     $("timing-feedback").checked = saved.timingFeedback;
     $("note-labels").checked = saved.labels;
+  }
+
+  function showLevelCopy() {
+    $("difficulty-copy").textContent = LEVELS[level].description;
+    $("speed-up-copy").textContent =
+      LEVELS[level].speedUpFromLoop + "루프부터 곡 배속이 매 루프 +0.05 / 음높이도 함께 상승";
+    const stage = STAGES[stageOf(level)];
+    $("track-title").textContent = stage.title;
+    $("track-meta").textContent = stage.meta;
+    $("legend-triplet").hidden = stageOf(level) !== "swing";
   }
 
   function saveSettings() {
@@ -80,6 +96,39 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   }
 
   const keymap = () => keyBindings?.get?.() ?? DEFAULT_KEYMAP;
+
+  // 곡과 채보는 처음 고를 때 한 번만 받아 디코딩해 둔다. 실패하면 다음에 다시 받는다.
+  // 화면을 떠난 뒤 도착한 응답으로는 오디오를 만들지 않는다(null).
+  function loadStage(name) {
+    if (stages.has(name)) return Promise.resolve(stages.get(name));
+    if (!pendingStages.has(name)) {
+      const assets = STAGES[name];
+      const promise = Promise.all([
+        fetch(assets.chart, { signal: lifetime.signal }).then((response) => {
+          if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
+          return response.json();
+        }),
+        fetch(assets.music, { signal: lifetime.signal }).then((response) => {
+          if (!response.ok) throw new Error("음악을 불러올 수 없어요.");
+          return response.arrayBuffer();
+        })
+      ]).then(async ([loadedChart, bytes]) => {
+        if (disposed) return null;
+        audioContext ??= new AudioContext({ latencyHint: "interactive" });
+        const buffer = await audioContext.decodeAudioData(bytes);
+        if (disposed) return null;
+        if (Math.abs(buffer.duration - loadedChart.durationSeconds) > 0.005)
+          throw new Error("음악과 채보 길이가 맞지 않아요.");
+        const stage = { chart: loadedChart, buffer };
+        stages.set(name, stage);
+        return stage;
+      });
+      const forget = () => pendingStages.delete(name);
+      promise.then(forget, forget);
+      pendingStages.set(name, promise);
+    }
+    return pendingStages.get(name);
+  }
 
   function updateOffsetLabel() {
     const value = Number($("offset").value);
@@ -144,6 +193,11 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     scoreText.textContent = engine.score.toLocaleString("ko-KR");
     comboText.textContent = engine.combo;
     setLife(engine.lives, engine.maxLives);
+    const heal = engine.loopHeals.at(-1);
+    if (heal && heal !== announcedHeal) {
+      announcedHeal = heal;
+      $("announcer").textContent = loopHealAnnouncement(heal);
+    }
     const loop = engine.currentLoop(time);
     const inCount = time < engine.loops[0].start;
     const songTime = Math.max(0, (time - loop.start) * loop.rate + loop.offset);
@@ -152,7 +206,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
       ? time < engine.countInStart
         ? "준비 중"
         : "네 박 뒤 시작"
-      : formatTime(songTime) + " / 1:30  / " + bar + "마디";
+      : formatTime(songTime) + " / " + formatTime(chart.durationSeconds) + "  / " + bar + "마디";
     loopText.textContent =
       "LOOP " + String(loop.number).padStart(2, "0") + " / 곡 ×" + loop.rate.toFixed(2);
   }
@@ -185,6 +239,15 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     startButton.disabled = true;
     pauseButton.disabled = true;
     try {
+      // 이미 받은 곡이면 기다리지 않고 바로 시작한다. 받는 동안에는 이전 곡을 멈춰 둔다.
+      let stage = stages.get(stageOf(level));
+      if (!stage) {
+        transport.stop();
+        stage = await loadStage(stageOf(level));
+      }
+      if (disposed || !stage) return;
+      chart = stage.chart;
+      transport.buffer = stage.buffer;
       practiceRun = createPracticeRun(chart, { level, scrollSpeed: Number($("rate").value) });
       engine = practiceRun.engine;
       await transport.start(engine.loops);
@@ -345,9 +408,13 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     listen(button, "click", () => {
       level = button.dataset.level;
       choices.forEach((choice) => choice.setAttribute("aria-pressed", String(choice === button)));
-      $("difficulty-copy").textContent = LEVELS[level].description;
+      showLevelCopy();
       setLife(LEVELS[level].lives, LEVELS[level].lives);
       saveSettings();
+      if (state === "ready") {
+        $("overlay-kicker").textContent = kickerOf(level);
+        void loadStage(stageOf(level)).catch(() => {});
+      }
       restartFromSettings();
     })
   );
@@ -441,30 +508,11 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
         image.onerror = () => reject(new Error("스프라이트를 불러올 수 없어요."));
         image.src = SPRITE_ATLAS.url;
       });
-      const [loadedChart, bytes, sprites] = await Promise.all([
-        fetch("/game-assets/rhythm-harpoon/assets/chart.json?v=bars-13-16-1", {
-          signal: lifetime.signal
-        }).then((response) => {
-          if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
-          return response.json();
-        }),
-        fetch("/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=spiral-melody-5", {
-          signal: lifetime.signal
-        }).then((response) => {
-          if (!response.ok) throw new Error("음악을 불러올 수 없어요.");
-          return response.arrayBuffer();
-        }),
-        spritePromise
-      ]);
-      if (disposed) return;
-      chart = loadedChart;
-      const context = new AudioContext({ latencyHint: "interactive" });
-      audioContext = context;
-      const buffer = await context.decodeAudioData(bytes);
-      if (disposed) return;
-      if (Math.abs(buffer.duration - chart.durationSeconds) > 0.005)
-        throw new Error("음악과 채보 길이가 맞지 않아요.");
-      transport = new MusicTransport(context, buffer);
+      const [stage, sprites] = await Promise.all([loadStage(stageOf(level)), spritePromise]);
+      if (disposed || !stage) return;
+      chart = stage.chart;
+      transport = new MusicTransport(audioContext, stage.buffer);
+      $("overlay-kicker").textContent = kickerOf(level);
       transport.gain.gain.value = Number($("volume").value) / 100;
       renderer = new Renderer(canvas, sprites);
       renderer.showTiming = $("timing-feedback").checked;

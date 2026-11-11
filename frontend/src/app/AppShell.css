@@ -188,6 +188,13 @@
     transform: translateX(calc(var(--header-active-index) * 100%));
 }
 
+/* 칸 너비가 다를 때는 활성 밑줄의 시작 위치와 길이를 AppHeader가 비율로 넘긴다. */
+.app-header__primary-nav--weighted::after {
+    inset-inline-start: var(--header-active-start);
+    inline-size: var(--header-active-size);
+    transform: none;
+}
+
 .app-header__primary-nav[data-active="true"]::after {
     opacity: 1;
 }
@@ -201,6 +208,27 @@
     font-size: var(--text-label);
     font-weight: var(--font-weight-semibold);
     text-decoration: none;
+}
+
+.app-header__link-icon {
+    inline-size: 1.25em;
+    block-size: 1.25em;
+    flex: none;
+    margin-inline-end: var(--space-1);
+}
+
+.pepero-stick-icon__biscuit {
+    fill: var(--color-game-biscuit);
+}
+
+.pepero-stick-icon__choco {
+    fill: var(--color-game-choco-thin);
+}
+
+.pepero-stick-icon__shine {
+    stroke: var(--color-game-choco-highlight);
+    stroke-linecap: round;
+    stroke-width: 1;
 }
 
 .app-header__group-navigation {
