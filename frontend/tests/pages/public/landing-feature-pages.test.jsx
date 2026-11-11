@@ -4,6 +4,7 @@ import { useAuth } from "../../../src/features/auth";
 import {
   LandingCreatePage,
   LandingGamesPage,
+  LandingJoinPage,
   LandingSparringPage
 } from "../../../src/pages/landing/LandingFeaturePages";
 import { useLandingChapters } from "../../../src/pages/landing/useLandingChapters";
@@ -33,18 +34,38 @@ function chaptersOf() {
   return [...rootRef.current.querySelectorAll("[data-guide-chapter]")].map((node) => node.dataset.guideChapter);
 }
 
-test("the create page reuses the product demos from creating a group to its activity feed", () => {
+test("the join page explains finding, applying and what members share after joining", () => {
+  useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
+  render(<LandingJoinPage />);
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("관심 가는 모임을 찾아바로 참여를 신청해요");
+  expect(chaptersOf()).toEqual([
+    "join-intro", "browse", "detail", "continue", "chat-intro", "chat", "calendar", "activity-intro", "activity"
+  ]);
+  // 머리글, 첫 화면, 마지막 버튼
+  const explore = screen.getAllByRole("link", { name: "모집 중인 모임 보기" });
+  expect(explore).toHaveLength(3);
+  for (const link of explore) {
+    expect(link).toHaveAttribute("href", "/groups?recruiting=true");
+    expect(link).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
+  }
+  expect(screen.getByRole("link", { name: "자리하나? 처음 화면으로" })).toHaveAttribute("href", "/land");
+});
+
+test("the create page explains group types, creating, inviting and gathering people on the board", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
   render(<LandingCreatePage />);
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("주제와 일정만 정하면오늘 바로 모임을 열 수 있어요");
   expect(chaptersOf()).toEqual([
-    "host-intro", "create", "manage", "invite-intro", "invite", "chat-intro", "chat", "calendar", "activity-intro", "activity"
+    "host-intro", "create", "manage", "invite-intro", "invite", "proposal-intro", "proposal"
   ]);
   for (const name of ["스터디", "동아리", "같이해요"]) {
     expect(screen.getByRole("heading", { level: 3, name })).toBeInTheDocument();
   }
+  const board = screen.getByRole("link", { name: "자유게시판 둘러보기" });
+  expect(board).toHaveAttribute("href", "/board");
+  expect(board).toHaveAttribute("data-ph-capture-attribute-action", "landing_board_explore");
   expect(screen.getByRole("link", { name: "자리하나 홈" })).toHaveAttribute("href", "/land");
-  expect(screen.getByRole("link", { name: "자리하나 처음 화면으로" })).toHaveAttribute("href", "/land");
+  expect(screen.getByRole("link", { name: "자리하나? 처음 화면으로" })).toHaveAttribute("href", "/land");
 });
 
 test("creating from the feature page logs in and returns to the group form", () => {
@@ -99,7 +120,7 @@ test("the sparring page explains the three steps and plays the arena recording",
 test("the games page introduces both games and links to the game room", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
   render(<LandingGamesPage />);
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임 사람들과 한 판 하고기록과 랭킹을 나눠요");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임 사람들과 한 판 하고랭킹에 이름도 올려 봐요");
   expect(screen.getByRole("heading", { level: 3, name: "오목" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 3, name: "행성이의 리듬 작살" })).toBeInTheDocument();
   const links = screen.getAllByRole("link", { name: "게임방 가기" });

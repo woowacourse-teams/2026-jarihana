@@ -1,7 +1,10 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { Link } from "react-router";
 
+import faceoffVideo from "../../shared/assets/landing/landing-sparring-faceoff.mp4";
+import faceoffPoster from "../../shared/assets/landing/landing-sparring-faceoff.webp";
 import { gameArtwork } from "../games/artworkAssets";
+import { LandingLoopVideo } from "./LandingLoopVideo";
 import "./landing-features.css";
 
 export function CreatePreview() {
@@ -22,18 +25,27 @@ export function CreatePreview() {
   );
 }
 
-function SparringPreview() {
+export function JoinPreview() {
   return (
     <span aria-hidden="true" className="landing-feature-card__panel">
-      <span className="landing-feature-card__hint">토론 진행 중...</span>
-      <strong className="landing-feature-card__title">개발 공부, 강의부터? 만들면서?</strong>
-      <span className="landing-feature-card__versus">
-        <span style={{ width: "46%" }} />
-        <span style={{ width: "54%" }} />
+      <span className="landing-feature-card__hint">참여할 모임 찾는 중...</span>
+      <span className="landing-feature-card__row landing-feature-card__row--search">
+        <Search size={16} strokeWidth={2.2} />
+        스터디
       </span>
-      <span className="landing-feature-card__sides"><span>강의부터</span><span>만들면서</span></span>
-      <span className="landing-feature-card__row landing-feature-card__row--dot"><i data-side="mint" />내 편 고르기</span>
-      <span className="landing-feature-card__row landing-feature-card__row--dot"><i data-side="coral" />한마디로 받아치기</span>
+      <strong className="landing-feature-card__title">함께 배우는 토요일</strong>
+      <span className="landing-feature-card__row"><span>일정</span><strong>매주 토 14:00</strong></span>
+      <span className="landing-feature-card__row"><span>장소</span><strong>강남역 스터디룸</strong></span>
+      <span className="landing-feature-card__cta">참여 신청</span>
+    </span>
+  );
+}
+
+// 토론하나? 카드는 실제 경기장 녹화에서 두 캐릭터가 VS로 맞서는 장면만 잘라 반복한다.
+function SparringPreview() {
+  return (
+    <span aria-hidden="true" className="landing-feature-card__screen">
+      <LandingLoopVideo poster={faceoffPoster} src={faceoffVideo} />
     </span>
   );
 }
@@ -50,22 +62,35 @@ function GamesPreview() {
   );
 }
 
-const features = [
+// 핵심 기능: 모임 신청과 모임 만들기. 세부 기능은 카드가 여는 소개 페이지에서 설명한다.
+const coreFeatures = [
+  {
+    id: "join",
+    to: "/land/join",
+    action: "landing_feature_join",
+    tone: "sky",
+    title: ["관심 가는 모임을 찾아", "바로 참여를 신청해요"],
+    link: "모임 신청 자세히 보기",
+    Preview: JoinPreview
+  },
   {
     id: "create",
     to: "/land/create",
     action: "landing_feature_create",
     tone: "mint",
     title: ["주제와 일정만 정하면", "오늘 바로 모임을 열 수 있어요"],
-    link: "모임 만들기",
+    link: "모임 만들기 자세히 보기",
     Preview: CreatePreview
-  },
+  }
+];
+
+const extraFeatures = [
   {
     id: "sparring",
     to: "/land/sparring",
     action: "landing_feature_sparring",
     tone: "coral",
-    title: ["두 편 중 하나를 고르고", "한마디로 받아쳐요"],
+    title: ["편을 골라 한마디 받아치면", "내 캐릭터가 대신 맞붙어요"],
     link: "토론하나? 둘러보기",
     Preview: SparringPreview
   },
@@ -74,26 +99,28 @@ const features = [
     to: "/land/games",
     action: "landing_feature_games",
     tone: "lavender",
-    title: ["모임 사람들과 한 판 하고", "기록과 랭킹을 나눠요"],
+    title: ["쉬는 시간에 한 판 하고", "랭킹 1위도 노려 봐요"],
     link: "게임하나? 둘러보기",
     Preview: GamesPreview
   }
 ];
 
-export function LandingFeatureCards({ active }) {
+function FeatureCardSection({ active, chapter, eyebrow, features, title }) {
+  const titleId = `${chapter}-title`;
   return (
     <section
       aria-current={active ? "step" : undefined}
-      aria-labelledby="features-title"
+      aria-labelledby={titleId}
       className="landing-features"
-      data-guide-chapter="features"
-      id="features"
+      data-guide-chapter={chapter}
+      id={chapter}
     >
       <div className="landing-features__heading">
-        <p>자리하나에서 할 수 있는 일</p>
-        <h2 id="features-title">
-          <span>모임을 열고, 토론하고,</span>
-          <span>한 판 겨뤄요</span>
+        <p>{eyebrow}</p>
+        <h2 id={titleId}>
+          {title.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
         </h2>
       </div>
       <ul className="landing-features__list">
@@ -124,5 +151,29 @@ export function LandingFeatureCards({ active }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+export function LandingCoreCards({ active }) {
+  return (
+    <FeatureCardSection
+      active={active}
+      chapter="core"
+      eyebrow="자리하나?에서 할 수 있는 일"
+      features={coreFeatures}
+      title={["함께할 모임을 찾거나,", "직접 열어 보세요"]}
+    />
+  );
+}
+
+export function LandingFeatureCards({ active }) {
+  return (
+    <FeatureCardSection
+      active={active}
+      chapter="features"
+      eyebrow="모임이 없는 날에도 심심할 틈 없게"
+      features={extraFeatures}
+      title={["말로 한 판 붙고,", "게임으로도 겨뤄요"]}
+    />
   );
 }

@@ -89,19 +89,38 @@
 .landing-clubhouse__pull {
   position: absolute;
   left: 50%;
-  bottom: 0;
+  bottom: var(--space-6);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-radius: var(--radius-pill);
   color: var(--color-surface);
   background: var(--color-ink);
   box-shadow: var(--shadow-float);
-  font-size: var(--text-caption);
+  font-size: var(--text-body);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
-  transform: translate(-50%, 50%);
+  transform: translateX(-50%);
+}
+/* 영상을 끝까지 기다리지 않아도 된다는 걸 문구와 함께 안내 전체가 아래로 통통 튀며 알린다. */
+.landing-clubhouse__pull {
+  animation: landing-clubhouse-nudge 1.2s var(--landing-ease) infinite;
+}
+@keyframes landing-clubhouse-nudge {
+  0%,
+  60%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  30% {
+    transform: translate(-50%, 0.5rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-clubhouse__pull {
+    animation: none;
+  }
 }
 .landing-clubhouse__stage {
   position: sticky;

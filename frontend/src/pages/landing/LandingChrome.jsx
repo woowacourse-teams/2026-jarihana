@@ -72,7 +72,7 @@ function LandingBrand({ size, onLanding }) {
   const content = (
     <>
       <img alt="" height={size} src={logo} width={size} />
-      <span>자리하나</span>
+      <span>자리하나?</span>
     </>
   );
   if (onLanding) {
@@ -129,8 +129,8 @@ export function LandingFooter() {
             <Link data-ph-capture-attribute-action="landing_footer_board" to="/board">자유게시판</Link>
           </div>
           <div className="landing-footer__menu">
-            <p className="landing-footer__menu-title">자리하나</p>
-            <Link data-ph-capture-attribute-action="landing_tech_view" to="/land#tech">자리하나를 만드는 방식</Link>
+            <p className="landing-footer__menu-title">자리하나?</p>
+            <Link data-ph-capture-attribute-action="landing_tech_view" to="/land#tech">자리하나?를 만드는 방식</Link>
             <a
               data-ph-capture-attribute-action="landing_repository_open"
               href="https://github.com/woowacourse-teams/2026-jarihana"
@@ -144,10 +144,10 @@ export function LandingFooter() {
         <div className="landing-footer__about">
           <p className="landing-footer__brand">
             <img alt="" height="28" src={logo} width="28" />
-            자리하나
+            자리하나?
           </p>
-          <p>자리하나는 우아한테크코스 크루들이 만들고 운영하는 모임 서비스예요.</p>
-          <small>© {new Date().getFullYear()} 자리하나</small>
+          <p>자리하나?는 우아한테크코스 크루들이 만들고 운영하는 모임 서비스예요.</p>
+          <small>© {new Date().getFullYear()} 자리하나?</small>
         </div>
       </div>
     </footer>

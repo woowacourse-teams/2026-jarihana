@@ -33,18 +33,19 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-test("reads as the clubhouse, three features and the tech story with one active chapter at a time", () => {
+test("reads as the clubhouse, the sparring and games cards, the core feature cards and the tech story with one active chapter at a time", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
   const { container } = renderLanding();
   const [pageRef, activate] = useLandingChapters.mock.calls[0];
   const stops = [...pageRef.current.querySelectorAll("[data-guide-chapter]")];
   expect(stops.map((node) => node.dataset.guideChapter)).toEqual([
-    "clubhouse", "features", "tech-intro", "tech-time", "tech-size", "tech-runs"
+    "clubhouse", "features", "core",
+    "tech-intro", "tech-time", "tech-size", "tech-runs"
   ]);
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임마다 하나씩,함께 꾸미는 아지트");
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
-  for (const id of ["features", "tech-time", "clubhouse"]) {
+  for (const id of ["core", "features", "tech-time", "clubhouse"]) {
     act(() => activate(id));
     expect(container.querySelector(`[data-guide-chapter="${id}"]`)).toHaveAttribute("aria-current", "step");
     expect(container.querySelectorAll('[data-guide-chapter][aria-current="step"]')).toHaveLength(1);
@@ -88,17 +89,21 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
   }
 
   for (const [name, href, action] of [
+    [/바로 참여를 신청해요/, "/land/join", "landing_feature_join"],
     [/오늘 바로 모임을 열 수 있어요/, "/land/create", "landing_feature_create"],
-    [/한마디로 받아쳐요/, "/land/sparring", "landing_feature_sparring"],
-    [/기록과 랭킹을 나눠요/, "/land/games", "landing_feature_games"]
+    [/내 캐릭터가 대신 맞붙어요/, "/land/sparring", "landing_feature_sparring"],
+    [/랭킹 1위도 노려 봐요/, "/land/games", "landing_feature_games"]
   ]) {
     const card = screen.getByRole("link", { name });
     expect(card).toHaveAttribute("href", href);
     expect(card).toHaveAttribute("data-ph-capture-attribute-action", action);
   }
+  expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(
+    expect.arrayContaining(["말로 한 판 붙고,게임으로도 겨뤄요", "함께할 모임을 찾거나,직접 열어 보세요"])
+  );
 
   const footer = screen.getByRole("navigation", { name: "하단 메뉴" });
-  expect(within(footer).getByRole("link", { name: "자리하나를 만드는 방식" })).toHaveAttribute("href", "/land#tech");
+  expect(within(footer).getByRole("link", { name: "자리하나?를 만드는 방식" })).toHaveAttribute("href", "/land#tech");
   expect(within(footer).getByRole("link", { name: "GitHub 저장소" })).toHaveAttribute(
     "href",
     "https://github.com/woowacourse-teams/2026-jarihana"

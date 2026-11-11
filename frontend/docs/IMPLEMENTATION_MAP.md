@@ -124,8 +124,9 @@ header 구현으로 확대하지 않았다.
 | Route                                                               | 권한                   | API                                      | 공통 레이아웃/컴포넌트                                               | 반드시 표시할 상태                                                               |
 | ------------------------------------------------------------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `/` (비로그인) | 공개 | 인증 상태 확인 | HomePage, 검색 조건과 해시를 보존해 `/land`로 replace 이동 | auth loading, anonymous, signup-required, unavailable |
-| `/land` (로그인 여부 무관) | 공개 | 없음 | LandingPage, 아지트 장막 히어로(녹화 영상), 대표 기능 카드 3개, 기술 소개, 바닥글. 아지트 체험 버튼은 준비 중 토스트만 띄움 | reduced motion(영상 대신 첫 장면) |
-| `/land/create` | 공개 | 없음 | LandingCreatePage, 모임 종류, 만들기, 신청 관리, 초대, 채팅, 일정, 활동 이용 예시 | auth loading, anonymous, signup-required, authenticated, reduced motion |
+| `/land` (로그인 여부 무관) | 공개 | 없음 | LandingPage, 아지트 장막 히어로(녹화 영상), 토론하나?와 게임하나? 카드 2개, 핵심 기능 카드 2개(모임 신청, 모임 만들기), 기술 소개, 바닥글. 세부 기능은 카드가 여는 소개 페이지에서 설명. 아지트 체험 버튼은 준비 중 토스트만 띄움 | auth loading, anonymous, signup-required, authenticated, reduced motion(영상 대신 첫 장면) |
+| `/land/join` | 공개 | 없음 | LandingJoinPage, 찾고 신청하기(검색, 상세 확인과 신청, 신청 결과), 모임 채팅과 일정, 활동 피드 이용 예시 | reduced motion |
+| `/land/create` | 공개 | 없음 | LandingCreatePage, 모임 종류, 만들기, 신청 관리, 초대, 자유게시판 제안 이용 예시 | auth loading, anonymous, signup-required, authenticated, reduced motion |
 | `/land/sparring` | 공개 | 없음 | LandingSparringPage, 토론 세 단계, 경기장 녹화 이용 예시 | reduced motion |
 | `/land/games` | 공개 | 없음 | LandingGamesPage, 오목과 리듬 작살 소개 | 없음 |
 | `/` (로그인) | 회원 | 인증 상태 확인 | 검색 조건과 해시를 보존해 `/home`으로 replace 이동 | auth loading, authenticated |

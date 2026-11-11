@@ -8,13 +8,15 @@ import sessionImage from "../../shared/assets/landing/default-group-session.webp
 import arenaImage from "../../shared/assets/landing/sparring-arena-demo-end.webp";
 import { gameArtwork } from "../games/artworkAssets";
 import { LandingShell, LandingStartButton } from "./LandingChrome";
-import { CreatePreview } from "./LandingFeatureCards";
+import { CreatePreview, JoinPreview } from "./LandingFeatureCards";
 import {
   GuideSection,
   activityChapters,
   chatChapters,
+  guideChapters,
   hostChapters,
   inviteChapters,
+  proposalChapters,
   sparringChapters
 } from "./LandingGuide";
 import { useLandingChapters } from "./useLandingChapters";
@@ -41,23 +43,7 @@ function FeatureHero({ action, eyebrow, lead, note, title, tone, visual }) {
   );
 }
 
-function FeatureClosing({ action, title }) {
-  return (
-    <section aria-labelledby="feature-closing-title" className="landing-container landing-feature-page__closing">
-      <h2 id="feature-closing-title">
-        {title.map((line) => (
-          <span key={line}>{line}</span>
-        ))}
-      </h2>
-      {action}
-      <Link className="landing-feature-page__back" data-ph-capture-attribute-action="landing_feature_back" to="/land">
-        자리하나 처음 화면으로
-      </Link>
-    </section>
-  );
-}
-
-function GuideIntro({ active, chapter, eyebrow, text, title, titleId }) {
+function GuideIntro({ action, active, chapter, eyebrow, text, title, titleId }) {
   return (
     <div aria-current={active ? "step" : undefined} className="landing-guide__intro" data-guide-chapter={chapter}>
       <p className="landing-eyebrow">{eyebrow}</p>
@@ -71,7 +57,108 @@ function GuideIntro({ active, chapter, eyebrow, text, title, titleId }) {
         ) : null}
       </h2>
       {text ? <p>{text}</p> : null}
+      {action ? <div className="landing-guide__actions">{action}</div> : null}
     </div>
+  );
+}
+
+function FeatureClosing({ action, title }) {
+  return (
+    <section aria-labelledby="feature-closing-title" className="landing-container landing-feature-page__closing">
+      <h2 id="feature-closing-title">
+        {title.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </h2>
+      {action}
+      <Link className="landing-feature-page__back" data-ph-capture-attribute-action="landing_feature_back" to="/land">
+        자리하나? 처음 화면으로
+      </Link>
+    </section>
+  );
+}
+
+function ExploreAction() {
+  return (
+    <Link
+      className="landing-button landing-button--mint landing-button--large"
+      data-ph-capture-attribute-action="landing_explore"
+      to="/groups?recruiting=true"
+    >
+      모집 중인 모임 보기 <ArrowRight aria-hidden="true" size={20} />
+    </Link>
+  );
+}
+
+// 모임 신청 소개: 찾기와 신청, 신청 결과 확인, 참여한 뒤의 채팅과 일정, 활동 피드를 차례로 보여 준다.
+export function LandingJoinPage() {
+  const rootRef = useRef(null);
+  const [activeChapter, setActiveChapter] = useState("join-intro");
+  useLandingChapters(rootRef, setActiveChapter);
+
+  return (
+    <LandingShell rootRef={rootRef}>
+      <FeatureHero
+        action={<ExploreAction />}
+        eyebrow="모임 신청"
+        lead="이름으로 검색하거나 유형과 모집 상태로 골라 보고, 소개와 일정을 확인한 뒤 신청해요. 신청 결과와 참여 중인 모임은 내 모임에서 확인해요."
+        note="모임 둘러보기는 로그인 없이, 참여 신청은 가입한 뒤에 할 수 있어요."
+        title={["관심 가는 모임을 찾아", "바로 참여를 신청해요"]}
+        tone="sky"
+        visual={<JoinPreview />}
+      />
+      <div className="landing-guide-flow">
+        <GuideSection
+          activeChapter={activeChapter}
+          chapters={guideChapters}
+          className="landing-guide"
+          id="guide-join"
+          titleId="join-guide-title"
+        >
+          <GuideIntro
+            active={activeChapter === "join-intro"}
+            chapter="join-intro"
+            eyebrow="01 찾고 신청하기"
+            text="모임을 검색하고 상세 내용을 확인한 뒤 참여를 신청해요."
+            title={["관심 있는 모임을 찾았다면,", "이렇게 참여해요."]}
+            titleId="join-guide-title"
+          />
+        </GuideSection>
+        <GuideSection
+          activeChapter={activeChapter}
+          chapters={chatChapters}
+          className="landing-guide-chat landing-guide--reversed"
+          id="guide-chat"
+          titleId="chat-title"
+        >
+          <GuideIntro
+            active={activeChapter === "chat-intro"}
+            chapter="chat-intro"
+            eyebrow="02 모임 채팅과 일정"
+            text="모임에 참여하면 대화방이 바로 열려요. 정기 모임과 개별 일정도 캘린더에서 함께 확인해요."
+            title={["모임 단톡방,", "따로 만들 필요 없어요."]}
+            titleId="chat-title"
+          />
+        </GuideSection>
+        <GuideSection
+          activeChapter={activeChapter}
+          chapters={activityChapters}
+          className="landing-guide-activity"
+          id="guide-activity"
+          titleId="activity-title"
+        >
+          <GuideIntro
+            active={activeChapter === "activity-intro"}
+            chapter="activity-intro"
+            eyebrow="03 활동 피드"
+            text="내 기록에 달린 댓글과 하트는 알림함으로 알려 드려요."
+            title={["함께한 순간을 기록으로 남겨요."]}
+            titleId="activity-title"
+          />
+        </GuideSection>
+      </div>
+      <FeatureClosing action={<ExploreAction />} title={["함께할 자리,", "지금 찾아볼까요?"]} />
+    </LandingShell>
   );
 }
 
@@ -79,7 +166,7 @@ const groupTypes = [
   {
     id: "study",
     label: "스터디",
-    description: "공부할 주제를 정하고 정기적으로 만나요. 매주 요일과 시간을 정해 둘 수 있어요.",
+    description: "공부할 주제를 정하고 정기적으로 만나요. 매주 만날 요일과 시간도 미리 잡아 둘 수 있어요.",
     image: studyImage
   },
   {
@@ -91,11 +178,12 @@ const groupTypes = [
   {
     id: "session",
     label: "같이해요",
-    description: "날짜를 정해 한 번 함께해요. 저녁 번개나 기술 공유 모임처럼 가볍게 열어요.",
+    description: "날짜 하나만 정해 한 번 모여요. 저녁 번개나 기술 공유 모임처럼 가볍게 열기 좋아요.",
     image: sessionImage
   }
 ];
 
+// 모임 만들기 소개: 모임 종류, 만들기와 신청 관리, 초대, 자유게시판에서 먼저 사람 모으기를 차례로 보여 준다.
 export function LandingCreatePage() {
   const rootRef = useRef(null);
   const [activeChapter, setActiveChapter] = useState("host-intro");
@@ -112,7 +200,7 @@ export function LandingCreatePage() {
         action={createAction}
         eyebrow="모임 만들기"
         lead="스터디, 동아리, 하루 번개 중 하나를 고르고 일정과 장소를 정하면 모집이 시작돼요. 들어온 신청은 한곳에서 확인해요."
-        note="로그인하지 않았다면 GitHub로 로그인한 뒤 바로 이어서 만들 수 있어요."
+        note="로그인 전이라도 괜찮아요. GitHub로 로그인하면 모임 만들기 화면으로 바로 이어져요."
         title={["주제와 일정만 정하면", "오늘 바로 모임을 열 수 있어요"]}
         tone="mint"
         visual={<CreatePreview />}
@@ -163,34 +251,27 @@ export function LandingCreatePage() {
         </GuideSection>
         <GuideSection
           activeChapter={activeChapter}
-          chapters={chatChapters}
-          className="landing-guide-chat"
-          id="guide-chat"
-          titleId="chat-title"
+          chapters={proposalChapters}
+          className="landing-guide-proposal"
+          id="guide-proposal"
+          titleId="proposal-title"
         >
           <GuideIntro
-            active={activeChapter === "chat-intro"}
-            chapter="chat-intro"
-            eyebrow="03 모임 채팅과 일정"
-            text="모임에 참여하면 대화방이 바로 열려요. 정기 모임과 개별 일정도 캘린더에서 함께 확인해요."
-            title={["모임 단톡방,", "따로 만들 필요 없어요."]}
-            titleId="chat-title"
-          />
-        </GuideSection>
-        <GuideSection
-          activeChapter={activeChapter}
-          chapters={activityChapters}
-          className="landing-guide-activity landing-guide--reversed"
-          id="guide-activity"
-          titleId="activity-title"
-        >
-          <GuideIntro
-            active={activeChapter === "activity-intro"}
-            chapter="activity-intro"
-            eyebrow="04 활동 피드"
-            text="내 기록에 달린 댓글과 하트는 알림함으로 알려 드려요."
-            title={["함께한 순간은, 우리의 기록으로."]}
-            titleId="activity-title"
+            action={
+              <Link
+                className="landing-button landing-button--soft"
+                data-ph-capture-attribute-action="landing_board_explore"
+                to="/board"
+              >
+                자유게시판 둘러보기 <ArrowRight aria-hidden="true" size={20} />
+              </Link>
+            }
+            active={activeChapter === "proposal-intro"}
+            chapter="proposal-intro"
+            eyebrow="03 먼저 같이할 사람 모으기"
+            text="아직 작은 생각이어도 좋아요. 자유게시판에 제안을 올려 같이할 사람과 가능한 시간이 모이면, 그때 모임으로 열어요."
+            title={["이런 모임,", "같이할 사람?"]}
+            titleId="proposal-title"
           />
         </GuideSection>
       </div>
@@ -224,7 +305,7 @@ export function LandingSparringPage() {
       <FeatureHero
         action={sparringAction}
         eyebrow="토론하나?"
-        lead="두 입장 중 내 생각을 고르고, 한마디를 캡슐에 담아 보내요. 마음에 걸리는 한마디에는 받아치기로 답해요."
+        lead="내 생각에 가까운 편을 고르고, 한마디를 캡슐에 담아 보내요. 마음에 걸리는 한마디에는 받아치기로 답해요."
         note="구경은 로그인 없이, 한마디는 가입한 뒤에 남길 수 있어요."
         title={["누구 말이 맞을까?", "편을 고르고 한마디"]}
         tone="coral"
@@ -238,7 +319,7 @@ export function LandingSparringPage() {
         }
       />
       <section aria-labelledby="sparring-steps-title" className="landing-section landing-container">
-        <h2 className="landing-feature-page__section-title" id="sparring-steps-title">세 번이면 토론에 들어가요</h2>
+        <h2 className="landing-feature-page__section-title" id="sparring-steps-title">토론은 세 단계면 충분해요</h2>
         <ol className="landing-feature-page__grid">
           {sparringSteps.map((step) => (
             <li key={step.id}>
@@ -260,13 +341,13 @@ export function LandingSparringPage() {
             active={activeChapter === "sparring-intro"}
             chapter="sparring-intro"
             eyebrow="토론 경기장"
-            text="편을 고르고 받아치기를 보내면 경기장에서 바로 이어져요."
+            text="편을 고르고 받아치기를 보내면 경기장에서 바로 맞붙어요."
             title={["실제 경기장에서", "이렇게 주고받아요"]}
             titleId="sparring-title"
           />
         </GuideSection>
       </div>
-      <FeatureClosing action={sparringAction} title={["궁금한 주제가 있다면", "직접 열어 보세요"]} />
+      <FeatureClosing action={sparringAction} title={["궁금한 주제가 있다면", "지금 들어가 보세요"]} />
     </LandingShell>
   );
 }
@@ -277,7 +358,7 @@ const games = [
     title: "오목",
     summary: "친구와 함께하는 1:1 오목",
     image: gameArtwork.gomoku,
-    points: ["초대 링크로 친구를 불러 바로 대국해요.", "다른 사람의 대국을 관전할 수 있어요.", "대국 기록과 랭킹이 쌓여요."]
+    points: ["초대 링크로 친구를 불러 바로 대국해요.", "다른 사람의 대국을 관전할 수 있어요.", "대국 기록이 쌓이고 랭킹에도 올라가요."]
   },
   {
     id: "rhythm",
@@ -307,7 +388,7 @@ export function LandingGamesPage() {
         eyebrow="게임하나?"
         lead="잠깐 쉬었다, 한 판 어때요? 친구를 불러 오목을 두고, 리듬게임 공식 도전에서 서로의 기록을 겨뤄요."
         note="연습은 로그인 없이, 대국과 공식 도전은 가입한 뒤에 할 수 있어요."
-        title={["모임 사람들과 한 판 하고", "기록과 랭킹을 나눠요"]}
+        title={["모임 사람들과 한 판 하고", "랭킹에 이름도 올려 봐요"]}
         tone="lavender"
         visual={<img alt="행성이가 네 방향에서 오는 세균을 작살로 잡는 리듬 작살 그림" height="1024" src={gameArtwork.rhythm} width="1536" />}
       />

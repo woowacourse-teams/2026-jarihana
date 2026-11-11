@@ -6,6 +6,8 @@
     radial-gradient(100% 80% at 0% 100%, #d4f1ee 0%, rgb(212 241 238 / 0%) 60%), #e9e6f7;
   --feature-lavender: radial-gradient(100% 80% at 100% 0%, #f1e4fb 0%, rgb(241 228 251 / 0%) 60%),
     radial-gradient(100% 80% at 0% 100%, #d6e6fb 0%, rgb(214 230 251 / 0%) 60%), #dde3f8;
+  --feature-sky: radial-gradient(100% 80% at 0% 0%, #e3f1fd 0%, rgb(227 241 253 / 0%) 60%),
+    radial-gradient(90% 70% at 100% 100%, #dff6ef 0%, rgb(223 246 239 / 0%) 60%), #cfe4f7;
   --feature-glass: rgb(255 255 255 / 74%);
   --feature-row: rgb(255 255 255 / 92%);
   --feature-mint-side: #27bdb6;
@@ -38,7 +40,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
   gap: var(--space-12) var(--space-6);
-  max-width: 80rem;
+  max-width: 68rem;
   margin: 0 auto;
   padding: 0;
   list-style: none;
@@ -54,12 +56,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 32rem;
+  min-height: 32rem;
   padding: var(--space-12) var(--space-10);
   box-sizing: border-box;
   overflow: hidden;
   border-radius: var(--landing-radius);
   background: var(--feature-mint);
+}
+.landing-feature-card[data-tone="sky"] .landing-feature-card__visual {
+  background: var(--feature-sky);
 }
 .landing-feature-card[data-tone="coral"] .landing-feature-card__visual {
   background: var(--feature-coral);
@@ -73,8 +78,7 @@
   gap: var(--space-3);
   width: 100%;
   max-width: 20rem;
-  height: 100%;
-  max-height: 25rem;
+  /* 내용 높이만큼 늘어나 버튼이 카드 밖으로 밀리지 않게 한다. */
   box-sizing: border-box;
   padding: var(--space-7) var(--space-6);
   border-radius: 2rem;
@@ -84,6 +88,27 @@
 }
 .landing-feature-card:hover .landing-feature-card__panel,
 .landing-feature-card:focus-visible .landing-feature-card__panel {
+  transform: translateY(calc(var(--space-1) * -1));
+}
+.landing-feature-card__screen {
+  display: block;
+  width: 100%;
+  max-width: 30rem;
+  aspect-ratio: 800 / 640;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 1.25rem 2.5rem rgb(120 60 60 / 14%);
+  transition: transform var(--duration-smooth) var(--landing-ease);
+}
+.landing-feature-card__screen video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.landing-feature-card:hover .landing-feature-card__screen,
+.landing-feature-card:focus-visible .landing-feature-card__screen {
   transform: translateY(calc(var(--space-1) * -1));
 }
 .landing-feature-card__hint {
@@ -123,6 +148,13 @@
   font-size: var(--text-label);
 }
 .landing-feature-card__row > span {
+  color: var(--color-muted-ink);
+}
+.landing-feature-card__row--search {
+  justify-content: flex-start;
+  color: var(--color-ink);
+}
+.landing-feature-card__row--search svg {
   color: var(--color-muted-ink);
 }
 .landing-feature-card__row--dot {
@@ -209,7 +241,7 @@
     margin-bottom: var(--space-10);
   }
   .landing-feature-card__visual {
-    height: 26rem;
+    min-height: 26rem;
     padding: var(--space-8) var(--space-6);
   }
   .landing-feature-card__text {
@@ -221,6 +253,9 @@
 .landing-feature-page__hero {
   padding: var(--space-16) var(--space-6);
   background: var(--feature-mint);
+}
+.landing-feature-page__hero[data-tone="sky"] {
+  background: var(--feature-sky);
 }
 .landing-feature-page__hero[data-tone="coral"] {
   background: var(--feature-coral);
@@ -239,7 +274,7 @@
 }
 .landing-feature-page__copy {
   display: flex;
-  flex: 1 1 26rem;
+  flex: 1.4 1 32rem;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-5);
@@ -247,7 +282,7 @@
 .landing-feature-page__copy h1 {
   display: flex;
   flex-direction: column;
-  font-size: var(--landing-statement-size);
+  font-size: var(--landing-heading-size);
   line-height: 1.25;
   font-weight: var(--font-weight-extrabold);
   letter-spacing: var(--landing-heading-tracking);

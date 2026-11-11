@@ -12,3 +12,5 @@
 - `landing-clubhouse-orbit-poster.webp`, `landing-clubhouse-walk-poster.webp`: 두 영상의 첫 장면. 영상을 불러오기 전과 동작 줄이기 설정에서 보인다.
 - `landing-clubhouse-decorate.webp`, `landing-clubhouse-inside.webp`, `landing-clubhouse-music.webp`: 같은 녹화에서 고른 장면(960px). 짙은 나무색 테마로 바꾼 아지트, 거실에 들어선 캐릭터, 모임 음악 표지판이 보이는 현관이다.
 - `sparring-arena-demo-start.webp`, `sparring-arena-demo-end.webp`: 같은 영상의 첫 장면과 마지막 장면. 재생 전 포스터와 동작 줄이기 설정의 정지 화면으로 쓴다.
+- `landing-sparring-faceoff.mp4`: 랜딩의 토론하나? 카드용. `sparring-arena-demo.mp4`의 10.4초부터 끝까지(약 6초)를 경기장 부분(가로 173, 세로 150에서 800×640)만 잘라 H.264로 다시 인코딩했다(소리 없음). 캡슐이 내려온 뒤 두 캐릭터가 VS로 맞서 한마디를 주고받는 장면이다.
+- `landing-sparring-faceoff.webp`: 같은 영상의 2.9초 장면. 영상을 불러오기 전과 동작 줄이기 설정에서 보인다.

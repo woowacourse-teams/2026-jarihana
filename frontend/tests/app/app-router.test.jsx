@@ -51,6 +51,7 @@ it.each([
   ["/home", "GroupsPage"],
   ["/land", "LandingPage"],
   ["/land/", "LandingPage"],
+  ["/land/join", "LandingJoinPage"],
   ["/land/create", "LandingCreatePage"],
   ["/land/sparring", "LandingSparringPage"],
   ["/land/games", "LandingGamesPage"],

@@ -50,9 +50,12 @@ test("members keep the current home and may explicitly open the landing", async 
   await expect(page.locator(".groups-page--home")).toBeVisible();
   await page.goBack();
   await expect(page.locator(".landing-page")).toBeVisible();
-  await page.getByRole("link", { name: /오늘 바로 모임을 열 수 있어요/ }).click();
-  await expect(page).toHaveURL(/\/land\/create$/);
+  await page.getByRole("link", { name: /바로 참여를 신청해요/ }).click();
+  await expect(page).toHaveURL(/\/land\/join$/);
   await expect(page.locator(".landing-page")).toBeVisible();
   await expect(page.locator(".app-shell")).toHaveCount(0);
+  await page.goBack();
+  await page.getByRole("link", { name: /오늘 바로 모임을 열 수 있어요/ }).click();
+  await expect(page).toHaveURL(/\/land\/create$/);
   await expect(page.getByRole("link", { name: "모임 만들기", exact: true }).first()).toHaveAttribute("href", "/groups/new");
 });

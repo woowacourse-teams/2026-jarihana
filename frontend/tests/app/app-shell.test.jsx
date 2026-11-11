@@ -558,7 +558,7 @@ it("closes only the 자리 disclosure on Escape inside the mobile drawer", () =>
 it.each([
   ["/", "authenticated"], ["/", "anonymous"], ["/", "loading"], ["/", "signup-required"], ["/", "unavailable"],
   ["/land", "anonymous"], ["/land", "authenticated"], ["/land", "loading"],
-  ["/land/", "authenticated"], ["/land/create", "anonymous"], ["/land/games", "authenticated"]
+  ["/land/", "authenticated"], ["/land/join", "anonymous"], ["/land/create", "anonymous"], ["/land/games", "authenticated"]
 ])("leaves %s (%s) to the landing's own shell", (pathname, status) => {
   mockPathname = pathname;
   renderShell({ status });

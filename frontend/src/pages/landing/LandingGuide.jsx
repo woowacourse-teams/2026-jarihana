@@ -20,13 +20,13 @@ import { LandingProductDemo } from "./LandingProductDemo";
 import "./landing-guide.css";
 import "./landing-demo-viewport.css";
 
-const guideChapters = [
+export const guideChapters = [
   {
     id: "browse",
     number: "01",
     icon: Search,
     title: "나에게 맞는 자리 찾기",
-    checks: ["이름으로 검색", "유형·모집 상태로 필터"],
+    checks: ["이름으로 검색", "유형과 모집 상태로 필터"],
     alt: "모임 검색과 유형 필터로 함께 배우는 토요일을 찾는 이용 예시"
   },
   {
@@ -34,7 +34,7 @@ const guideChapters = [
     number: "02",
     icon: CalendarDays,
     title: "이 모임, 나와 잘 맞을까?",
-    checks: ["소개·일정·장소 확인", "참여 신청"],
+    checks: ["소개, 일정, 장소 확인", "참여 신청"],
     alt: "모임 소개와 일정, 모집 방식을 확인하고 참여를 신청하는 이용 예시"
   },
   {
@@ -47,7 +47,7 @@ const guideChapters = [
   }
 ];
 
-const proposalChapters = [{
+export const proposalChapters = [{
   id: "proposal",
   number: "01",
   icon: Hand,
@@ -62,7 +62,7 @@ export const hostChapters = [
     number: "01",
     icon: Plus,
     title: "모임 만들기",
-    checks: ["종류·이름·소개 입력", "장소·일정 설정"],
+    checks: ["종류, 이름, 소개 입력", "장소와 일정 설정"],
     alt: "모임 종류와 이름, 소개, 장소와 일정을 정해 모임을 만드는 이용 예시"
   },
   {
@@ -70,7 +70,7 @@ export const hostChapters = [
     number: "02",
     icon: ClipboardCheck,
     title: "참여 신청 관리",
-    checks: ["신청 내용 확인", "승인·모집 상태 관리"],
+    checks: ["신청 내용 확인", "승인과 모집 상태 관리"],
     alt: "모임장이 신청 내용을 읽고 승인 여부를 관리하는 이용 예시"
   }
 ];

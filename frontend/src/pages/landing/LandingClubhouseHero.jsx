@@ -22,14 +22,14 @@ const highlights = [
   {
     id: "decorate",
     title: "아지트 꾸미기",
-    description: "가구를 놓고 벽과 바닥 테마, 조명과 날씨, 시간대를 바꿔요.",
+    description: "가구를 놓고 벽과 바닥 테마, 조명, 날씨, 시간대까지 바꿔요.",
     image: decorateImage,
     alt: "벽과 바닥을 짙은 나무색 테마로 바꾼 아지트를 위에서 본 모습"
   },
   {
     id: "visit",
-    title: "놀러가기",
-    description: "1인칭과 3인칭으로 걸어 들어가 공지와 활동 기록을 보고 채팅을 열어요.",
+    title: "놀러 가기",
+    description: "1인칭이나 3인칭 시점으로 걸어 들어가 공지와 활동 기록을 보고 채팅도 열어요.",
     image: insideImage,
     alt: "3인칭 캐릭터가 아지트 거실에 들어선 모습"
   },
@@ -63,13 +63,12 @@ export function LandingClubhouseHero({ active }) {
             <LandingLoopVideo poster={orbitPoster} src={orbitVideo} />
           </div>
           <div className="landing-clubhouse__copy">
-            <p className="landing-eyebrow">IT 사람들의 모임, 자리하나</p>
             <h1 id="clubhouse-title">
               <span>모임마다 하나씩,</span>
               <span>함께 꾸미는 아지트</span>
             </h1>
             <p className="landing-clubhouse__lead">
-              동아리와 스터디에는 3D 아지트가 생겨요. 모임장은 가구와 조명을 꾸미고, 멤버는 놀러와서 같은 음악을 들어요.
+              동아리와 스터디마다 3D 아지트가 생겨요. 모임장은 가구를 놓고 조명을 바꿔 꾸미고, 멤버는 놀러 와서 같은 음악을 함께 들어요.
             </p>
             <div className="landing-clubhouse__actions">
               <button
@@ -90,7 +89,7 @@ export function LandingClubhouseHero({ active }) {
             </div>
           </div>
           <span aria-hidden="true" className="landing-clubhouse__pull">
-            내려서 아지트 열기
+            끝까지 안 봐도 돼요, 내려 보세요
             <ChevronDown size={18} />
           </span>
         </div>
@@ -101,7 +100,7 @@ export function LandingClubhouseHero({ active }) {
             src={walkVideo}
           />
           <p className="landing-clubhouse__caption">
-            <strong>주말 아지트에 놀러가는 중이에요</strong>
+            <strong>주말 아지트에 놀러 가는 중이에요</strong>
             <button
               className="landing-clubhouse__try"
               data-ph-capture-attribute-action="landing_clubhouse_try"
