@@ -497,6 +497,38 @@ test("both camera transitions keep the display pixel ratio throughout the flight
   expect(renderer.setDrawingBufferSize).not.toHaveBeenCalledWith(1000, 600, 1);
 });
 
+test("walking keeps display resolution until frames are consistently slow and restores it when idle", () => {
+  jest.useFakeTimers({ doNotFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  try {
+    jest.replaceProperty(window, "devicePixelRatio", 2);
+    const { room, container, camera } = setup();
+    const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+    const frames = [];
+    window.requestAnimationFrame.mockImplementation((callback) => frames.push(callback));
+    let time = 0;
+    const frame = (elapsed) => {
+      time += elapsed;
+      frames.splice(0).forEach((callback) => callback(time));
+    };
+    runtime.update(room, null, "firstPerson", 0.7);
+    frame(16.7);
+    const spawn = camera().position.clone();
+    const key = (type) => container.dispatchEvent(new KeyboardEvent(type, { code: "KeyW", key: "w" }));
+    key("keydown");
+    for (let index = 0; index < 24; index += 1) frame(16.7);
+    expect(camera().position.distanceTo(spawn)).toBeGreaterThan(0.1);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
+    for (let index = 0; index < 16; index += 1) frame(40);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.7);
+    key("keyup");
+    jest.advanceTimersByTime(140);
+    frame(16.7);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test("web hero lets scroll and context menu pass and cannot move objects before expanding", () => {
   const { room, camera, callbacks, send } = setup(true);
   callbacks.canInteract = () => false;
