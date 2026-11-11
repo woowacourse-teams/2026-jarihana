@@ -228,7 +228,7 @@ test("detail preview rotates without taking scroll or opening items, and can hid
   expect(rotated.angleTo(before)).toBeGreaterThan(0.1);
   expect(camera().position).toEqual(origin);
   expect(renderer.setDrawingBufferSize).toHaveBeenCalledTimes(1);
-  expect(renderer.setDrawingBufferSize).toHaveBeenCalledWith(1000, 600, 1.5);
+  expect(renderer.setDrawingBufferSize).toHaveBeenCalledWith(1000, 600, 2);
   send("pointerdown"); send("pointerup");
   expect(callbacks.onSelect).not.toHaveBeenCalled();
   expect(send("wheel", { deltaY: 100 }).defaultPrevented).toBe(false);
@@ -465,11 +465,12 @@ test("camera changes reuse item elevations and moving a platform updates the ins
   expect(instrument.position.y).toBe(0);
 });
 
-test("both camera transitions keep the settled pixel ratio throughout the flight", () => {
+test("both camera transitions keep the display pixel ratio throughout the flight", () => {
   jest.replaceProperty(window, "devicePixelRatio", 2);
   const { room, camera } = setup();
   runtime.setPreviewWideAngle(25);
   const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  expect(createRoomRendering.mock.results.at(-1).value.resize).toHaveBeenLastCalledWith(2000, 1200);
   const rect = { left: 0, top: 0, width: 1000, height: 600 };
   const finish = jest.fn();
   let nextFrame;
@@ -483,14 +484,14 @@ test("both camera transitions keep the settled pixel ratio throughout the flight
       from: rect, duration: 720, getTargetRect: () => rect, finish
     });
     nextFrame(0);
-    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.5);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
     nextFrame(720);
     const point = new THREE.Vector3(1, 2, 3);
     const flightEnd = point.clone().project(camera());
     runtime.update(room, null, view, 1);
     nextFrame(736);
     expect(point.clone().project(camera()).distanceTo(flightEnd)).toBeLessThan(1e-7);
-    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.5);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
   }
   expect(finish).toHaveBeenCalledTimes(2);
   expect(renderer.setDrawingBufferSize).not.toHaveBeenCalledWith(1000, 600, 1);

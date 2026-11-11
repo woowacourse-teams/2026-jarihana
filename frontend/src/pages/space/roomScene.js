@@ -1,4 +1,5 @@
 import { createRoomRendering } from "./roomRendering";
+import { createRoomFrameQuality } from "./roomFrameQuality";
 import { applyAssetAppearance } from "./assetAppearance";
 import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
@@ -115,10 +116,15 @@ function speechSprite(message) {
 
 export function createRoomScene(container, callbacks) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "default" });
-  const settledPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-  const motionPixelRatio = Math.min(settledPixelRatio, 1);
-  let pixelRatio = settledPixelRatio;
-  renderer.setPixelRatio(pixelRatio);
+  const gl = renderer.getContext?.();
+  const maxBufferSize = Math.min(renderer.capabilities?.maxTextureSize ?? Infinity,
+    gl?.getParameter(gl.MAX_RENDERBUFFER_SIZE) ?? Infinity);
+  const frameQuality = createRoomFrameQuality();
+  let nativePixelRatio;
+  let pixelRatio;
+  let frameProbe = 0;
+  let refreshProbe = 0;
+  let pixelRatioMedia;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -274,8 +280,43 @@ export function createRoomScene(container, callbacks) {
     if (animated) signTimer = window.setTimeout(render, 1000 / 24);
   }
 
+  function screenPixelRatio(width, height) {
+    return Math.min(window.devicePixelRatio || 1, maxBufferSize / Math.max(width, height));
+  }
+
+  function resetFrameQuality() {
+    if (frameProbe) cancelAnimationFrame(frameProbe);
+    frameProbe = 0;
+    frameQuality.reset();
+  }
+
+  function measureDisplayRefresh() {
+    if (refreshProbe) cancelAnimationFrame(refreshProbe);
+    let previous;
+    let remaining = 9;
+    let shortest = Infinity;
+    function measure(time) {
+      const elapsed = time - previous;
+      if (elapsed >= 4 && elapsed <= 45) shortest = Math.min(shortest, elapsed);
+      previous = time;
+      refreshProbe = --remaining ? requestAnimationFrame(measure) : 0;
+      if (!remaining && Number.isFinite(shortest)) frameQuality.setRefreshInterval(shortest);
+    }
+    refreshProbe = requestAnimationFrame(measure);
+  }
+
   function renderFrom(activeCamera, options, time) {
-    const nextPixelRatio = options.moving && !options.flying && !options.preview ? motionPixelRatio : settledPixelRatio;
+    const adaptive = options.moving && !options.flying && !options.preview && !document.hidden;
+    if (adaptive) {
+      // Probe the next display frame so gaps between pointer events do not count as rendering lag.
+      if (!frameProbe) frameProbe = requestAnimationFrame((nextTime) => {
+        frameProbe = 0;
+        if (!document.hidden && nativePixelRatio) {
+          frameQuality.sample(nextTime - time, Math.min(1, 0.75 / nativePixelRatio));
+        }
+      });
+    } else resetFrameQuality();
+    const nextPixelRatio = nativePixelRatio * frameQuality.scale;
     if (renderWidth && renderHeight && pixelRatio !== nextPixelRatio) {
       pixelRatio = nextPixelRatio;
       renderer.setDrawingBufferSize(renderWidth, renderHeight, pixelRatio);
@@ -300,9 +341,11 @@ export function createRoomScene(container, callbacks) {
     const activeCamera = walkthrough.active() ? walkthrough.camera : activePreviewCamera();
     rendering.compile(activeCamera).then(() => {
       if (disposed || generation !== preparationGeneration) return;
+      const { innerWidth, innerHeight } = window;
+      const warmupRatio = screenPixelRatio(innerWidth, innerHeight);
       rendering.prepareAssets(activeCamera,
-        Math.max(1, Math.floor(window.innerWidth * settledPixelRatio)),
-        Math.max(1, Math.floor(window.innerHeight * settledPixelRatio)));
+        Math.max(1, Math.floor(innerWidth * warmupRatio)),
+        Math.max(1, Math.floor(innerHeight * warmupRatio)));
       preparing = false;
       render();
     }).catch(() => {
@@ -317,6 +360,7 @@ export function createRoomScene(container, callbacks) {
       animationFrame = 0;
       if (disposed || templateFrame || preparing) return;
       try {
+        if (renderWidth && nativePixelRatio !== screenPixelRatio(renderWidth, renderHeight)) resize(false);
         renderFrame(time);
         waitForTemplateFrame();
       } catch (error) {
@@ -395,12 +439,16 @@ export function createRoomScene(container, callbacks) {
     if (schedule) render();
   }
 
-  function resize() {
+  function resize(schedule = true) {
     if (disposed) return;
     const { width, height } = container.getBoundingClientRect();
     if (!width || !height) return;
     const resized = width !== renderWidth || height !== renderHeight;
-    const nextPixelRatio = !flight && view !== "front" && (settleTimer !== undefined || cameraControls.isDragging()) ? motionPixelRatio : settledPixelRatio;
+    const displayRatio = screenPixelRatio(width, height);
+    const ratioChanged = nativePixelRatio !== displayRatio;
+    if (ratioChanged || flight || view === "front") resetFrameQuality();
+    nativePixelRatio = displayRatio;
+    const nextPixelRatio = displayRatio * frameQuality.scale;
     if (resized || pixelRatio !== nextPixelRatio) {
       pixelRatio = nextPixelRatio;
       renderer.setDrawingBufferSize(width, height, pixelRatio);
@@ -408,10 +456,25 @@ export function createRoomScene(container, callbacks) {
     if (resized) {
       renderWidth = width;
       renderHeight = height;
-      rendering.resize(width, height);
       walkthrough.resize(width, height);
     }
-    updateCamera();
+    if (resized || ratioChanged) {
+      // The composer stays at the full display resolution; moving frames use a separate target.
+      rendering.resize(Math.max(1, Math.floor(width * displayRatio)), Math.max(1, Math.floor(height * displayRatio)));
+    }
+    updateCamera(schedule);
+  }
+
+  function watchDisplayPixelRatio() {
+    pixelRatioMedia?.removeEventListener("change", onDisplayPixelRatioChange);
+    pixelRatioMedia = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    pixelRatioMedia?.addEventListener("change", onDisplayPixelRatioChange);
+  }
+
+  function onDisplayPixelRatioChange() {
+    watchDisplayPixelRatio();
+    measureDisplayRefresh();
+    resize();
   }
 
   function canUseStudioCamera() {
@@ -1129,8 +1192,10 @@ export function createRoomScene(container, callbacks) {
   }
   function onSignMotionChange() { updateSigns(); render(); }
   function onSignVisibilityChange() {
-    if (document.hidden) window.clearTimeout(signTimer);
-    else render();
+    if (document.hidden) {
+      resetFrameQuality();
+      window.clearTimeout(signTimer);
+    } else render();
   }
   const signObserver = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
     canvasOnScreen = entry.isIntersecting;
@@ -1144,6 +1209,7 @@ export function createRoomScene(container, callbacks) {
   container.addEventListener("keydown", onPreviewKeyDown);
   container.addEventListener("keyup", onPreviewKeyUp);
   container.addEventListener("blur", stopPreviewMovement);
+  window.addEventListener("resize", resize);
   window.addEventListener("blur", stopPreviewMovement);
   document.addEventListener("visibilitychange", stopPreviewMovement);
   document.addEventListener("visibilitychange", onSignVisibilityChange);
@@ -1155,6 +1221,8 @@ export function createRoomScene(container, callbacks) {
   renderer.domElement.addEventListener("webglcontextlost", onContextLost);
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("contextmenu", onContextMenu);
+  watchDisplayPixelRatio();
+  measureDisplayRefresh();
   resize();
 
   return {
@@ -1217,6 +1285,9 @@ export function createRoomScene(container, callbacks) {
       preparationGeneration += 1;
       cancelAnimationFrame(animationFrame);
       cancelAnimationFrame(templateFrame);
+      cancelAnimationFrame(refreshProbe);
+      resetFrameQuality();
+      pixelRatioMedia?.removeEventListener("change", onDisplayPixelRatioChange);
       clearTemplateSync();
       window.clearTimeout(settleTimer);
       window.clearTimeout(signTimer);
@@ -1229,6 +1300,7 @@ export function createRoomScene(container, callbacks) {
       container.removeEventListener("keydown", onPreviewKeyDown);
       container.removeEventListener("keyup", onPreviewKeyUp);
       container.removeEventListener("blur", stopPreviewMovement);
+      window.removeEventListener("resize", resize);
       window.removeEventListener("blur", stopPreviewMovement);
       document.removeEventListener("visibilitychange", stopPreviewMovement);
       document.removeEventListener("visibilitychange", onSignVisibilityChange);
