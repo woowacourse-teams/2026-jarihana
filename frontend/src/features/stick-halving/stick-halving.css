@@ -1,6 +1,6 @@
 .stick-game {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-width: 0;
   /* 다음 막대로 넘어갈 때 이 영역으로 스크롤한다. 헤더 아래에 카드 테두리가 보이도록 여유를 둔다. */
   scroll-margin-top: var(--space-8);
@@ -14,29 +14,43 @@
   justify-content: space-between;
 }
 
-.stick-game__round {
-  align-items: baseline;
+/* 진행: 지금 막대는 긴 점, 지난 막대는 진한 점, 남은 막대는 옅은 점 */
+.stick-game__progress {
+  align-items: center;
+  color: var(--color-text-muted);
   display: flex;
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
   gap: var(--space-2);
   margin: 0;
 }
 
-.stick-game__round-number {
-  font-size: 1.875rem;
-  font-weight: var(--font-weight-extrabold);
-  line-height: 1;
+.stick-game__dots {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.3125rem;
+  margin-inline-end: var(--space-1);
 }
 
-.stick-game__round-of,
-.stick-game__running,
-.stick-game__keys,
-.stick-game__comment {
-  color: var(--color-text-muted);
+.stick-game__dot {
+  background: var(--color-line);
+  block-size: 0.375rem;
+  border-radius: 999px;
+  inline-size: 0.375rem;
+}
+
+.stick-game__dot--done {
+  background: var(--color-brand-ink);
+}
+
+.stick-game__dot--now {
+  background: var(--color-brand);
+  inline-size: 1.125rem;
 }
 
 .stick-game__round-name {
-  font-size: 1.125rem;
-  font-weight: var(--font-weight-extrabold);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-bold);
 }
 
 .stick-game__meta {
@@ -55,6 +69,7 @@
 }
 
 .stick-game__running {
+  color: var(--color-text-muted);
   font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
   margin: 0;
@@ -62,21 +77,61 @@
 
 .stick-game__running strong {
   color: var(--color-ink);
-  font-size: 1.125rem;
 }
 
-/* 남은 시간은 막대 바로 위의 가는 막대와 오른쪽 숫자로 보여 준다. */
+/* 자를 때: 제목, 남은 시간, 막대, 안내, 자르기 버튼을 한 줄로 쌓는다. */
+.stick-game__play {
+  display: grid;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.stick-game__lead {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stick-game__title {
+  color: var(--color-ink);
+  font-size: 1.625rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.stick-game__subtitle {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 .stick-game__timer {
-  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stick-game__timer-text {
+  align-items: baseline;
+  color: var(--color-text-muted);
   display: flex;
-  gap: var(--space-3);
+  font-size: var(--text-body);
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.stick-game__timer-number {
+  color: var(--color-ink);
+  font-size: 2.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
 }
 
 .stick-game__timer-track {
   background: var(--color-surface-sunken);
   border-radius: 999px;
-  block-size: 0.5rem;
-  flex: 1;
+  block-size: 0.375rem;
   overflow: hidden;
 }
 
@@ -86,72 +141,23 @@
   transform-origin: left center;
 }
 
+.stick-game__timer--low .stick-game__timer-number {
+  color: var(--color-danger);
+}
+
 .stick-game__timer--low .stick-game__timer-fill {
   background: var(--color-danger);
 }
 
-.stick-game__timer-text {
+.stick-game__hint {
+  color: var(--color-text-muted);
   font-size: var(--text-label);
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-bold);
-  min-inline-size: 4.5rem;
-  text-align: end;
+  margin: calc(var(--space-2) * -1) 0 0;
+  text-align: center;
 }
 
-.stick-game__timer--low .stick-game__timer-text {
-  color: var(--color-danger);
-}
-
-.stick-game__controls,
-.stick-game__actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.stick-game__actions {
-  justify-content: flex-end;
-}
-
-.stick-game__cutting,
-.stick-game__outcome {
-  align-content: start;
-  display: grid;
-  gap: var(--space-3);
-  min-inline-size: 0;
-}
-
-/* 자른 뒤: 왼쪽 자른 막대, 오른쪽 점수와 저울. 좁은 화면에서는 위아래로 쌓는다. */
-.stick-game__result {
-  align-items: start;
-  display: grid;
-  gap: var(--space-5);
-}
-
-@media (min-width: 720px) {
-  .stick-game__result {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .stick-game--result .stick-board__labels .stick-board__label--odd {
-    display: none;
-  }
-}
-
-/* 자르기와 다음 막대는 같은 자리, 같은 크기로 둔다. */
-.stick-game__primary {
-  margin-inline-start: auto;
-  min-inline-size: 9rem;
-}
-
-.stick-game__keys {
-  align-items: center;
-  display: inline-flex;
-  flex-wrap: wrap;
-  font-size: var(--text-caption);
-  gap: var(--space-1);
-  margin: 0 0 0 var(--space-2);
+.stick-game__hint-touch {
+  display: none;
 }
 
 .stick-game__keys kbd {
@@ -163,42 +169,88 @@
   font-family: inherit;
   font-size: 0.75rem;
   line-height: 1.4;
+  margin-inline: 0.0625rem;
   padding: 0 0.375rem;
 }
 
-.stick-game__keys kbd + kbd {
-  margin-inline-start: -0.125rem;
+/* 자르기와 다음 막대는 꽉 찬 큰 버튼 하나로 둔다. */
+.stick-game__primary {
+  inline-size: 100%;
 }
 
-.stick-game__verdict-text {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+/* 자른 뒤: 좁은 화면에서는 점수, 막대, 오차, 저울, 다음 막대 순서로 쌓는다. */
+.stick-game__result {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-areas:
+    "verdict"
+    "board"
+    "facts"
+    "balance"
+    "next";
+}
+
+.stick-game__verdict {
+  display: grid;
+  gap: var(--space-1);
+  grid-area: verdict;
   margin: 0;
-  min-inline-size: 0;
+}
+
+.stick-game__comment {
+  color: var(--color-text-muted);
 }
 
 .stick-game__points {
   color: var(--color-text-brand);
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-extrabold);
-  line-height: 1;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-.stick-game__nudge {
-  background: var(--color-surface);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: 999px;
-  block-size: var(--touch-target);
-  cursor: pointer;
-  font-size: 1.375rem;
-  inline-size: var(--touch-target);
-  line-height: 1;
+.stick-game__board {
+  grid-area: board;
+  min-inline-size: 0;
 }
 
-.stick-game__nudge:focus-visible,
+.stick-game__facts {
+  grid-area: facts;
+}
+
+.stick-game__balance {
+  grid-area: balance;
+  justify-self: center;
+  inline-size: min(100%, 24rem);
+}
+
+.stick-game__next {
+  grid-area: next;
+}
+
+/* 넓은 화면: 왼쪽에 자른 막대와 오차, 오른쪽에 점수, 저울, 다음 막대 */
+@media (min-width: 720px) {
+  .stick-game__result {
+    align-items: start;
+    column-gap: var(--space-8);
+    grid-template-areas:
+      "board verdict"
+      "facts balance"
+      "facts next";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .stick-game__next {
+    align-self: end;
+  }
+
+  .stick-game--result .stick-board__labels .stick-board__label--odd {
+    display: none;
+  }
+}
+
+.stick-game__board .stick-board:focus-visible,
 .stick-board:focus-visible {
   outline: var(--border-strong) solid var(--color-brand);
   outline-offset: 2px;
@@ -349,71 +401,6 @@
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* 칼 확대 창 */
-.stick-loupe {
-  background: var(--color-surface-sunken);
-  border: var(--border-thin) solid var(--color-line);
-  border-radius: var(--radius-md, 0.875rem);
-  cursor: ew-resize;
-  overflow: hidden;
-  padding: var(--space-1) 0 var(--space-2);
-  touch-action: none;
-  user-select: none;
-}
-
-.stick-loupe--locked {
-  cursor: default;
-}
-
-.stick-loupe__labels {
-  block-size: 1rem;
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  position: relative;
-}
-
-.stick-loupe__labels span {
-  line-height: 1rem;
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-}
-
-.stick-loupe svg {
-  display: block;
-  inline-size: 100%;
-}
-
-.stick-loupe__ticks {
-  block-size: 0.75rem;
-}
-
-.stick-loupe__ticks line {
-  stroke: var(--color-muted);
-  stroke-width: 1;
-}
-
-.stick-loupe__ticks .stick-loupe__tick--cell {
-  stroke: var(--color-ink);
-  stroke-width: 2;
-}
-
-.stick-loupe__stick {
-  block-size: 3.5rem;
-}
-
-.stick-loupe__knife {
-  stroke: var(--color-ink);
-  stroke-width: 2;
-}
-
-.stick-loupe__answer {
-  stroke: var(--color-brand-ink);
-  stroke-dasharray: 6 4;
-  stroke-width: 3;
-}
-
 .stick-board__pieces .stick-board__piece--left {
   transform: translateX(-14px);
 }
@@ -462,50 +449,46 @@
   stroke-width: 1.5;
 }
 
-/* 결과. 점수 아래에 저울과 오차를 가운데의 좁은 열로 모아 보여 준다. */
-.cut-result {
+/* 결과의 오차와 두 위치. 이름은 왼쪽, 값은 오른쪽에 둔다. */
+.cut-facts {
   border-block-start: var(--border-thin) solid var(--color-line);
   display: grid;
-  gap: var(--space-3);
-  justify-items: center;
-  padding-block-start: var(--space-4);
+  margin: 0;
+  padding-block-start: var(--space-2);
 }
 
-.cut-result > * {
-  inline-size: min(100%, 28rem);
-}
-
-.cut-result__legend {
-  color: var(--color-text-muted);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: var(--text-label);
-  font-variant-numeric: tabular-nums;
-  gap: var(--space-2) var(--space-5);
-  justify-content: center;
-}
-
-.cut-result__legend span {
+.cut-facts div {
   align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding-block: var(--space-2);
+}
+
+.cut-facts dt {
+  align-items: center;
+  color: var(--color-text-muted);
   display: inline-flex;
   gap: var(--space-2);
 }
 
-.cut-result__legend b {
-  color: var(--color-ink);
+.cut-facts dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  margin: 0;
 }
 
-.cut-result__legend span:last-child b {
+.cut-facts .cut-facts__error {
   color: var(--color-text-brand);
+  font-size: 1.25rem;
 }
 
-.cut-result__swatch {
-  border-block-start: 3px solid var(--color-ink);
+.cut-facts__swatch {
+  border-block-start: 3px solid var(--color-game-knife-edge);
   display: inline-block;
-  inline-size: 1.375rem;
+  inline-size: 1.125rem;
 }
 
-.cut-result__swatch--answer {
+.cut-facts__swatch--answer {
   border-block-start-color: var(--color-brand-ink);
   border-block-start-style: dashed;
 }
@@ -546,30 +529,14 @@
   stroke-width: 2;
 }
 
-.cut-result__error {
-  align-items: baseline;
-  display: flex;
-  font-variant-numeric: tabular-nums;
-  gap: var(--space-2);
-  justify-content: center;
-  margin: 0;
-}
-
-.cut-result__error span {
-  color: var(--color-text-muted);
-  font-size: var(--text-caption);
-}
-
-.cut-result__error strong {
-  color: var(--color-text-brand);
-  font-size: 1.375rem;
-  font-weight: var(--font-weight-extrabold);
-}
-
-/* 터치 화면에는 키보드 안내를 보여 주지 않는다. */
-@media (hover: none) {
+/* 터치 화면과 좁은 화면에서는 키보드 안내 대신 끌어서 옮기라는 안내를 보여 준다. */
+@media (hover: none), (max-width: 520px) {
   .stick-game__keys {
     display: none;
+  }
+
+  .stick-game__hint-touch {
+    display: inline;
   }
 }
 
@@ -578,17 +545,8 @@
     display: none;
   }
 
-  .stick-game__keys {
-    display: none;
-  }
-
-  .stick-game__primary {
-    flex: 1 1 100%;
-    margin-inline-start: 0;
-  }
-
-  .stick-game__controls .stick-game__primary {
-    flex: 1 1 auto;
+  .stick-game__title {
+    font-size: 1.375rem;
   }
 }
 

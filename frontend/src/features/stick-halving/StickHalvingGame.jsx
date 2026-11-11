@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../shared/ui";
-import { CutResult, formatPercent } from "./CutResult";
+import { CutFacts, CutResult, formatPercent } from "./CutResult";
 import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
-import { COARSE_NUDGE_STEPS, KnifeLoupe, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
+import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
 
 function commentFor(round, errorRate, position, timedOut) {
@@ -17,16 +17,35 @@ function commentFor(round, errorRate, position, timedOut) {
   return `${prefix}한쪽이 확실히 무거워요.`;
 }
 
+// 남은 시간은 큰 숫자와 그 아래의 가는 막대로 보여 준다. 3초 남으면 빨갛게 바꾼다.
 function Timer({ deadline, now, limitSeconds }) {
   const left = Math.max(0, (deadline - now) / 1000);
-  const low = left <= 5;
+  const low = left <= 3;
   return (
-    <div className={`stick-game__timer${low ? " stick-game__timer--low" : ""}`}>
+    <div className={`stick-game__timer${low ? " stick-game__timer--low" : ""}`} role="timer">
+      <p className="stick-game__timer-text">
+        <span className="stick-game__timer-number">{Math.ceil(left)}</span>초 남음
+      </p>
       <div aria-hidden="true" className="stick-game__timer-track">
         <div className="stick-game__timer-fill" style={{ transform: `scaleX(${(left / limitSeconds).toFixed(4)})` }} />
       </div>
-      <span className="stick-game__timer-text">{Math.ceil(left)}초 남음</span>
     </div>
+  );
+}
+
+// 몇 번째 막대인지 점 5개와 숫자로 보여 준다.
+function Progress({ name, round }) {
+  return (
+    <p className="stick-game__progress">
+      <span aria-hidden="true" className="stick-game__dots">
+        {Array.from({ length: ROUND_COUNT }, (_, index) => {
+          const state = index + 1 === round ? " stick-game__dot--now" : index + 1 < round ? " stick-game__dot--done" : "";
+          return <i className={`stick-game__dot${state}`} key={index} />;
+        })}
+      </span>
+      <span className="stick-game__round-count">{round}/{ROUND_COUNT}</span>
+      <span className="stick-game__round-name">{name}</span>
+    </p>
   );
 }
 
@@ -229,30 +248,19 @@ export function StickHalvingGame({
 
   const info = ROUNDS[round - 1];
   const showingResult = (phase === "result" || phase === "issuing") && outcome;
-  const shownPosition = showingResult ? outcome.position : position;
-  const answerPosition = showingResult ? outcome.answerPosition : null;
   const board = (
-    <>
-      <StickBoard
-        answerPosition={answerPosition}
-        locked={phase !== "play"}
-        onPositionChange={setPosition}
-        onSubmit={() => submit(false)}
-        position={shownPosition}
-        stick={stick}
-      />
-      <KnifeLoupe
-        answerPosition={answerPosition}
-        locked={phase !== "play"}
-        onPositionChange={setPosition}
-        position={shownPosition}
-        stick={stick}
-      />
-    </>
+    <StickBoard
+      answerPosition={showingResult ? outcome.answerPosition : null}
+      locked={phase !== "play"}
+      onPositionChange={setPosition}
+      onSubmit={() => submit(false)}
+      position={showingResult ? outcome.position : position}
+      stick={stick}
+    />
   );
 
-  // 자를 때는 타이머 아래에 막대를 둔다. 무게 숫자는 보여 주지 않고 막대 그림만 보고 자르게 한다.
-  // 자른 뒤에는 왼쪽에 자른 막대를, 오른쪽에 점수와 저울, 다음 막대 버튼을 둔다.
+  // 자를 때는 제목, 남은 시간, 막대, 자르기 버튼을 위에서 아래로 한 줄에 둔다.
+  // 자른 뒤에는 넓은 화면에서 왼쪽에 자른 막대와 오차, 오른쪽에 점수와 저울, 다음 막대 버튼을 둔다.
   return (
     <section
       aria-label="게임"
@@ -260,11 +268,7 @@ export function StickHalvingGame({
       ref={sectionReference}
     >
       <div className="stick-game__head">
-        <p className="stick-game__round">
-          <span className="stick-game__round-number">{round}</span>
-          <span className="stick-game__round-of">/ {ROUND_COUNT}</span>
-          <span className="stick-game__round-name">{info.name}</span>
-        </p>
+        <Progress name={info.name} round={round} />
         <div className="stick-game__meta">
           {label ? <span className="stick-game__mode">{label}</span> : null}
           <p className="stick-game__running">누적 <strong>{totalScore.toLocaleString("ko-KR")}</strong>점</p>
@@ -272,69 +276,53 @@ export function StickHalvingGame({
       </div>
       {showingResult ? (
         <div className="stick-game__result">
-          <div className="stick-game__cutting">{board}</div>
-          <div className="stick-game__outcome">
-            <p className="stick-game__verdict-text" role="status">
-              <span className="stick-game__points">+{outcome.score.toLocaleString("ko-KR")}</span>
-              <span className="stick-game__comment">
-                {commentFor(round, outcome.errorRate, outcome.position, outcome.timedOut)}
-              </span>
-            </p>
-            <CutResult position={outcome.position} result={outcome} stick={stick} />
-            <div className="stick-game__actions">
-              <Button
-                className="stick-game__primary"
-                data-ph-capture-attribute-action="stick_next_round"
-                onClick={next}
-                pending={phase === "issuing"}
-                size="lg"
-              >
-                {outcome.finished ? "최종 결과 보기" : "다음 막대"}
-              </Button>
-            </div>
+          <p className="stick-game__verdict" role="status">
+            <span className="stick-game__comment">
+              {commentFor(round, outcome.errorRate, outcome.position, outcome.timedOut)}
+            </span>
+            <span className="stick-game__points">+{outcome.score.toLocaleString("ko-KR")}점</span>
+          </p>
+          <div className="stick-game__board">{board}</div>
+          <div className="stick-game__facts">
+            <CutFacts position={outcome.position} result={outcome} />
           </div>
+          <div className="stick-game__balance">
+            <CutResult position={outcome.position} stick={stick} />
+          </div>
+          <Button
+            className="stick-game__primary stick-game__next"
+            data-ph-capture-attribute-action="stick_next_round"
+            onClick={next}
+            pending={phase === "issuing"}
+            size="lg"
+          >
+            {outcome.finished ? "최종 결과 보기" : "다음 막대"}
+          </Button>
         </div>
       ) : (
-        <>
-          <Timer deadline={deadline} limitSeconds={timeLimitSeconds} now={now} />
-          <div className="stick-game__cutting">
-            {board}
-            <div className="stick-game__controls">
-              <button
-                aria-label="칼을 왼쪽으로 조금 옮기기"
-                className="stick-game__nudge"
-                data-ph-capture-attribute-action="stick_knife_nudge"
-                disabled={phase !== "play"}
-                onClick={() => setPosition((current) => clampPosition(current - NUDGE_CM))}
-                type="button"
-              >
-                ‹
-              </button>
-              <button
-                aria-label="칼을 오른쪽으로 조금 옮기기"
-                className="stick-game__nudge"
-                data-ph-capture-attribute-action="stick_knife_nudge"
-                disabled={phase !== "play"}
-                onClick={() => setPosition((current) => clampPosition(current + NUDGE_CM))}
-                type="button"
-              >
-                ›
-              </button>
-              <p className="stick-game__keys">
-                <kbd>←</kbd><kbd>→</kbd> 칼 옮기기 <kbd>Enter</kbd> 자르기
-              </p>
-              <Button
-                className="stick-game__primary"
-                data-ph-capture-attribute-action="stick_cut_submit"
-                onClick={() => submit(false)}
-                pending={phase === "cutting"}
-                size="lg"
-              >
-                자르기
-              </Button>
-            </div>
+        <div className="stick-game__play">
+          <div className="stick-game__lead">
+            <h2 className="stick-game__title">같은 무게가 되게 반으로 잘라 보세요</h2>
+            <p className="stick-game__subtitle">초코와 아몬드가 붙은 곳이 더 무거워요</p>
           </div>
-        </>
+          <Timer deadline={deadline} limitSeconds={timeLimitSeconds} now={now} />
+          {board}
+          <p className="stick-game__hint">
+            <span className="stick-game__hint-touch">막대를 끌어서 칼을 옮겨요</span>
+            <span className="stick-game__keys">
+              막대를 끌거나 <kbd>←</kbd><kbd>→</kbd>로 옮기고 <kbd>Enter</kbd>로 잘라요
+            </span>
+          </p>
+          <Button
+            className="stick-game__primary"
+            data-ph-capture-attribute-action="stick_cut_submit"
+            onClick={() => submit(false)}
+            pending={phase === "cutting"}
+            size="lg"
+          >
+            자르기
+          </Button>
+        </div>
       )}
     </section>
   );

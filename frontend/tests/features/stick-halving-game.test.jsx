@@ -1,10 +1,12 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { StickHalvingGame } from "../../src/features/stick-halving";
 import { generatePracticeStick } from "../../src/features/stick-halving/puzzle";
 
 const firstStick = generatePracticeStick(11, 1);
 const secondStick = generatePracticeStick(11, 2);
+
+const timerShows = (text) => waitFor(() => expect(screen.getByRole("timer")).toHaveTextContent(text));
 
 function rankedAdapter(nextRemainingMillis) {
   return {
@@ -24,7 +26,7 @@ function rankedAdapter(nextRemainingMillis) {
 
 async function cutFirstStickAndWaitOnResult(adapter, waitMillis) {
   render(<StickHalvingGame adapter={adapter} />);
-  expect(await screen.findByText("30초 남음")).toBeInTheDocument();
+  await timerShows("30초 남음");
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
   const nextButton = await screen.findByRole("button", { name: "다음 막대" });
   await act(async () => {
@@ -51,9 +53,9 @@ it("asks for the next stick only after the result screen and counts from the mom
   fireEvent.click(nextButton);
 
   // Then: 기다린 시간이 다음 막대의 제한 시간에서 빠지지 않는다.
-  expect(await screen.findByText("30초 남음")).toBeInTheDocument();
+  await timerShows("30초 남음");
   expect(adapter.next).toHaveBeenCalledWith(2);
-  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\s*\/ 5/);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/);
 });
 
 it("shows the time left until the server deadline instead of a fresh 30 seconds", async () => {
@@ -65,8 +67,8 @@ it("shows the time left until the server deadline instead of a fresh 30 seconds"
   fireEvent.click(nextButton);
 
   // Then
-  expect(await screen.findByText("12초 남음")).toBeInTheDocument();
-  expect(screen.queryByText("30초 남음")).not.toBeInTheDocument();
+  await timerShows("12초 남음");
+  expect(screen.getByRole("timer")).not.toHaveTextContent("30초 남음");
 });
 
 it("counts the time the response spent on the way, so the screen never shows more than the server allows", async () => {
@@ -86,8 +88,8 @@ it("counts the time the response spent on the way, so the screen never shows mor
   });
 
   // Then: 응답을 기다린 5초가 빠진 25초만 보여 준다.
-  expect(await screen.findByText("25초 남음")).toBeInTheDocument();
-  expect(screen.queryByText("30초 남음")).not.toBeInTheDocument();
+  await timerShows("25초 남음");
+  expect(screen.getByRole("timer")).not.toHaveTextContent("30초 남음");
 });
 
 it("counts the first stick from when the run was requested too", async () => {
@@ -106,7 +108,7 @@ it("counts the first stick from when the run was requested too", async () => {
   });
 
   // Then
-  expect(await screen.findByText("26초 남음")).toBeInTheDocument();
+  await timerShows("26초 남음");
 });
 
 it("brings the game area back into view when the next stick starts, instead of leaving the page at the ranking below", async () => {

@@ -368,7 +368,6 @@ export function PeperoDayEventPage() {
   return (
     <PageContainer className="pepero-day">
       <PageHeader
-        description="막대과자를 같은 무게로 반 나눠 보세요. 초코와 아몬드가 붙은 곳이 더 무거워요."
         eyebrow="막대과자 데이 이벤트"
         title="공평하게 반띵"
       />

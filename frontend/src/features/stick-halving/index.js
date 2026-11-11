@@ -1,4 +1,4 @@
-export { CutResult, formatPercent } from "./CutResult";
+export { CutFacts, CutResult, formatPercent } from "./CutResult";
 export { StickBoard } from "./StickBoard";
 export { StickHalvingGame } from "./StickHalvingGame";
 export {

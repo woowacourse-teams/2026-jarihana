@@ -86,21 +86,31 @@ function Balance({ position, stick, tiltDegrees }) {
   );
 }
 
-// 자른 뒤의 결과다. 저울 기울기와 오차로 얼마나 공평했는지 보여 준다. 무게 숫자는 보여 주지 않는다.
-export function CutResult({ position, result, stick }) {
+// 자른 뒤의 저울이다. 무거운 쪽으로 기울어 얼마나 공평했는지 보여 준다. 무게 숫자는 보여 주지 않는다.
+export function CutResult({ position, stick }) {
   const total = stick.totalMilligrams;
   const left = leftMilligrams(stick, position);
   const right = total - left;
   const tilt = Math.max(-MAX_TILT_DEGREES, Math.min(MAX_TILT_DEGREES, ((right - left) / total) * 150));
+  return <Balance position={position} stick={stick} tiltDegrees={tilt} />;
+}
 
+// 자른 결과의 오차와 두 위치다. 위치 줄의 선 모양이 막대 위의 칼선, 정답선과 같다.
+export function CutFacts({ position, result }) {
   return (
-    <div className="cut-result">
-      <div className="cut-result__legend">
-        <span><i className="cut-result__swatch" />내가 자른 곳 <b>{formatCm(position)}</b></span>
-        <span><i className="cut-result__swatch cut-result__swatch--answer" />정답 <b>{formatCm(result.answerPosition)}</b></span>
+    <dl className="cut-facts">
+      <div>
+        <dt>오차</dt>
+        <dd className="cut-facts__error">{formatPercent(result.errorRate)}</dd>
       </div>
-      <Balance position={position} stick={stick} tiltDegrees={tilt} />
-      <p className="cut-result__error"><span>오차</span><strong>{formatPercent(result.errorRate)}</strong></p>
-    </div>
+      <div>
+        <dt><i aria-hidden="true" className="cut-facts__swatch" />내가 자른 곳</dt>
+        <dd>{formatCm(position)}</dd>
+      </div>
+      <div>
+        <dt><i aria-hidden="true" className="cut-facts__swatch cut-facts__swatch--answer" />정답</dt>
+        <dd>{formatCm(result.answerPosition)}</dd>
+      </div>
+    </dl>
   );
 }

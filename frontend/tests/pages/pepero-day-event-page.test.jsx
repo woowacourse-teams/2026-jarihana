@@ -82,7 +82,7 @@ it("starts a ranked stick as soon as a member opens the page and reveals the ans
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
   expect(await screen.findByText(/^정답/)).toBeInTheDocument();
-  expect(within(screen.getByRole("region", { name: "게임" })).getByRole("status")).toHaveTextContent(/^\+\d/);
+  expect(within(screen.getByRole("region", { name: "게임" })).getByRole("status")).toHaveTextContent(/\+\d+점/);
   expect(screen.getByText("오차")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "다음 막대" })).toHaveAttribute(
     "data-ph-capture-attribute-action",
@@ -108,7 +108,7 @@ it("opens the ranked result dialog after five sticks and starts a new run from t
   fireEvent.click(screen.getByRole("button", { name: "새 막대로 다시 도전" }));
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
   expect(createRankedAdapter).toHaveBeenCalledTimes(2);
-  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\s*\/ 5/);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5/);
 });
 
 it("moves the knife with the arrow keys even when the stick is not focused, one step per press", async () => {
@@ -142,8 +142,7 @@ it("cuts with Enter without focusing the stick, but not while another button has
 
   await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" });
 
-  const nudge = screen.getByRole("button", { name: "칼을 오른쪽으로 조금 옮기기" });
-  fireEvent.keyDown(nudge, { key: "Enter" });
+  fireEvent.keyDown(screen.getByRole("button", { name: "자르기" }), { key: "Enter" });
   expect(screen.queryByRole("button", { name: "다음 막대" })).not.toBeInTheDocument();
 
   fireEvent.keyDown(document.body, { key: "Enter", repeat: true });
@@ -194,7 +193,7 @@ it("keeps the game in progress when refreshing the status fails around closing t
   expect(screen.queryByText("이벤트를 불러오지 못했어요")).not.toBeInTheDocument();
   fireEvent.click(next);
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\s*\/ 5/);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/);
 });
 
 it("tells when the game moves to the game room, then links there once it has", async () => {
