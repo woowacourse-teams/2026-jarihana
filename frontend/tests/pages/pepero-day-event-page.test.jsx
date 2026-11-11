@@ -99,26 +99,31 @@ it("starts a ranked run when a member presses start and reveals the answer after
   );
 });
 
-it("opens the ranked result dialog after five sticks and starts a new run from the final screen", async () => {
+it("hides the ranking while playing and shows the final table and ranking without a dialog", async () => {
   asMember();
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
+  expect(await screen.findByRole("region", { name: "순위" })).toBeInTheDocument();
   await startRun();
+  expect(screen.queryByRole("region", { name: "순위" })).not.toBeInTheDocument();
 
   for (let round = 1; round <= 5; round += 1) {
     fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
     fireEvent.click(await screen.findByRole("button", { name: round === 5 ? "최종 결과 보기" : "다음 막대" }));
   }
 
-  const dialog = await screen.findByRole("dialog", { name: "순위 도전 결과" });
-  expect(await within(dialog).findByText("모카")).toBeInTheDocument();
-  expect(within(dialog).queryByRole("button", { name: "순위 도전하러 가기" })).not.toBeInTheDocument();
-  fireEvent.click(within(dialog).getAllByRole("button", { name: "닫기" }).at(-1));
+  const final = await screen.findByRole("region", { name: "최종 결과" });
+  expect(within(final).getAllByRole("row")).toHaveLength(6);
+  expect(within(final).getByText("/ 100점")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(await screen.findByRole("region", { name: "순위" })).toBeInTheDocument();
+  expect(screen.getByText("모카")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "새 막대로 다시 도전" }));
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
   expect(createRankedAdapter).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5/);
+  expect(screen.queryByRole("region", { name: "순위" })).not.toBeInTheDocument();
 });
 
 it("moves the knife with the arrow keys even when the stick is not focused, one step per press", async () => {

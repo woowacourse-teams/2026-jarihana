@@ -111,21 +111,18 @@ it("counts the first stick from when the run was requested too", async () => {
   await timerShows("26초 남음");
 });
 
-it("brings the game area back into view when the next stick starts, instead of leaving the page at the ranking below", async () => {
+it("keeps the scroll position when the next stick starts, since the button stays in the same place", async () => {
   // Given
   const scrollIntoView = jest.fn();
   Element.prototype.scrollIntoView = scrollIntoView;
   const adapter = rankedAdapter(30_000);
   const nextButton = await cutFirstStickAndWaitOnResult(adapter, 0);
-  expect(scrollIntoView).not.toHaveBeenCalled();
 
   // When
   fireEvent.click(nextButton);
   expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
 
   // Then
-  expect(scrollIntoView).toHaveBeenCalledTimes(1);
-  expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole("region", { name: "게임" }));
-  expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
+  expect(scrollIntoView).not.toHaveBeenCalled();
   delete Element.prototype.scrollIntoView;
 });

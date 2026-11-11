@@ -295,7 +295,6 @@ function StartPrompt({ onStart }) {
 function OpenEvent({ closed, game, setGame }) {
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
-  const [finished, setFinished] = useState(null);
 
   // 새 판을 시작할 때마다 새 연결부를 만들고, 시작하면 상태를 다시 받는다.
   const start = useCallback(() => {
@@ -338,14 +337,11 @@ function OpenEvent({ closed, game, setGame }) {
           </>
         )}
         key={game.key}
-        onFinish={(summary) => {
+        onFinish={() => {
           void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
-          setFinished({ key: game.key, mode: "ranked", totalScore: summary.totalScore });
+          setGame((current) => (current?.key === game.key ? { ...current, finished: true } : current));
         }}
       />
-      {finished?.key === game.key ? (
-        <RankingDialog onChallenge={null} onClose={() => setFinished(null)} result={finished} />
-      ) : null}
     </section>
   );
 }
@@ -380,7 +376,9 @@ export function PeperoDayEventPage() {
 
   const event = status.data;
   const closed = event.status === "CLOSED";
-  const showRanking = event.status !== "UPCOMING";
+  // 판을 하는 동안에는 순위를 숨기고, 최종 결과가 나오면 다시 보여 준다.
+  const playing = Boolean(game) && !game.finished;
+  const showRanking = event.status !== "UPCOMING" && !playing;
   // 넓은 화면에서는 순위를 오른쪽 열에 두고, 스크롤해도 화면에 붙어 있게 한다(pepero-day.css).
   return (
     <PageContainer className="pepero-day">

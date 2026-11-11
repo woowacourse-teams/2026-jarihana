@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button, ErrorState, Modal, Skeleton } from "../../shared/ui";
 import { CutFacts, CutResult, formatPercent, prefersReducedMotion } from "./CutResult";
-import { DISPLAY_MAX_PER_STICK, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM, formatPoints } from "./puzzle";
+import {
+  DISPLAY_MAX_PER_STICK,
+  MAX_SCORE,
+  ROUND_COUNT,
+  ROUND_TIME_LIMIT_SECONDS,
+  STICK_LENGTH_CM,
+  formatPoints
+} from "./puzzle";
 import { COARSE_NUDGE_STEPS, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
 import "./stick-halving.css";
 
@@ -103,8 +110,6 @@ export function StickHalvingGame({
   const positionReference = useRef(position);
   const phaseReference = useRef(phase);
   const startedReference = useRef(false);
-  const sectionReference = useRef(null);
-  const revealReference = useRef(false);
 
   useEffect(() => {
     positionReference.current = position;
@@ -112,15 +117,6 @@ export function StickHalvingGame({
 
   useEffect(() => {
     phaseReference.current = phase;
-  }, [phase]);
-
-  // 결과를 보려고 아래로 내린 채 다음 막대로 넘어가면, 결과 블록이 사라지면서 화면이 아래 순위 쪽에 남는다.
-  // 새 막대가 나오면 막대 번호부터 자르기 버튼까지가 보이도록 게임 영역 맨 위로 올린다.
-  useEffect(() => {
-    if (phase !== "play" || !revealReference.current) return;
-    revealReference.current = false;
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    sectionReference.current?.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
   }, [phase]);
 
   const begin = useCallback(({ remainingMillis, round: nextRound, stick: nextStick }, requestedAt) => {
@@ -217,7 +213,6 @@ export function StickHalvingGame({
       return;
     }
     phaseReference.current = "issuing";
-    revealReference.current = true;
     setPhase("issuing");
     const requestedAt = Date.now();
     Promise.resolve(adapter.next(round + 1))
@@ -267,7 +262,14 @@ export function StickHalvingGame({
                 <tr key={row.round}>
                   <td>{row.name}</td>
                   <td className="stick-game__number">{formatPercent(row.errorRate)}</td>
-                  <td className="stick-game__number">{formatPoints(row.score)}</td>
+                  <td className="stick-game__number">
+                    <span className="stick-game__score-cell">
+                      <span aria-hidden="true" className="stick-game__score-bar">
+                        <span style={{ inlineSize: `${(row.score / MAX_SCORE) * 100}%` }} />
+                      </span>
+                      <strong>{formatPoints(row.score)}</strong>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -287,7 +289,6 @@ export function StickHalvingGame({
     <section
       aria-label="게임"
       className={`stick-game${showingResult ? " stick-game--result" : ""}`}
-      ref={sectionReference}
     >
       <div className="stick-game__head">
         <Progress round={round} />

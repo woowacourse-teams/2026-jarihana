@@ -2,8 +2,6 @@
   display: grid;
   gap: var(--space-5);
   min-width: 0;
-  /* 다음 막대로 넘어갈 때 이 영역으로 스크롤한다. 헤더 아래에 카드 테두리가 보이도록 여유를 둔다. */
-  scroll-margin-top: var(--space-8);
 }
 
 .stick-game__head {
@@ -291,9 +289,15 @@
   block-size: 18rem;
 }
 
+/* 최종 결과: 가운데에 큰 점수, 그 아래 회색 판 위에 막대별 오차와 점수를 큰 글씨로 둔다. */
+.stick-game--final {
+  justify-items: center;
+  text-align: center;
+}
+
 .stick-game__eyebrow {
-  color: var(--color-text-brand);
-  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+  font-size: var(--text-body);
   font-weight: var(--font-weight-bold);
   margin: 0;
 }
@@ -302,27 +306,36 @@
   align-items: baseline;
   display: flex;
   gap: var(--space-2);
-  margin: 0;
+  margin: calc(var(--space-3) * -1) 0 0;
 }
 
 .stick-game__final-score span {
-  font-size: 3.5rem;
+  color: var(--color-text-brand);
+  font-size: 4rem;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
 .stick-game__final-score small {
   color: var(--color-text-muted);
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-bold);
 }
 
 .stick-game__table-wrap {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-lg, 1.25rem);
+  inline-size: min(100%, 36rem);
   overflow-x: auto;
+  padding: var(--space-2) var(--space-5);
+  text-align: start;
 }
 
 .stick-game__table {
   border-collapse: collapse;
-  font-size: var(--text-label);
+  font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
   inline-size: 100%;
 }
@@ -330,9 +343,13 @@
 .stick-game__table th,
 .stick-game__table td {
   border-block-end: var(--border-thin) solid var(--color-line);
-  padding: var(--space-2) var(--space-1);
+  padding: var(--space-3) var(--space-1);
   text-align: start;
   white-space: nowrap;
+}
+
+.stick-game__table tbody tr:last-child td {
+  border-block-end: 0;
 }
 
 .stick-game__table th {
@@ -341,8 +358,55 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.stick-game__table td:first-child {
+  font-weight: var(--font-weight-bold);
+}
+
 .stick-game__table .stick-game__number {
   text-align: end;
+}
+
+.stick-game__score-cell {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-3);
+}
+
+.stick-game__score-bar {
+  background: var(--color-surface);
+  block-size: 0.5rem;
+  border-radius: 999px;
+  inline-size: 6rem;
+  overflow: hidden;
+}
+
+.stick-game__score-bar > span {
+  background: var(--color-brand);
+  block-size: 100%;
+  border-radius: inherit;
+  display: block;
+}
+
+.stick-game__score-cell strong {
+  color: var(--color-text-brand);
+  font-size: 1.125rem;
+  min-inline-size: 2.75rem;
+}
+
+.stick-game--final .stick-game__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 520px) {
+  .stick-game__table-wrap {
+    padding-inline: var(--space-3);
+  }
+
+  .stick-game__score-bar {
+    inline-size: 3rem;
+  }
 }
 
 /* 막대 */
