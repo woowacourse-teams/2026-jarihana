@@ -152,7 +152,7 @@ export function StickHalvingRoomPage() {
         <BackToGames />
         <header className="games-heading">
           <h1>공평하게 반띵</h1>
-          <p>무게표를 보고 막대과자를 같은 무게로 반 나눠 보세요.</p>
+          <p>막대과자를 같은 무게로 반 나눠 보세요. 초코와 아몬드가 붙은 곳이 더 무거워요.</p>
         </header>
         {game ? (
           <section className="pepero-day__card pepero-day__game">

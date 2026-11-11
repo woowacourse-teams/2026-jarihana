@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button, ErrorState, Skeleton } from "../../shared/ui";
-import { CutResult, formatGrams, formatPercent } from "./CutResult";
+import { CutResult, formatPercent } from "./CutResult";
 import { ROUNDS, ROUND_COUNT, ROUND_TIME_LIMIT_SECONDS, STICK_LENGTH_CM } from "./puzzle";
 import { COARSE_NUDGE_STEPS, KnifeLoupe, NUDGE_CM, StickBoard, clampPosition } from "./StickBoard";
-import { WeightTable } from "./WeightTable";
 import "./stick-halving.css";
 
 function commentFor(round, errorRate, position, timedOut) {
@@ -252,7 +251,7 @@ export function StickHalvingGame({
     </>
   );
 
-  // 자를 때는 무게표와 막대 전체 무게를 나란히 두고 그 아래에 타이머와 막대를 둔다.
+  // 자를 때는 타이머 아래에 막대를 둔다. 무게 숫자는 보여 주지 않고 막대 그림만 보고 자르게 한다.
   // 자른 뒤에는 왼쪽에 자른 막대를, 오른쪽에 점수와 저울, 다음 막대 버튼을 둔다.
   return (
     <section
@@ -297,18 +296,6 @@ export function StickHalvingGame({
         </div>
       ) : (
         <>
-          <div className="stick-game__info">
-            <WeightTable stick={stick} />
-            <div className="stick-game__total">
-              <span className="stick-game__total-label">막대 전체</span>
-              <strong className="stick-game__total-value">{formatGrams(stick.totalMilligrams)}</strong>
-              <span aria-hidden="true" className="stick-game__half-bar" />
-              <p className="stick-game__half">
-                <span>한쪽 {formatGrams(stick.totalMilligrams / 2)}</span>
-                <span aria-hidden="true">한쪽 {formatGrams(stick.totalMilligrams / 2)}</span>
-              </p>
-            </div>
-          </div>
           <Timer deadline={deadline} limitSeconds={timeLimitSeconds} now={now} />
           <div className="stick-game__cutting">
             {board}
