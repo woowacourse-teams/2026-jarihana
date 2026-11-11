@@ -2,6 +2,8 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
+test.use({ launchOptions: { args: ["--disable-webgl"] } });
+
 const announcementOpenButton = (page) =>
   page.locator(".group-announcement-tab__header").getByRole("button", { name: "공지 추가", exact: true });
 

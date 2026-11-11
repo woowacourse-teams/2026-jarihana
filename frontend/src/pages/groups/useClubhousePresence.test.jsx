@@ -21,10 +21,14 @@ beforeEach(() => {
 });
 const setup = () => renderHook(({ listen = true, member = true } = {}) => useClubhousePresence(group, auth, { listen, isMember: member }));
 
-test("all member pages supply unique greeters including the leader", async () => {
+test("only a clubhouse visit loads all member pages for unique greeters", async () => {
   const fetchNextPage = jest.fn();
-  useInfiniteGroupMembers.mockReturnValue({ data: { pages: [{ items: [{ memberId: 2 }, { memberId: 8 }] }, { items: [{ memberId: 3 }] }] }, fetchNextPage, hasNextPage: true, isFetchingNextPage: false });
-  const hook = setup();
+  useInfiniteGroupMembers.mockReturnValue({ data: { pages: [{ items: [{ memberId: 2 }, { memberId: 8 }] }, { items: [{ memberId: 3 }] }] }, fetchNextPage, hasNextPage: true, isFetching: false });
+  const hook = renderHook(({ listen }) => useClubhousePresence(group, auth, { listen, isMember: true }), {
+    initialProps: { listen: false }
+  });
+  expect(fetchNextPage).not.toHaveBeenCalled();
+  hook.rerender({ listen: true });
   expect(hook.result.current.greetingMembers).toEqual([8, 2, 3]);
   await waitFor(() => expect(fetchNextPage).toHaveBeenCalledTimes(1));
 });

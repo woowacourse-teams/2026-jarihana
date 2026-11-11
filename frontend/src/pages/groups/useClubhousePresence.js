@@ -5,11 +5,11 @@ import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { SPEECH_DURATION_MS } from "../space/clubhouseInteractions.js";
 
 export function useClubhousePresence(group, auth, { listen, isMember }) {
-  const members = useInfiniteGroupMembers(group.id);
-  const { fetchNextPage, hasNextPage, isFetchingNextPage, isError } = members;
+  const members = useInfiniteGroupMembers(group.id, { forGreeters: listen });
+  const { fetchNextPage, hasNextPage, isFetching, isError } = members;
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage && !isError) void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isError]);
+    if (listen && hasNextPage && !isFetching && !isError) void fetchNextPage();
+  }, [listen, fetchNextPage, hasNextPage, isFetching, isError]);
   const greetingMembers = useMemo(() => {
     const ids = [group.leader?.memberId, ...(members.data?.pages ?? []).flatMap((page) => page.items.map((member) => member.memberId))];
     return [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))];
