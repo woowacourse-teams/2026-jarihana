@@ -218,6 +218,8 @@ ACTIVE 모임의 구성원이 기존 소스의 곡 종료 또는 영상 오류�
 ### 유튜브 API 설정
 
 서버 환경 변수 YOUTUBE_DATA_API_KEY에 YouTube Data API v3 사용이 가능한 키를 설정한다.
+GitHub Actions 배포는 같은 이름의 시크릿을 읽는다. 개발 배포는 개발용 Compose로 전달한다.
+운영은 `app-music-compose.yml`을 포함한 제어 버전으로 교체한 후 다음 백엔드 배포의 `prepare`에서 전달한다.
 키는 HTTP X-Goog-Api-Key 헤더로 보내고 클라이언트 응답에 포함하지 않는다.
 연결 제한은 2초, 응답 제한은 3초다. 영상 정보 조회 실패를 영상 삭제로 취급하지 않는다.
 
