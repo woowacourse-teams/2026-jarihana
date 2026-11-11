@@ -54,8 +54,8 @@ setup() {
   chmod 700 "$TEST_DIR/state" "$TEST_DIR/state/nginx"
   export STATE_FILE="$TEST_DIR/state/state.json"
   CONFIG=$(jq -c --arg directory "$TEST_DIR/state/nginx" '.nginx.directory=$directory' "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
-  ENVIRONMENT=dev; RUN_ID=123; GITHUB_SHA=bbbb; CONTROL_SHA=aaaa; REPO=woowacourse-teams/2026-jarihana
-  STATE=$(jq -cn '{schema_version:2,revision:0,environment:"dev",run_id:123,attempt:1,sha:"bbbb",control_sha:"aaaa",mode:"deploy",deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",phase:"PREPARING",target:"B",old:"A",image:"sha256:test",heartbeat:900,expires_at:8000,pending:{id:"grant-1",operation:"prepare",slot:"B",deadline:2500},old_status:null,target_status:null,switched:false,sealed:false}')
+  ENVIRONMENT=dev; RUN_ID=123; GITHUB_SHA=bbbb; REPO=woowacourse-teams/2026-jarihana
+  STATE=$(jq -cn '{schema_version:2,revision:0,environment:"dev",run_id:123,attempt:1,sha:"bbbb",mode:"deploy",deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",phase:"PREPARING",target:"B",old:"A",image:"sha256:test",heartbeat:900,expires_at:8000,pending:{id:"grant-1",operation:"prepare",slot:"B",deadline:2500},old_status:null,target_status:null,switched:false,sealed:false}')
   STATE=$(jq -c --arg topology "$(bg_topology_digest)" '.topology_digest=$topology' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
   RECEIPT='{"operation":"prepare","slot":"B","deployment_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","pending_id":"grant-1","grant_id":"grant-1","run_id":123,"instance_id":"i-bbbbbbbbbbbbbbbbb","environment":"dev","identity":{"hostId":"dev-b","bootId":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"},"worker":{"state":"PAUSED","inFlight":0,"unresolved":0},"activity":{"httpInFlight":0,"backgroundInFlight":0,"backgroundDrained":true},"authority":null,"healthy":true,"running":true,"image":"sha256:test"}'
@@ -185,7 +185,7 @@ topology_load() { bg_load; }
 topology_load_mismatch() { CONFIG=$(jq '.topology.b.upstream="10.0.0.12:8080"' <<<"$CONFIG"); rejects bg_load; }
 topology_guard_mismatch() { CONFIG=$(jq '.topology.a.instance_id="i-ccccccccccccccccc"' <<<"$CONFIG"); rejects bg_guard; }
 topology_completed_mismatch() {
-  STATE=$(jq '.phase="COMPLETE"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  STATE=$(jq '.phase="COMPLETE" | .sealed=true | .pending=null' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   CONFIG=$(jq '.topology.b.host_id="replacement-b"' <<<"$CONFIG")
   rejects bg_plan
   [[ ! -e "$EVENTS" ]]
@@ -196,7 +196,7 @@ topology_missing_completed() {
   [[ ! -e "$EVENTS" ]]
 }
 topology_plan() {
-  STATE=$(jq '.phase="COMPLETE"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  STATE=$(jq '.phase="COMPLETE" | .sealed=true | .pending=null' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   BG_MODE=bootstrap; BG_IMAGE_DIGEST=sha256:test
   bg_ec2_state() { if [[ $1 == A ]]; then echo running; else echo stopped; fi; }
   bg_output() { :; }

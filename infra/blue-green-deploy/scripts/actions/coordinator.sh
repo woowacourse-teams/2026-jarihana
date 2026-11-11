@@ -43,8 +43,8 @@ bg_lock() {
 bg_load() {
   bg_state_file
   STATE=$(cat "$STATE_FILE")
-  jq -e --arg env "$ENVIRONMENT" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" '
-    .schema_version==2 and .environment==$env and .run_id==$run and .attempt==1 and .sha==$sha and .control_sha==$control and .topology_digest==$topology and (.revision|type)=="number"' <<<"$STATE" >/dev/null || bg_die 'Journal context differs; manual reconciliation required'
+  jq -e --arg env "$ENVIRONMENT" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg topology "$(bg_topology_digest)" '
+    .schema_version==2 and .environment==$env and .run_id==$run and .attempt==1 and .sha==$sha and .topology_digest==$topology and (.revision|type)=="number"' <<<"$STATE" >/dev/null || bg_die 'Journal context differs; manual reconciliation required'
 }
 bg_guard() {
   if [[ ${BG_COORDINATOR_READ_ONLY:-false} == true ]]; then bg_live_readonly; else bg_live; fi
@@ -146,48 +146,18 @@ bg_metrics() {
 }
 bg_target_ready() { [[ $(bg_route) == "$(jq -r '.target' <<<"$STATE")" ]] && bg_metrics "$(jq -r '.target' <<<"$STATE")"; }
 bg_previous_journal() {
-  local previous transition topology hash active
-  BG_CONTROL_TRANSITION_SLOT=""
   bg_state_file
-  previous=$(cat "$STATE_FILE")
-  if jq -e --arg env "$ENVIRONMENT" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" \
-    '.schema_version==2 and .environment==$env and .control_sha==$control and .topology_digest==$topology and (.phase=="COMPLETE" or .phase=="ROLLED_BACK")' <<<"$previous" >/dev/null; then
-    return 0
-  fi
-  jq -e --arg sha "$CONTROL_SHA" --arg env "$ENVIRONMENT" '.topology.control.sha==$sha and .topology.environment==$env' <<<"$CONFIG" >/dev/null || bg_die 'Control transition configuration context differs'
-  [[ ${BG_MODE:-deploy} == deploy ]] || bg_die 'Control transition requires a normal deployment, not bootstrap'
-  transition=$(jq -ce --argjson cfg "$CONFIG" --argjson now "$(bg_now)" '
-    .control_transition | select(.schema_version==1 and .target_control==$cfg.topology.control and
-      (.journal_sha256|type=="string" and test("^[a-f0-9]{64}$")) and
-      (.active_slot=="A" or .active_slot=="B") and
-      (.issued_at|type=="number" and floor==. and .>=0) and (.expires_at|type=="number" and floor==.) and
-      .issued_at<=($now+5) and .expires_at>$now and .expires_at>.issued_at and (.expires_at-.issued_at)<=3600 and
-      (.previous_topology.control.ref|type=="string" and test("^refs/tags/deployment-control-[A-Za-z0-9._-]+$")) and
-      (.previous_topology.control.sha|type=="string" and test("^[a-f0-9]{40}$")) and
-      .previous_topology.control.ref!=$cfg.topology.control.ref and
-      .previous_topology.control.sha!=$cfg.topology.control.sha and
-      (.previous_topology|del(.control))==($cfg.topology|del(.control)))' <<<"$CONFIG") || bg_die 'Previous deployment requires an explicit control transition; preserve the journal'
-  topology=$(jq -Sc '.previous_topology' <<<"$transition" | sha256sum | cut -d ' ' -f 1)
-  hash=$(sha256sum "$STATE_FILE" | cut -d ' ' -f 1)
-  bg_owned_file "$STATE_FILE.control-$hash"
-  cmp -s "$STATE_FILE" "$STATE_FILE.control-$hash" || bg_die 'Control transition journal backup differs'
-  jq -e --argjson permit "$transition" --arg env "$ENVIRONMENT" --arg topology "$topology" --arg hash "$hash" --argjson cfg "$CONFIG" '
-    .schema_version==2 and .environment==$env and .control_sha==$permit.previous_topology.control.sha and
-    .topology_digest==$topology and $hash==$permit.journal_sha256 and .pending==null and .cleanup_deferred!=true and
-    (if .phase=="ROLLED_BACK" then .http_recovered==true and .worker_recovered==true and
+  jq -e --arg env "$ENVIRONMENT" --arg topology "$(bg_topology_digest)" '
+    .schema_version==2 and .environment==$env and .topology_digest==$topology and
+    .pending==null and .cleanup_deferred!=true and
+    (if .phase=="COMPLETE" then .sealed==true or .mode=="bootstrap"
+     elif .phase=="ROLLED_BACK" then .http_recovered==true and .worker_recovered==true and
        (.frontend==null or .frontend.changed!=true or .frontend.recovered==true)
-     elif .phase=="COMPLETE" then .sealed==true or .mode=="bootstrap" else false end) and
-    ([.old_status,.target_status] | map(select(.slot==$permit.active_slot and .healthy==true and .running==true and
-      .identity.hostId==$cfg.topology[($permit.active_slot|ascii_downcase)].host_id and
-      .authority.owner==.identity and .authority.status=="ACTIVE" and .authority.phase=="COMPLETE" and
-      .worker.state=="ACTIVE" and .worker.unresolved==0)) | length==1)' <<<"$previous" >/dev/null || bg_die 'Control transition does not match a safely completed journal'
-  active=$(jq -r '.active_slot' <<<"$transition")
-  [[ $(bg_route) == "$active" ]] || bg_die 'Control transition active HTTP slot differs'
-  BG_CONTROL_TRANSITION_SLOT=$active
+     else false end)
+  ' "$STATE_FILE" >/dev/null || bg_die 'Previous deployment is unfinished or topology differs; preserve the journal'
 }
 bg_plan() {
   local old target now previous_status=null previous_image=""
-  BG_CONTROL_TRANSITION_SLOT=""
   [[ ${BG_FRONTEND_ONLY:-false} != true || ${BG_BACKEND_ONLY:-false} != true ]] || bg_die 'A release cannot be frontend-only and backend-only'
   [[ ${BG_BACKEND_ONLY:-false} != true || ( $ENVIRONMENT == prod && $BG_MODE == deploy ) ]] || bg_die 'Backend-only scope is production deploy only'
   if [[ -e $STATE_FILE ]]; then
@@ -199,7 +169,6 @@ bg_plan() {
     rm -rf -- "$FE_TEMP"
   fi
   old=$(bg_route) || bg_die 'Cannot establish current HTTP slot'
-  [[ -z ${BG_CONTROL_TRANSITION_SLOT:-} || $old == "$BG_CONTROL_TRANSITION_SLOT" ]] || bg_die 'Active HTTP slot changed during control transition'
   if fe_enabled; then
     previous_status=$(jq -c --arg old "$old" '[.target_status,.old_status] | map(select(.slot==$old and .running==true and .healthy==true and .authority.status=="ACTIVE" and .authority.phase=="COMPLETE" and .authority.owner==.identity)) | if length==1 then .[0] else error("Current backend receipt is ambiguous") end' "$STATE_FILE")
     previous_image=$(jq -er '.image|select(test("^sha256:[a-f0-9]{64}$"))' <<<"$previous_status")
@@ -210,12 +179,8 @@ bg_plan() {
   if [[ ${BG_FRONTEND_ONLY:-false} != true ]]; then
     [[ $(bg_ec2_state "$old") == running ]] || bg_die 'Current EC2 is not running'
   fi
-  if [[ -n $BG_CONTROL_TRANSITION_SLOT ]]; then
-    bg_previous_journal
-    [[ $old == "$BG_CONTROL_TRANSITION_SLOT" ]] || bg_die 'Active HTTP slot changed before the new control plan'
-  fi
   now=$(bg_now)
-  STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
+  STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
   STATE=$(jq -c --arg previous "$previous_image" --argjson frontend_only "${BG_FRONTEND_ONLY:-false}" --argjson backend_only "${BG_BACKEND_ONLY:-false}" --argjson previous_status "$previous_status" '.previous_backend_image=$previous | .frontend_only=$frontend_only | .backend_only=$backend_only | .release_scope=(if $frontend_only then "frontend" elif $backend_only then "backend" else "both" end) | .previous_backend_status=$previous_status' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
   if fe_enabled; then

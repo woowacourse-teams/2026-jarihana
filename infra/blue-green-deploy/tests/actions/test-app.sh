@@ -313,7 +313,13 @@ case_profile_wrong_token() {
 
 prepare_db_fixture() {
   cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
-  CONFIG=$(jq --arg compose "$APP_DIR/compose.yml" '. + {compose_file:$compose,app_port:8080}' <<< "$CONFIG")
+  CONFIG=$(jq '. + {app_port:8080}' <<< "$CONFIG")
+  SCRIPT_ROOT=$APP_DIR/release-source
+  RELEASE_SOURCE=$SCRIPT_ROOT/infra/blue-green-deploy/controller/app-compose.yml
+  mkdir -p "$(dirname "$RELEASE_SOURCE")"
+  cp "$APP_DIR/compose.yml" "$RELEASE_SOURCE"
+  git init -q "$SCRIPT_ROOT"
+  commit_release_fixture
   HOST='{"upstream":"10.0.3.2:8080"}'
   docker() {
     printf '%s\n' "$*" >> "$APP_DIR/docker-calls"
@@ -333,7 +339,7 @@ case_prepare_single_rds() {
     rm -f "$APP_DIR/docker-calls"
     if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
     grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
-    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *"-f $APP_DIR/compose.yml config --quiet" ]]
+    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *"--project-directory /etc/jarihana-deploy/$ENVIRONMENT --env-file /dev/null -f $APP_DIR/release-compose."*" config --quiet" ]]
     [[ $(sed -n '2p' "$APP_DIR/docker-calls") == "ps -aq --no-trunc --filter name=^/$CONTAINER$" ]]
   done
 }
@@ -357,18 +363,14 @@ case_prepare_invalid_rds() {
 prepare_release_fixture() {
   prepare_db_fixture
   ENVIRONMENT=prod
-  BG_RELEASE_COMPOSE_CHECKOUT=$APP_DIR/release-source
-  RELEASE_SOURCE=$BG_RELEASE_COMPOSE_CHECKOUT/infra/blue-green-deploy/controller/app-compose.yml
-  mkdir -p "$(dirname "$RELEASE_SOURCE")"
   sed 's/mem_limit: 896m/mem_limit: 1g/' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
-  git init -q "$BG_RELEASE_COMPOSE_CHECKOUT"
   commit_release_fixture
 }
 commit_release_fixture() {
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" add -- .
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" -c user.name=Fixture -c user.email=fixture@example.com \
+  git -C "$SCRIPT_ROOT" add -- .
+  git -C "$SCRIPT_ROOT" -c user.name=Fixture -c user.email=fixture@example.com \
     -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm 'Release Compose fixture'
-  GITHUB_SHA=$(git -C "$BG_RELEASE_COMPOSE_CHECKOUT" rev-parse HEAD)
+  GITHUB_SHA=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
 }
 case_prepare_release_compose() {
   prepare_release_fixture
@@ -377,7 +379,7 @@ case_prepare_release_compose() {
   reject app_prepare
   grep -q 'Cannot enumerate application containers' "$APP_DIR/rejected.log"
   grep -q "Release Compose commit: $GITHUB_SHA" "$APP_DIR/rejected.log"
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
+  git -C "$SCRIPT_ROOT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
     cmp -s - "$APP_DIR/validated-compose.yml"
   grep -Fxq '      POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
   cmp -s "$APP_DIR/validated-compose.yml" "$APP_DIR/execution-compose.yml"

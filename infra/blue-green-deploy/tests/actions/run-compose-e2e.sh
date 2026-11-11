@@ -4,7 +4,7 @@
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
 : "${BG_COMPOSE_IMAGE:?Set BG_COMPOSE_IMAGE to an image built from the unchanged backend/Dockerfile}"
-TOOLS_IMAGE=jarihana-actions-test:local
+TOOLS_IMAGE=${BG_COMPOSE_TOOLS_IMAGE:-jarihana-actions-test:local}
 if [[ ${BG_COMPOSE_INNER:-false} != true ]]; then
   docker image inspect "$BG_COMPOSE_IMAGE" >/dev/null
   DIR=$(mktemp -d /private/tmp/jarihana-compose-e2e.XXXXXX)
@@ -28,7 +28,7 @@ if [[ ${BG_COMPOSE_INNER:-false} != true ]]; then
   docker run --rm --network "container:$PREFIX-daemon" --name "$PREFIX-runner" \
     -v "$ROOT:/repo:ro" -v "$DIR:$DIR" -v "$PREFIX-socket:/socket" -e DOCKER_HOST=unix:///socket/docker.sock \
     -v "$DIR/etc:/etc/jarihana-deploy/dev" -v "$DIR/app:/var/lib/jarihana-deploy/dev/app-B" \
-    -e BG_COMPOSE_IMAGE -e BG_COMPOSE_INNER=true -e DIR="$DIR" -e PREFIX="$PREFIX" -e HOST_ROOT="$ROOT" \
+    -e BG_COMPOSE_IMAGE -e BG_COMPOSE_TOOLS_IMAGE -e BG_COMPOSE_INNER=true -e DIR="$DIR" -e PREFIX="$PREFIX" -e HOST_ROOT="$ROOT" \
     "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/run-compose-e2e.sh 2>&1 | tee "$evidence/run.log"
   exit
 fi
@@ -91,7 +91,14 @@ docker run -d --name "$PREFIX-ports" "${label[@]}" -p 127.0.0.1::8080 -p 127.0.0
 APP_PORT=$(docker inspect "$PREFIX-ports" --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}')
 MANAGEMENT_PORT=$(docker inspect "$PREFIX-ports" --format '{{(index (index .NetworkSettings.Ports "8081/tcp") 0).HostPort}}')
 docker rm -f "$PREFIX-ports" >/dev/null
-cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"
+mkdir -p "$DIR/source/infra/blue-green-deploy/controller"
+cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/source/infra/blue-green-deploy/controller/app-compose.yml"
+git init -q "$DIR/source"
+git -C "$DIR/source" add .
+git -C "$DIR/source" -c user.name=Fixture -c user.email=fixture@example.com \
+  -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm 'Compose fixture'
+GITHUB_SHA=$(git -C "$DIR/source" rev-parse HEAD)
+export GITHUB_SHA
 printf 'local-compose-fixture-machine-token-0123456789abcdef\n' > "$DIR/etc/worker-token"
 printf 'fixture\n' > "$DIR/etc/grant-key"; printf 'fixture\n' > "$DIR/etc/known-hosts"
 chmod 600 "$DIR/etc/"*
@@ -107,21 +114,21 @@ cat > "$DIR/command.sh" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 source /repo/infra/blue-green-deploy/scripts/actions/app.sh
+SCRIPT_ROOT=$DIR/source
 bg_init() {
  ENVIRONMENT=dev RUN_ID=101 ATTEMPT=1 BRANCH=develop
- GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa CONTROL_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
  REPO=woowacourse-teams/2026-jarihana WORKFLOW_ID=9
  CONFIG=$(cat "$DIR/config.json")
  bg_live
 }
 bg_github() {
- jq -cn '{id:101,run_attempt:1,head_sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",head_branch:"develop",workflow_id:9,path:".github/workflows/backend-dev-deploy.yml",event:"workflow_dispatch",repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},head_repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},status:"in_progress",conclusion:null}'
+ jq -cn --arg sha "$GITHUB_SHA" '{id:101,run_attempt:1,head_sha:$sha,head_branch:"develop",workflow_id:9,path:".github/workflows/backend-dev-deploy.yml",event:"workflow_dispatch",repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},head_repository:{id:1321030074,full_name:"woowacourse-teams/2026-jarihana"},status:"in_progress",conclusion:null}'
 }
 main prepare
 EOF
 chmod 700 "$DIR/command.sh"
 export DIR BG_ENVIRONMENT=dev BG_MODE=deploy BG_SLOT=B
-export RDS_URL=$PREFIX-db BLUE_GREEN_RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_PASSWORD=fixture
+export RDS_URL=$PREFIX-db DB_USERNAME=fixture DB_PASSWORD=fixture
 export INVITATION_TOKEN_KEY_PRIMARY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= ACCESS_TOKEN_SECRET=local-fixture-jwt-secret-0123456789abcdef
 export FRONTEND_ORIGIN=http://localhost GITHUB_OAUTH_CLIENT_ID=fixture GITHUB_OAUTH_CLIENT_SECRET=fixture GITHUB_OAUTH_REDIRECT_URI=http://localhost/oauth
 export IMAGE_S3_BUCKET=techcourse-project-2026 IMAGE_S3_REGION=ap-northeast-2 IMAGE_S3_KEY_PREFIX=jarihana-dev/images IMAGE_S3_PUBLIC_BASE_URL=http://localhost/fixture
@@ -131,8 +138,8 @@ export IMAGE_CLOUDFRONT_PRIVATE_KEY=$'-----BEGIN PRIVATE KEY-----\nlocal-compose
 write_grant() {
  local image=$1 now
  now=$(date +%s)
- jq -cn --arg image "$image" --arg topology "$(jq -Sc '.topology' "$DIR/config.json" | sha256sum | cut -d ' ' -f 1)" --argjson now "$now" '
- {schema_version:2,environment:"dev",run_id:101,attempt:1,sha:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",control_sha:"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",mode:"deploy",image:$image,topology_digest:$topology,old:"A",target:"B",phase:"PREPARING",expires_at:($now+1800),created_at:$now,heartbeat:$now,deployment_id:"11111111-1111-1111-1111-111111111111",pending:{id:"22222222-2222-2222-2222-222222222222",operation:"prepare",slot:"B",deadline:($now+1500)},switched:false,sealed:false}' > "$DIR/state.json"
+ jq -cn --arg image "$image" --arg sha "$GITHUB_SHA" --arg topology "$(jq -Sc '.topology' "$DIR/config.json" | sha256sum | cut -d ' ' -f 1)" --argjson now "$now" '
+ {schema_version:2,environment:"dev",run_id:101,attempt:1,sha:$sha,mode:"deploy",image:$image,topology_digest:$topology,old:"A",target:"B",phase:"PREPARING",expires_at:($now+1800),created_at:$now,heartbeat:$now,deployment_id:"11111111-1111-1111-1111-111111111111",pending:{id:"22222222-2222-2222-2222-222222222222",operation:"prepare",slot:"B",deadline:($now+1500)},switched:false,sealed:false}' > "$DIR/state.json"
 }
 runner() {
  local image=$1 name=$2
@@ -150,14 +157,18 @@ grep -q 'Image pull failed' "$DIR/logs/invalid-digest.log"
 if docker inspect "$CONTAINER" >/dev/null 2>&1; then exit 1; fi
 cmp "$DIR/state.json" "$DIR/state-before-failure.json"
 record invalid-digest-preserves-old-slot-and-prevents-promotion
-# Installation tampering must fail before contacting the registry or creating a candidate.
-printf '\n# local tampering probe\n' >> "$DIR/etc/app-compose.yml"
+# A different checkout cannot select a newer Compose for this run.
 write_grant "$DIGEST"
-if runner "$DIGEST" modified-compose; then exit 1; fi
-grep -q 'Installed Compose differs' "$DIR/logs/modified-compose.log"
+git -C "$DIR/source" -c user.name=Fixture -c user.email=fixture@example.com \
+  -c commit.gpgsign=false -c core.hooksPath=/dev/null commit --allow-empty -qm 'Next release'
+if runner "$DIGEST" wrong-sha; then exit 1; fi
+grep -q 'checkout does not match the deployment commit' "$DIR/logs/wrong-sha.log"
 if docker inspect "$CONTAINER" >/dev/null 2>&1; then exit 1; fi
-cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml"; chmod 600 "$DIR/etc/app-compose.yml"
-record installed-compose-modification-rejected
+record mismatched-checkout-rejected
+git -C "$DIR/source" checkout --quiet --detach "$GITHUB_SHA"
+# Neither a host file nor an uncommitted worktree change can replace the Git blob.
+printf 'invalid host compose\n' >"$DIR/etc/app-compose.yml"
+printf 'invalid worktree compose\n' >"$DIR/source/infra/blue-green-deploy/controller/app-compose.yml"
 write_grant "$DIGEST"
 if ! runner "$DIGEST" prepare; then cat "$DIR/logs/prepare.log" >&2; exit 1; fi
 record production-pull-prepare-profile-ready-paused
@@ -187,5 +198,5 @@ docker inspect "$CONTAINER" | jq '.[0]|{State,RestartCount}' > "$DIR/shutdown.js
 jq -e '(.State.Running|not) and (.State.OOMKilled|not) and (.State.ExitCode==0 or .State.ExitCode==143) and .RestartCount==0' "$DIR/shutdown.json" >/dev/null
 record graceful-sigterm-normal-exit
 sha256sum "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml" > "$DIR/compose-sha256.txt"
-jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","modified-compose-rejected","ready-paused-production-profile","image-signing-config-preserved","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
+jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","mismatched-checkout-rejected","ready-paused-production-profile","image-signing-config-preserved","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
 cat "$DIR/summary.json"

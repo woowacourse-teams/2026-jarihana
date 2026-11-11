@@ -119,10 +119,10 @@ setup() {
   echo 1000 >"$CASE_DIR/clock"
   BG_LIVE_CACHED_AT=0
   ENVIRONMENT=prod; BG_MODE=deploy; BG_FRONTEND_ONLY=false
-  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2); CONTROL_SHA=$(printf '%040d' 3)
+  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2)
   BG_IMAGE_DIGEST="sha256:$(printf '%064d' 2)"; OLD_DIGEST="sha256:$(printf '%064d' 1)"
   CONFIG=$(cat "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
-  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
+  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
@@ -315,7 +315,7 @@ independent_worker_recovery() {
 frontend_only_full_observation() {
   local status
   status=$(jq -cn --arg image "$OLD_DIGEST" '{slot:"A",image:$image,running:true,healthy:true,identity:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},authority:{status:"ACTIVE",phase:"COMPLETE",owner:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}}')
-  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .sealed=true | .pending=null | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   BG_FRONTEND_ONLY=true
   bg_ec2_state() { exit 95; }
   bg_plan

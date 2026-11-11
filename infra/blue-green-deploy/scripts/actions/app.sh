@@ -218,7 +218,7 @@ app_stop_container() {
 }
 
 app_release_compose() {
-  local destination=$1 checkout=$BG_RELEASE_COMPOSE_CHECKOUT
+  local destination=$1 checkout=$SCRIPT_ROOT
   local source_path=infra/blue-green-deploy/controller/app-compose.yml
   local source_sha blob size release_hash
   source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
@@ -233,17 +233,11 @@ app_release_compose() {
 
 app_prepare() {
   local compose project_directory existing inspected deadline pin
-  compose=$(jq -r '.compose_file' <<<"$CONFIG")
-  project_directory=$(dirname -- "$compose")
-  if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
-    RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
-    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
-    app_release_compose "$RELEASE_COMPOSE_FILE"
-    compose=$RELEASE_COMPOSE_FILE
-  else
-    bg_root_file "$compose"
-    cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
-  fi
+  project_directory="/etc/jarihana-deploy/$ENVIRONMENT"
+  RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
+  trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
+  app_release_compose "$RELEASE_COMPOSE_FILE"
+  compose=$RELEASE_COMPOSE_FILE
   : "${RDS_URL:?GitHub RDS_URL is required}"
   [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"

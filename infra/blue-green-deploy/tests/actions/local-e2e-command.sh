@@ -12,7 +12,7 @@ if [[ $ROLE == app ]]; then source "$ROOT/infra/blue-green-deploy/scripts/action
 # Replace external host identity/bootstrap only. Production grant/context/lease checks remain active.
 bg_init() {
   ENVIRONMENT=dev RUN_ID=$BG_E2E_RUN ATTEMPT=1 BRANCH=develop
-  GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa CONTROL_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   REPO=woowacourse-teams/2026-jarihana WORKFLOW_ID=9
   CONFIG=$(cat "$BG_E2E_DIR/config.json")
   STATE_FILE=$BG_E2E_DIR/state/state.json

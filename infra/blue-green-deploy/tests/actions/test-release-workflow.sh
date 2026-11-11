@@ -25,7 +25,7 @@ MODE=bootstrap; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow disabled_bootstrap_explicit_exception'
 MODE=deploy ENABLED=true; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow enabled_deploy'
-mkdir -p "$TEST_DIR/source" "$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions" "$TEST_DIR/bin"
+mkdir -p "$TEST_DIR/source" "$TEST_DIR/bin"
 cat >"$TEST_DIR/bin/docker" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -39,7 +39,7 @@ MOCK
 cat >"$TEST_DIR/bin/git" <<'MOCK'
 #!/usr/bin/env bash
 case $1 in
-  rev-parse) printf '%040d\n' 4;;
+  rev-parse) if [[ $2 == HEAD ]]; then echo "${CHECKOUT_SHA:-$GITHUB_SHA}"; else printf '%040d\n' 4; fi;;
   diff)
     case ${CHANGE_SCOPE:-both} in
       backend) [[ " $* " != *' backend '* ]];;
@@ -51,18 +51,14 @@ MOCK
 chmod +x "$TEST_DIR/bin/"*
 export PATH="$TEST_DIR/bin:$PATH" DOCKER_TRACE="$TEST_DIR/docker.log"
 export GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana GITHUB_RUN_ATTEMPT=1 GITHUB_REF=refs/heads/main
-export BG_CONTROL_REF=refs/tags/deployment-control-test BG_ENVIRONMENT=prod BG_MODE=deploy BG_A_RUNNER=prod-A BG_B_RUNNER=prod-B
+export BG_ENVIRONMENT=prod BG_MODE=deploy BG_A_RUNNER=prod-A BG_B_RUNNER=prod-B
 export BG_DEV_AUTO_ENABLED=false BG_PROD_AUTO_ENABLED=true RDS_URL=rds.example INPUT_TAG='' INPUT_FRONTEND_ONLY=true INPUT_BACKEND_ONLY=false BEFORE_SHA=''
 export GITHUB_OUTPUT="$TEST_DIR/output" GITHUB_SHA=2222222222222222222222222222222222222222
-if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/old.log" 2>&1; then exit 1; fi
+export CHECKOUT_SHA=1111111111111111111111111111111111111111
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/wrong-sha.log" 2>&1; then exit 1; fi
 [[ ! -e $DOCKER_TRACE ]]
-grep -q 'lacks coordinated frontend release capability' "$TEST_DIR/old.log"
-echo 'PASS release-workflow old_control_rejected_before_mutation'
-echo 'FE_RELEASE_CAPABILITY=2' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
-if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/v2.log" 2>&1; then exit 1; fi
-[[ ! -e $DOCKER_TRACE ]]
-echo 'PASS release-workflow control_without_api_budget_rejected'
-echo 'FE_RELEASE_CAPABILITY=3' >"$TEST_DIR/deployment-control/infra/blue-green-deploy/scripts/actions/frontend.sh"
+echo 'PASS release-workflow mismatched_checkout_rejected_before_mutation'
+unset CHECKOUT_SHA
 (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
 grep -qx frontend_only=true "$GITHUB_OUTPUT"
 [[ ! -e $DOCKER_TRACE ]]
