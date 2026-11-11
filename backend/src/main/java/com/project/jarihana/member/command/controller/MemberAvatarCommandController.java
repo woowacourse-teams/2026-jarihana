@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,13 +24,13 @@ public class MemberAvatarCommandController {
     public ResponseEntity<Void> customizeMyAvatar(
             @LoginMember long memberId, @Valid @RequestBody CustomizeAvatarRequest request) {
         AvatarAppearance appearance = request.appearance().toAppearance();
-        service.customizeMyAvatar(memberId, appearance);
+        service.customizeMyAvatar(memberId, request.editorMemberId(), appearance);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> removeMyAvatar(@LoginMember long memberId) {
-        service.resetMyAvatar(memberId);
+    public ResponseEntity<Void> removeMyAvatar(@LoginMember long memberId, @RequestParam long expectedMemberId) {
+        service.resetMyAvatar(memberId, expectedMemberId);
         return ResponseEntity.noContent().build();
     }
 }

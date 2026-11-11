@@ -9,6 +9,29 @@ const status = page => page.locator('.avatar-workspace-bar [role="status"]');
 const expect = baseExpect.configure({ timeout: 20000 });
 test.setTimeout(90000);
 
+test("편집 중 로그인 계정이 바뀌면 이전 초안을 저장하지 않고 새 계정의 외형을 불러온다", async ({ page }) => {
+  const state = await installApiFixture(page);
+  await page.goto("/my/avatar");
+  await editor(page).getByRole("button", { name: "머리 모양: 긴 웨이브", exact: true }).click();
+  await expect(status(page)).toContainText("아직 저장하지 않은");
+  const originalMemberId = state.activeMember.id;
+  // The fixture now responds as a different authenticated member, like a cookie change in another tab.
+  state.activeMember = { ...state.activeMember, id: 2, crewName: "하나" };
+  const newAccountAvatar = { customized: true, appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "bob" } };
+  state.avatar = newAccountAvatar;
+
+  await page.getByRole("button", { name: "저장하기", exact: true }).click();
+
+  await expect(page.getByRole("alert")).toContainText("로그인 계정이 바뀌었어요");
+  await expect(editor(page).getByRole("button", { name: "머리 모양: 단발머리", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(status(page)).toHaveText("저장된 아바타");
+  const saves = state.requests.filter(({ method, path }) => method === "PUT" && path === "/members/me/avatar");
+  expect(saves).toHaveLength(1);
+  expect(saves[0].postData.expectedMemberId).toBe(originalMemberId);
+  expect(state.avatar).toEqual(newAccountAvatar);
+  expect(state.unexpectedResponses).toEqual(["409 /api/members/me/avatar"]);
+});
+
 test("뒤로가기 캐시 보관·복원 이벤트 뒤에도 입체 미리보기와 파츠 편집을 유지한다", async ({ page }) => {
   const state = await installApiFixture(page);
   await page.goto("/my/avatar");

@@ -7,10 +7,10 @@ jest.mock("../../src/shared/api/index.js", () => ({ apiRequest: jest.fn() }));
 it("내 아바타 전용 경로에 외형만 저장하고 삭제한다", async () => {
   await getMyAvatar();
   expect(apiRequest).toHaveBeenLastCalledWith("members/me/avatar", expect.objectContaining({ schema: avatarSchema }));
-  await saveMyAvatar(AVATAR_BASIC_APPEARANCE);
-  expect(apiRequest).toHaveBeenLastCalledWith("members/me/avatar", { method: "PUT", json: { appearance: AVATAR_BASIC_APPEARANCE } });
-  await deleteMyAvatar();
-  expect(apiRequest).toHaveBeenLastCalledWith("members/me/avatar", { method: "DELETE" });
+  await saveMyAvatar(AVATAR_BASIC_APPEARANCE, 7);
+  expect(apiRequest).toHaveBeenLastCalledWith("members/me/avatar", { method: "PUT", json: { expectedMemberId: 7, appearance: AVATAR_BASIC_APPEARANCE } });
+  await deleteMyAvatar(7);
+  expect(apiRequest).toHaveBeenLastCalledWith("members/me/avatar", { method: "DELETE", searchParams: { expectedMemberId: 7 } });
 });
 
 it("응답의 모르는 파츠는 대체하고 저장의 모르는 파츠와 버전은 거부한다", () => {

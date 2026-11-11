@@ -286,6 +286,7 @@ function match(pathname, pattern) {
 
 export async function installApiFixture(pageInstance, options = {}) {
   const state = {
+    activeMember: leader,
     avatar: { customized: false, appearance: { ...AVATAR_BASIC_APPEARANCE } },
     auth: options.auth ?? "authenticated",
     errorPath: options.errorPath ?? null,
@@ -394,6 +395,9 @@ export async function installApiFixture(pageInstance, options = {}) {
     if (path === "/members/me/avatar") {
       if (state.auth !== "authenticated") return json(route, failure("UNAUTHENTICATED"), 401);
       if (method === "GET") return json(route, success(state.avatar));
+      const expectedMemberId = method === "PUT"
+        ? request.postDataJSON().expectedMemberId : url.searchParams.get("expectedMemberId");
+      if (String(expectedMemberId) !== String(state.activeMember.id)) return json(route, failure("ACCOUNT_CHANGED"), 409);
       if (method === "PUT") state.avatar = { customized: true, appearance: request.postDataJSON().appearance };
       if (method === "DELETE") state.avatar = { customized: false, appearance: { ...AVATAR_BASIC_APPEARANCE } };
       return route.fulfill({ status: 204 });
@@ -422,7 +426,7 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(
         route,
         success({
-          member: { ...leader, bootcamp: null, career: null, company: null, field: null },
+          member: { ...state.activeMember, bootcamp: null, career: null, company: null, field: null },
           signupCompleted: true
         })
       );

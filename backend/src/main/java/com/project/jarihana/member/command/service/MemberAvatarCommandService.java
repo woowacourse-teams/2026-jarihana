@@ -17,15 +17,26 @@ public class MemberAvatarCommandService {
     private final MemberRepository members;
 
     @Transactional
-    public void customizeMyAvatar(long memberId, AvatarAppearance appearance) {
+    public void customizeMyAvatar(long memberId, long expectedMemberId, AvatarAppearance appearance) {
+        requireMatchingAccount(memberId, expectedMemberId);
         lockMember(memberId);
         avatars.save(MemberAvatar.of(memberId, appearance));
     }
 
     @Transactional
-    public void resetMyAvatar(long memberId) {
+    public void resetMyAvatar(long memberId, long expectedMemberId) {
+        requireMatchingAccount(memberId, expectedMemberId);
         lockMember(memberId);
         avatars.deleteById(memberId);
+    }
+
+    private void requireMatchingAccount(long memberId, long expectedMemberId) {
+        if (expectedMemberId <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "편집을 시작한 회원 ID가 올바르지 않습니다.");
+        }
+        if (memberId != expectedMemberId) {
+            throw new BusinessException(ErrorCode.ACCOUNT_CHANGED, "편집을 시작한 계정과 현재 로그인 계정이 달라요.");
+        }
     }
 
     // Serialize the first save, replacement and reset for the same member.

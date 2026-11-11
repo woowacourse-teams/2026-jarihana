@@ -7,14 +7,18 @@ import { saveMyAvatar, deleteMyAvatar } from "../../../src/features/avatar/api.j
 import { useMyAvatar } from "../../../src/features/avatar/hooks.js";
 
 const mockNavigate = jest.fn();
+const mockReload = jest.fn();
 
 jest.mock("react-router", () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
   useBeforeUnload: jest.fn(),
+  useLocation: () => ({ state: null }),
   useNavigate: () => mockNavigate,
   useBlocker: () => ({ state: "unblocked" })
 }));
-jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: { id: 7 }, sessionVersion: 1 }) }));
+jest.mock("../../../src/features/auth/index.js", () => ({
+  useAuth: () => ({ member: { id: 7 }, sessionVersion: 1, reload: mockReload })
+}));
 jest.mock("../../../src/features/avatar/hooks.js", () => ({ useMyAvatar: jest.fn() }));
 jest.mock("../../../src/features/avatar/api.js", () => ({ saveMyAvatar: jest.fn(), deleteMyAvatar: jest.fn() }));
 jest.mock("../../../src/features/avatar/AvatarFrame.jsx", () => {
@@ -33,6 +37,34 @@ function setup(customized = false, appearance = AVATAR_BASIC_APPEARANCE) {
 }
 
 beforeEach(() => { jest.clearAllMocks(); });
+
+it.each(["save", "delete"])("%s에서 계정 변경을 감지하면 이전 편집기를 닫고 인증을 다시 확인한다", async (operation) => {
+  const { user, client } = setup(true);
+  let finishReload;
+  mockReload.mockImplementationOnce(() => new Promise(resolve => { finishReload = resolve; }));
+  const accountChanged = Object.assign(new Error("계정 변경"), { code: "ACCOUNT_CHANGED" });
+  if (operation === "save") {
+    saveMyAvatar.mockRejectedValueOnce(accountChanged);
+    await user.click(screen.getByRole("button", { name: "긴머리 선택" }));
+    await user.click(screen.getByRole("button", { name: "저장하기", exact: true }));
+    expect(saveMyAvatar).toHaveBeenCalledTimes(1);
+    expect(saveMyAvatar).toHaveBeenCalledWith({ ...AVATAR_BASIC_APPEARANCE, hair: "flowing" }, 7);
+  } else {
+    deleteMyAvatar.mockRejectedValueOnce(accountChanged);
+    await user.click(screen.getByRole("button", { name: "아바타 삭제", exact: true }));
+    await user.click(screen.getByRole("button", { name: "삭제하고 기본형으로" }));
+    expect(deleteMyAvatar).toHaveBeenCalledTimes(1);
+    expect(deleteMyAvatar).toHaveBeenCalledWith(7);
+  }
+  expect(mockNavigate).toHaveBeenCalledWith("/my/avatar", {
+    replace: true, state: { avatarAccountChanged: true }
+  });
+  expect(mockReload).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "저장하기", exact: true })).not.toBeInTheDocument();
+  expect(client.getQueryData(["member-avatar", 7, 1])).toBeUndefined();
+  await act(async () => finishReload());
+});
 
 it.each(["save", "delete"])("%s 성공 후 늦게 도착한 이전 조회가 화면을 되돌리지 않는다", async (operation) => {
   const previous = { customized: true, appearance: { ...AVATAR_BASIC_APPEARANCE, hair: "flowing" } };

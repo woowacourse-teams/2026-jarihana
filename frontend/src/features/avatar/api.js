@@ -11,7 +11,9 @@ export const appearanceSchema = z.object({
 export const avatarSchema = z.object({ customized: z.boolean(), appearance: z.object({ version: z.literal(1) }).passthrough().transform(readAvatarAppearance) });
 
 export const getMyAvatar = ({ signal } = {}) => apiRequest("members/me/avatar", { signal, schema: avatarSchema });
-export const saveMyAvatar = (appearance) => apiRequest("members/me/avatar", {
-  method: "PUT", json: { appearance: appearanceSchema.parse(appearance) }
+export const saveMyAvatar = (appearance, expectedMemberId) => apiRequest("members/me/avatar", {
+  method: "PUT", json: { expectedMemberId, appearance: appearanceSchema.parse(appearance) }
 });
-export const deleteMyAvatar = () => apiRequest("members/me/avatar", { method: "DELETE" });
+export const deleteMyAvatar = (expectedMemberId) => apiRequest("members/me/avatar", {
+  method: "DELETE", searchParams: { expectedMemberId }
+});

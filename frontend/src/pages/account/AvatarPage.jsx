@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useBeforeUnload, useBlocker, useNavigate } from "react-router";
+import { Link, useBeforeUnload, useBlocker, useLocation, useNavigate } from "react-router";
 import { AVATAR_BASIC_APPEARANCE, avatarAppearanceKey } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { useAuth } from "../../features/auth/index.js";
 import { AvatarFrame } from "../../features/avatar/AvatarFrame.jsx";
@@ -10,7 +10,7 @@ import { Button, Modal } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 import "./avatar.css";
 
-function AvatarWorkspace({ initial, queryKey }) {
+function AvatarWorkspace({ initial, queryKey, memberId, onAccountChanged }) {
   const client = useQueryClient();
   const navigate = useNavigate();
   const returnAfterSave = useRef(false);
@@ -43,24 +43,30 @@ function AvatarWorkspace({ initial, queryKey }) {
     const appearance = { ...draft };
     setPending(true); setError(""); setNotice("");
     try {
-      await saveMyAvatar(appearance);
+      await saveMyAvatar(appearance, memberId);
       await remember({ customized: true, appearance });
       setNotice("아바타를 저장했어요.");
       returnAfterSave.current = true;
-    } catch {
-      setError("저장하지 못했어요. 선택한 모습은 그대로예요. 연결 상태를 확인하고 다시 저장해 주세요.");
+    } catch (failure) {
+      if (failure.code === "ACCOUNT_CHANGED") await onAccountChanged();
+      else setError("저장하지 못했어요. 선택한 모습은 그대로예요. 연결 상태를 확인하고 다시 저장해 주세요.");
     } finally { setPending(false); }
   }
   async function remove() {
     if (pending) return;
     setPending(true); setError(""); setNotice("");
     try {
-      await deleteMyAvatar();
+      await deleteMyAvatar(memberId);
       const value = { customized: false, appearance: { ...AVATAR_BASIC_APPEARANCE } };
       await remember(value); setDraft(value.appearance); setReady(false); setGeneration(value => value + 1);
       setDeleteOpen(false); setNotice("아바타를 삭제하고 기본 모습으로 돌아왔어요.");
-    } catch {
-      setError("삭제하지 못했어요. 저장된 아바타를 유지했어요. 다시 시도해 주세요.");
+    } catch (failure) {
+      if (failure.code === "ACCOUNT_CHANGED") {
+        setDeleteOpen(false);
+        await onAccountChanged();
+      } else {
+        setError("삭제하지 못했어요. 저장된 아바타를 유지했어요. 다시 시도해 주세요.");
+      }
     } finally { setPending(false); }
   }
   return (
@@ -96,16 +102,29 @@ function AvatarWorkspace({ initial, queryKey }) {
 }
 
 export function AvatarPage() {
-  const { member, sessionVersion } = useAuth();
-  const query = useMyAvatar();
+  const { member, sessionVersion, reload } = useAuth();
+  const navigate = useNavigate();
+  const { state } = useLocation();
+  const [checkingAccount, setCheckingAccount] = useState(false);
+  const query = useMyAvatar({ enabled: !checkingAccount });
   // Refetches must not replace an in-progress draft; remount only on account/session changes.
   useEffect(() => { document.title = "내 아바타 · 자리하나"; }, []);
+
+  async function reloadAccount() {
+    setCheckingAccount(true);
+    // Keep the notice in route state because the auth guard remounts on account change.
+    await navigate("/my/avatar", { replace: true, state: { avatarAccountChanged: true } });
+    await reload().catch(() => undefined);
+    setCheckingAccount(false);
+  }
+
   return (
     <div className="avatar-editor-page">
     <AccountLayout title="내 아바타">
-      {query.isPending ? <p role="status">아바타를 불러오고 있어요.</p> : null}
-      {query.isError && !query.data ? <><p role="alert">저장된 아바타를 불러오지 못했어요.</p><Button data-ph-capture-attribute-action="avatar_load_retry" onClick={() => query.refetch()}>다시 불러오기</Button></> : null}
-      {query.data ? <AvatarWorkspace key={`${member.id}:${sessionVersion}`} initial={query.data} queryKey={["member-avatar", member.id, sessionVersion]} /> : null}
+      {state?.avatarAccountChanged ? <p role="alert">로그인 계정이 바뀌었어요. 현재 계정에서 아바타를 다시 편집해 주세요.</p> : null}
+      {checkingAccount || query.isPending ? <p role="status">아바타를 불러오고 있어요.</p> : null}
+      {!checkingAccount && query.isError && !query.data ? <><p role="alert">저장된 아바타를 불러오지 못했어요.</p><Button data-ph-capture-attribute-action="avatar_load_retry" onClick={() => query.refetch()}>다시 불러오기</Button></> : null}
+      {!checkingAccount && member && query.data ? <AvatarWorkspace key={`${member.id}:${sessionVersion}`} initial={query.data} memberId={member.id} queryKey={["member-avatar", member.id, sessionVersion]} onAccountChanged={reloadAccount} /> : null}
     </AccountLayout>
     </div>
   );

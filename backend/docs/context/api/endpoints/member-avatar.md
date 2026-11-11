@@ -26,13 +26,14 @@
 
 ## PUT `/api/members/me/avatar`
 
-인증 및 CSRF 검증 후 생성·전체 교체한다. 요청은 `{ "appearance": { ... } }`이고
-위 예시의 18개 필드를 보낸다. 성공은 본문 없는 `204`이며 재조회로 저장값을 확인한다.
+인증 및 CSRF 검증 후 생성·전체 교체한다. 요청은 `{ "expectedMemberId": 123, "appearance": { ... } }`이다.
+`expectedMemberId`는 편집 화면을 열었을 때의 회원 ID를 양의 정수로 보낸다.
+`appearance`는 아래 필드를 사용한다. 성공은 본문 없는 `204`이며 재조회로 저장값을 확인한다.
 동일한 요청을 반복해도 회원당 한 행만 유지한다. 일부만 보내는 PATCH는 제공하지 않는다.
 
 | 필드 | 허용 값 |
 | --- | --- |
-| version | 숫자 1 |
+| version | JSON 정수 `1` |
 | hair | curly, parted, bob, long, flowing, bald |
 | skin | pearl, warm, tan, deep |
 | hairColor | ink, chestnut, copper, silver |
@@ -55,14 +56,17 @@
 `shoeColor` 생략·null은 `white`로 저장한다.
 `hat` 생략·null은 `none`, `hatColor` 생략·null은 `ink`로 저장한다. 모자와 안경은 독립적으로 선택한다.
 `bag` 생략·null은 `none`, `bagColor` 생략·null은 `ink`, `handheld` 생략·null은 `none`으로 저장한다.
-확장 필드의 허용하지 않은 값과 기존 필드의 누락·null·허용하지 않은 값·버전은 `400 INVALID_PARAMETER`로 거부한다.
+허용되지 않은 파츠 값, 필수 파츠의 누락·null, 문자열이나 소수 버전, 정의되지 않은 `appearance` 필드는 `400 INVALID_PARAMETER`로 거부한다.
 임의 자산 URL, 위치·크기·자세, 회원 ID는 외형 계약에 없다. 대상 회원은 인증 정보로만 정한다.
 
-## DELETE `/api/members/me/avatar`
+## DELETE `/api/members/me/avatar?expectedMemberId=123`
 
 인증 및 CSRF 검증 후 저장한 조합을 물리적으로 삭제한다. 성공은 본문 없는 `204`다.
 미생성·이미 삭제된 경우도 같은 응답이다. 이후 GET은 기본형을 반환한다.
 저장·삭제는 같은 회원 행의 잠금으로 직렬화하며 마지막 완료된 명령이 최종 모습이다.
+
+저장·삭제 대상은 인증된 회원으로 정한다. 편집 시점의 `expectedMemberId`가 인증된 회원 ID와 다르면 변경 전에
+`409 ACCOUNT_CHANGED`를 반환한다. `expectedMemberId`가 없거나 올바른 양의 정수가 아니면 `400 INVALID_PARAMETER`를 반환한다.
 
 미인증·존재하지 않는 회원은 `401 UNAUTHENTICATED`, CSRF 실패는 기존 공통 `403` 계약을 따른다.
 
