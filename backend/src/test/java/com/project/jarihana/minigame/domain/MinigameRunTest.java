@@ -109,7 +109,7 @@ class MinigameRunTest {
         RoundCut second = issued.cut(2, issued.currentPuzzle().answerPosition(), NOW.plusSeconds(40));
 
         // Then
-        assertThat(issued.roundEndsAt()).isEqualTo(NOW.plusSeconds(45));
+        assertThat(issued.roundEndsAt()).isEqualTo(NOW.plusSeconds(15).plus(MinigameRun.ROUND_TIME_LIMIT));
         assertThat(second.timedOut()).isFalse();
         assertThat(second.durationMillis()).isEqualTo(25_000);
         assertThat(second.score()).isEqualTo(1_000);
@@ -128,7 +128,7 @@ class MinigameRunTest {
 
         // Then
         assertThat(again).isSameAs(issued);
-        assertThat(again.roundEndsAt()).isEqualTo(NOW.plusSeconds(40));
+        assertThat(again.roundEndsAt()).isEqualTo(NOW.plusSeconds(10).plus(MinigameRun.ROUND_TIME_LIMIT));
     }
 
     @DisplayName("시작 후 10분이 지나면 다음 막대를 받을 수 없고, 마지막 막대를 하루 뒤에 잘라도 기록되지 않는다.")
@@ -164,23 +164,26 @@ class MinigameRunTest {
             run = run.issueRound(round, NOW.plusSeconds(round)).cut(round, 6, NOW.plusSeconds(round)).run();
         }
         LocalDateTime deadline = NOW.plus(MinigameRun.RUN_TIME_LIMIT);
-        MinigameRun lastIssued = run.issueRound(5, deadline.minusSeconds(10));
+        LocalDateTime issuedAt = deadline.minusSeconds(10);
+        MinigameRun lastIssued = run.issueRound(5, issuedAt);
         double answer = lastIssued.currentPuzzle().answerPosition();
+        LocalDateTime roundEnd = issuedAt.plus(MinigameRun.ROUND_TIME_LIMIT);
 
-        // When
-        RoundCut inTime = lastIssued.cut(5, answer, deadline.plusSeconds(20));
+        // When: 판 기한은 지났지만 그 막대의 제한 시간 끝에 자른다.
+        RoundCut inTime = lastIssued.cut(5, answer, roundEnd);
 
         // Then
         assertThat(inTime.timedOut()).isFalse();
         assertThat(inTime.run().finished()).isTrue();
-        assertThat(inTime.run().getFinishedAt()).isEqualTo(deadline.plusSeconds(20));
-        assertThatThrownBy(() -> lastIssued.cut(5, answer, deadline.plusSeconds(23).plusNanos(1_000_000)))
+        assertThat(inTime.run().getFinishedAt()).isEqualTo(roundEnd);
+        assertThatThrownBy(() -> lastIssued.cut(5, answer,
+                roundEnd.plus(MinigameRun.SUBMIT_GRACE).plusNanos(1_000_000)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.MINIGAME_RUN_EXPIRED);
     }
 
-    @DisplayName("제한 시간 30초에 여유 3초를 넘겨 자르면 0점이다.")
+    @DisplayName("제한 시간 60초에 여유 3초를 넘겨 자르면 0점이다.")
     @Test
     void scoresZeroAfterTimeLimit() {
         // Given
@@ -188,8 +191,9 @@ class MinigameRunTest {
         double answer = run.currentPuzzle().answerPosition();
 
         // When
-        RoundCut inTime = run.cut(1, answer, NOW.plusSeconds(33));
-        RoundCut late = run.cut(1, answer, NOW.plusSeconds(33).plusNanos(1_000_000));
+        LocalDateTime lastMoment = NOW.plus(MinigameRun.ROUND_TIME_LIMIT).plus(MinigameRun.SUBMIT_GRACE);
+        RoundCut inTime = run.cut(1, answer, lastMoment);
+        RoundCut late = run.cut(1, answer, lastMoment.plusNanos(1_000_000));
 
         // Then
         assertThat(inTime.timedOut()).isFalse();
