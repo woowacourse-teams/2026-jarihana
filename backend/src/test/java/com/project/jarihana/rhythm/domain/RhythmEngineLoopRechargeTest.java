@@ -15,12 +15,12 @@ class RhythmEngineLoopRechargeTest {
     private static final double END = 6;
 
     @Test
-    @DisplayName("완주하면 Hardest는 5개, 나머지는 3개를 충전하고 같은 완주에 두 번 지급하지 않는다")
+    @DisplayName("완주하면 Hardest와 ANOTHER Hardest는 5개, 나머지는 3개를 충전하고 같은 완주에 두 번 지급하지 않는다")
     void completedLoopRechargesOnceForEachLevel() {
         for (RhythmLevel level : RhythmLevel.values()) {
             // Given
             int maximum = maximum(level);
-            int reward = level == RhythmLevel.HARDEST ? 5 : 3;
+            int reward = level == RhythmLevel.HARDEST || level == RhythmLevel.ANOTHER_HARDEST ? 5 : 3;
             RhythmEngine engine = RhythmEngine.start(chart(6), level, 1, 99);
 
             // When
@@ -99,7 +99,8 @@ class RhythmEngineLoopRechargeTest {
     }
 
     private static int maximum(RhythmLevel level) {
-        return level == RhythmLevel.EASY || level == RhythmLevel.HARDEST ? 10 : 8;
+        return level == RhythmLevel.EASY || level == RhythmLevel.HARDEST || level == RhythmLevel.ANOTHER_HARD
+                || level == RhythmLevel.ANOTHER_HARDEST ? 10 : 8;
     }
 
     private static RhythmChart chart(int count) {
@@ -108,7 +109,7 @@ class RhythmEngineLoopRechargeTest {
                 .toList();
         Map<RhythmLevel, RhythmChart.Level> levels = new EnumMap<>(RhythmLevel.class);
         for (RhythmLevel level : RhythmLevel.values()) {
-            int reward = level == RhythmLevel.HARDEST ? 5 : 3;
+            int reward = level == RhythmLevel.HARDEST || level == RhythmLevel.ANOTHER_HARDEST ? 5 : 3;
             levels.put(level, new RhythmChart.Level(maximum(level), reward, 6, events, Map.of()));
         }
         return RhythmChart.of("test-recharge", "test-chart", 120, 1000, 4, levels);

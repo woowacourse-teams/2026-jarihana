@@ -6,16 +6,13 @@ import { NOTE_SYLLABLES } from "./lesson.mjs";
 import { laneForKey } from "./preferences.mjs";
 import {
   RANKED_BATCH_SECONDS,
-  RANKED_CHART_VERSION,
   RankedBatchSender,
   RankedInputLog,
   applyRankedInput,
   assertRankedVersions,
   createRankedEngine
 } from "./ranked-run.mjs";
-
-const CHART_URL = "/game-assets/rhythm-harpoon/assets/chart.json?v=" + RANKED_CHART_VERSION;
-const MUSIC_URL = "/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=spiral-melody-5";
+import { STAGES, stageOf } from "./stages.mjs";
 
 // 공식 도전 한 판을 실행한다. 멈출 수 없고, Esc나 화면 이탈은 그 판을 무효로 만든다.
 // 점수와 판정은 화면 표시용이며 기록은 서버가 입력 묶음으로 다시 계산한 결과만 쓴다.
@@ -266,18 +263,22 @@ export function mountRankedGame({
         image.onerror = () => reject(new Error("스프라이트를 불러올 수 없어요."));
         image.src = SPRITE_ATLAS.url;
       });
+      const stage = STAGES[stageOf(session.level)];
       const [loadedChart, bytes, sprites] = await Promise.all([
-        fetch(CHART_URL, { signal: lifetime.signal }).then((response) => {
+        fetch(stage.chart, { signal: lifetime.signal }).then((response) => {
           if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
           return response.json();
         }),
-        fetch(MUSIC_URL, { signal: lifetime.signal }).then((response) => {
+        fetch(stage.music, { signal: lifetime.signal }).then((response) => {
           if (!response.ok) throw new Error("음악을 불러올 수 없어요.");
           return response.arrayBuffer();
         }),
         spritePromise
       ]);
       if (disposed) return;
+      // 서버가 정한 채보 판본과 받은 채보가 다르면(배포 직후 캐시 등) 점수가 어긋나므로 시작하지 않는다.
+      if (loadedChart.chartVersion !== stage.chartVersion)
+        throw new Error("게임이 새로 바뀌었어요. 새로고침한 뒤 다시 도전해 주세요.");
       chart = loadedChart;
       audioContext = new AudioContext({ latencyHint: "interactive" });
       const buffer = await audioContext.decodeAudioData(bytes);
