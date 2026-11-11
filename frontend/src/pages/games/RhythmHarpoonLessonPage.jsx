@@ -27,10 +27,12 @@ import {
   RHYTHM_SINGLE_START_PATH
 } from "../../features/game/rhythm/availability.js";
 import { mountLessonGame } from "../../features/game/rhythm/mount-lesson-game.mjs";
+import { CLAY_STYLE } from "../../features/game/rhythm/SpriteFrame.jsx";
 import { useEscapeBack } from "../../features/game/rhythm/useEscapeBack.js";
 import { useOpenChallenge } from "../../features/game/rhythm/useOpenChallenge.js";
 import "../../features/game/rhythm/rhythm-game.css";
 import "../../features/game/rhythm/rhythm-hub.css";
+import "../../features/game/rhythm/rhythm-clay.css";
 import "./rhythm-harpoon.css";
 
 const DOT_COLORS = ["red", "blue", "yellow", "green"];
@@ -229,7 +231,10 @@ export function RhythmHarpoonLessonPage() {
   }
 
   return (
-    <section className="game-player game-player--rhythm" aria-labelledby="rhythm-lesson-title">
+    <section
+      className="game-player game-player--rhythm game-player--clay"
+      aria-labelledby="rhythm-lesson-title"
+    >
       <header className="game-player__toolbar">
         <Link
           aria-keyshortcuts="Escape"
@@ -269,7 +274,7 @@ export function RhythmHarpoonLessonPage() {
           건너뛰기
         </Link>
       </header>
-      <div className="rhythm-game" ref={rootReference}>
+      <div className="rhythm-game rhythm-game--clay" ref={rootReference} style={CLAY_STYLE}>
         <div className="rhythm-game__body rhythm-lesson">
           <div className="game-layout">
             <section className="arena-shell" aria-label="따라 하기 판">

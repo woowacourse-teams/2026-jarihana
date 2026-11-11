@@ -1,7 +1,7 @@
 /*
- * 혼자 연습과 공식 도전의 클레이 화면. 민트 바탕 위에 흰 클레이 카드를 아래 그림자로 띄우고,
+ * 혼자 연습, 공식 도전, 따라 하기의 클레이 화면. 민트 바탕 위에 흰 클레이 카드를 아래 그림자로 띄우고,
  * 난이도는 세균 그림 타일, 점수와 콤보와 라이프는 판 오른쪽 카드에 둔다.
- * 따라 하기는 rhythm-game.css의 어두운 화면을 그대로 쓰므로 모든 규칙을
+ * rhythm-game.css의 어두운 화면 위에 덮어쓰므로 모든 규칙을
  * .rhythm-game--clay(판)와 .game-player--clay(도구 막대) 안으로 한정한다.
  */
 .game-player--clay,
@@ -817,5 +817,82 @@
   .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:hover:not(:disabled),
   .rhythm-game.rhythm-game--clay .rhythm-challenge__levels button[data-level]:active:not(:disabled) {
     transform: none;
+  }
+}
+
+/* 따라 하기: 단계와 빠르기 버튼은 클레이 알약, 다음 소리 줄은 판 틀 안쪽에 둔다.
+   판은 위 공통 규칙의 board 영역에 놓이므로 따라 하기 배치에도 그 영역을 정해 둔다. */
+.rhythm-game.rhythm-game--clay .rhythm-lesson .game-layout {
+  grid-template-areas: "board";
+}
+@media (min-width: 701px) {
+  .rhythm-game.rhythm-game--clay .rhythm-lesson .game-layout {
+    /* 클레이 틀 아래 그림자만큼 판을 줄인다. */
+    --rhythm-board-size: calc(var(--rhythm-board-space) - 0.75rem);
+  }
+}
+.game-player--rhythm.game-player--clay .game-player__skip {
+  color: var(--clay-muted);
+  font-weight: var(--font-weight-bold);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__steps button {
+  border: 0;
+  background: var(--clay-bg);
+  box-shadow: inset 0 -2px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__steps button.is-extra {
+  box-shadow:
+    inset 0 0 0 2px var(--clay-base),
+    inset 0 -2px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__steps button[aria-current="step"] {
+  background: var(--color-brand);
+  box-shadow: inset 0 -3px 0 var(--color-brand-display);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__steps button.is-done::after {
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__steps button[aria-current="step"].is-done::after {
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__head h2 {
+  font-weight: 900;
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__choices button {
+  border: 0;
+  border-radius: 12px;
+  background: var(--clay-bg);
+  box-shadow: inset 0 -2px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-lesson__choices button[aria-pressed="true"] {
+  background: var(--color-brand);
+  box-shadow: inset 0 -3px 0 var(--color-brand-display);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-upcoming {
+  top: 26px;
+  left: 30px;
+  right: 30px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-upcoming .eyebrow {
+  color: var(--clay-muted);
+}
+.rhythm-game.rhythm-game--clay .rhythm-upcoming__chip {
+  border-radius: 12px;
+  box-shadow: 0 3px 0 rgb(0 0 0 / 18%);
+}
+.rhythm-game.rhythm-game--clay .rhythm-upcoming__chip:nth-of-type(2) {
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 4px 0 rgb(0 0 0 / 18%);
+}
+@media (max-width: 700px) {
+  .rhythm-game.rhythm-game--clay .rhythm-upcoming {
+    top: 20px;
+    left: 22px;
+    right: 22px;
   }
 }
