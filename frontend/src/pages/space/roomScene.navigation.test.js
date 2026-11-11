@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createRoomScene } from "./roomScene";
+import { createRoomRendering } from "./roomRendering";
 import * as roomState from "./roomState";
 import { pickRoomItem } from "./roomPicking";
 import { createRoomLighting } from "./roomLighting";
@@ -53,9 +54,9 @@ jest.mock("./roomLighting", () => ({ createRoomLighting: jest.fn((scene) => {
   scene.add(light);
   return jest.fn();
 }) }));
-jest.mock("./roomRendering", () => ({ createRoomRendering: (renderer, scene) => ({
+jest.mock("./roomRendering", () => ({ createRoomRendering: jest.fn((renderer, scene) => ({
   render: (camera) => renderer.render(scene, camera), prepareFlight: jest.fn(), resize: jest.fn(), dispose: jest.fn()
-}) }));
+})) }));
 jest.mock("./roomPicking", () => ({ pickRoomItem: jest.fn() }));
 
 let runtime;
@@ -227,7 +228,7 @@ test("detail preview rotates without taking scroll or opening items, and can hid
   expect(rotated.angleTo(before)).toBeGreaterThan(0.1);
   expect(camera().position).toEqual(origin);
   expect(renderer.setDrawingBufferSize).toHaveBeenCalledTimes(1);
-  expect(renderer.setDrawingBufferSize).toHaveBeenCalledWith(1000, 600, 1.5);
+  expect(renderer.setDrawingBufferSize).toHaveBeenCalledWith(1000, 600, 2);
   send("pointerdown"); send("pointerup");
   expect(callbacks.onSelect).not.toHaveBeenCalled();
   expect(send("wheel", { deltaY: 100 }).defaultPrevented).toBe(false);
@@ -464,11 +465,12 @@ test("camera changes reuse item elevations and moving a platform updates the ins
   expect(instrument.position.y).toBe(0);
 });
 
-test("both camera transitions keep the settled pixel ratio throughout the flight", () => {
+test("both camera transitions keep the display pixel ratio throughout the flight", () => {
   jest.replaceProperty(window, "devicePixelRatio", 2);
   const { room, camera } = setup();
   runtime.setPreviewWideAngle(25);
   const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  expect(createRoomRendering.mock.results.at(-1).value.resize).toHaveBeenLastCalledWith(2000, 1200);
   const rect = { left: 0, top: 0, width: 1000, height: 600 };
   const finish = jest.fn();
   let nextFrame;
@@ -482,17 +484,50 @@ test("both camera transitions keep the settled pixel ratio throughout the flight
       from: rect, duration: 720, getTargetRect: () => rect, finish
     });
     nextFrame(0);
-    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.5);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
     nextFrame(720);
     const point = new THREE.Vector3(1, 2, 3);
     const flightEnd = point.clone().project(camera());
     runtime.update(room, null, view, 1);
     nextFrame(736);
     expect(point.clone().project(camera()).distanceTo(flightEnd)).toBeLessThan(1e-7);
-    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.5);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
   }
   expect(finish).toHaveBeenCalledTimes(2);
   expect(renderer.setDrawingBufferSize).not.toHaveBeenCalledWith(1000, 600, 1);
+});
+
+test("walking keeps display resolution until frames are consistently slow and restores it when idle", () => {
+  jest.useFakeTimers({ doNotFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  try {
+    jest.replaceProperty(window, "devicePixelRatio", 2);
+    const { room, container, camera } = setup();
+    const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+    const frames = [];
+    window.requestAnimationFrame.mockImplementation((callback) => frames.push(callback));
+    let time = 0;
+    const frame = (elapsed) => {
+      time += elapsed;
+      jest.advanceTimersByTime(elapsed);
+      frames.splice(0).forEach((callback) => callback(time));
+    };
+    runtime.update(room, null, "firstPerson", 0.7);
+    frame(16.7);
+    const spawn = camera().position.clone();
+    const key = (type) => container.dispatchEvent(new KeyboardEvent(type, { code: "KeyW", key: "w" }));
+    key("keydown");
+    for (let index = 0; index < 24; index += 1) frame(16.7);
+    expect(camera().position.distanceTo(spawn)).toBeGreaterThan(0.1);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
+    for (let index = 0; index < 10; index += 1) frame(180);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 1.7);
+    key("keyup");
+    jest.advanceTimersByTime(140);
+    frame(16.7);
+    expect(renderer.setDrawingBufferSize).toHaveBeenLastCalledWith(1000, 600, 2);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test("web hero lets scroll and context menu pass and cannot move objects before expanding", () => {
@@ -612,4 +647,118 @@ test("live board captions and memory textures replace snapshots, clear on errors
   lateLoad.onLoad(lateLoad.texture);
   expect(dispose).toHaveBeenCalled();
   expect(JSON.stringify(savedRoom)).toBe(saved);
+});
+
+
+test("template loading remains active until shader preparation and the first ready frame complete", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let resolveCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolveCompilation = resolve; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  renderer.render.mockClear();
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  expect(rendering.compile).toHaveBeenCalledTimes(1);
+  expect(renderer.render).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true]]);
+  resolveCompilation(); await Promise.resolve();
+  expect(rendering.prepareAssets).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true]]);
+  while (frames.length) frames.shift()(16);
+  expect(renderer.render).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition.mock.calls).toEqual([[true], [false]]);
+});
+
+test("a superseded or disposed room cannot release a newer template loader", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  const resolves = [];
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolves.push(resolve); }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(16);
+  resolves[0](); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition).not.toHaveBeenCalledWith(false);
+  runtime.dispose(); runtime = undefined;
+  resolves[1](); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+});
+
+test("a superseded compilation failure cannot cancel a template waiting for its loading paint", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onError = jest.fn();
+  callbacks.onTemplateTransition = jest.fn();
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let rejectCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve, reject) => { rejectCompilation = reject; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  rejectCompilation(new Error("superseded shader"));
+  await Promise.resolve(); await Promise.resolve();
+  expect(callbacks.onError).not.toHaveBeenCalled();
+  expect(callbacks.onTemplateTransition).not.toHaveBeenCalledWith(false);
+  while (frames.length) frames.shift()(16);
+  expect(rendering.compile).toHaveBeenCalledTimes(2);
+});
+
+test("a lost WebGL context invalidates outstanding asset preparation", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onError = jest.fn();
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  let resolveCompilation;
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolveCompilation = resolve; }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  runtime.update(roomState.createInitialRoom("climbing"), null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  renderer.domElement.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+  expect(callbacks.onError).toHaveBeenCalledTimes(1);
+  resolveCompilation(); await Promise.resolve();
+  expect(rendering.prepareAssets).not.toHaveBeenCalled();
+});
+
+test("returning to the preparing template before a queued switch paints eventually releases loading", async () => {
+  const { callbacks } = setup(true);
+  callbacks.onTemplateTransition = jest.fn();
+  const renderer = THREE.WebGLRenderer.mock.results.at(-1).value;
+  const rendering = createRoomRendering.mock.results.at(-1).value;
+  const resolves = [];
+  rendering.compile = jest.fn(() => new Promise((resolve) => { resolves.push(resolve); }));
+  rendering.prepareAssets = jest.fn();
+  const frames = [];
+  window.requestAnimationFrame.mockImplementation((callback) => { frames.push(callback); return frames.length; });
+  const climbing = roomState.createInitialRoom("climbing");
+  runtime.update(climbing, null, "perspective", 0.7);
+  while (frames.length) frames.shift()(0);
+  expect(rendering.compile).toHaveBeenCalledTimes(1);
+  renderer.render.mockClear();
+
+  runtime.update(roomState.createInitialRoom("boardgame"), null, "perspective", 0.7);
+  runtime.update(climbing, null, "perspective", 0.7);
+  while (frames.length) frames.shift()(16);
+  for (const resolve of resolves) resolve();
+  await Promise.resolve();
+  while (frames.length) frames.shift()(32);
+
+  expect(rendering.prepareAssets).toHaveBeenCalledTimes(1);
+  expect(renderer.render).toHaveBeenCalledTimes(1);
+  expect(callbacks.onTemplateTransition).toHaveBeenLastCalledWith(false);
 });

@@ -33,7 +33,8 @@ test("lighting controls extinguish actual lights and bulb emission, then restore
   expect(rig.scene.children.every((light) => light.intensity === 0)).toBe(true);
   expect(rig.lamp.intensity).toBe(0);
   expect(rig.bulb.material.emissiveIntensity).toBe(0);
-  expect(rig.sun.castShadow).toBe(false);
+  expect(rig.sun.castShadow).toBe(true);
+  expect(rig.sun.shadow.intensity).toBe(0);
   rig.update(DEFAULT_ATMOSPHERE, rig.shell);
   expect(rig.scene.children).toEqual(lights);
   expect(rig.bulb.material).toBe(material);
@@ -41,6 +42,7 @@ test("lighting controls extinguish actual lights and bulb emission, then restore
   expect(rig.lamp.intensity).toBeGreaterThan(0);
   expect(rig.bulb.material.emissiveIntensity).toBeGreaterThan(0);
   expect(rig.sun.castShadow).toBe(true);
+  expect(rig.sun.shadow.intensity).toBe(1);
   rig.dispose();
 });
 
@@ -49,7 +51,8 @@ test("direction, warmth and shadow controls update rendered-light properties", (
   rig.update({ ...DEFAULT_ATMOSPHERE, sunAngle: 0, warmth: 0, shadows: false, shadowSoftness: 0 }, rig.shell);
   expect(rig.sun.position.x).toBeCloseTo(0);
   expect(rig.sun.position.z).toBeGreaterThan(0);
-  expect(rig.sun.castShadow).toBe(false);
+  expect(rig.sun.castShadow).toBe(true);
+  expect(rig.sun.shadow.intensity).toBe(0);
   const coolBlue = rig.sun.color.b;
   const hardShadow = rig.sun.shadow.radius;
   rig.update({ ...DEFAULT_ATMOSPHERE, sunAngle: 90, warmth: 100, shadowSoftness: 100 }, rig.shell);
@@ -59,9 +62,41 @@ test("direction, warmth and shadow controls update rendered-light properties", (
   expect(rig.lamp.color).toEqual(rig.sun.color);
   expect(rig.bulb.material.emissive).toEqual(rig.sun.color);
   expect(rig.sun.castShadow).toBe(true);
+  expect(rig.sun.shadow.intensity).toBe(1);
   expect(rig.sun.shadow.radius).toBeGreaterThan(hardShadow);
   rig.dispose();
 });
+
+test.each([undefined, { phase: "night", weather: "clear" }])(
+  "shadow controls retain the light topology and suspend unused shadow-map updates (%j)",
+  (outdoorLight) => {
+    const rig = setup();
+    const atmosphere = { ...DEFAULT_ATMOSPHERE, outdoorLight };
+    rig.update({ ...atmosphere, shadows: false }, rig.shell);
+    expect(rig.sun.castShadow).toBe(true);
+    expect(rig.sun.shadow.intensity).toBe(0);
+    expect(rig.sun.shadow.autoUpdate).toBe(false);
+    expect(rig.sun.shadow.needsUpdate).toBe(true);
+
+    // A first render supplies the sampler; disabled shadows then need no redraws.
+    rig.sun.shadow.map = new THREE.WebGLRenderTarget(8, 8);
+    rig.sun.shadow.needsUpdate = false;
+    for (const settings of [{ shadows: false }, { sunlight: 0 }]) {
+      rig.update({ ...atmosphere, ...settings }, rig.shell);
+      expect(rig.sun.castShadow).toBe(true);
+      expect(rig.sun.shadow.intensity).toBe(0);
+      expect(rig.sun.shadow.autoUpdate).toBe(false);
+      expect(rig.sun.shadow.needsUpdate).toBe(false);
+    }
+
+    rig.update(atmosphere, rig.shell);
+    expect(rig.sun.castShadow).toBe(true);
+    expect(rig.sun.shadow.intensity).toBe(1);
+    expect(rig.sun.shadow.autoUpdate).toBe(true);
+    expect(rig.sun.shadow.needsUpdate).toBe(true);
+    rig.dispose();
+  }
+);
 
 test("a replacement shell receives the active lamp settings", () => {
   const rig = setup();

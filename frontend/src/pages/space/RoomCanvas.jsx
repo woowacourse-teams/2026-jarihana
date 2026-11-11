@@ -7,7 +7,7 @@ const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 �
 
 export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
-  playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onReadyChange }) {
+  playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange }) {
   const host = useRef(null);
   const scene = useRef(null);
   const interactionMenu = useRef(null);
@@ -24,6 +24,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
   const [attempt, setAttempt] = useState(0);
   const [interaction, setInteraction] = useState(null);
   const [lookMode, setLookMode] = useState("free");
+  const hasMouseLook = lookMode === "locked" || lookMode === "hover";
   const menu = interaction?.menu;
   const choices = menu?.choices || interaction?.poseChoices;
   const exterior = view === "exterior";
@@ -67,8 +68,10 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
   }, [studioWideAngle]);
 
   useLayoutEffect(() => {
-    if (walkingReady && menu) interactionMenu.current?.querySelector("button[aria-keyshortcuts='1']")?.focus({ preventScroll: true });
-  }, [menu, walkingReady]);
+    if (walkingReady && menu && lookMode !== "hover" && document.pointerLockElement !== host.current) {
+      interactionMenu.current?.querySelector("button[aria-keyshortcuts='1']")?.focus({ preventScroll: true });
+    }
+  }, [menu, walkingReady, lookMode]);
 
   function interactionCommand(action) {
     host.current?.focus({ preventScroll: true });
@@ -104,7 +107,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
     if (walking && status === "ready" && !callbacks.current.walkInputBlocked) host.current?.focus({ preventScroll: true });
   }, [walking, view, status]);
 
-  useEffect(() => { onReadyChange?.(status === "ready"); }, [onReadyChange, status]);
+  useEffect(() => { onStatusChange?.(status); }, [onStatusChange, status]);
 
   useEffect(() => {
     if (status !== "ready" || !studioCameraTurn || lastStudioTurn.current === studioCameraTurn.id) return;
@@ -178,19 +181,23 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
 
   useEffect(() => {
     if (status !== "ready" || !onThumbnails || generatedThumbnails.current) return undefined;
-    let cancelled = false;
-    import("./roomScene").then(({ createFurnitureThumbnails }) => {
-      if (cancelled) return;
+    const controller = new AbortController();
+    import("./roomScene").then(async ({ createFurnitureThumbnails }) => {
+      if (controller.signal.aborted) return;
+      const thumbnails = await createFurnitureThumbnails(controller.signal);
+      if (controller.signal.aborted) return;
       generatedThumbnails.current = true;
-      onThumbnails(createFurnitureThumbnails());
+      onThumbnails(thumbnails);
     }).catch(() => { /* Catalog icons remain usable without GPU previews. */ });
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [onThumbnails, status]);
 
   return (
     <>
       {/* WebGL is a custom keyboard surface; the equivalent native controls are in the furniture toolbar. */}
-      <div className="room-canvas" ref={host} data-canvas-status={status} role={interactive ? "application" : "img"} tabIndex={interactive ? 0 : undefined}
+      <div className="room-canvas" ref={host} data-canvas-status={status}
+        data-mouse-look={playMode && walkingReady && hasMouseLook ? "active" : undefined}
+        role={interactive ? "application" : "img"} tabIndex={interactive ? 0 : cameraFlight && view === "firstPerson" ? -1 : undefined}
         aria-roledescription={!interactive ? "3D 공간 미리보기" : walking || !editable ? "3D 공간 둘러보기" : "3D 공간 편집기"}
         title={preview && interactive ? PREVIEW_CONTROLS : undefined}
         aria-label={!interactive ? "모임 아지트 미리보기." : preview ? `모임 아지트 미리보기. ${PREVIEW_CONTROLS}` : walking ? "모임 공간 둘러보기. WASD로 이동, Shift와 함께 누르면 달리기, Space로 점프하세요. E로 앉기, 일어서기 또는 가까운 물건 사용, 숫자키로 자세나 행동 선택, R로 소품 내려놓기. Esc로 포인터를 풀고, 화면을 클릭하거나 Enter를 누르면 시선 조작을 시작해요. 터치 화면에서는 드래그하세요." :
@@ -212,9 +219,9 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
       {walkingReady && playMode && view === "firstPerson" && !menu && (
         <span className="room-canvas__reticle" data-aimed={Boolean(interaction?.target)} aria-hidden="true" />
       )}
-      {walkingReady && !menu && (!playMode || lookMode !== "locked") && (
+      {walkingReady && !menu && (!playMode || !hasMouseLook) && (
         <div className="space-studio__look-mode">
-          {lookMode === "locked" ? <span role="status"><kbd>Esc</kbd> 포인터 풀기</span> : lookMode === "drag" && !playMode ? (
+          {hasMouseLook ? <span role="status"><kbd>Esc</kbd> 시선 조작 끄기</span> : lookMode === "drag" && !playMode ? (
             <span role="status">드래그로 시선 조작</span>
           ) : (
             <button type="button" data-ph-capture-attribute-action="space_walk_lock_pointer"
@@ -222,7 +229,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
           )}
         </div>
       )}
-      {walkingReady && (interaction?.target || interaction?.held || interaction?.feedback) && (
+      {walkingReady && (interaction?.target || choices || interaction?.held || interaction?.feedback) && (
         <div className={`space-studio__interaction${playMode ? " room-canvas__play-interaction" : ""}`}>
           {!menu && interaction.target && (
             <button type="button" className="space-studio__interaction-prompt" aria-keyshortcuts="E"
@@ -234,13 +241,6 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
           {choices && (
             <div className={menu ? "space-studio__interaction-menu" : "space-studio__interaction-poses"} role="group"
               aria-label={menu?.target.label || "앉은 자세"} ref={menu ? interactionMenu : undefined}>
-              {menu && (
-                <div className="space-studio__interaction-menu-header">
-                  <strong>{menu.target.name}</strong>
-                  <button type="button" data-ph-capture-attribute-action="space_walk_interact_cancel"
-                    aria-keyshortcuts="E Escape" onKeyDown={interactionKey} onClick={() => interactionCommand("interact")}>닫기</button>
-                </div>
-              )}
               <div className="space-studio__interaction-choices">
                 {choices.map((choice, index) => (
                   <button type="button" key={choice.id} data-ph-capture-attribute-action={choice.action}
@@ -250,6 +250,8 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
                     <span>{choice.label}</span>
                   </button>
                 ))}
+                {menu && <button type="button" data-ph-capture-attribute-action="space_walk_interact_cancel"
+                  aria-keyshortcuts="E Escape" onKeyDown={interactionKey} onClick={() => interactionCommand("interact")}><kbd>E</kbd>닫기</button>}
               </div>
             </div>
           )}

@@ -52,21 +52,5 @@ export function useClubhousePresence(group, auth, { listen, isMember }) {
     setSpeech((previous) => ({ scope, messages: [...(previous?.scope === scope ? previous.messages.filter((message) => message.expiresAt > now) : []), ...messages].slice(-3) }));
   }, [enabled, history?.data, history?.isError, roomId, scope]);
 
-  const sending = useRef(false);
-  const [greetingBusy, setGreetingBusy] = useState(false);
-  const canGreet = Boolean(chat && !history?.isError && history?.data?.status === "ACTIVE" && group.status !== "ENDED");
-  async function greet() {
-    if (!canGreet || sending.current) return false;
-    sending.current = true;
-    setGreetingBusy(true);
-    try {
-      const saved = await chat.send("안녕하세요! 반가워요 👋");
-      if (!saved) throw new Error("인사를 보내지 못했어요. 대화에서 전송 상태를 확인해 주세요.");
-      return true;
-    } finally {
-      sending.current = false;
-      setGreetingBusy(false);
-    }
-  }
-  return { greetingMembers, speechMessages: enabled && chat && speech?.scope === scope ? speech.messages : [], canGreet, greetingBusy, greet };
+  return { greetingMembers, speechMessages: enabled && chat && speech?.scope === scope ? speech.messages : [] };
 }

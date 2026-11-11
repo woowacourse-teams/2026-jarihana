@@ -64,17 +64,26 @@ test("draws the horizon behind the near scene before capturing their shared cove
   runtime.dispose();
 });
 
-test("moving frames draw the same scenes directly and settled frames restore effects", () => {
-  const renderer = { autoClear: true, getRenderTarget: () => null, setRenderTarget: jest.fn(), clear: jest.fn(), clearDepth: jest.fn(), render: jest.fn() };
+test("moving frames preserve the HDR material path and settled frames restore effects", () => {
+  const renderer = { autoClear: true, capabilities: { maxSamples: 4 }, getRenderTarget: () => null,
+    setRenderTarget: jest.fn(), clear: jest.fn(), clearDepth: jest.fn(), render: jest.fn(),
+    getDrawingBufferSize: (size) => size.set(960, 540) };
   const scene = new THREE.Scene();
   const backdrop = new THREE.Scene();
   const camera = new THREE.OrthographicCamera();
   const horizon = new THREE.PerspectiveCamera();
   const runtime = createRoomRendering(renderer, scene, camera, backdrop, horizon);
   const composer = EffectComposer.mock.results.at(-1).value;
+  const output = composer.passes.at(-2);
   const atmosphere = { shadows: true, lamps: 100 };
 
   runtime.render(camera, atmosphere, { moving: true });
+  const target = renderer.setRenderTarget.mock.calls[0][0];
+  expect(target).toBeInstanceOf(THREE.WebGLRenderTarget);
+  expect(target).toMatchObject({ width: 960, height: 540, samples: 2 });
+  expect(target.texture.type).toBe(THREE.HalfFloatType);
+  expect(output.renderToScreen).toBe(true);
+  expect(output.render).toHaveBeenCalledWith(renderer, null, target);
   expect(renderer.clear).toHaveBeenCalledTimes(1);
   expect(renderer.render.mock.calls).toEqual([[backdrop, horizon], [scene, camera]]);
   expect(renderer.clearDepth.mock.invocationCallOrder[0]).toBeGreaterThan(renderer.render.mock.invocationCallOrder[0]);
@@ -123,11 +132,55 @@ test("reserves the flight buffer during warmup and reuses it at the visible reso
   expect(renderer.shadowMap.needsUpdate).toBe(true);
 
   const disposeTarget = jest.spyOn(target, "dispose");
+  runtime.render(camera, {}, { moving: true });
+  expect(renderer.setRenderTarget.mock.calls.at(-2)[0]).toBe(target);
+  expect(output.render).toHaveBeenCalledWith(renderer, null, target);
   runtime.render(camera, {}, { moving: true, flying: true });
   expect(target).toMatchObject({ width: 800, height: 450 });
   expect(disposeTarget).not.toHaveBeenCalled();
   expect(output.renderToScreen).toBe(true);
+  expect(output.render).toHaveBeenCalledTimes(2);
   expect(output.render).toHaveBeenCalledWith(renderer, null, target);
   expect(composer.render).not.toHaveBeenCalled();
+  runtime.dispose();
+});
+
+
+test("precompiles room materials for HDR without leaving a render target bound", async () => {
+  let resolveRoom;
+  let target;
+  const roomReady = new Promise((resolve) => { resolveRoom = resolve; });
+  const renderer = { getRenderTarget: () => null, setRenderTarget: (value) => { target = value; },
+    compileAsync: jest.fn(() => { expect(target.texture.type).toBe(THREE.HalfFloatType); return roomReady; }) };
+  const scene = new THREE.Scene();
+  const backdrop = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera();
+  const horizon = new THREE.PerspectiveCamera();
+  const runtime = createRoomRendering(renderer, scene, camera, backdrop, horizon);
+  let ready = false;
+  const compilation = runtime.compile(camera).then(() => { ready = true; });
+  expect(target).toBeNull();
+  expect(renderer.compileAsync.mock.calls).toEqual([[scene, camera], [backdrop, horizon]]);
+  await Promise.resolve();
+  expect(ready).toBe(false);
+  resolveRoom(); await compilation;
+  expect(ready).toBe(true);
+  runtime.dispose();
+});
+
+test("uploads hidden floor assets offscreen and restores visibility and culling even on failure", () => {
+  const { runtime, scene, camera } = setup();
+  const floor = new THREE.Group(); floor.visible = false;
+  const chair = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial());
+  floor.add(chair); scene.add(floor);
+  runtime.prepareFlight = jest.fn(() => {
+    expect(floor.visible).toBe(true);
+    expect(chair.frustumCulled).toBe(false);
+    throw new Error("context lost");
+  });
+  expect(() => runtime.prepareAssets(camera, 1200, 800)).toThrow("context lost");
+  expect(runtime.prepareFlight).toHaveBeenCalledWith(camera, 1200, 800, { warmShadows: true });
+  expect(floor.visible).toBe(false);
+  expect(chair.frustumCulled).toBe(true);
   runtime.dispose();
 });

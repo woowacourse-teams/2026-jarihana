@@ -34,17 +34,17 @@ test("the building sign follows the actual group name independently of the saved
   expect(props.onSave).not.toHaveBeenCalled();
 });
 
-test("a visitor can toggle the same light from More and the first-person wall switch", () => {
+test("a visitor can toggle the same light from settings and the first-person wall switch", () => {
   const props = options();
   render(<SpaceStudioPage {...props} canEdit={false} />);
-  fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+  fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
   const button = screen.getByRole("button", { name: /전체 조명/ });
   const originalRoom = sceneProps.room;
   expect(button).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(button);
   expect(sceneProps.generalLighting).toBe(false);
   expect(button).toHaveAttribute("aria-pressed", "false");
-  fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+  fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
   expect(sceneProps.view).toBe("firstPerson");
   act(() => sceneProps.onSelect(ROOM_LIGHT_SWITCH_ID));
   expect(sceneProps.generalLighting).toBe(true);
@@ -73,6 +73,7 @@ test("the common collection repairs a saved room in one undoable edit", () => {
   props.initialRoom.notice = "다음 모임은 토요일";
   render(<SpaceStudioPage {...props} clubhouse={{ ...props.clubhouse, mode: "decorate" }} />);
   const original = sceneProps.room;
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 펼치기" }));
   fireEvent.click(screen.getByRole("button", { name: "공통 기능", exact: true }));
   fireEvent.click(screen.getByRole("button", { name: "빠진 공통 에셋 2개 추가" }));
   expect(sceneProps.room.items.slice(0, original.items.length)).toEqual(original.items);
@@ -115,9 +116,11 @@ test("use mode opens the shared feature while blocking all furniture edits", () 
 test("switching modes retains the unsaved draft and edit clicks never open activities", () => {
   const props = options();
   const { rerender } = render(<SpaceStudioPage {...props} />);
-  fireEvent.click(screen.getByRole("button", { name: "더보기" }));
-  expect(within(screen.getByRole("group", { name: "아지트 더보기" })).getByRole("button", { name: "활동 기록" })).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 펼치기" }));
+  expect(within(screen.getByRole("navigation", { name: "아지트 메뉴" })).getByRole("button", { name: "활동 기록" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "인사", exact: true })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
+  expect(screen.queryByRole("navigation", { name: "아지트 메뉴" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "3인칭" }));
   expect(screen.queryByRole("navigation", { name: "꾸미기 도구" })).not.toBeInTheDocument();
   expect(sceneProps.focusBuilding).toBe(false);
@@ -129,9 +132,10 @@ test("switching modes retains the unsaved draft and edit clicks never open activ
   expect(sceneProps).toMatchObject({
     focusBuilding: true, view: "perspective", floorView: "all", zoom: DEFAULT_ROOM_ZOOM
   });
+  fireEvent.click(screen.getByRole("button", { name: "메뉴 펼치기" }));
   expect(within(screen.getByRole("navigation", { name: "꾸미기 도구" })).getByRole("button", { name: "가구" })).toBeVisible();
-  expect(screen.queryByRole("group", { name: "시점 전환" })).not.toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "꾸미는 중" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "시점 설정" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "완료" })).toBeVisible();
   act(() => sceneProps.onSelect("activity-frame"));
   expect(props.clubhouse.onOpenFeature).not.toHaveBeenCalled();
   expect(screen.getByLabelText("추억 이름")).toBeInTheDocument();
@@ -144,6 +148,7 @@ test("switching modes retains the unsaved draft and edit clicks never open activ
   expect(sceneProps.focusBuilding).toBe(false);
   expect(sceneProps.selectedId).toBeNull();
   expect(sceneProps.room).toEqual(draft);
+  fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
   expect(screen.getByRole("button", { name: "3인칭" })).toHaveAttribute("aria-pressed", "true");
   expect(sceneProps).toMatchObject({ view: "thirdPerson", preserveWalkPose: true });
   expect(screen.queryByRole("button", { name: "저장", exact: true })).not.toBeInTheDocument();
@@ -265,6 +270,7 @@ test("the web hero allows camera navigation without editing and preserves assets
   expect(screen.queryByRole("button", { name: "UI 접기" })).not.toBeInTheDocument();
   rerender(<SpaceStudioPage {...props} clubhouse={immersive} />);
   expect(sceneProps).toMatchObject({ view: "perspective", zoom: 0.7, interactive: true, editable: true });
+  fireEvent.click(screen.getByRole("button", { name: "시점 도구 펼치기" }));
   fireEvent.click(screen.getByRole("button", { name: "UI 접기" }));
   expect(onHudHiddenChange).toHaveBeenLastCalledWith(true);
   fireEvent.click(screen.getByRole("button", { name: "UI 펼치기" }));
@@ -281,15 +287,15 @@ test("the web hero allows camera navigation without editing and preserves assets
   expect(screen.getByTestId("room-scene")).toBe(scene);
 });
 
-test("live photo slots and More open the same panel, and menus suspend movement", () => {
+test("live photo slots and the side menu open the same panel, and menus suspend movement", () => {
   const props = options();
   const { rerender } = render(<SpaceStudioPage {...props} />);
   const slot = { kind: "memory", link: "/groups/42?panel=activities&activity=55", title: "최근 활동" };
   act(() => sceneProps.onSelect(slot));
   expect(props.clubhouse.onOpenFeature).toHaveBeenCalledWith("activities", slot);
   expect(screen.queryByRole("button", { name: "시점 도구 펼치기" })).not.toBeInTheDocument();
-  const more = screen.getByRole("button", { name: "더보기" });
-  fireEvent.click(more);
+  const menu = screen.getByRole("button", { name: "메뉴 펼치기" });
+  fireEvent.click(menu);
   expect(sceneProps.walkInputBlocked).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "활동 기록" }));
   expect(props.clubhouse.onOpenFeature).toHaveBeenLastCalledWith("activities");
@@ -297,12 +303,21 @@ test("live photo slots and More open the same panel, and menus suspend movement"
   expect(sceneProps.walkInputBlocked).toBe(true);
   rerender(<SpaceStudioPage {...props} />);
   expect(sceneProps.walkInputBlocked).toBe(false);
-  fireEvent.click(more);
-  fireEvent.click(screen.getByRole("button", { name: "조작 도움말" }));
+  const settings = screen.getByRole("button", { name: "시점 설정" });
+  fireEvent.click(settings);
+  expect(sceneProps.walkInputBlocked).toBe(true);
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(settings).toHaveFocus();
+  expect(sceneProps.walkInputBlocked).toBe(false);
+  expect(settings).toHaveAttribute("aria-expanded", "false");
+  const help = screen.getByRole("button", { name: "조작 도움말" });
+  help.focus();
+  fireEvent.click(help);
   expect(screen.getByRole("dialog", { name: "조작 도움말" })).toBeVisible();
   expect(sceneProps.walkInputBlocked).toBe(true);
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "닫기" }));
   expect(sceneProps.walkInputBlocked).toBe(false);
+  expect(help).toHaveFocus();
 });
 
 test("visiting from the web hero keeps the canvas and hands control to first person after the camera flight", () => {

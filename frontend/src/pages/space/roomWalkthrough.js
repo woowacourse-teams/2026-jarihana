@@ -38,10 +38,12 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let feedbackTimer;
   let pointer;
   let pointerLocked = false;
+  let hoverLook = false;
   let wantsPointerLock = false;
   let pointerUnlockTimer;
   let resumeLookOnFocus = false;
   let lockingForVisit = false;
+  let lookDuringFlight = false;
   let controlsEnabled = true;
   let inputBlocked = false;
   let playMode = false;
@@ -80,6 +82,10 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     window.clearTimeout(pointerUnlockTimer);
     wantsPointerLock = false;
     lockingForVisit = false;
+    if (hoverLook) {
+      hoverLook = false;
+      onPointerLockChange?.("free");
+    }
     if (document.pointerLockElement === container) document.exitPointerLock();
   }
 
@@ -114,6 +120,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     if (locked === pointerLocked) return;
     pointerLocked = locked;
+    if (locked) hoverLook = false;
     if (!locked && wantsPointerLock) {
       if (document.hidden || !document.hasFocus()) suspendWalk();
       else {
@@ -129,17 +136,26 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   function handlePointerLockError() {
     if (wantsPointerLock && document.pointerLockElement !== container) {
       wantsPointerLock = false;
-      lockingForVisit = false;
-      onPointerLockChange?.("drag");
+      enableHoverLook();
     }
   }
 
+  function enableHoverLook() {
+    // Some browsers and embedded views deny pointer capture; still accept mouse motion over the canvas.
+    hoverLook = true;
+    onPointerLockChange?.("hover");
+  }
+
   function lockPointer(forVisit = false) {
-    if (inputBlocked || !container.requestPointerLock || wantsPointerLock || menu || approaching) return;
+    if (inputBlocked || wantsPointerLock || menu || approaching) return;
     resumeLookOnFocus = false;
-    if (!forVisit) container.focus({ preventScroll: true });
-    wantsPointerLock = true;
+    container.focus({ preventScroll: true });
     lockingForVisit = forVisit;
+    if (!container.requestPointerLock) {
+      if (forVisit) enableHoverLook();
+      return;
+    }
+    wantsPointerLock = true;
     try {
       container.requestPointerLock()?.then(() => {
         if (disposed || !wantsPointerLock) releasePointerLock();
@@ -217,7 +233,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function interact(target = interactionInView()) {
     if (menu) {
-      closeInteraction(true);
+      closeInteraction();
       return;
     }
     if (seated) {
@@ -237,9 +253,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       syncCamera();
       frame = requestAnimationFrame(tick);
     } else if (target.choices?.length) {
-      const resumeMouseLook = wantsPointerLock;
-      pauseWalk();
-      menu = { target, choices: target.choices, resumeMouseLook };
+      stop();
+      menu = { target, choices: target.choices };
       syncCamera();
       publishInteraction();
     } else if (target.feature) {
@@ -248,10 +263,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
   }
 
-  function closeInteraction(restoreMouseLook = false) {
-    const resumeMouseLook = restoreMouseLook && menu?.resumeMouseLook;
+  function closeInteraction() {
     menu = null;
-    if (resumeMouseLook) lockPointer();
     syncCamera();
     publishInteraction();
   }
@@ -261,7 +274,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const choice = typeof selection === "number" ? choices?.[selection] : choices?.find(({ id }) => id === selection);
     if (!acceptsInput() || !choice) return;
     const { id } = choice;
-    const { target, resumeMouseLook } = menu ?? {};
+    const target = menu?.target;
     menu = null;
     if (seated) {
       if (id === "empty") setHeld(null);
@@ -273,7 +286,6 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       const message = onInteract?.(target, choice);
       if (message) showFeedback(message);
     }
-    if (resumeMouseLook) lockPointer();
     syncCamera();
     publishInteraction();
   }
@@ -491,19 +503,26 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (playMode && (keys.size || sprintKeys.size) && !container.contains(event.target) && !isPlayHudTarget(event.target)) stop();
   }
   function onKeyUp(event) {
+    const wasMoving = hasMotion();
     sprintKeys.delete(event.code);
     keys.delete(event.code);
-    if (!hasMotion()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; }
+    if (!hasMotion()) {
+      cancelAnimationFrame(frame); frame = 0; lastTime = 0;
+      if (wasMoving) render(false);
+    }
   }
   function look(dx, dy) {
     if (!dx && !dy) return;
-    if (menu || approaching) return;
+    if (approaching) return;
     yaw += dx * 0.005;
     pitch = Math.max(-0.7, Math.min(1.1, pitch - dy * 0.004));
     syncCamera(true);
   }
-  function onLockedMouseMove(event) {
-    if (acceptsInput() && pointerLocked && wantsPointerLock) look(event.movementX || 0, event.movementY || 0);
+  function onMouseLook(event) {
+    if (!acceptsInput() && !(lookDuringFlight && lockingForVisit && !inputBlocked)) return;
+    const locked = wantsPointerLock && document.pointerLockElement === container;
+    const hovering = hoverLook && !pointer && event.target instanceof Node && container.contains(event.target);
+    if (locked || hovering) look(event.movementX || 0, event.movementY || 0);
   }
   function visibility() {
     if (document.hidden) suspendWalk();
@@ -519,12 +538,13 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   document.addEventListener("focusin", onFocusIn);
   document.addEventListener("pointerlockchange", handlePointerLockChange);
   document.addEventListener("pointerlockerror", handlePointerLockError);
-  document.addEventListener("mousemove", onLockedMouseMove);
+  document.addEventListener("mousemove", onMouseLook);
   document.addEventListener("visibilitychange", visibility);
   onPointerLockChange?.(container.requestPointerLock ? "free" : "drag");
 
   return {
     camera, active,
+    isMoving: hasMotion,
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
     },
@@ -537,7 +557,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       }
       if (active()) syncCamera();
     },
-    update(nextView, color, interactive = true, { preservePose = false, playing = false } = {}) {
+    update(nextView, color, interactive = true, { preservePose = false, playing = false, allowFlightLook = false } = {}) {
       const wasActive = active();
       const enteringFromWeb = view === "front" && nextView === "firstPerson";
       const keepPose = preservePose && nextView !== "front" && hasWalkPose;
@@ -550,6 +570,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (enteringFromWeb) visiting = true;
       else if (!WALK_VIEWS.has(nextView) && !keepPose) visiting = false;
       controlsEnabled = interactive;
+      lookDuringFlight = allowFlightLook;
       playMode = playing;
       view = nextView;
       const room = getRoom();
@@ -651,7 +672,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("pointerlockchange", handlePointerLockChange);
       document.removeEventListener("pointerlockerror", handlePointerLockError);
-      document.removeEventListener("mousemove", onLockedMouseMove);
+      document.removeEventListener("mousemove", onMouseLook);
       document.removeEventListener("visibilitychange", visibility);
       if (avatar) disposeObject(avatar);
       if (targetOutline) disposeObject(targetOutline);

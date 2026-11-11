@@ -19,7 +19,6 @@ import "./group-clubhouse.css";
 
 const GroupSpaceLoader = lazy(() => import("../space/GroupSpacePage.jsx").then(({ GroupSpaceLoader }) => ({ default: GroupSpaceLoader })));
 const CAMERA_FLIGHT_MS = 720;
-const SCENE_LOADING = '.route-loading, [data-canvas-status="loading"]';
 
 function activityIdFromItem(item, groupId) {
   if (!item?.link) return null;
@@ -62,7 +61,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
   const canDecorate = Boolean(isMember && memberId === group.leader?.memberId && group.status !== "ENDED");
   const [expanded, setExpanded] = useState(() => /\/space\/?$/.test(location.pathname));
   const [cameraFlight, setCameraFlight] = useState(null);
-  const [expandRequested, setExpandRequested] = useState(null);
+  const [sceneStatus, setSceneStatus] = useState("loading");
   const [previewExterior, setPreviewExterior] = useState(true);
   const [previewWideAngle, setPreviewWideAngle] = useState(0);
   const [lensOpen, setLensOpen] = useState(false);
@@ -80,12 +79,12 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
   const unsavedSpace = useRef({ dirty: false, saving: false });
   const { openMusic, musicOpen, muted, toggleMuted } = useGroupMusic();
   const { portrait, lockLandscape, releaseLandscape } = useClubhouseLandscape();
-  const orientationBlocked = portrait && (expanded || Boolean(expandRequested));
+  const orientationBlocked = portrait && expanded;
   const chatSession = useChatSession();
   const chatOpen = new URLSearchParams(location.search).has("chat");
   const unreadCount = chatSession?.chat?.rooms.data?.find((room) => String(room.groupId) === String(groupId))?.unreadCount ?? 0;
   const { exhibit, retryExhibit, announcements, retryAnnouncements } = useClubhouseContent(groupId, auth, pinnedIds, expanded);
-  const { greetingMembers, speechMessages, canGreet, greetingBusy, greet } =
+  const { greetingMembers, speechMessages } =
     useClubhousePresence(group, auth, { listen: expanded, isMember });
 
   const updateBackdrop = useCallback((color, style, outdoors) => setBackdrop({ color, style, outdoors }), []);
@@ -126,7 +125,6 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
   }, [cameraFlight]);
 
   const switchPresentation = useCallback((next) => {
-    setExpandRequested(null);
     setLensOpen(false);
     setContentDialog(null);
     if (next) {
@@ -149,21 +147,6 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
     }
     setExpanded(next);
   }, [releaseLandscape]);
-
-  useEffect(() => {
-    if (!expandRequested || expanded) return undefined;
-    const scene = sceneRef.current;
-    const expandWhenReady = () => {
-      if (scene.querySelector(SCENE_LOADING)) return;
-      observer.disconnect();
-      if (expandRequested.lockPointer && navigator.userActivation?.isActive) visitPointerLockRef.current?.();
-      switchPresentation(true);
-    };
-    const observer = new MutationObserver(expandWhenReady);
-    observer.observe(scene, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-canvas-status"] });
-    expandWhenReady();
-    return () => observer.disconnect();
-  }, [expandRequested, expanded, switchPresentation]);
 
   useEffect(() => {
     function guardNavigation(event) {
@@ -228,9 +211,9 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
   const clubhouse = {
     mode, canDecorate, onModeChange: changeMode, onOpenFeature: openFeature, activityExhibit: exhibit,
     inputBlocked: Boolean(chatOpen || contentDialog || musicOpen || orientationBlocked), orientationBlocked, unreadCount, muted, toggleMuted,
-    onActivityLinksChange: updateActivityLinks, canGreet, greetingBusy, onGreet: greet, canChat: isMember,
+    onActivityLinksChange: updateActivityLinks, canChat: isMember,
     presentation: expanded ? "immersive" : "web", previewExterior, previewWideAngle, cameraFlight, visitPointerLockRef, onBackdropChange: updateBackdrop,
-    onDirtyChange: updateUnsavedSpace,
+    onDirtyChange: updateUnsavedSpace, onSceneStatus: setSceneStatus,
     speechMessages, greetingMembers, displayRecord, onRecordDisplayed: ackDisplay,
     announcementText: announcements.records[0]?.title ?? "",
     onOpenAnnouncements: () => openWebTab("announcements")
@@ -277,23 +260,18 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
           </div>
         </div>
         <button ref={expandButton} type="button" aria-controls="group-clubhouse-scene" aria-expanded={expanded}
-          aria-busy={Boolean(expandRequested)} disabled={Boolean(expandRequested)} className="group-clubhouse__expand group-clubhouse__visit"
+          aria-busy={sceneStatus === "loading"} disabled={sceneStatus !== "ready"} className="group-clubhouse__expand group-clubhouse__visit"
           data-ph-capture-attribute-action="group_space_expand" onClick={(event) => {
+            if (event.nativeEvent.pointerType !== "touch") visitPointerLockRef.current?.();
             void lockLandscape();
-            const lockPointer = event.nativeEvent.pointerType !== "touch";
-            if (sceneRef.current?.querySelector(SCENE_LOADING)) {
-              setExpandRequested({ lockPointer });
-              return;
-            }
-            if (lockPointer) visitPointerLockRef.current?.();
             switchPresentation(true);
           }}>
-          <DoorOpen size={20} aria-hidden="true" /><span>{expandRequested ? "공간 불러오는 중…" : "놀러가기"}</span>
+          <DoorOpen size={20} aria-hidden="true" /><span>{sceneStatus === "loading" ? "공간 불러오는 중…" : sceneStatus === "error" ? "공간 이용 불가" : "놀러가기"}</span>
         </button>
       </section>
       <button type="button" hidden={!expanded} disabled={Boolean(cameraFlight)} className="group-clubhouse__collapse" aria-label="웹 상세로 돌아가기" title="웹 상세로 돌아가기"
         data-ph-capture-attribute-action="group_space_collapse" onClick={() => switchPresentation(false)}>
-        <ArrowLeft size={19} aria-hidden="true" /><span>상세로 돌아가기</span>
+        <ArrowLeft size={19} aria-hidden="true" />
       </button>
     </div>
     <div className="group-clubhouse__web" hidden={expanded} inert={Boolean(cameraFlight)}>{children}</div>

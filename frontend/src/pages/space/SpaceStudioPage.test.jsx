@@ -277,6 +277,19 @@ test("every action control carries a stable analytics identifier", () => {
   }
 });
 
+test("a successful save notice dismisses itself", () => {
+  jest.useFakeTimers();
+  try {
+    render(<SpaceStudioPage />);
+    click("저장");
+    expect(screen.getByRole("status")).toHaveTextContent("이 브라우저에 공간을 저장했어요.");
+    act(() => jest.advanceTimersByTime(3500));
+    expect(screen.queryByText("이 브라우저에 공간을 저장했어요.")).not.toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test("the template transition shows progress and blocks edits until the new scene is drawn", () => {
   render(<SpaceStudioPage />);
   click("아지트");
@@ -827,4 +840,101 @@ test.each([
   expect(sceneProps.floorView).toBe("mezzanine");
   openFurniture();
   expect(screen.getByRole("button", { name: "중층에 놓기" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("integrated editing shows only save and done and keeps its sliding menu inert when collapsed", () => {
+  const onModeChange = jest.fn();
+  render(<SpaceStudioPage groupContext={groupContext} clubhouse={{ mode: "decorate", onModeChange }} />);
+  const scene = screen.getByTestId("room-scene");
+  expect(screen.getByRole("button", { name: "저장", exact: true })).toBeVisible();
+  expect(screen.getByRole("button", { name: "완료", exact: true })).toBeVisible();
+  expect(screen.queryByRole("toolbar", { name: "편집 이력" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "취소", exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "꾸미기 도구" })).not.toBeInTheDocument();
+  expect(document.getElementById("space-hud-menu")).toHaveAttribute("inert");
+  click("메뉴 펼치기"); click("내 자리");
+  const name = screen.getByRole("textbox", { name: "공간 이름" });
+  fireEvent.change(name, { target: { value: "우리 모임 초안" } });
+  const editHistory = within(screen.getByRole("toolbar", { name: "편집 이력" }));
+  fireEvent.click(editHistory.getByRole("button", { name: "실행 취소" }));
+  expect(editHistory.getByRole("button", { name: "다시 실행" })).toBeEnabled();
+  fireEvent.click(editHistory.getByRole("button", { name: "다시 실행" }));
+  click("메뉴 접기");
+  expect(document.getElementById("space-hud-menu")).toHaveAttribute("inert");
+  expect(screen.queryByRole("textbox", { name: "공간 이름" })).not.toBeInTheDocument();
+  click("메뉴 펼치기");
+  expect(document.getElementById("space-hud-menu")).not.toHaveAttribute("inert");
+  expect(screen.getByRole("textbox", { name: "공간 이름" })).toBe(name);
+  expect(name).toHaveValue("우리 모임 초안");
+  expect(screen.getByTestId("room-scene")).toBe(scene);
+  click("완료");
+  expect(onModeChange).toHaveBeenCalledWith("use");
+  expect(sceneProps.room.name).toBe("우리 모임 초안");
+});
+
+test("integrated View groups camera tools while exterior and lighting stay available when closed", () => {
+  render(<SpaceStudioPage initialRoom={createInitialRoom("climbing")} groupContext={groupContext}
+    clubhouse={{ mode: "decorate", onModeChange: jest.fn() }} />);
+  const items = sceneProps.room.items;
+  const scene = screen.getByTestId("room-scene");
+  expect(screen.queryByRole("button", { name: "중층 라운지" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "UI 접기" })).toBeVisible();
+  click("전체 조명"); expect(sceneProps.generalLighting).toBe(false);
+  click("건물 외관"); expect(sceneProps.view).toBe("exterior");
+  click("건물 외관"); expect(sceneProps.view).toBe("perspective");
+  click("시점 도구 펼치기");
+  const viewTools = within(screen.getByRole("group", { name: "층과 카메라 설정" }));
+  for (const name of ["전체 보기", "1층 메인 공간", "중층 라운지", "입체로 보기", "위에서 보기"]) {
+    expect(viewTools.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  click("중층 라운지"); expect(sceneProps.floorView).toBe("mezzanine");
+  click("1층 메인 공간"); expect(sceneProps.floorView).toBe("ground");
+  click("전체 보기"); expect(sceneProps.floorView).toBe("all");
+  click("위에서 보기"); expect(sceneProps.view).toBe("top");
+  click("건물 외관"); expect(sceneProps.view).toBe("exterior");
+  click("건물 외관"); expect(sceneProps.view).toBe("top");
+  click("입체로 보기"); expect(sceneProps.view).toBe("perspective");
+  click("전체 조명"); expect(sceneProps.generalLighting).toBe(true);
+  fireEvent.change(viewTools.getByRole("slider", { name: "광각 시야" }), { target: { value: "24" } });
+  expect(sceneProps.studioWideAngle).toBe(24);
+  click("시점 도구 접기");
+  expect(screen.queryByRole("toolbar", { name: "시점 조절" })).not.toBeInTheDocument();
+  expect(sceneProps.room.items).toBe(items);
+  expect(screen.getByTestId("room-scene")).toBe(scene);
+});
+
+test("ordinary setting notices expire, newer notices restart the timer, and errors stay readable", () => {
+  jest.useFakeTimers();
+  try {
+    render(<SpaceStudioPage />);
+    click("아지트"); click("클라이밍"); click("이 아지트로 꾸미기");
+    expect(screen.getByRole("status")).toHaveTextContent("아지트를 바꿨어요");
+    expect(screen.queryByRole("button", { name: "알림 닫기" })).not.toBeInTheDocument();
+    act(() => jest.advanceTimersByTime(2500));
+    click("취소");
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByRole("status")).toHaveTextContent("마지막으로 저장한 모습");
+    act(() => jest.advanceTimersByTime(2500));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    act(() => sceneProps.onInvalid());
+    act(() => jest.advanceTimersByTime(10000));
+    expect(screen.getByRole("alert")).toHaveTextContent("여기에는 놓을 수 없어요");
+  } finally { jest.useRealTimers(); }
+});
+
+test("integrated menu and View are mutually exclusive without discarding the mounted draft", () => {
+  render(<SpaceStudioPage groupContext={groupContext} clubhouse={{ mode: "decorate", onModeChange: jest.fn() }} />);
+  click("메뉴 펼치기"); click("내 자리");
+  const draft = screen.getByRole("textbox", { name: "공간 이름" });
+  fireEvent.change(draft, { target: { value: "계속 꾸미는 아지트" } });
+  click("시점 도구 펼치기");
+  expect(screen.getByRole("button", { name: "메뉴 펼치기" })).toHaveAttribute("aria-expanded", "false");
+  expect(document.getElementById("space-hud-menu")).toHaveAttribute("inert");
+  expect(screen.queryByRole("textbox", { name: "공간 이름" })).not.toBeInTheDocument();
+  expect(screen.getByRole("toolbar", { name: "시점 조절" })).toBeVisible();
+  click("메뉴 펼치기");
+  expect(screen.getByRole("button", { name: "시점 도구 펼치기" })).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("toolbar", { name: "시점 조절" })).not.toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "공간 이름" })).toBe(draft);
+  expect(draft).toHaveValue("계속 꾸미는 아지트");
 });

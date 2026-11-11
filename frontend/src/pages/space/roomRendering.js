@@ -67,6 +67,32 @@ export function createRoomRendering(renderer, scene, camera, backdropScene, back
 
   return {
     resize(w, h) { composer.setSize(w, h); },
+    compile(activeCamera) {
+      const previousTarget = renderer.getRenderTarget();
+      try {
+        // Compile for the same linear HDR output used by every room render path.
+        renderer.setRenderTarget(flightTarget);
+        return Promise.all([
+          renderer.compileAsync(scene, activeCamera),
+          backdrop && renderer.compileAsync(backdropScene, backdropCamera)
+        ]);
+      } finally { renderer.setRenderTarget(previousTarget); }
+    },
+    prepareAssets(activeCamera, width, height) {
+      const hidden = [];
+      const culled = [];
+      scene.traverse((object) => {
+        if (!object.visible && !object.isLight) { hidden.push(object); object.visible = true; }
+        if (object.frustumCulled) { culled.push(object); object.frustumCulled = false; }
+      });
+      try {
+        // Upload hidden floors and exterior assets before releasing the loading screen.
+        this.prepareFlight(activeCamera, width, height, { warmShadows: true });
+      } finally {
+        hidden.forEach((object) => { object.visible = false; });
+        culled.forEach((object) => { object.frustumCulled = true; });
+      }
+    },
     prepareFlight(activeCamera, width, height, { warmShadows = false } = {}) {
       flightTarget.setSize(width, height);
       // Reserve the full-size HDR target in idle time while warming shaders over one pixel.
@@ -83,18 +109,13 @@ export function createRoomRendering(renderer, scene, camera, backdropScene, back
       }
     },
     render(activeCamera, atmosphere, { moving = false, flying = false, preview = false } = {}) {
-      if (flying) {
-        // Use the same linear scene materials as the preview, with just the final color conversion.
+      if (flying || (moving && !preview)) {
+        // Keep motion on the warmed linear material path; direct screen rendering needs different shaders.
         renderer.getDrawingBufferSize(flightSize);
         flightTarget.setSize(flightSize.x, flightSize.y);
         renderLayers(activeCamera, flightTarget);
         output.renderToScreen = true;
         output.render(renderer, null, flightTarget);
-        return;
-      }
-      if (moving && !preview) {
-        // Keep camera input responsive. The settled frame restores the full optical effects.
-        renderLayers(activeCamera, null);
         return;
       }
       beauty.camera = activeCamera;

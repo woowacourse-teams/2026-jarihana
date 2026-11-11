@@ -1,4 +1,5 @@
 import { createRoomRendering } from "./roomRendering";
+import { createRoomFrameQuality } from "./roomFrameQuality";
 import { applyAssetAppearance } from "./assetAppearance";
 import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
@@ -6,6 +7,7 @@ import * as THREE from "three";
 import { ACCENT_COLORS, CATALOG, placedItemElevation, DEFAULT_ATMOSPHERE, THEMES, canPlace, footprint, snapPosition } from "./roomState";
 import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, disposeObject } from "./roomModels";
 import { createRoomLighting } from "./roomLighting";
+import { createRoomSceneLights } from "./roomSceneLights";
 import { createRoomCeilingLighting } from "./roomCeilingLighting";
 import { advanceClubhouseSign, updateClubhouseSign } from "./clubhouseExterior";
 import { applyBakedFurnitureOcclusion, applyBakedWallOcclusion } from "./roomBakedOcclusion";
@@ -13,6 +15,7 @@ import { createWalkthrough } from "./roomWalkthrough";
 import { getRoomLayout } from "./roomLayout";
 import { getDioramaBounds } from "./islandLayout";
 import { createIslandHorizon } from "./islandHorizon";
+import { createRoomSkyBackdrop, frameRoomBackdrop } from "./roomSkyBackdrop";
 import { createRoomSkyOrb } from "./roomSkyOrb";
 import { frameRoomCamera, frameRoomCameraFlight, frameRoomFrontCamera, setRoomFrontLens } from "./roomCamera";
 import { createRoomCameraControls } from "./roomCameraControls";
@@ -113,10 +116,15 @@ function speechSprite(message) {
 
 export function createRoomScene(container, callbacks) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "default" });
-  const settledPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-  const motionPixelRatio = Math.min(settledPixelRatio, 1);
-  let pixelRatio = settledPixelRatio;
-  renderer.setPixelRatio(pixelRatio);
+  const gl = renderer.getContext?.();
+  const maxBufferSize = Math.min(renderer.capabilities?.maxTextureSize ?? Infinity,
+    gl?.getParameter(gl.MAX_RENDERBUFFER_SIZE) ?? Infinity);
+  const frameQuality = createRoomFrameQuality();
+  let nativePixelRatio;
+  let pixelRatio;
+  let frameProbe = 0;
+  let refreshProbe = 0;
+  let pixelRatioMedia;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -136,13 +144,14 @@ export function createRoomScene(container, callbacks) {
   const previewForward = new THREE.Vector3();
   const previewRight = new THREE.Vector3();
   const horizon = createIslandHorizon();
+  const sky = createRoomSkyBackdrop();
   const skyOrb = createRoomSkyOrb();
   const backdrop = new THREE.Scene();
-  backdrop.add(horizon.group, skyOrb.orb);
+  backdrop.add(sky.mesh, horizon.group, skyOrb.orb);
   const horizonCamera = new THREE.PerspectiveCamera(44, 1, 16, 1200);
-  const horizonDirection = new THREE.Vector3();
   const rendering = createRoomRendering(renderer, scene, camera, backdrop, horizonCamera);
   const updateLighting = createRoomLighting(scene);
+  const sceneLights = createRoomSceneLights(scene);
   const outdoorLightSource = scene.getObjectByName("room-sun-moonlight");
   const objectLayer = new THREE.Group();
   scene.add(objectLayer);
@@ -199,6 +208,8 @@ export function createRoomScene(container, callbacks) {
   let disposed = false;
   let animationFrame = 0;
   let templateFrame = 0;
+  let templateSyncFrame = 0;
+  let templateSync;
   let queuedTemplateUpdate;
   let templateSwitching = false;
   let signTimer;
@@ -208,11 +219,13 @@ export function createRoomScene(container, callbacks) {
   const signPosition = new THREE.Vector3();
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let settleTimer;
+  let motionFramePending = false;
   let renderWidth;
   let renderHeight;
   let flight;
-  let preparationTask;
-  let preparationStep = 0;
+  let preparationGeneration = 0;
+  let preparing = false;
+  let preparationInvalidated = false;
   let presentedFrontage = false;
   let presentedExterior = false;
   const previewKeys = new Set();
@@ -268,83 +281,89 @@ export function createRoomScene(container, callbacks) {
     if (animated) signTimer = window.setTimeout(render, 1000 / 24);
   }
 
+  function screenPixelRatio(width, height) {
+    return Math.min(window.devicePixelRatio || 1, maxBufferSize / Math.max(width, height));
+  }
+
+  function resetFrameQuality() {
+    if (frameProbe) cancelAnimationFrame(frameProbe);
+    frameProbe = 0;
+    frameQuality.reset();
+  }
+
+  function measureDisplayRefresh() {
+    if (refreshProbe) cancelAnimationFrame(refreshProbe);
+    let previous;
+    let remaining = 9;
+    let shortest = Infinity;
+    function measure(time) {
+      const elapsed = time - previous;
+      if (elapsed >= 4 && elapsed <= 45) shortest = Math.min(shortest, elapsed);
+      previous = time;
+      refreshProbe = --remaining ? requestAnimationFrame(measure) : 0;
+      if (!remaining && Number.isFinite(shortest)) frameQuality.setRefreshInterval(shortest);
+    }
+    refreshProbe = requestAnimationFrame(measure);
+  }
+
   function renderFrom(activeCamera, options, time) {
-    const nextPixelRatio = options.moving && !options.flying && !options.preview ? motionPixelRatio : settledPixelRatio;
+    const adaptive = options.moving && !options.flying && !options.preview && !document.hidden;
+    if (adaptive) {
+      // Probe the next display frame so gaps between pointer events do not count as rendering lag.
+      if (!frameProbe) frameProbe = requestAnimationFrame((nextTime) => {
+        frameProbe = 0;
+        if (!document.hidden && nativePixelRatio) {
+          frameQuality.sample(nextTime - time, Math.min(1, 0.75 / nativePixelRatio));
+        }
+      });
+    } else resetFrameQuality();
+    const nextPixelRatio = nativePixelRatio * frameQuality.scale;
     if (renderWidth && renderHeight && pixelRatio !== nextPixelRatio) {
       pixelRatio = nextPixelRatio;
       renderer.setDrawingBufferSize(renderWidth, renderHeight, pixelRatio);
     }
-    if (options.walking) {
-      horizonCamera.copy(activeCamera);
-      horizonCamera.near = 16;
-      horizonCamera.far = 1200;
-    } else {
-      activeCamera.getWorldDirection(horizonDirection);
-      horizonDirection.y *= 0.24;
-      if (Math.hypot(horizonDirection.x, horizonDirection.z) < 0.1) horizonDirection.z = -0.1;
-      horizonCamera.fov = 44;
-      horizonCamera.aspect = activeCamera.isPerspectiveCamera ? activeCamera.aspect :
-        (activeCamera.right - activeCamera.left) / (activeCamera.top - activeCamera.bottom);
-      horizonCamera.position.set(0, 3, 0);
-      horizonCamera.lookAt(horizonDirection.add(horizonCamera.position));
-    }
-    horizonCamera.updateProjectionMatrix();
+    frameRoomBackdrop(horizonCamera, activeCamera);
+    sky.frame(horizonCamera, presentedFrontage, pixelRatio);
     skyOrb.frame(horizonCamera);
     updateSignScroll(activeCamera, time);
     rendering.render(activeCamera, room?.atmosphere || DEFAULT_ATMOSPHERE, options);
   }
 
-  function cancelFlightPreparation() {
-    if (preparationTask === undefined) return;
-    if (window.cancelIdleCallback) window.cancelIdleCallback(preparationTask);
-    else window.clearTimeout(preparationTask);
-    preparationTask = undefined;
-  }
-
-  function prepareFlight() {
-    if (preparationStep === 2 || preparationTask !== undefined || view !== "front" || flight || !room ||
-      settleTimer !== undefined || cameraControls.hasGesture() || previewKeys.size) return;
-    const prepare = () => {
-      preparationTask = undefined;
-      if (disposed || view !== "front" || flight) return;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      if (!width || !height) return;
-      const enteringRoom = preparationStep === 1;
-      try {
-        flightCamera.copy(camera);
-        if (enteringRoom) {
-          updatePresentation(false, true, false);
-          frameRoomCamera(flightCamera, { layout: getRoomLayout(room), template: room.template, aspect: width / height, zoom: DEFAULT_ROOM_ZOOM });
-        } else if (islandGround) {
-          islandGround.visible = true;
-        }
-        // Warm objects that enter the frustum between the preview and the expanded shot.
-        flightCamera.left *= 1.5;
-        flightCamera.right *= 1.5;
-        flightCamera.top *= 1.5;
-        flightCamera.bottom *= 1.5;
-        flightCamera.updateProjectionMatrix();
-        rendering.prepareFlight(flightCamera, Math.floor(width * settledPixelRatio), Math.floor(height * settledPixelRatio),
-          { warmShadows: enteringRoom });
-      } finally {
-        updatePresentation(true, false, false);
-      }
-      preparationStep += 1;
-      prepareFlight();
-    };
-    preparationTask = window.requestIdleCallback ? window.requestIdleCallback(prepare) : window.setTimeout(prepare, 80);
+  function prepareAssets() {
+    preparationInvalidated = false;
+    if (!rendering.compile) return;
+    const generation = ++preparationGeneration;
+    preparing = true;
+    clearTemplateSync();
+    if (!templateSwitching && callbacks.onTemplateTransition) {
+      templateSwitching = true;
+      callbacks.onTemplateTransition(true);
+    }
+    const activeCamera = walkthrough.active() ? walkthrough.camera : activePreviewCamera();
+    rendering.compile(activeCamera).then(() => {
+      if (disposed || generation !== preparationGeneration) return;
+      const { innerWidth, innerHeight } = window;
+      const warmupRatio = screenPixelRatio(innerWidth, innerHeight);
+      rendering.prepareAssets(activeCamera,
+        Math.max(1, Math.floor(innerWidth * warmupRatio)),
+        Math.max(1, Math.floor(innerHeight * warmupRatio)));
+      preparing = false;
+      render();
+    }).catch(() => {
+      if (!disposed && generation === preparationGeneration) { preparing = false; onContextLost(); }
+    });
   }
 
   function render() {
-    if (disposed || animationFrame || templateFrame) return;
+    if (disposed || animationFrame || templateFrame || preparing) return;
     window.clearTimeout(signTimer);
     animationFrame = requestAnimationFrame((time) => {
       animationFrame = 0;
-      if (disposed || templateFrame) return;
+      if (disposed || templateFrame || preparing) return;
       try {
+        if (renderWidth && nativePixelRatio !== screenPixelRatio(renderWidth, renderHeight)) resize(false);
         renderFrame(time);
-        finishTemplateTransition();
+        waitForTemplateFrame();
       } catch (error) {
         if (!templateSwitching) throw error;
         onContextLost();
@@ -353,6 +372,8 @@ export function createRoomScene(container, callbacks) {
   }
 
   function renderFrame(time) {
+    const motionRequested = motionFramePending;
+    motionFramePending = false;
     if (flight && flight.canvasRect && flight.targetRect) {
       if (flight.startedAt === undefined) {
         flight.startedAt = time;
@@ -368,6 +389,7 @@ export function createRoomScene(container, callbacks) {
       }
       if (flight.fromFrontage !== (view === "front") && floorView === "all" && flight.fromFloor === "all") {
         revealIsland(view === "front" ? 1 - progress : progress);
+        sceneLights.refresh();
       }
       const destination = walkthrough.active() ? walkthrough.camera : activePreviewCamera();
       const inFlight = flight.fromCamera.isPerspectiveCamera || destination.isPerspectiveCamera ? previewBlendCamera : flightCamera;
@@ -377,17 +399,18 @@ export function createRoomScene(container, callbacks) {
       else flight.job.finish();
     } else {
       if (previewKeys.size) movePreview(time);
+      const continuousMotion = walkthrough.isMoving() || cameraControls.isDragging() || previewKeys.size > 0;
       renderFrom(walkthrough.active() ? walkthrough.camera : activePreviewCamera(), {
         walking: walkthrough.active(),
-        moving: settleTimer !== undefined || cameraControls.isDragging() || previewKeys.size > 0,
+        moving: continuousMotion || motionRequested || settleTimer !== undefined,
         preview: view === "front"
       }, time);
-      if (previewKeys.size) render();
-      else prepareFlight();
+      if (previewKeys.size || (motionRequested && !continuousMotion && settleTimer === undefined)) render();
     }
   }
 
   function renderMoving() {
+    motionFramePending ||= !walkthrough.isMoving();
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(() => {
       settleTimer = undefined;
@@ -421,12 +444,16 @@ export function createRoomScene(container, callbacks) {
     if (schedule) render();
   }
 
-  function resize() {
+  function resize(schedule = true) {
     if (disposed) return;
     const { width, height } = container.getBoundingClientRect();
     if (!width || !height) return;
     const resized = width !== renderWidth || height !== renderHeight;
-    const nextPixelRatio = !flight && view !== "front" && (settleTimer !== undefined || cameraControls.isDragging()) ? motionPixelRatio : settledPixelRatio;
+    const displayRatio = screenPixelRatio(width, height);
+    const ratioChanged = nativePixelRatio !== displayRatio;
+    if (ratioChanged || flight || view === "front") resetFrameQuality();
+    nativePixelRatio = displayRatio;
+    const nextPixelRatio = displayRatio * frameQuality.scale;
     if (resized || pixelRatio !== nextPixelRatio) {
       pixelRatio = nextPixelRatio;
       renderer.setDrawingBufferSize(width, height, pixelRatio);
@@ -434,10 +461,25 @@ export function createRoomScene(container, callbacks) {
     if (resized) {
       renderWidth = width;
       renderHeight = height;
-      rendering.resize(width, height);
       walkthrough.resize(width, height);
     }
-    updateCamera();
+    if (resized || ratioChanged) {
+      // The composer stays at the full display resolution; moving frames use a separate target.
+      rendering.resize(Math.max(1, Math.floor(width * displayRatio)), Math.max(1, Math.floor(height * displayRatio)));
+    }
+    updateCamera(schedule);
+  }
+
+  function watchDisplayPixelRatio() {
+    pixelRatioMedia?.removeEventListener("change", onDisplayPixelRatioChange);
+    pixelRatioMedia = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    pixelRatioMedia?.addEventListener("change", onDisplayPixelRatioChange);
+  }
+
+  function onDisplayPixelRatioChange() {
+    watchDisplayPixelRatio();
+    measureDisplayRefresh();
+    resize();
   }
 
   function canUseStudioCamera() {
@@ -511,7 +553,6 @@ export function createRoomScene(container, callbacks) {
 
   function rebuildShell(nextRoom) {
     gardenChanges.clear();
-    preparationStep = 0;
     if (shell) { scene.remove(shell); disposeObject(shell); }
     const colors = surfaceColors(nextRoom);
     shell = createRoomShell({ floorColor: colors.floor, wallColor: colors.wall,
@@ -714,10 +755,38 @@ export function createRoomScene(container, callbacks) {
     updateGreetingVisibility();
   }
 
+  function clearTemplateSync() {
+    cancelAnimationFrame(templateSyncFrame);
+    templateSyncFrame = 0;
+    if (templateSync) renderer.getContext().deleteSync(templateSync);
+    templateSync = undefined;
+  }
+
   function finishTemplateTransition() {
+    clearTemplateSync();
     if (!templateSwitching) return;
     templateSwitching = false;
     callbacks.onTemplateTransition(false);
+  }
+
+  function waitForTemplateFrame() {
+    if (!templateSwitching || templateSync) return;
+    const gl = renderer.getContext?.();
+    templateSync = gl?.fenceSync?.(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!templateSync) {
+      finishTemplateTransition();
+      return;
+    }
+    gl.flush();
+    // Keep the loader visible while the GPU draws the first frame, without blocking input dispatch.
+    function poll() {
+      if (gl.clientWaitSync(templateSync, 0, 0) === gl.TIMEOUT_EXPIRED) {
+        templateSyncFrame = requestAnimationFrame(poll);
+      } else {
+        finishTemplateTransition();
+      }
+    }
+    templateSyncFrame = requestAnimationFrame(poll);
   }
 
   function update(nextRoom, ...args) {
@@ -730,9 +799,11 @@ export function createRoomScene(container, callbacks) {
       return;
     }
 
+    clearTemplateSync();
+    preparationGeneration += 1;
+    preparationInvalidated = preparing;
     templateSwitching = true;
     queuedTemplateUpdate = [nextRoom, ...args];
-    cancelFlightPreparation();
     callbacks.onTemplateTransition(true);
     // Leave one paint for the progress indicator before building the new scene.
     templateFrame = requestAnimationFrame(() => {
@@ -753,7 +824,6 @@ export function createRoomScene(container, callbacks) {
     if (disposed) return;
     const flightChanged = flight?.job !== nextFlight;
     if (flightChanged) {
-      cancelFlightPreparation();
       const fromWalking = walkthrough.active();
       flight = nextFlight ? {
         job: nextFlight,
@@ -905,10 +975,12 @@ export function createRoomScene(container, callbacks) {
     }
     scene.updateMatrixWorld(true);
     walkthrough.update(view, room.avatarColor, interactive, {
-      preservePose: callbacks.preserveWalkPose?.(), playing: callbacks.isPlayMode?.()
+      preservePose: callbacks.preserveWalkPose?.(), playing: callbacks.isPlayMode?.(),
+      allowFlightLook: Boolean(flight?.fromFrontage && view === "firstPerson")
     });
     updateRoomLighting(shellChanged || furnishingsChanged || avatarsChanged);
     rebuildSpeech();
+    if (shellChanged || furnishingsChanged || avatarsChanged || preparationInvalidated) prepareAssets();
     render();
   }
 
@@ -946,6 +1018,7 @@ export function createRoomScene(container, callbacks) {
     identityLayer.children.forEach((object) => { object.visible = levelVisible(object.userData.roomLevel || 0); });
     indicator.visible = interactive && !walking && view !== "exterior" && Boolean(room.items.find((item) => item.id === selectedId &&
       levelVisible(item.level || 0)));
+    sceneLights.sync();
   }
 
   function updateRoomLighting(force = false) {
@@ -959,6 +1032,7 @@ export function createRoomScene(container, callbacks) {
       renderer.shadowMap.needsUpdate = true;
       lastAtmosphere = atmosphereKey;
     }
+    sceneLights.sync();
   }
 
   function floorPoint(event, elevation = 0) {
@@ -973,7 +1047,6 @@ export function createRoomScene(container, callbacks) {
     if (callbacks.canInteract?.() === false || !room || drag || event.isPrimary === false || ![0, 1, 2].includes(event.button)) return;
     if (view === "front") {
       if (event.button === 0 && !event.shiftKey && event.pointerType === "mouse" && cameraControls.onDown(event)) {
-        cancelFlightPreparation();
         container.focus({ preventScroll: true });
       }
       return;
@@ -1019,6 +1092,7 @@ export function createRoomScene(container, callbacks) {
     }
     showSelection(drag.candidate, canPlace(drag.candidate, room.items, room));
     renderer.domElement.style.cursor = "grabbing";
+    sceneLights.refresh();
     renderMoving();
   }
 
@@ -1044,6 +1118,7 @@ export function createRoomScene(container, callbacks) {
       room.items.forEach((item) => objects.get(item.id)?.position.set(item.x, placedItemElevation(item, room), item.z));
       showSelection(room.items.find((item) => item.id === selectedId));
     }
+    sceneLights.refresh();
     render();
   }
 
@@ -1088,7 +1163,6 @@ export function createRoomScene(container, callbacks) {
     if (!reset && !PREVIEW_MOVE_KEYS.has(event.code)) return;
     event.preventDefault();
     if (event.repeat) return;
-    cancelFlightPreparation();
     if (reset) {
       stopPreviewMovement();
       previewNavigating = false;
@@ -1108,6 +1182,9 @@ export function createRoomScene(container, callbacks) {
 
   function onContextLost(event) {
     event?.preventDefault();
+    preparationGeneration += 1;
+    preparing = false;
+    preparationInvalidated = false;
     cancelAnimationFrame(templateFrame);
     templateFrame = 0;
     queuedTemplateUpdate = undefined;
@@ -1120,8 +1197,10 @@ export function createRoomScene(container, callbacks) {
   }
   function onSignMotionChange() { updateSigns(); render(); }
   function onSignVisibilityChange() {
-    if (document.hidden) window.clearTimeout(signTimer);
-    else render();
+    if (document.hidden) {
+      resetFrameQuality();
+      window.clearTimeout(signTimer);
+    } else render();
   }
   const signObserver = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
     canvasOnScreen = entry.isIntersecting;
@@ -1135,6 +1214,7 @@ export function createRoomScene(container, callbacks) {
   container.addEventListener("keydown", onPreviewKeyDown);
   container.addEventListener("keyup", onPreviewKeyUp);
   container.addEventListener("blur", stopPreviewMovement);
+  window.addEventListener("resize", resize);
   window.addEventListener("blur", stopPreviewMovement);
   document.addEventListener("visibilitychange", stopPreviewMovement);
   document.addEventListener("visibilitychange", onSignVisibilityChange);
@@ -1146,6 +1226,8 @@ export function createRoomScene(container, callbacks) {
   renderer.domElement.addEventListener("webglcontextlost", onContextLost);
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("contextmenu", onContextMenu);
+  watchDisplayPixelRatio();
+  measureDisplayRefresh();
   resize();
 
   return {
@@ -1170,6 +1252,7 @@ export function createRoomScene(container, callbacks) {
     setOutdoorLight(light) {
       outdoorLight = light;
       horizon.update(light);
+      sky.update(light);
       if (room) {
         updateRoomLighting();
         render();
@@ -1204,9 +1287,13 @@ export function createRoomScene(container, callbacks) {
     command: (action) => { if (callbacks.canInteract?.() !== false) walkthrough.command(action); },
     dispose() {
       disposed = true;
+      preparationGeneration += 1;
       cancelAnimationFrame(animationFrame);
       cancelAnimationFrame(templateFrame);
-      cancelFlightPreparation();
+      cancelAnimationFrame(refreshProbe);
+      resetFrameQuality();
+      pixelRatioMedia?.removeEventListener("change", onDisplayPixelRatioChange);
+      clearTemplateSync();
       window.clearTimeout(settleTimer);
       window.clearTimeout(signTimer);
       signObserver?.disconnect();
@@ -1218,6 +1305,7 @@ export function createRoomScene(container, callbacks) {
       container.removeEventListener("keydown", onPreviewKeyDown);
       container.removeEventListener("keyup", onPreviewKeyUp);
       container.removeEventListener("blur", stopPreviewMovement);
+      window.removeEventListener("resize", resize);
       window.removeEventListener("blur", stopPreviewMovement);
       document.removeEventListener("visibilitychange", stopPreviewMovement);
       document.removeEventListener("visibilitychange", onSignVisibilityChange);
@@ -1232,6 +1320,8 @@ export function createRoomScene(container, callbacks) {
       rendering.dispose();
       horizon.dispose();
       skyOrb.dispose();
+      sky.dispose();
+      sceneLights.dispose();
       disposeObject(scene);
       renderer.dispose();
       renderer.forceContextLoss();
@@ -1240,7 +1330,11 @@ export function createRoomScene(container, callbacks) {
   };
 }
 
-export function createFurnitureThumbnails() {
+const furnitureThumbnailCache = new Map();
+
+export async function createFurnitureThumbnails(signal) {
+  const missingKinds = CATALOG.filter(({ kind }) => !furnitureThumbnailCache.has(kind));
+  if (signal?.aborted || missingKinds.length === 0) return Object.fromEntries(furnitureThumbnailCache);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(180, 140);
   renderer.setPixelRatio(1);
@@ -1252,9 +1346,11 @@ export function createFurnitureThumbnails() {
   light.position.set(-4, 8, 5);
   scene.add(light);
   const camera = new THREE.OrthographicCamera(-1.8, 1.8, 1.4, -1.4, 0.1, 30);
-  const images = {};
   try {
-    CATALOG.forEach(({ kind }) => {
+    for (const { kind } of missingKinds) {
+      await new Promise((resolve) => window.setTimeout(resolve, 16));
+      if (signal?.aborted) break;
+      if (furnitureThumbnailCache.has(kind)) continue;
       const object = createFurniture(kind);
       scene.add(object);
       const bounds = new THREE.Box3().setFromObject(object);
@@ -1273,10 +1369,10 @@ export function createFurnitureThumbnails() {
       camera.top = halfHeight; camera.bottom = -halfHeight;
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
-      images[kind] = renderer.domElement.toDataURL("image/png");
+      furnitureThumbnailCache.set(kind, renderer.domElement.toDataURL("image/png"));
       scene.remove(object);
       disposeObject(object);
-    });
+    }
   } finally { renderer.dispose(); renderer.forceContextLoss(); }
-  return images;
+  return Object.fromEntries(furnitureThumbnailCache);
 }

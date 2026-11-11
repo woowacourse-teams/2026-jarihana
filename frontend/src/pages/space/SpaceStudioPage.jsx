@@ -32,11 +32,11 @@ import "./space-studio.css";
 
 const CATEGORIES = [
   { id: "clubhouse", label: "아지트", icon: House },
-  { id: "essentials", label: "공통 기능", icon: LayoutDashboard },
+  { id: "essentials", label: "공통 기능", shortLabel: "공통", icon: LayoutDashboard },
   { id: "furniture", label: "가구", icon: Armchair },
-  { id: "surfaces", label: "벽과 바닥", icon: Grid2X2 },
+  { id: "surfaces", label: "벽과 바닥", shortLabel: "벽·바닥", icon: Grid2X2 },
   { id: "atmosphere", label: "분위기", icon: Sun },
-  { id: "memories", label: "추억 소품", icon: Image },
+  { id: "memories", label: "추억 소품", shortLabel: "추억", icon: Image },
   { id: "personal", label: "내 자리", icon: UserRound }
 ];
 const ITEM_ICONS = { activityBoard: Image, clubDashboard: LayoutDashboard, sofa: Sofa, armchair: Armchair, table: Box, bookshelf: BookOpen,
@@ -177,10 +177,15 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const [selectedId, setSelectedId] = useState(null);
   const [category, setCategory] = useState(null);
   const [hudHidden, setHudHidden] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(!clubhouse);
   const [cameraOpen, setCameraOpen] = useState(!clubhouse);
   const [playOverlayOpen, setPlayOverlayOpen] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
+  const onSceneStatus = clubhouse?.onSceneStatus;
+  const updateSceneStatus = useCallback((status) => {
+    setSceneReady(status === "ready");
+    onSceneStatus?.(status);
+  }, [onSceneStatus]);
   const walkInputBlocked = playMode && Boolean(clubhouse.inputBlocked || playOverlayOpen);
   const [generalLighting, setGeneralLighting] = useState(true);
   const hudToggle = useRef(null);
@@ -191,6 +196,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const [placementArea, setPlacementArea] = useState("building");
   const [floorView, setFloorView] = useState("all");
   const [studioView, setView] = useState("perspective");
+  const viewBeforeExterior = useRef("perspective");
   const [playView, setPlayView] = useState("firstPerson");
   const view = playMode ? playView : studioView;
   const [previousPreview, setPreviousPreview] = useState(webPreview);
@@ -222,6 +228,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const [thumbnails, setThumbnails] = useState({});
   const [notice, setNotice] = useState(initial.warning);
   const [noticeError, setNoticeError] = useState(Boolean(initial.warning));
+  const saveToastTimer = useRef(null);
   const [templateSwitching, setTemplateSwitching] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState(initial.room.template || "lounge");
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -265,6 +272,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   useEffect(() => { onDirtyChange?.(dirty, saving); }, [dirty, saving, onDirtyChange]);
   const onHudHiddenChange = clubhouse?.onHudHiddenChange;
   useEffect(() => { onHudHiddenChange?.(hudHidden); }, [hudHidden, onHudHiddenChange]);
+  useEffect(() => { if (hudHidden) hudToggle.current?.focus(); }, [hudHidden]);
   const commonAssets = commonAssetStatus(room.items);
   const missingCommonAssets = commonAssets.filter((entry) => !entry.items.length);
 
@@ -274,6 +282,8 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     handledNoticeRequest.current = editNoticeRequest;
     noticeFocusPending.current = true;
     setHudHidden(false);
+    setMenuOpen(true);
+    setCameraOpen(false);
     setCategory("personal"); setView("perspective"); setSelectedId(null);
   }, [editNoticeRequest, canEdit]);
   useEffect(() => {
@@ -293,9 +303,13 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
 
-  const announce = useCallback((message, error = false) => {
+  useEffect(() => () => window.clearTimeout(saveToastTimer.current), []);
+
+  const announce = useCallback((message, error = false, dismissAfter = error ? 0 : 3500) => {
+    window.clearTimeout(saveToastTimer.current);
     setNotice(message);
     setNoticeError(error);
+    if (dismissAfter) saveToastTimer.current = window.setTimeout(() => setNotice(""), dismissAfter);
   }, []);
 
   const commitAtmosphereGesture = useCallback(() => {
@@ -331,6 +345,8 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     changeRoom({ ...latest, items: [...latest.items, item] });
     setHudHidden(false);
     setSelectedId(item.id);
+    setMenuOpen(true);
+    setCameraOpen(false);
     setCategory("memories");
     setView("perspective");
     setFloorView("all");
@@ -343,6 +359,15 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     if (playMode) setPlayView(nextView);
     else setView(nextView);
     setWalkCommand(null);
+  }
+
+  function toggleExterior() {
+    if (exterior) {
+      changeView(viewBeforeExterior.current);
+      return;
+    }
+    viewBeforeExterior.current = view;
+    changeView("exterior");
   }
 
   function resetStudioCamera() {
@@ -433,7 +458,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
       setFloorView(item.level === 1 ? "mezzanine" : "ground");
       setPlacementArea(item.level === 1 ? "mezzanine" : "building");
     }
-    if (item?.kind === "memory") setCategory("memories");
+    if (item?.kind === "memory") { setMenuOpen(true); if (clubhouse) setCameraOpen(false); setCategory("memories"); }
     if (item?.kind === "musicConsole" && groupContext && !canEdit) openMusic();
   }
 
@@ -588,7 +613,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   async function handleSave() {
     if (!canEdit || photoBusy || savingRef.current) return;
     commitAtmosphereGesture();
-    if (!room.name.trim()) { announce("공간 이름을 입력해 주세요.", true); setCategory("personal"); return; }
+    if (!room.name.trim()) { announce("공간 이름을 입력해 주세요.", true); setMenuOpen(true); if (clubhouse) setCameraOpen(false); setCategory("personal"); return; }
     const invalidLink = room.items.find((item) => item.link && !isSafeRecordLink(item.link));
     if (invalidLink) {
       selectItem(invalidLink.id);
@@ -609,7 +634,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
       setSavedRoom(normalized);
       currentRoom.current = normalized;
       dispatch({ type: "reset", room: normalized });
-      announce(onSave ? "우리 모임 공간을 저장했어요." : "이 브라우저에 공간을 저장했어요.");
+      announce(onSave ? "우리 모임 공간을 저장했어요." : "이 브라우저에 공간을 저장했어요.", false, 3500);
     } catch (error) {
       announce(onSave ? error.message || "저장하지 못했어요. 편집 내용은 그대로 있어요." :
         "저장하지 못했어요. 브라우저 저장 공간과 설정을 확인해 주세요. 편집 내용은 그대로 있어요.", true);
@@ -708,46 +733,101 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     clubhouse.onModeChange(canEdit ? "use" : "decorate");
   }
 
-  const generalLightButton = <button type="button" className="space-studio__general-light" aria-pressed={generalLighting}
+  const generalLightButton = <button type="button" className={clubhouse ? "space-studio__edge-button" : "space-studio__general-light"} aria-pressed={generalLighting}
+    aria-label="전체 조명" title={generalLighting ? "전체 조명 끄기" : "전체 조명 켜기"}
     data-ph-capture-attribute-action={ROOM_LIGHT_TOGGLE_ACTION} onClick={toggleGeneralLighting}>
     {generalLighting ? <Lightbulb size={18} aria-hidden="true" /> : <LightbulbOff size={18} aria-hidden="true" />}
-    <span>전체 조명</span>
+    <span>{clubhouse ? "조명" : "전체 조명"}</span>
   </button>;
   const saveActions = canEdit && <>
-    <button className="space-button space-button--quiet" disabled={saving || (!dirty && !photoBusy)}
-      data-ph-capture-attribute-action="space_cancel" onClick={handleCancel} type="button">취소</button>
+    {!clubhouse && <button className="space-button space-button--quiet" disabled={saving || (!dirty && !photoBusy)}
+      data-ph-capture-attribute-action="space_cancel" onClick={handleCancel} type="button">취소</button>}
     <button className="space-button space-button--primary" onClick={handleSave} disabled={photoBusy || saving}
-      data-ph-capture-attribute-action="space_save" type="button"><Save aria-hidden="true" size={18} />{saving ? "저장 중…" : "저장"}</button>
+      aria-label={clubhouse && saving ? "저장 중…" : undefined} aria-busy={saving || undefined}
+      data-unsaved={clubhouse && dirty ? "true" : undefined}
+      title={clubhouse && dirty ? "저장하지 않은 변경" : undefined}
+      data-ph-capture-attribute-action="space_save" type="button">
+      <Save aria-hidden="true" size={18} /><span>{saving && !clubhouse ? "저장 중…" : "저장"}</span>
+    </button>
   </>;
   const menu = <nav key={clubhouse ? clubhouse.mode : undefined}
-    className={clubhouse ? "group-detail-web__navigation" : "space-studio__rail"} id="space-hud-menu"
-    aria-label={clubhouse ? "꾸미기 도구" : "공간 메뉴"} hidden={!clubhouse && !menuOpen}>
+    className="space-studio__rail" id="space-hud-menu"
+    aria-label={clubhouse ? "꾸미기 도구" : "공간 메뉴"} hidden={!clubhouse && !menuOpen}
+    aria-hidden={clubhouse && !menuOpen ? true : undefined} inert={Boolean(clubhouse && !menuOpen)}>
     {groupContext && !clubhouse && <Link className="space-studio__rail-link" to={groupContext.backHref} title="모임으로" onClick={confirmLeave}
       data-ph-capture-attribute-action="space_group_return"><House size={23} aria-hidden="true" /><span>모임으로</span></Link>}
-    {CATEGORIES.filter(({ id }) => canEdit || id === "memories").map(({ id, label, icon: Icon }) => (
-      <button key={id} type="button" aria-pressed={category === id} title={label} disabled={saving}
-        data-ph-capture-attribute-action="space_category_select" onClick={() => { if (!interior) changeView("perspective"); selectCategory(id); }}>
-        <Icon aria-hidden="true" size={clubhouse ? 21 : 23} strokeWidth={1.8} /><span>{label}</span>
+    {CATEGORIES.filter(({ id }) => (canEdit || id === "memories") && (!clubhouse || id !== "clubhouse")).map(({ id, label, shortLabel, icon: Icon }) => (
+      <button key={id} type="button" aria-pressed={category === id} aria-label={label} title={label} disabled={saving}
+        data-ph-capture-attribute-action="space_category_select" onClick={() => { if (!interior) changeView("perspective"); if (clubhouse) setCameraOpen(false); selectCategory(id); }}>
+        <Icon aria-hidden="true" size={23} strokeWidth={1.8} /><span>{clubhouse && shortLabel ? shortLabel : label}</span>
       </button>
     ))}
   </nav>;
 
+  const modeControls = <nav className="space-studio__mode-bar" aria-label="공간 보기 방식">
+          <button type="button" aria-pressed={view === "perspective"}
+            data-ph-capture-attribute-action={clubhouse ? "space_view_toggle" : "space_mode_edit"}
+            onClick={() => changeView("perspective")}>{clubhouse ? "입체로 보기" : canEdit ? "꾸미기" : "둘러보기"}</button>
+          {!clubhouse && <><button type="button" aria-pressed={view === "thirdPerson"} data-ph-capture-attribute-action="space_mode_third_person"
+            onClick={() => changeView("thirdPerson")}>3인칭</button>
+          <button type="button" aria-pressed={view === "firstPerson"} data-ph-capture-attribute-action="space_mode_first_person"
+            onClick={() => changeView("firstPerson")}>1인칭</button></>}
+          {!clubhouse && !walking && layout.terrace && <button type="button" aria-pressed={exterior}
+            data-ph-capture-attribute-action="space_view_exterior" onClick={() => changeView("exterior")}>외관</button>}
+          {clubhouse && !walking && <button type="button" aria-pressed={view === "top"} data-ph-capture-attribute-action="space_view_toggle"
+            onClick={() => setView(view === "top" ? "perspective" : "top")}>위에서 보기</button>}
+          {!clubhouse && generalLightButton}
+        </nav>;
+  const floorControls = interior && hasMezzanine && (!clubhouse || canEdit || cameraOpen) && <section className="space-studio__floors" aria-label={`${template.name} 공간 정보와 층 선택`}>
+          <div className="space-studio__floor-info">
+            <strong>{layout.displayName}</strong>
+            <span>층고 {layout.building.height}m · {(layout.building.maxX - layout.building.minX) * (layout.building.maxZ - layout.building.minZ)}m²</span>
+            <small>{layout.groundName} + 중층 라운지</small>
+          </div>
+          <nav aria-label="꾸밀 층 보기">
+            <button type="button" aria-pressed={activeFloorView === "all"} data-ph-capture-attribute-action="space_floor_all"
+              onClick={() => changeFloorView("all")}>전체 보기</button>
+            <button type="button" aria-pressed={activeFloorView === "ground"} data-ph-capture-attribute-action="space_floor_ground"
+              onClick={() => changeFloorView("ground")}>1층 메인 공간</button>
+            <button type="button" aria-pressed={activeFloorView === "mezzanine"} data-ph-capture-attribute-action="space_floor_mezzanine"
+              onClick={() => changeFloorView("mezzanine")}>중층 라운지</button>
+          </nav>
+        </section>;
+  const cameraControls = <div className="space-studio__camera" id="space-hud-camera" role="toolbar" aria-label="시점 조절">
+          {clubhouse && canEdit && <div className="space-studio__camera-turn">
+            <IconButton label="카메라 왼쪽 회전" action="space_camera_turn_left" onClick={() => turnStudioCamera(-1)}><RotateCcw size={20} /></IconButton>
+            <IconButton label="카메라 오른쪽 회전" action="space_camera_turn_right" onClick={() => turnStudioCamera(1)}><RotateCw size={20} /></IconButton>
+          </div>}
+          <IconButton label="시점 초기화" action="space_camera_reset" onClick={() => { if (walking) commandWalk("reset"); else resetStudioCamera(); }}><RotateCcw size={22} /></IconButton>
+          {!walking && <div className="space-studio__zoom">
+            <IconButton label="확대" action="space_zoom_in" onClick={() => setZoom((value) => scaleRoomZoom(value, 1.1))}><Plus size={24} /></IconButton>
+            <IconButton label="축소" action="space_zoom_out" onClick={() => setZoom((value) => scaleRoomZoom(value, 1 / 1.1))}><Minus size={24} /></IconButton>
+          </div>}
+          {!walking && <IconButton label="공간 전체 보기" action="space_fit_view" onClick={() => { setFloorView("all"); setView("site"); setZoom(DEFAULT_ROOM_ZOOM); setCameraReset((value) => value + 1); }}><Maximize size={21} /></IconButton>}
+          {clubhouse && canEdit && <label className="space-studio__studio-lens">
+            <span>광각 시야 <output>{studioWideAngle ? `+${studioWideAngle}%` : "기본"}</output></span>
+            <input type="range" min={0} max={100} step={1} value={studioWideAngle} aria-label="광각 시야"
+              aria-valuetext={studioWideAngle ? `기본보다 ${studioWideAngle}% 넓음` : "기본"}
+              data-ph-capture-attribute-action="space_camera_wide_angle" onChange={(event) => setStudioWideAngle(event.currentTarget.valueAsNumber)} />
+          </label>}
+        </div>;
+  const historyControls = <div className="space-studio__history" role="toolbar" aria-label="편집 이력">
+    <IconButton label="실행 취소" action="space_undo" disabled={!history.past.length && !gestureDirty} onClick={() => handleHistory("undo")}><Undo2 size={20} /></IconButton>
+    <IconButton label="다시 실행" action="space_redo" disabled={!history.future.length || gestureDirty} onClick={() => handleHistory("redo")}><Redo2 size={20} /></IconButton>
+  </div>;
+
   return (
     <Root className={`space-studio space-studio--edge${webPreview ? " space-studio--web-preview" : " space-studio--overlay"}${clubhouse ? " space-studio--clubhouse" : ""}${playMode ? " space-studio--clubhouse-play" : ""}${hudHidden ? " space-studio--hud-hidden" : ""}${category && (!clubhouse || canEdit) ? " space-studio--panel-open" : ""}${walking ? " space-studio--walking" : ""}${climbing ? " space-studio--climbing" : ""}`} aria-label={clubhouse ? "모임 아지트" : "모임 공간 꾸미기"}
       data-mode={canEdit ? "decorate" : "use"} onClickCapture={guardClubhouseNavigation} onKeyDownCapture={revealHudOnEscape} style={{ "--studio-background": backgroundColor }}>
-      <button hidden={webPreview || playMode} ref={hudToggle} className="space-studio__hud-toggle" type="button" aria-expanded={!hudHidden}
+      <button hidden={webPreview || playMode || Boolean(clubhouse && !hudHidden)} ref={hudToggle} className="space-studio__hud-toggle" type="button" aria-expanded={!hudHidden}
         aria-controls="space-hud-header space-hud-menu space-hud-scene" aria-label={hudHidden ? "UI 펼치기" : "UI 접기"}
         title={hudHidden ? "UI 펼치기" : "UI 접기"} data-ph-capture-attribute-action="space_hud_toggle" onClick={toggleHud}>
-        {hudHidden ? <Eye size={20} aria-hidden="true" /> : <EyeOff size={20} aria-hidden="true" />}
+        {!clubhouse && (hudHidden ? <Eye size={20} aria-hidden="true" /> : <EyeOff size={20} aria-hidden="true" />)}
         <span>{hudHidden ? "UI 펼치기" : "UI 접기"}</span>
       </button>
       {clubhouse ? canEdit && <header className="space-studio__header space-studio__clubhouse-toolbar" id="space-hud-header"
         data-mode={canEdit ? "decorate" : "use"} hidden={hudHidden || webPreview}>
         <div className="space-studio__clubhouse-toolbar-row">
-          <div className="space-studio__clubhouse-identity">
-            <h2>꾸미는 중</h2>
-            {dirty && <p>저장하지 않은 변경</p>}
-          </div>
           <div className="space-studio__save-actions">
             {saveActions}
             <button type="button" className="space-button space-studio__clubhouse-switch"
@@ -755,8 +835,8 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
               <Check size={16} aria-hidden="true" />완료
             </button>
           </div>
+          {(dirty || history.past.length > 0 || history.future.length > 0 || gestureDirty) && historyControls}
         </div>
-        {menu}
       </header> : <>
         <header className="space-studio__header" id="space-hud-header" hidden={hudHidden || webPreview}>
           <Link className="space-studio__brand" aria-label="자리하나" to="/" onClick={confirmLeave} data-ph-capture-attribute-action="space_home">
@@ -792,46 +872,72 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
         </div>
       </>}
 
+      {clubhouse && canEdit && <div className={`space-studio__editor-menu${menuOpen ? " space-studio__editor-menu--open" : ""}`}
+        hidden={hudHidden || webPreview}>
+        <button className="space-studio__menu-toggle space-studio__editor-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="space-hud-menu"
+          aria-label={menuOpen ? "메뉴 접기" : "메뉴 펼치기"} title={menuOpen ? "메뉴 접기" : "메뉴 펼치기"}
+          data-ph-capture-attribute-action="space_menu_toggle" onClick={() => { commitAtmosphereGesture(); if (!menuOpen) setCameraOpen(false); setMenuOpen((open) => !open); }}>
+          <Menu size={20} aria-hidden="true" /><span>메뉴</span>
+        </button>
+        <button className="space-studio__edge-button space-studio__building-toggle" type="button"
+          aria-expanded={category === "clubhouse"} aria-controls="space-template-panel" title="아지트 건물 변경"
+          data-ph-capture-attribute-action="space_category_select" onClick={() => {
+            if (!interior) changeView("perspective");
+            setCameraOpen(false);
+            selectCategory("clubhouse");
+          }}>
+          <House size={20} aria-hidden="true" /><span>건물 변경</span>
+        </button>
+        {menu}
+      </div>}
+
       <section className={`space-studio__stage${!walking && canEdit && category === "atmosphere" ? " space-studio__stage--atmosphere" : ""}`}
         aria-label="공간 배치" aria-busy={templateSwitching || undefined} data-background-style={backgroundStyle}>
         {!clubhouse && <RoomSky outdoors={outdoorLight} />}
         <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
-          onInvalid={invalidPlacement} interactive={!clubhouse?.cameraFlight && !clubhouse?.orientationBlocked && !templateSwitching} view={webPreview ? "front" : view} previewExterior={clubhouse?.previewExterior} previewWideAngle={clubhouse?.previewWideAngle} zoom={webPreview ? 1 : zoom} cameraReset={cameraReset} onZoomChange={setZoom} floorView={webPreview ? "all" : activeFloorView} onThumbnails={canEdit && (category === "furniture" || category === "memories") ? setThumbnails : undefined}
+          onInvalid={invalidPlacement} interactive={!clubhouse?.cameraFlight && !clubhouse?.orientationBlocked && !templateSwitching} view={webPreview ? "front" : view} previewExterior={clubhouse?.previewExterior} previewWideAngle={clubhouse?.previewWideAngle} zoom={webPreview ? 1 : zoom} cameraReset={cameraReset} onZoomChange={setZoom} floorView={webPreview || (clubhouse && exterior) ? "all" : activeFloorView} onThumbnails={canEdit && !templateSwitching && (category === "furniture" || category === "memories") ? setThumbnails : undefined}
           visitPointerLockRef={clubhouse?.visitPointerLockRef} walkCommand={walkCommand}
           onExitWalk={playMode ? undefined : () => changeView("perspective")} onWalkPosition={playMode ? undefined : updateWalkPosition}
           playMode={playMode} walkInputBlocked={walkInputBlocked} preserveWalkPose={Boolean(clubhouse && !webPreview)}
           studioWideAngle={canEdit && clubhouse ? studioWideAngle : 0} studioCameraTurn={studioCameraTurn}
-          onReadyChange={setSceneReady}
+          onStatusChange={updateSceneStatus}
           activityExhibit={clubhouse?.activityExhibit} speechMessages={clubhouse?.speechMessages} greetingMembers={clubhouse?.greetingMembers} cameraFlight={clubhouse?.cameraFlight}
           generalLighting={generalLighting} onTemplateTransition={setTemplateSwitching} />
 
         {playMode && !clubhouse.cameraFlight && <ClubhousePlayHud
           view={playView} onViewChange={changeView} onOpenFeature={clubhouse.onOpenFeature}
-          canChat={clubhouse.canChat} unreadCount={clubhouse.unreadCount} canGreet={clubhouse.canGreet}
-          greetingBusy={clubhouse.greetingBusy} onGreet={async () => {
-            try { if (await clubhouse.onGreet()) announce("모임원들에게 인사를 보냈어요."); }
-            catch { announce("인사를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.", true); }
-          }}
+          canChat={clubhouse.canChat} unreadCount={clubhouse.unreadCount}
           onDecorate={editPermission && clubhouse.canDecorate !== false ? toggleClubhouseMode : undefined}
           muted={clubhouse.muted} onToggleMuted={clubhouse.toggleMuted}
           generalLighting={generalLighting} onToggleLighting={toggleGeneralLighting}
           inputBlocked={clubhouse.inputBlocked} onOverlayChange={setPlayOverlayOpen} ready={sceneReady} />}
 
         <div className="space-studio__scene-ui" id="space-hud-scene" hidden={hudHidden || webPreview || playMode}>
-        <nav className="space-studio__mode-bar" aria-label="공간 보기 방식">
-          <button type="button" aria-pressed={view === "perspective"}
-            data-ph-capture-attribute-action={clubhouse ? "space_view_toggle" : "space_mode_edit"}
-            onClick={() => changeView("perspective")}>{clubhouse ? "입체로 보기" : canEdit ? "꾸미기" : "둘러보기"}</button>
-          {!clubhouse && <><button type="button" aria-pressed={view === "thirdPerson"} data-ph-capture-attribute-action="space_mode_third_person"
-            onClick={() => changeView("thirdPerson")}>3인칭</button>
-          <button type="button" aria-pressed={view === "firstPerson"} data-ph-capture-attribute-action="space_mode_first_person"
-            onClick={() => changeView("firstPerson")}>1인칭</button></>}
-          {!walking && layout.terrace && <button type="button" aria-pressed={exterior}
-            data-ph-capture-attribute-action="space_view_exterior" onClick={() => changeView("exterior")}>외관</button>}
-          {clubhouse && !walking && <button type="button" aria-pressed={view === "top"} data-ph-capture-attribute-action="space_view_toggle"
-            onClick={() => setView(view === "top" ? "perspective" : "top")}>위에서 보기</button>}
-          {(!clubhouse || canEdit) && generalLightButton}
-        </nav>
+        {clubhouse && canEdit && <section className="space-studio__view-tools" aria-label="View 도구">
+          <button className="space-studio__view-toggle space-studio__edge-button" type="button" aria-expanded={cameraOpen} aria-controls="space-view-tools"
+            aria-label={cameraOpen ? "시점 도구 접기" : "시점 도구 펼치기"}
+            data-ph-capture-attribute-action="space_camera_tools_toggle" onClick={() => {
+              commitAtmosphereGesture();
+              if (!cameraOpen) setMenuOpen(false);
+              if (category === "clubhouse") setCategory(null);
+              setCameraOpen((open) => !open);
+            }}>
+            <Camera size={20} aria-hidden="true" /><span>보기</span>
+          </button>
+          <div className="space-studio__view-content space-studio__view-content--editor" id="space-view-tools"
+            role="group" aria-label="층과 카메라 설정" hidden={!cameraOpen}>
+            {floorControls}{modeControls}{cameraControls}
+          </div>
+          <button type="button" className="space-studio__edge-button" aria-label="UI 접기" title="UI 숨기기"
+            data-ph-capture-attribute-action="space_hud_toggle" onClick={toggleHud}><EyeOff size={20} aria-hidden="true" /><span>UI 접기</span></button>
+          {generalLightButton}
+          <button type="button" className="space-studio__edge-button" aria-label="건물 외관" aria-pressed={exterior}
+            title={exterior ? "건물 외관 숨기기" : "건물 외관 보기"}
+            data-ph-capture-attribute-action="space_view_exterior" onClick={toggleExterior}>
+            <House size={20} aria-hidden="true" /><span>외관</span>
+          </button>
+        </section>}
+        {!clubhouse && modeControls}
         {walking && <div className="space-studio__walk-zone" aria-live="polite"><House size={16} aria-hidden="true" />{walkZone}</div>}
 
         {!clubhouse && !walking && <div className="space-studio__top-left">
@@ -844,38 +950,17 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           <span className="space-studio__local-note" title={canEdit ? "가구를 드래그하면 배치가 바뀌고, 빈 공간을 드래그하면 시점이 회전해요." : undefined}>드래그 회전 · 우클릭/Shift+드래그 이동 · 휠 확대·축소</span>
         </div>}
 
-        <div className="space-studio__camera-cluster">
+        {!clubhouse && <div className="space-studio__camera-cluster">
           <button className="space-studio__camera-toggle" type="button" aria-expanded={cameraOpen} aria-controls="space-hud-camera"
             aria-label={cameraOpen ? "시점 도구 접기" : "시점 도구 펼치기"} title={cameraOpen ? "시점 도구 접기" : "시점 도구 펼치기"}
             data-ph-capture-attribute-action="space_camera_tools_toggle" onClick={() => setCameraOpen((open) => !open)}>
             <Camera size={21} aria-hidden="true" /><span>{cameraOpen ? "시점 도구 접기" : "시점 도구 펼치기"}</span>
             <ChevronDown size={15} aria-hidden="true" />
           </button>
-        <div className="space-studio__camera" id="space-hud-camera" hidden={!cameraOpen} role="toolbar" aria-label="시점 조절">
-          {clubhouse && canEdit && <div className="space-studio__camera-turn">
-            <IconButton label="카메라 왼쪽 회전" action="space_camera_turn_left" onClick={() => turnStudioCamera(-1)}><RotateCcw size={20} /></IconButton>
-            <IconButton label="카메라 오른쪽 회전" action="space_camera_turn_right" onClick={() => turnStudioCamera(1)}><RotateCw size={20} /></IconButton>
-          </div>}
-          <IconButton label="시점 초기화" action="space_camera_reset" onClick={() => { if (walking) commandWalk("reset"); else resetStudioCamera(); }}><RotateCcw size={22} /></IconButton>
-          {!walking && <div className="space-studio__zoom">
-            <IconButton label="확대" action="space_zoom_in" onClick={() => setZoom((value) => scaleRoomZoom(value, 1.1))}><Plus size={24} /></IconButton>
-            <IconButton label="축소" action="space_zoom_out" onClick={() => setZoom((value) => scaleRoomZoom(value, 1 / 1.1))}><Minus size={24} /></IconButton>
-          </div>}
-          {!walking && <IconButton label="공간 전체 보기" action="space_fit_view" onClick={() => { setFloorView("all"); setView("site"); setZoom(DEFAULT_ROOM_ZOOM); setCameraReset((value) => value + 1); }}><Maximize size={21} /></IconButton>}
-          {clubhouse && canEdit && <label className="space-studio__studio-lens">
-            <span>광각 시야 <output>{studioWideAngle ? `+${studioWideAngle}%` : "기본"}</output></span>
-            <input type="range" min={0} max={100} step={1} value={studioWideAngle} aria-label="광각 시야"
-              aria-valuetext={studioWideAngle ? `기본보다 ${studioWideAngle}% 넓음` : "기본"}
-              data-ph-capture-attribute-action="space_camera_wide_angle" onChange={(event) => setStudioWideAngle(event.currentTarget.valueAsNumber)} />
-          </label>}
-        </div>
-
-        </div>
-
-        {!walking && canEdit && <div className="space-studio__history" role="toolbar" aria-label="편집 이력">
-          <IconButton label="실행 취소" action="space_undo" disabled={!history.past.length && !gestureDirty} onClick={() => handleHistory("undo")}><Undo2 size={20} /></IconButton>
-          <IconButton label="다시 실행" action="space_redo" disabled={!history.future.length || gestureDirty} onClick={() => handleHistory("redo")}><Redo2 size={20} /></IconButton>
+        <div hidden={!cameraOpen}>{cameraControls}</div>
         </div>}
+
+        {!clubhouse && !walking && canEdit && historyControls}
 
         {!walking && (!clubhouse || canEdit) && <details className="space-studio__inventory">
           <summary data-ph-capture-attribute-action="space_inventory_toggle"><List aria-hidden="true" size={17} />배치한 가구 <span>{room.items.length}</span></summary>
@@ -891,21 +976,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           </div>
         </details>}
 
-        {interior && hasMezzanine && (!clubhouse || canEdit || cameraOpen) && <section className="space-studio__floors" aria-label={`${template.name} 공간 정보와 층 선택`}>
-          <div className="space-studio__floor-info">
-            <strong>{layout.displayName}</strong>
-            <span>층고 {layout.building.height}m · {(layout.building.maxX - layout.building.minX) * (layout.building.maxZ - layout.building.minZ)}m²</span>
-            <small>{layout.groundName} + 중층 라운지</small>
-          </div>
-          <nav aria-label="꾸밀 층 보기">
-            <button type="button" aria-pressed={activeFloorView === "all"} data-ph-capture-attribute-action="space_floor_all"
-              onClick={() => changeFloorView("all")}>전체 보기</button>
-            <button type="button" aria-pressed={activeFloorView === "ground"} data-ph-capture-attribute-action="space_floor_ground"
-              onClick={() => changeFloorView("ground")}>1층 메인 공간</button>
-            <button type="button" aria-pressed={activeFloorView === "mezzanine"} data-ph-capture-attribute-action="space_floor_mezzanine"
-              onClick={() => changeFloorView("mezzanine")}>중층 라운지</button>
-          </nav>
-        </section>}
+        {!clubhouse && floorControls}
 
         {interior && canEdit && selected && !["atmosphere", "surfaces"].includes(category) && (
           <div className="space-studio__selection" role="toolbar" aria-label="선택한 가구 조작">
@@ -928,6 +999,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           </div>
         )}
 
+        <div hidden={Boolean(clubhouse && !menuOpen && category !== "clubhouse")}>
         {!walking && canEdit && category === "essentials" && <aside className="space-studio__panel space-studio__essentials" aria-label="공통 기능 에셋">
           <div className="space-studio__panel-heading"><LayoutDashboard aria-hidden="true" size={20} /><h2>어느 아지트에서나</h2>
             <IconButton label="공통 기능 닫기" action="space_common_assets_close" onClick={() => selectCategory(null)}><X size={18} /></IconButton>
@@ -956,7 +1028,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           <p className="space-studio__panel-note">에셋을 지워도 기록·공지·음악 설정은 남아요. 가장자리 메뉴에서도 같은 기능을 열 수 있어요.</p>
         </aside>}
 
-        {!walking && canEdit && category === "clubhouse" && <aside className="space-studio__panel" aria-label="아지트 템플릿">
+        {!walking && canEdit && category === "clubhouse" && <aside className="space-studio__panel" id="space-template-panel" aria-label="아지트 템플릿">
           <div className="space-studio__panel-heading"><House aria-hidden="true" size={20} /><h2>어떤 아지트로 모일까요?</h2>
             <IconButton label="아지트 선택 닫기" action="space_template_close" onClick={() => selectCategory(null)}><X size={18} /></IconButton>
           </div>
@@ -1126,11 +1198,12 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
         </aside>}
 
         </div>
+        </div>
         {clubhouse?.overlay}
 
         {notice && !templateSwitching && <div className={`space-studio__notice${noticeError ? " space-studio__notice--error" : ""}`} role={noticeError ? "alert" : "status"}>
           {!noticeError && <Check aria-hidden="true" size={17} />}<span>{notice}</span>
-          <IconButton label="알림 닫기" action="space_notice_dismiss" onClick={() => setNotice("")}><X size={16} /></IconButton>
+          {noticeError && <IconButton label="알림 닫기" action="space_notice_dismiss" onClick={() => setNotice("")}><X size={16} /></IconButton>}
         </div>}
       </section>
 
@@ -1152,7 +1225,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           <IconButton label="위 바라보기" action="space_walk_look_up" onClick={() => commandWalk("lookUp")}><ArrowUp size={22} /></IconButton>
           <IconButton label="아래 바라보기" action="space_walk_look_down" onClick={() => commandWalk("lookDown")}><ArrowDown size={22} /></IconButton>
         </div>}
-      </footer> : canEdit && ["furniture", "surfaces", "memories"].includes(category) ? <footer className="space-studio__dock" hidden={hudHidden || webPreview}>
+      </footer> : canEdit && ["furniture", "surfaces", "memories"].includes(category) ? <footer className="space-studio__dock" hidden={hudHidden || webPreview || Boolean(clubhouse && !menuOpen)}>
         <div className="space-studio__dock-heading"><strong>{CATEGORIES.find((entry) => entry.id === category)?.label}</strong>
           <IconButton label="꾸미기 항목 닫기" action="space_catalog_close" onClick={() => selectCategory(null)}><X size={18} /></IconButton></div>
         {category === "furniture" && <div className="space-studio__asset-filters">
