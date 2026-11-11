@@ -6,6 +6,7 @@ import {
   STICK_LENGTH_CM,
   answerPosition,
   composition,
+  formatPoints,
   errorRateAt,
   generatePracticeStick,
   leftMilligrams,
@@ -17,6 +18,14 @@ import { createPracticeAdapter } from "../../src/features/stick-halving/practice
 const sum = (mix) => mix.biscuit + mix.thin + mix.thick + mix.almond;
 
 describe("반 나누기 막대", () => {
+  it("shows stored scores on a 100-point scale, 20 points per stick", () => {
+    expect(formatPoints(1000)).toBe("20");
+    expect(formatPoints(824)).toBe("16.5");
+    expect(formatPoints(0)).toBe("0");
+    expect(formatPoints(4820)).toBe("96.4");
+    expect(formatPoints(5000)).toBe("100");
+  });
+
   it("weighs each half-centimeter cell by chocolate level and adds almonds left of the cut", () => {
     const stick = {
       almonds: [{ cell: 3, size: "LARGE" }],
@@ -29,15 +38,11 @@ describe("반 나누기 막대", () => {
     expect(leftMilligrams(stick, 1.76)).toBeCloseTo(628);
   });
 
-  it("drops steeply to 750 at a 2.5% error, then gently to 0 at 25%, the same table as the server", () => {
+  it("scores 1000 for an exact cut and loses points linearly until a 10% error", () => {
     expect(scoreOf(0)).toBe(1000);
-    expect(scoreOf(0.01)).toBe(900);
     expect(scoreOf(0.025)).toBe(750);
-    expect(scoreOf(0.05)).toBe(667);
-    expect(scoreOf(0.1)).toBe(500);
-    expect(scoreOf(0.15)).toBe(333);
-    expect(scoreOf(0.25)).toBe(0);
-    expect(scoreOf(0.4)).toBe(0);
+    expect(scoreOf(0.1)).toBe(0);
+    expect(scoreOf(0.3)).toBe(0);
   });
 
   it("generates fair practice sticks whose answer is off center but never on an almond", () => {

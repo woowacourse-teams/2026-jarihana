@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
@@ -12,7 +12,15 @@ import {
   usePeperoDayRankings,
   usePeperoDayStatus
 } from "../../features/pepero-day";
-import { ROUNDS, StickHalvingGame, createPracticeAdapter, formatPercent } from "../../features/stick-halving";
+import {
+  CutStickArtwork,
+  ROUNDS,
+  ROUND_COUNT,
+  ROUND_TIME_LIMIT_SECONDS,
+  StickHalvingGame,
+  formatPercent,
+  formatPoints
+} from "../../features/stick-halving";
 import {
   Button,
   EmptyState,
@@ -38,6 +46,14 @@ const RANKED_ERRORS = {
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };
 
+// 마감 시각을 "11월 12일 10시"처럼 시 단위로 쓴다. 분이 있으면 "10시 30분"처럼 붙인다.
+function formatServiceHour(value) {
+  const [date, time] = value.split("T");
+  const [, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return `${month}월 ${day}일 ${hour}시${minute ? ` ${minute}분` : ""}`;
+}
+
 export function formatServiceDateTime(value) {
   const [date, time] = value.split("T");
   const [, month, day] = date.split("-").map(Number);
@@ -58,8 +74,8 @@ function formatDuration(milliseconds) {
 }
 
 function resultText(summary) {
-  return [`공평하게 반띵 ${summary.totalScore.toLocaleString("ko-KR")}점 (5,000점 만점)`]
-    .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${row.score.toLocaleString("ko-KR")}점`))
+  return [`공평하게 반띵 ${formatPoints(summary.totalScore)}점 (100점 만점)`]
+    .concat(summary.rows.map((row) => `${row.name}: 오차 ${formatPercent(row.errorRate)}, ${formatPoints(row.score)}점`))
     .join("\n");
 }
 
@@ -99,7 +115,7 @@ function RankingRow({ item, me }) {
     <li className={me && item.rank === me.rank ? "pepero-day__ranking-item--me" : undefined}>
       <span className="pepero-day__rank">{item.rank}</span>
       <span className="pepero-day__nickname">{item.nickname}</span>
-      <span className="pepero-day__score">{item.totalScore.toLocaleString("ko-KR")}점</span>
+      <span className="pepero-day__score">{formatPoints(item.totalScore)}점</span>
       <span className="pepero-day__duration">{formatDuration(item.totalDurationMillis)}</span>
     </li>
   );
@@ -145,7 +161,7 @@ export function Ranking({
       <SectionHeader description={description} title={title} />
       {me ? (
         <p className="pepero-day__me">
-          내 순위 <strong>{me.rank}위</strong>, {me.totalScore.toLocaleString("ko-KR")}점
+          내 순위 <strong>{me.rank}위</strong>, {formatPoints(me.totalScore)}점
         </p>
       ) : null}
       {items.length ? (
@@ -189,7 +205,7 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
           {ranked && data.me ? (
             <>
               내 순위 <strong>{data.me.rank}위</strong>
-              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${data.me.totalScore.toLocaleString("ko-KR")}점` : null}
+              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${formatPoints(data.me.totalScore)}점` : null}
             </>
           ) : null}
           {ranked ? null : (
@@ -210,7 +226,7 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   return (
     <Modal
       closeAction="pepero_ranking_dismiss"
-      description={`이번 판 ${result.totalScore.toLocaleString("ko-KR")}점`}
+      description={`이번 판 ${formatPoints(result.totalScore)}점`}
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
@@ -233,30 +249,30 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
   );
 }
 
-function ModeChooser({ onStart }) {
+// 판을 시작하기 전의 카드다. 회원은 시작하기를 누르면 막대를 받고, 순위 도전은 회원만 할 수 있어서
+// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다.
+function StartPrompt({ onStart }) {
   const auth = useAuth();
 
-  let rankedAction;
+  if (auth.status === "loading") return <Skeleton aria-label="로그인 상태를 확인하는 중" className="pepero-day__loading" />;
+
+  let action;
   if (auth.status === "authenticated") {
-    rankedAction = (
-      <Button
-        data-ph-capture-attribute-action="pepero_ranked_start"
-        onClick={() => onStart("ranked")}
-      >
-        순위 도전 시작
+    action = (
+      <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={onStart} size="lg">
+        시작하기
       </Button>
     );
   } else if (auth.status === "signup-required") {
-    rankedAction = (
+    action = (
       <Link className="ui-button ui-button--primary ui-button--md" data-ph-capture-attribute-action="signup_continue" to="/signup">
         가입 계속하기
       </Link>
     );
   } else {
-    rankedAction = (
+    action = (
       <Button
         data-ph-capture-attribute-action="pepero_ranked_login"
-        disabled={auth.status === "loading"}
         onClick={() => {
           storeReturnTarget(PEPERO_DAY_PATH);
           auth.login();
@@ -268,35 +284,23 @@ function ModeChooser({ onStart }) {
   }
 
   return (
-    <div className="pepero-day__modes">
-      <section className="pepero-day__card pepero-day__mode">
-        <h2>연습하기</h2>
-        <p>로그인 없이 해 봐요. 순위에는 안 들어가요.</p>
-        <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => onStart("practice")} variant="secondary">
-          연습 시작
-        </Button>
-      </section>
-      <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
-        <h2>순위 도전</h2>
-        <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
-        {rankedAction}
-      </section>
-    </div>
+    <section className="pepero-day__card pepero-day__start">
+      <CutStickArtwork />
+      <h2>{ROUND_TIME_LIMIT_SECONDS}초 안에 빼빼로 {ROUND_COUNT}개를 같은 무게로 잘라 보세요</h2>
+      {action}
+    </section>
   );
 }
 
 function OpenEvent({ closed, game, setGame }) {
   const queryClient = useQueryClient();
   const { danger, success } = useToast();
-  const [finished, setFinished] = useState(null);
 
-  // 새 판을 시작할 때마다 새 연결부를 만든다. 순위 도전은 시작하면 남은 횟수가 바뀌므로 상태를 다시 받는다.
-  function start(mode) {
-    const adapter = mode === "ranked"
-      ? createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) })
-      : createPracticeAdapter();
-    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1, mode }));
-  }
+  // 새 판을 시작할 때마다 새 연결부를 만들고, 시작하면 상태를 다시 받는다.
+  const start = useCallback(() => {
+    const adapter = createRankedAdapter({ onStarted: () => void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all }) });
+    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1 }));
+  }, [queryClient, setGame]);
 
   async function copy(summary) {
     try {
@@ -307,48 +311,37 @@ function OpenEvent({ closed, game, setGame }) {
     }
   }
 
-  if (!game) return closed ? null : <ModeChooser onStart={start} />;
+  if (!game) return closed ? null : <StartPrompt onStart={start} />;
 
-  const ranked = game.mode === "ranked";
   return (
     <section className="pepero-day__card pepero-day__game">
       <StickHalvingGame
         adapter={game.adapter}
-        errorMessage={(error) => (ranked ? RANKED_ERRORS[error?.code] : null) ?? "잠시 뒤 다시 시도해 주세요."}
+        errorMessage={(error) => RANKED_ERRORS[error?.code] ?? "잠시 뒤 다시 시도해 주세요."}
         finalActions={(summary) => (
           <>
-            <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
-              {closed ? "닫기" : "모드 고르기"}
-            </Button>
             {summary.rows.length === ROUNDS.length ? (
               <Button data-ph-capture-attribute-action="pepero_result_copy" onClick={() => copy(summary)} variant="secondary">
                 결과 복사
               </Button>
             ) : null}
-            {ranked || closed ? null : (
-              <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => start("practice")}>
-                새 막대로 다시 하기
+            {closed ? (
+              <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
+                닫기
+              </Button>
+            ) : (
+              <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={start}>
+                새 막대로 다시 도전
               </Button>
             )}
           </>
         )}
         key={game.key}
-        label={ranked ? "순위 도전" : "연습"}
-        onFinish={(summary) => {
-          if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
-          setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
+        onFinish={() => {
+          void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+          setGame((current) => (current?.key === game.key ? { ...current, finished: true } : current));
         }}
       />
-      {finished?.key === game.key ? (
-        <RankingDialog
-          onChallenge={ranked || closed ? null : () => {
-            setFinished(null);
-            setGame(null);
-          }}
-          onClose={() => setFinished(null)}
-          result={finished}
-        />
-      ) : null}
     </section>
   );
 }
@@ -383,37 +376,44 @@ export function PeperoDayEventPage() {
 
   const event = status.data;
   const closed = event.status === "CLOSED";
+  // 판을 하는 동안에는 순위를 숨기고, 최종 결과가 나오면 다시 보여 준다.
+  const playing = Boolean(game) && !game.finished;
+  const showRanking = event.status !== "UPCOMING" && !playing;
+  // 넓은 화면에서는 순위를 오른쪽 열에 두고, 스크롤해도 화면에 붙어 있게 한다(pepero-day.css).
   return (
     <PageContainer className="pepero-day">
-      <PageHeader
-        description="무게표를 보고 막대과자를 같은 무게로 반 나눠 보세요."
-        eyebrow="막대과자 데이 이벤트"
-        title="공평하게 반띵"
-      />
+      <PageHeader title="공평하게 반띵" />
       <ul aria-label="이벤트 안내" className="pepero-day__facts">
-        <li>{formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}</li>
-        <li>고득점자에게 빼빼로 세트</li>
+        <li>{formatServiceHour(event.closesAt)}까지</li>
       </ul>
-      {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
-      {closed ? (
-        <section className="pepero-day__card pepero-day__closed">
-          <h2>이벤트가 끝났어요</h2>
-          <p>{closedMessage(event, game)}</p>
-          {event.gameRoomOpen && !game ? (
-            <Link
-              className="ui-button ui-button--primary ui-button--md"
-              data-ph-capture-attribute-action="stick_halving_room_open"
-              to={STICK_HALVING_ROOM_PATH}
-            >
-              게임방에서 하기
-            </Link>
+      <div className={`pepero-day__layout${showRanking ? " pepero-day__layout--with-ranking" : ""}`}>
+        <div className="pepero-day__main">
+          {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
+          {closed ? (
+            <section className="pepero-day__card pepero-day__closed">
+              <h2>이벤트가 끝났어요</h2>
+              <p>{closedMessage(event, game)}</p>
+              {event.gameRoomOpen && !game ? (
+                <Link
+                  className="ui-button ui-button--primary ui-button--md"
+                  data-ph-capture-attribute-action="stick_halving_room_open"
+                  to={STICK_HALVING_ROOM_PATH}
+                >
+                  게임방에서 하기
+                </Link>
+              ) : null}
+            </section>
           ) : null}
-        </section>
-      ) : null}
-      {event.status === "OPEN" || (closed && game) ? (
-        <OpenEvent closed={closed} game={game} setGame={setGame} />
-      ) : null}
-      {event.status === "UPCOMING" ? null : <Ranking />}
+          {event.status === "OPEN" || (closed && game) ? (
+            <OpenEvent closed={closed} game={game} setGame={setGame} />
+          ) : null}
+        </div>
+        {showRanking ? (
+          <aside className="pepero-day__aside">
+            <Ranking />
+          </aside>
+        ) : null}
+      </div>
     </PageContainer>
   );
 }
