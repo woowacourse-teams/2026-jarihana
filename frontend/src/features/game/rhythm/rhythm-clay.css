@@ -958,7 +958,11 @@
   justify-content: center;
   gap: 8px;
   inline-size: 100%;
-  min-block-size: var(--touch-target);
+  min-block-size: 60px;
+  padding-block: 14px;
+  border-radius: 22px;
+  font-size: 1.05rem;
+  font-weight: 900;
 }
 .rhythm-ranking-modal {
   inline-size: min(440px, calc(100vw - 2 * var(--space-4)));
