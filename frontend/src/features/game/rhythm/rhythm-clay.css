@@ -951,6 +951,28 @@
   background: var(--clay-bg);
   color: var(--color-ink);
 }
+/* 태블릿보다 좁은 화면: 랭킹 대신 두는 버튼과, 버튼을 누르면 여는 랭킹 창 */
+.rhythm-game.rhythm-game--clay .rhythm-ranking-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  inline-size: 100%;
+  min-block-size: var(--touch-target);
+}
+.rhythm-ranking-modal {
+  inline-size: min(440px, calc(100vw - 2 * var(--space-4)));
+}
+.rhythm-game.rhythm-game--clay.rhythm-ranking-sheet {
+  background: transparent;
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay.rhythm-ranking-sheet .rhythm-ranking {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 @media (max-width: 700px) {
   .rhythm-game.rhythm-game--clay .rhythm-challenge__drawer {
     position: fixed;

@@ -17,7 +17,7 @@ import {
 } from "../../features/game/rhythm/preferences.mjs";
 import { rhythmRankedApi } from "../../features/game/rhythm/rankedApi.js";
 import { RhythmRankedBoard } from "../../features/game/rhythm/RhythmRankedBoard.jsx";
-import { RhythmRanking } from "../../features/game/rhythm/RhythmRanking.jsx";
+import { RhythmRankingSlot } from "../../features/game/rhythm/RhythmRankingSlot.jsx";
 import { RhythmOffsetSettings } from "../../features/game/rhythm/RhythmOffsetSettings.jsx";
 import {
   CLAY_STYLE,
@@ -211,7 +211,7 @@ export function RhythmHarpoonChallengePage() {
                   settingsOpen={settingsOpen}
                   settingsToggleReference={settingsToggleReference}
                 />
-                <RhythmRanking level={options.level} />
+                <RhythmRankingSlot level={options.level} />
               </div>
             ) : null}
             {step === "confirm" ? (
@@ -571,7 +571,7 @@ function ResultStep({ level, result, onRetry, onOptions }) {
           </button>
         </div>
       </section>
-      <RhythmRanking level={level} />
+      <RhythmRankingSlot level={level} />
     </div>
   );
 }

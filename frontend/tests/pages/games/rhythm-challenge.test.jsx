@@ -277,6 +277,52 @@ it("shows the chosen level ranking next to the options and follows a new level c
   expect(within(ranking).getByText("2위")).toBeInTheDocument();
 });
 
+describe("on screens narrower than a tablet", () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query) => ({
+        matches: query === "(max-width: 767px)",
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {}
+      })
+    });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: original });
+  });
+
+  it("puts a ranking button in place of the ranking and opens it in a dialog", () => {
+    render(<RhythmHarpoonChallengePage />);
+    expect(screen.queryByRole("region", { name: "Easy 랭킹" })).not.toBeInTheDocument();
+    const open = screen.getByRole("button", { name: "Easy 랭킹 보기" });
+    expect(open).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranking_modal_open");
+    fireEvent.click(open);
+    const dialog = screen.getByRole("dialog", { name: "Easy 랭킹" });
+    const ranking = within(dialog).getByRole("region", { name: "Easy 랭킹" });
+    expect(within(ranking).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(ranking).getByText("2위")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "닫기" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // 난이도를 바꾸면 버튼과 창도 그 난이도의 랭킹을 보여 준다.
+    fireEvent.click(screen.getByRole("button", { name: /Medium/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Medium 랭킹 보기" }));
+    expect(screen.getByRole("dialog", { name: "Medium 랭킹" })).toBeInTheDocument();
+    expect(useRhythmRanking).toHaveBeenLastCalledWith("medium");
+  });
+
+  it("offers the same ranking button next to the result", async () => {
+    await reachBoard();
+    fireEvent.click(screen.getByRole("button", { name: "finish" }));
+    expect(screen.getByRole("region", { name: "Hardest 도전 결과" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Hardest 랭킹" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hardest 랭킹 보기" }));
+    expect(within(screen.getByRole("dialog", { name: "Hardest 랭킹" })).getAllByRole("listitem")).toHaveLength(2);
+  });
+});
+
 it("shows the server result next to the level ranking with the player marked", async () => {
   await reachBoard();
   fireEvent.click(screen.getByRole("button", { name: "finish" }));
