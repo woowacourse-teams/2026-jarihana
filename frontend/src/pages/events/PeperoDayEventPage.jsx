@@ -124,7 +124,7 @@ function RankingList({ items, limit, me }) {
 
 export function Ranking({
   board = "event",
-  description = "회원마다 가장 좋은 판 하나로 매겨요. 점수가 같으면 더 빨리 자른 기록이 위예요.",
+  description = "점수가 같으면 더 빨리 자른 순서예요.",
   emptyDescription = "순위 도전을 끝내면 여기에 이름이 올라가요.",
   title = "순위"
 }) {
@@ -194,8 +194,7 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
           ) : null}
           {ranked ? null : (
             <>
-              연습 점수는 순위에 들어가지 않아요. 이 점수였다면{" "}
-              <strong>{fullList ? `${RANKING_PAGE}위 밖` : `${position}위`}</strong>예요.
+              순위 도전이었다면 <strong>{fullList ? `${RANKING_PAGE}위 밖` : `${position}위`}</strong>예요.
             </>
           )}
         </p>
@@ -272,14 +271,14 @@ function ModeChooser({ onStart }) {
     <div className="pepero-day__modes">
       <section className="pepero-day__card pepero-day__mode">
         <h2>연습하기</h2>
-        <p>로그인 없이 몇 번이든 할 수 있어요. 기록은 순위에 오르지 않아요.</p>
+        <p>로그인 없이 해 봐요. 순위에는 안 들어가요.</p>
         <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => onStart("practice")} variant="secondary">
           연습 시작
         </Button>
       </section>
       <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
         <h2>순위 도전</h2>
-        <p>횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요.</p>
+        <p>몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.</p>
         {rankedAction}
       </section>
     </div>
@@ -313,7 +312,6 @@ function OpenEvent({ closed, game, setGame }) {
   const ranked = game.mode === "ranked";
   return (
     <section className="pepero-day__card pepero-day__game">
-      <p className="pepero-day__game-mode">{ranked ? "순위 도전" : "연습"}</p>
       <StickHalvingGame
         adapter={game.adapter}
         errorMessage={(error) => (ranked ? RANKED_ERRORS[error?.code] : null) ?? "잠시 뒤 다시 시도해 주세요."}
@@ -335,6 +333,7 @@ function OpenEvent({ closed, game, setGame }) {
           </>
         )}
         key={game.key}
+        label={ranked ? "순위 도전" : "연습"}
         onFinish={(summary) => {
           if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
           setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
@@ -387,13 +386,14 @@ export function PeperoDayEventPage() {
   return (
     <PageContainer className="pepero-day">
       <PageHeader
-        description="무게표와 눈금을 보고 막대과자를 정확히 같은 무게로 잘라 보세요. 초코와 아몬드가 붙은 곳이 더 무거워서, 정답은 막대의 가운데가 아니에요."
-        eyebrow="11월 11일 막대과자 데이 이벤트"
+        description="무게표를 보고 막대과자를 같은 무게로 반 나눠 보세요."
+        eyebrow="막대과자 데이 이벤트"
         title="공평하게 반띵"
       />
-      <p className="pepero-day__period">
-        {formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}. 기간 중 순위 도전 고득점자에게 빼빼로 세트를 드려요.
-      </p>
+      <ul aria-label="이벤트 안내" className="pepero-day__facts">
+        <li>{formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}</li>
+        <li>고득점자에게 빼빼로 세트</li>
+      </ul>
       {event.status === "UPCOMING" ? <Countdown event={event} /> : null}
       {closed ? (
         <section className="pepero-day__card pepero-day__closed">

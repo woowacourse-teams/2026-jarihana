@@ -75,7 +75,8 @@ it("plays a practice stick in the browser and reveals the answer after cutting",
   expect(screen.getByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "자르기" }));
 
-  expect(await screen.findByText(/왼쪽 끝부터 정답/)).toBeInTheDocument();
+  expect(await screen.findByText(/^정답/)).toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "게임" })).getByRole("status")).toHaveTextContent(/^\+\d/);
   expect(screen.getByLabelText("양쪽 조각의 무게 구성")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "다음 막대" })).toHaveAttribute(
     "data-ph-capture-attribute-action",
@@ -94,7 +95,7 @@ it("opens the ranking dialog after five practice sticks and points to the ranked
   }
 
   const dialog = await screen.findByRole("dialog", { name: "연습 결과" });
-  expect(dialog).toHaveTextContent(/연습 점수는 순위에 들어가지 않아요\. 이 점수였다면 \d+위예요\./);
+  expect(dialog).toHaveTextContent(/순위 도전이었다면 \d+위예요\./);
   expect(within(dialog).getByText("모카")).toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole("button", { name: "순위 도전하러 가기" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -134,14 +135,13 @@ it("cuts with Enter without focusing the stick, but not while another button has
 
   const nudge = screen.getByRole("button", { name: "칼을 오른쪽으로 조금 옮기기" });
   fireEvent.keyDown(nudge, { key: "Enter" });
-  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "다음 막대" })).not.toBeInTheDocument();
 
   fireEvent.keyDown(document.body, { key: "Enter", repeat: true });
-  expect(screen.queryByText(/왼쪽 끝부터 정답/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "다음 막대" })).not.toBeInTheDocument();
 
   fireEvent.keyDown(document.body, { key: "Enter" });
-  expect(await screen.findByText(/왼쪽 끝부터 정답/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "다음 막대" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "다음 막대" })).toBeInTheDocument();
 });
 
 it("lets members start ranked runs without an attempt limit", async () => {
@@ -149,7 +149,7 @@ it("lets members start ranked runs without an attempt limit", async () => {
   getPeperoDayStatus.mockResolvedValue(status());
   mount();
 
-  expect(await screen.findByText("횟수 제한 없이 몇 번이든 도전할 수 있고, 가장 좋은 기록으로 순위를 매겨요.")).toBeInTheDocument();
+  expect(await screen.findByText("몇 번이든 도전하고, 가장 좋은 판으로 순위를 매겨요.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "순위 도전 시작" })).toBeEnabled();
   expect(screen.queryByText(/남은 도전/)).not.toBeInTheDocument();
 });

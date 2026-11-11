@@ -5,9 +5,11 @@ export const STICK_LENGTH_CM = 12;
 export const STICK_CELLS = 24;
 export const CELL_CM = STICK_LENGTH_CM / STICK_CELLS;
 export const ROUND_COUNT = 5;
-export const ROUND_TIME_LIMIT_SECONDS = 30;
+export const ROUND_TIME_LIMIT_SECONDS = 60;
 export const MAX_SCORE = 1000;
-export const ZERO_SCORE_ERROR_RATE = 0.1;
+export const KNEE_ERROR_RATE = 0.025;
+export const KNEE_SCORE = 750;
+export const ZERO_SCORE_ERROR_RATE = 0.25;
 
 // 칼이 설 수 있는 간격이다. 칸 무게(100, 150, 200mg)와 아몬드 무게(50, 100mg)로는 정답이
 // 늘 1/48cm의 정수배가 되므로, 칼을 이 격자에만 세우면 정확히 계산한 사람은 정답에 칼을 댈 수 있다.
@@ -20,11 +22,11 @@ export const CELL_MILLIGRAMS = Object.freeze({ NONE: 100, THIN: 150, THICK: 200 
 export const ALMOND_MILLIGRAMS = Object.freeze({ SMALL: 50, LARGE: 100 });
 
 export const ROUNDS = Object.freeze([
-  { name: "기본", hint: "초코가 한 덩어리예요. 무게표로 전체의 절반이 어디서 채워지는지 세어 보세요." },
-  { name: "얼룩", hint: "초코 덩어리가 여러 개예요. 두께마다 1cm 무게가 달라요." },
-  { name: "두께 섞임", hint: "얇은 초코와 두꺼운 초코가 이어져 있어요." },
-  { name: "토핑", hint: "아몬드 무게도 더해야 해요. 크기마다 무게가 달라요." },
-  { name: "종합", hint: "두께, 빈 구간, 아몬드가 모두 섞였어요." }
+  { name: "기본" },
+  { name: "얼룩" },
+  { name: "두께 섞임" },
+  { name: "토핑" },
+  { name: "종합" }
 ]);
 
 export const almondPosition = (almond) => (almond.cell + 0.5) * CELL_CM;
@@ -66,8 +68,14 @@ export function answerPosition(stick) {
   return (low + high) / 2;
 }
 
-export const scoreOf = (errorRate) =>
-  Math.round(MAX_SCORE * Math.max(0, 1 - errorRate / ZERO_SCORE_ERROR_RATE));
+// 오차 2.5%까지는 1000점에서 750점으로 가파르게, 그 뒤로는 25%에서 0점이 되도록 완만하게 깎는다.
+// 서버 StickPuzzle.scoreOf와 계산 순서를 맞춰 같은 점수가 나오게 한다.
+export function scoreOf(errorRate) {
+  const score = errorRate <= KNEE_ERROR_RATE
+    ? MAX_SCORE - ((MAX_SCORE - KNEE_SCORE) * errorRate) / KNEE_ERROR_RATE
+    : (KNEE_SCORE * Math.max(0, ZERO_SCORE_ERROR_RATE - errorRate)) / (ZERO_SCORE_ERROR_RATE - KNEE_ERROR_RATE);
+  return Math.round(score);
+}
 
 export function judge(stick, position) {
   const errorRate = errorRateAt(stick, position);

@@ -59,23 +59,41 @@ class StickPuzzleTest {
         assertThat(puzzle.errorRateAt(answer)).isCloseTo(0, within(1e-9));
     }
 
-    @DisplayName("오차가 0%면 1000점, 10% 이상이면 0점으로 직선으로 깎는다.")
+    @DisplayName("오차 2.5%까지는 1000점에서 750점으로 가파르게, 그 뒤로는 25%에서 0점이 되도록 완만하게 깎는다.")
     @Test
     void scoresByErrorRate() {
-        // Given
+        // Given: 과자만 있는 막대라 1cm 어긋날 때마다 오차가 1/6씩 는다.
         StickPuzzle puzzle = StickPuzzle.of(cells(24, ChocolateLevel.NONE), List.of(), 6);
 
         // When
         CutJudgement exact = puzzle.judge(6);
-        CutJudgement halfOff = puzzle.judge(6.15);
-        CutJudgement farOff = puzzle.judge(7);
+        CutJudgement knee = puzzle.judge(6.15);
+        CutJudgement fivePercent = puzzle.judge(6.3);
+        CutJudgement tenPercent = puzzle.judge(6.6);
+        CutJudgement farOff = puzzle.judge(7.5);
 
         // Then
         assertThat(exact.score()).isEqualTo(1_000);
-        assertThat(halfOff.errorRate()).isCloseTo(0.025, within(1e-9));
-        assertThat(halfOff.score()).isEqualTo(750);
+        assertThat(knee.errorRate()).isCloseTo(0.025, within(1e-9));
+        assertThat(knee.score()).isEqualTo(750);
+        assertThat(fivePercent.score()).isEqualTo(667);
+        assertThat(tenPercent.score()).isEqualTo(500);
+        assertThat(farOff.errorRate()).isCloseTo(0.25, within(1e-9));
         assertThat(farOff.score()).isZero();
         assertThat(farOff.answerPosition()).isCloseTo(6, within(1e-9));
+    }
+
+    @DisplayName("프론트 연습 모드와 같은 점수표를 쓴다.")
+    @Test
+    void matchesPracticeScoreTable() {
+        assertThat(StickPuzzle.scoreOf(0)).isEqualTo(1_000);
+        assertThat(StickPuzzle.scoreOf(0.01)).isEqualTo(900);
+        assertThat(StickPuzzle.scoreOf(0.025)).isEqualTo(750);
+        assertThat(StickPuzzle.scoreOf(0.05)).isEqualTo(667);
+        assertThat(StickPuzzle.scoreOf(0.1)).isEqualTo(500);
+        assertThat(StickPuzzle.scoreOf(0.15)).isEqualTo(333);
+        assertThat(StickPuzzle.scoreOf(0.25)).isZero();
+        assertThat(StickPuzzle.scoreOf(0.4)).isZero();
     }
 
     private static List<ChocolateLevel> cells(int count, ChocolateLevel level) {
