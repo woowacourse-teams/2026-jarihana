@@ -1,0 +1,10 @@
+.space-studio.space-studio--overlay, .group-clubhouse {
+  --studio-ink: #163e38;
+  --studio-muted: #506c64;
+  --studio-accent: #27bdb6;
+  --studio-accent-soft: #dff8f3;
+  --studio-coral: #ec7569;
+  --studio-panel: #fffdf5;
+  --studio-line: #163e38;
+  --studio-shadow: 3px 4px 0 #08736f;
+}

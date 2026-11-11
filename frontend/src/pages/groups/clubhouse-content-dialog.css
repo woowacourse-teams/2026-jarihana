@@ -1,0 +1,89 @@
+.ui-dialog.clubhouse-content-dialog {
+  max-width: 44rem;
+  max-height: calc(100dvh - var(--space-10));
+  padding: clamp(var(--space-4), 4vw, var(--space-6));
+  overscroll-behavior: contain;
+}
+
+.clubhouse-content-dialog__tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.clubhouse-content-dialog__activity,
+.clubhouse-content-dialog__announcements {
+  display: grid;
+  gap: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.clubhouse-content-dialog .ui-button > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.clubhouse-content-dialog__activity > img {
+  display: block;
+  width: 100%;
+  max-height: min(46dvh, 26rem);
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.clubhouse-content-dialog__photo-fallback {
+  margin: 0;
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-muted-ink);
+  text-align: center;
+}
+
+.clubhouse-content-dialog__activity h3 {
+  margin: 0;
+  font-size: var(--text-h3);
+  white-space: pre-wrap;
+}
+
+.clubhouse-content-dialog__meta {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+
+.clubhouse-content-dialog__pagination,
+.clubhouse-content-dialog__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.clubhouse-content-dialog__pagination { justify-content: center; }
+.clubhouse-content-dialog__actions { justify-content: flex-end; }
+
+.clubhouse-content-dialog__pagination [aria-disabled="true"] {
+  opacity: .45;
+  cursor: default;
+}
+
+.clubhouse-content-dialog .group-announcement-card {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  text-align: left;
+}
+
+.clubhouse-content-dialog .group-announcement-card__meta { grid-column: 1; }
+.clubhouse-content-dialog .group-announcement-card__title { white-space: normal; }
+
+.clubhouse-content-dialog__notice {
+  padding: var(--space-3) var(--space-4);
+}
+
+.clubhouse-content-dialog__notice-body {
+  white-space: pre-wrap;
+}
