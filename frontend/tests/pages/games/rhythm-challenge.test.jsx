@@ -101,6 +101,7 @@ async function reachBoard() {
   rhythmRankedApi.create.mockResolvedValue(created);
   render(<RhythmHarpoonChallengePage />);
   fireEvent.click(screen.getByRole("button", { name: /^Hardest/ }));
+  fireEvent.click(screen.getByRole("button", { name: "설정 바꾸기" }));
   fireEvent.change(screen.getByLabelText("세균 이동 배속"), { target: { value: "2" } });
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
   fireEvent.click(screen.getByRole("button", { name: "도전 시작" }));
@@ -146,10 +147,40 @@ it("offers ANOTHER Hardest as an official level and starts from the last practic
   });
 });
 
+it("opens the detailed settings in a side drawer, keeps a summary and closes it with Esc without leaving", () => {
+  render(<RhythmHarpoonChallengePage />);
+  const toggle = screen.getByRole("button", { name: "설정 바꾸기" });
+  const drawer = screen.getByRole("complementary", { name: "공식 도전 설정" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveAttribute("aria-controls", drawer.id);
+  expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_settings_toggle");
+  expect(drawer).not.toHaveClass("is-open");
+  expect(drawer).toHaveAttribute("inert");
+  const summary = screen.getByRole("list", { name: "지금 설정" });
+  expect(within(summary).getByText("배속 ×1.0")).toBeInTheDocument();
+  expect(within(summary).getByText("키 A S W D")).toBeInTheDocument();
+
+  fireEvent.click(toggle);
+  expect(drawer).toHaveClass("is-open");
+  expect(drawer).not.toHaveAttribute("inert");
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "설정 닫기" })).toHaveFocus();
+  fireEvent.change(screen.getByLabelText("세균 이동 배속"), { target: { value: "1.5" } });
+  expect(within(summary).getByText("배속 ×1.5")).toBeInTheDocument();
+
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  });
+  expect(drawer).not.toHaveClass("is-open");
+  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(toggle).toHaveFocus();
+});
+
 it("sets the input offset on the options step, saves it and plays with it", async () => {
   localStorage.setItem("haengseong-input-offset-v1", "12");
   rhythmRankedApi.create.mockResolvedValue(created);
   render(<RhythmHarpoonChallengePage />);
+  fireEvent.click(screen.getByRole("button", { name: "설정 바꾸기" }));
   const slider = screen.getByRole("slider", { name: /입력 지연 보정/ });
   expect(slider).toHaveValue("12");
   fireEvent.change(slider, { target: { value: "-24" } });
@@ -171,6 +202,7 @@ it("changes volume, display and direction keys on the options step, saves them a
   );
   rhythmRankedApi.create.mockResolvedValue(created);
   render(<RhythmHarpoonChallengePage />);
+  fireEvent.click(screen.getByRole("button", { name: "설정 바꾸기" }));
   const volume = screen.getByRole("slider", { name: /음량/ });
   expect(volume).toHaveValue("65");
   expect(volume).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_challenge_volume_change");

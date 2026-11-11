@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, X } from "lucide-react";
 
 import { RHYTHM_CHALLENGE_BACK } from "../../features/game/rhythm/availability.js";
 import { HeartIcon } from "../../features/game/rhythm/HeartIcon.jsx";
@@ -41,6 +41,7 @@ const INVALID_COPY = {
 const number = (value) => value.toLocaleString("ko-KR");
 // 공식 도전은 처음부터 다시 할 수 없으므로 키 배치에서 다시 하기 키는 보여 주지 않는다.
 const CHALLENGE_KEY_ACTIONS = ["left", "down", "up", "right"];
+const CHALLENGE_SETTINGS_ID = "challenge-settings";
 
 // 판에서 쓰는 개인 설정이다. 연습과 같은 저장값의 음량, 표시, 키 배치, 입력 지연 보정을 가져오고,
 // 옵션 단계에서 바꾸면 같은 곳에 다시 남긴다.
@@ -79,8 +80,19 @@ export function RhythmHarpoonChallengePage() {
   // 입력 지연 보정은 옵션 단계에서 고른 값을 판에 그대로 쓴다.
   const [boardSettings, setBoardSettings] = useState(null);
 
+  // 배속, 보정, 음량, 표시, 키 배치는 옵션 단계의 오른쪽 서랍(오프캔버스)에서 바꾼다.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsToggleReference = useRef(null);
+  function closeSettings() {
+    setSettingsOpen(false);
+    settingsToggleReference.current?.focus({ preventScroll: true });
+  }
+
   // 키 배치와 표시 설정은 옵션 단계에서 바꾸고 바로 저장하므로, 확인 단계는 이 화면의 값을 그대로 쓴다.
-  const confirm = () => setStep("confirm");
+  const confirm = () => {
+    setSettingsOpen(false);
+    setStep("confirm");
+  };
 
   function changeSettings(next) {
     setSettings(next);
@@ -90,7 +102,8 @@ export function RhythmHarpoonChallengePage() {
   }
 
   useEscapeBack(() => {
-    if (step === "confirm") setStep("options");
+    if (step === "options" && settingsOpen) closeSettings();
+    else if (step === "confirm") setStep("options");
     else if (step === "playing") {
       // 시작 전에 Esc를 누르면 만든 도전을 버리고 확인 단계로 돌아간다. 시작한 뒤의 Esc는 게임이 무효로 처리한다.
       if (session) void rhythmRankedApi.abandon(session.challengeId).catch(() => {});
@@ -192,9 +205,11 @@ export function RhythmHarpoonChallengePage() {
                 <OptionsStep
                   onChange={setOptions}
                   onNext={confirm}
-                  onSettingsChange={changeSettings}
+                  onToggleSettings={() => setSettingsOpen((open) => !open)}
                   options={options}
                   settings={settings}
+                  settingsOpen={settingsOpen}
+                  settingsToggleReference={settingsToggleReference}
                 />
                 <RhythmRanking level={options.level} />
               </div>
@@ -225,20 +240,44 @@ export function RhythmHarpoonChallengePage() {
               />
             ) : null}
           </div>
+          {step === "options" ? (
+            <SettingsDrawer
+              onChange={setOptions}
+              onClose={closeSettings}
+              onSettingsChange={changeSettings}
+              open={settingsOpen}
+              options={options}
+              settings={settings}
+            />
+          ) : null}
         </div>
       )}
     </section>
   );
 }
 
-function OptionsStep({ options, onChange, onNext, settings, onSettingsChange }) {
+const speedLabel = (speed) => "×" + (Number.isInteger(speed) ? speed.toFixed(1) : speed);
+const signedMs = (value) => (value > 0 ? "+" : "") + value + "ms";
+
+function OptionsStep({
+  options,
+  onChange,
+  onNext,
+  onToggleSettings,
+  settings,
+  settingsOpen,
+  settingsToggleReference
+}) {
+  const keys = [settings.keymap.left, settings.keymap.down, settings.keymap.up, settings.keymap.right]
+    .map(keyLabel)
+    .join(" ");
   return (
     <section className="rhythm-challenge__panel" aria-labelledby="rhythm-challenge-options">
       <span className="eyebrow">STEP 1 / OPTIONS</span>
       <h2 id="rhythm-challenge-options">옵션 설정</h2>
       <p className="small muted">
-        난이도마다 랭킹이 따로 있어요. 세균 이동 배속은 보이는 속도만 바꾸고 판정과 점수에는 영향이
-        없어요. 입력 지연 보정은 판정 시각을 옮기므로 시작 전에 꼭 맞춰 주세요.
+        난이도마다 랭킹이 따로 있어요. 입력 지연 보정은 판정 시각을 옮기므로 시작 전에 설정에서 꼭 맞춰
+        주세요.
       </p>
       <div className="control-section">
         <span className="eyebrow">DIFFICULTY</span>
@@ -264,6 +303,68 @@ function OptionsStep({ options, onChange, onNext, settings, onSettingsChange }) 
         </div>
         <p className="small muted">{LEVELS[options.level].description}</p>
       </div>
+      <div className="control-section rhythm-challenge__settings">
+        <ul aria-label="지금 설정" className="rhythm-challenge__chips">
+          <li>배속 {speedLabel(options.scrollSpeed)}</li>
+          <li>보정 {signedMs(options.offset)}</li>
+          <li>음량 {settings.volume}%</li>
+          <li>소리 글자 {settings.labels ? "켬" : "끔"}</li>
+          <li>FAST/SLOW {settings.timingFeedback ? "켬" : "끔"}</li>
+          <li>키 {keys}</li>
+        </ul>
+        <button
+          aria-controls={CHALLENGE_SETTINGS_ID}
+          aria-expanded={settingsOpen}
+          className="button rhythm-challenge__settings-toggle"
+          data-ph-capture-attribute-action="rhythm_challenge_settings_toggle"
+          onClick={onToggleSettings}
+          ref={settingsToggleReference}
+          type="button"
+        >
+          <SlidersHorizontal aria-hidden="true" size={16} />
+          설정 바꾸기
+        </button>
+      </div>
+      <div className="rhythm-challenge__actions">
+        <button
+          className="button primary"
+          data-ph-capture-attribute-action="rhythm_challenge_next"
+          onClick={onNext}
+          type="button"
+        >
+          다음
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// 옵션 단계 오른쪽에서 펼쳐지는 서랍(오프캔버스). 닫혀 있으면 inert로 포커스와 입력을 막는다.
+function SettingsDrawer({ open, onClose, options, onChange, settings, onSettingsChange }) {
+  const closeReference = useRef(null);
+  useEffect(() => {
+    if (open) closeReference.current?.focus({ preventScroll: true });
+  }, [open]);
+  return (
+    <aside
+      aria-label="공식 도전 설정"
+      className={`controls rhythm-drawer rhythm-challenge__drawer${open ? " is-open" : ""}`}
+      id={CHALLENGE_SETTINGS_ID}
+      inert={open ? undefined : true}
+    >
+      <div className="rhythm-challenge__drawer-head">
+        <h2>설정</h2>
+        <button
+          aria-label="설정 닫기"
+          className="rhythm-challenge__drawer-close"
+          data-ph-capture-attribute-action="rhythm_challenge_settings_close"
+          onClick={onClose}
+          ref={closeReference}
+          type="button"
+        >
+          <X aria-hidden="true" size={20} />
+        </button>
+      </div>
       <div className="control-section audio-controls">
         <label htmlFor="challenge-rate">세균 이동 배속</label>
         <select
@@ -274,10 +375,11 @@ function OptionsStep({ options, onChange, onNext, settings, onSettingsChange }) 
         >
           {SPEEDS.map((speed) => (
             <option key={speed} value={String(speed)}>
-              ×{Number.isInteger(speed) ? speed.toFixed(1) : speed}
+              {speedLabel(speed)}
             </option>
           ))}
         </select>
+        <p className="small muted">보이는 속도만 바뀌고 판정과 점수에는 영향이 없어요.</p>
       </div>
       <RhythmOffsetSettings
         offset={options.offset}
@@ -329,17 +431,15 @@ function OptionsStep({ options, onChange, onNext, settings, onSettingsChange }) 
         keymap={settings.keymap}
         onChange={(keymap) => onSettingsChange({ ...settings, keymap })}
       />
-      <div className="rhythm-challenge__actions">
-        <button
-          className="button primary"
-          data-ph-capture-attribute-action="rhythm_challenge_next"
-          onClick={onNext}
-          type="button"
-        >
-          다음
-        </button>
-      </div>
-    </section>
+      <button
+        className="button primary"
+        data-ph-capture-attribute-action="rhythm_challenge_settings_done"
+        onClick={onClose}
+        type="button"
+      >
+        완료
+      </button>
+    </aside>
   );
 }
 

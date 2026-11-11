@@ -896,3 +896,93 @@
     right: 22px;
   }
 }
+
+/* 공식 도전 옵션: 지금 설정 요약과 설정 서랍(오프캔버스). 서랍은 넓은 화면에서 랭킹 위로, 휴대폰에서는 화면 오른쪽에서 펼쳐진다. */
+.rhythm-game.rhythm-game--clay .rhythm-challenge__settings {
+  display: grid;
+  gap: 12px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__chips li {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--clay-bg);
+  color: var(--color-ink);
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-block-size: var(--touch-target);
+  justify-self: start;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__drawer {
+  width: min(380px, 92%);
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__drawer-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.rhythm-game.rhythm-game--clay .rhythm-challenge__drawer-close {
+  display: grid;
+  place-items: center;
+  inline-size: var(--touch-target);
+  block-size: var(--touch-target);
+  border: 0;
+  border-radius: 50%;
+  background: var(--clay-bg);
+  color: var(--color-ink);
+}
+@media (max-width: 700px) {
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__drawer {
+    position: fixed;
+    z-index: calc(var(--z-header) + 1);
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 16px;
+    width: min(360px, 92vw);
+    padding: 16px 18px 24px;
+    overflow-y: auto;
+    border-radius: 24px 0 0 24px;
+    background: var(--clay-surface);
+    box-shadow: -12px 0 32px rgb(29 61 52 / 18%);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__drawer.is-open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__drawer,
+  .rhythm-game.rhythm-game--clay .rhythm-challenge__drawer.is-open {
+    transition: none;
+  }
+}
