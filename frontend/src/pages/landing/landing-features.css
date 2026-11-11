@@ -37,7 +37,7 @@
 .landing-features__list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-  gap: var(--space-12) 0;
+  gap: var(--space-12) var(--space-6);
   max-width: 80rem;
   margin: 0 auto;
   padding: 0;
@@ -58,6 +58,7 @@
   padding: var(--space-12) var(--space-10);
   box-sizing: border-box;
   overflow: hidden;
+  border-radius: var(--landing-radius);
   background: var(--feature-mint);
 }
 .landing-feature-card[data-tone="coral"] .landing-feature-card__visual {
@@ -202,10 +203,9 @@
 
 @media (max-width: 47.9375rem) {
   .landing-features {
-    padding-inline: 0;
+    padding-inline: var(--space-4);
   }
   .landing-features__heading {
-    padding-inline: var(--space-4);
     margin-bottom: var(--space-10);
   }
   .landing-feature-card__visual {
@@ -213,7 +213,7 @@
     padding: var(--space-8) var(--space-6);
   }
   .landing-feature-card__text {
-    padding-inline: var(--space-5);
+    padding-inline: var(--space-2);
   }
 }
 
