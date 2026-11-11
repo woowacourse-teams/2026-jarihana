@@ -1483,6 +1483,8 @@
 .stick-room {
   display: grid;
   gap: var(--space-5);
+  margin-inline: auto;
+  max-inline-size: 56rem;
 }
 .stick-room .games-heading {
   margin-block-end: 0;
