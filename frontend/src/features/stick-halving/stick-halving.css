@@ -83,7 +83,7 @@
 /* 자를 때: 제목, 남은 시간, 막대, 안내, 자르기 버튼을 한 줄로 쌓는다. */
 .stick-game__play {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
   min-inline-size: 0;
 }
 
@@ -200,6 +200,11 @@
   inline-size: min(100%, 12rem);
 }
 
+/* 막대나 저울 바로 아래에 버튼이 오도록 게임 영역의 기본 간격보다 붙인다. */
+.stick-game__stage + .stick-game__actions {
+  margin-block-start: calc(var(--space-4) * -1);
+}
+
 .stick-game__analyze {
   background: none;
   block-size: var(--touch-target);
@@ -272,7 +277,7 @@
 }
 
 .stick-game__balance {
-  inline-size: min(100%, 30rem);
+  inline-size: min(100%, 36rem);
   justify-self: center;
 }
 
