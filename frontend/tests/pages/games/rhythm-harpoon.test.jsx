@@ -75,7 +75,8 @@ it("starts from the official challenge card while practice is closed and plays r
   expect(screen.queryByText("싱글 플레이")).not.toBeInTheDocument();
   const [singleCard, onlineCard] = screen.getAllByRole("article");
   expect(singleCard).toHaveClass("games-card", "games-card--playable");
-  expect(singleCard).toHaveAccessibleName("공식 도전");
+  expect(singleCard).toHaveAccessibleName("랭킹 도전");
+  expect(screen.queryByText("공식 도전")).not.toBeInTheDocument();
   // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다. 온라인 매칭 카드는 내 판과 상대 판 두 개다.
   expect(mountDemoBoard).toHaveBeenCalledTimes(2);
   expect(singleCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(1);
@@ -85,7 +86,7 @@ it("starts from the official challenge card while practice is closed and plays r
   expect(singleDemo.rivalCanvas).toBeNull();
   expect(onlineCard).toContainElement(onlineDemo.canvas);
   expect(onlineCard).toContainElement(onlineDemo.rivalCanvas);
-  const single = screen.getByRole("link", { name: "공식 도전 시작" });
+  const single = screen.getByRole("link", { name: "랭킹 도전 시작" });
   expect(singleCard).toContainElement(single);
   expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");

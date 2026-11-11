@@ -37,6 +37,17 @@
   max-inline-size: calc(50% - 5px);
   max-block-size: 190px;
 }
+/* 첫 화면 랭킹 도전 버튼: 싱글 플레이 화면의 랭킹 도전 카드와 같은 노랑을 쓴다. */
+.games-card__cta.rhythm-entry__ranked-cta {
+  border-color: #d9a91a;
+  background: #f5c533;
+  color: #3d2a00;
+}
+.games-card__cta.rhythm-entry__ranked-cta:hover {
+  border-color: #c2950f;
+  background: #e9b721;
+  color: #3d2a00;
+}
 /* 첫 화면 카드 그림 자리의 실제 판 재생(RhythmDemoBoard). 불러오는 동안은 그림을 두고, 준비되면 판으로 바꾼다. */
 .rhythm-entry__visual .rhythm-demo {
   position: absolute;

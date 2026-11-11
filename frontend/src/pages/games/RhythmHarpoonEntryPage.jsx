@@ -74,16 +74,16 @@ export function RhythmHarpoonEntryPage() {
               </div>
             ) : (
               <div className="games-card__body">
-                <h2 id="rhythm-entry-single">공식 도전</h2>
+                <h2 id="rhythm-entry-single">랭킹 도전</h2>
                 <p>난이도를 골라 바로 도전해요. 점수가 랭킹에 올라가고 로그인이 필요해요.</p>
                 {/* 공식 도전은 회원 전용이라 로그인 전이면 여기서 로그인으로 보낸다. */}
                 <Link
-                  className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
+                  className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta rhythm-entry__ranked-cta"
                   data-ph-capture-attribute-action="rhythm_ranked_open"
                   onClick={openChallenge}
                   to={RHYTHM_SINGLE_START_PATH}
                 >
-                  <Trophy size={20} aria-hidden="true" /> 공식 도전 시작
+                  <Trophy size={20} aria-hidden="true" /> 랭킹 도전 시작
                 </Link>
               </div>
             )}
