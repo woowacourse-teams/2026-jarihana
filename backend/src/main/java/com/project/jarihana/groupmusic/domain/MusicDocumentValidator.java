@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -46,14 +47,28 @@ public class MusicDocumentValidator {
         return mapper.writeValueAsString(music);
     }
 
-    public void validateQueueEntry(String title, String url) {
+    public String validateQueueEntry(String title, String url) {
         require(title != null && !title.isBlank() && title.length() <= 80);
         require(url != null && !url.isBlank() && url.length() <= 500);
         validateUrl(url);
+        return videoId(url).orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER,
+                "재생목록 대신 유튜브 영상 링크를 입력해 주세요."));
     }
 
-    public boolean isPlaylist(String url) {
-        return query(URI.create(url).getRawQuery()).containsKey("list");
+    public Optional<String> videoId(String url) {
+        URI uri = URI.create(url);
+        String path = uri.getRawPath();
+        if ("/playlist".equals(path)) {
+            return Optional.empty();
+        }
+        if ("/watch".equals(path)) {
+            return Optional.ofNullable(query(uri.getRawQuery()).get("v"));
+        }
+        return Optional.of(path.substring(path.lastIndexOf('/') + 1));
+    }
+
+    public Optional<String> playlistId(String url) {
+        return Optional.ofNullable(query(URI.create(url).getRawQuery()).get("list"));
     }
 
     private void validatePlaylists(JsonNode playlists, String selectedTitle, String selectedUrl) {

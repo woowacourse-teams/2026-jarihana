@@ -92,15 +92,25 @@ public class GroupMusic extends BaseEntity {
         return withPlayback(state, index, position, now);
     }
 
-    public GroupMusic advancePlayback(long expectedRevision, int index, double duration, int queueLength, Instant now) {
-        if (!Double.isFinite(duration) || duration <= 0 || duration > 86400 || queueLength < 1 || queueLength > 5000 || index < 0) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "영상 길이와 재생목록을 확인해 주세요.");
-        }
+    public void requirePlayingRevision(long expectedRevision) {
         requireRevision(expectedRevision);
-        if (playbackState != PlaybackState.PLAYING || index != playlistIndex || index >= queueLength) throw conflict();
-        double elapsedPosition = positionSeconds + Math.max(0, Duration.between(anchorTime, now).toMillis() / 1000.0);
-        if (elapsedPosition < duration - 1) throw conflict();
-        return withPlayback(PlaybackState.PLAYING, (index + 1) % queueLength, Math.max(0, elapsedPosition - duration), now);
+        if (playbackState != PlaybackState.PLAYING) {
+            throw conflict();
+        }
+    }
+
+    public GroupMusic advancePlayback(long expectedRevision, int nextIndex, double duration, Instant now) {
+        requirePlayingRevision(expectedRevision);
+        double elapsed = positionSeconds + Math.max(0, Duration.between(anchorTime, now).toMillis() / 1000.0);
+        if (elapsed < duration) {
+            throw conflict();
+        }
+        return withPlayback(PlaybackState.PLAYING, nextIndex, elapsed - duration, now);
+    }
+
+    public GroupMusic skipUnavailableTrack(long expectedRevision, int nextIndex, Instant now) {
+        requirePlayingRevision(expectedRevision);
+        return withPlayback(PlaybackState.PLAYING, nextIndex, 0, now);
     }
 
     public GroupMusic selectQueueSource(long expectedRevision, String musicJson, PlaybackState state,

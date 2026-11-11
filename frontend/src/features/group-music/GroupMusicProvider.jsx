@@ -43,6 +43,7 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
   const [notice, setNotice] = useState("");
   const mutating = useRef(false);
   const advanceDenied = useRef(false);
+  const unavailableCheck = useRef({ revision: null, time: -Infinity });
   const addButton = useRef(null);
   const panelToggle = useRef(null);
   const restoreToggleFocus = useRef(false);
@@ -59,7 +60,9 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
       return true;
     } catch (failure) {
       if (failure.status === 403 || failure.status === 409 || (kind === "add" && failure.status === 400)) void refresh();
-      setError(failure.code === "GROUP_ENDED" ? "종료된 모임의 재생 목록은 바꿀 수 없어요."
+      setError(failure.code === "GROUP_MUSIC_VERIFICATION_UNAVAILABLE" ? "유튜브 영상 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+        : failure.code === "GROUP_MUSIC_VIDEO_UNPLAYABLE" ? "삭제되었거나 외부 재생이 허용되지 않은 영상이에요."
+        : failure.code === "GROUP_ENDED" ? "종료된 모임의 재생 목록은 바꿀 수 없어요."
         : failure.status === 403 ? "이 모임의 음악을 바꿀 권한이 없어요."
           : failure.status === 409 ? "모임 음악이 바뀌었어요. 목록을 확인한 뒤 다시 시도해 주세요."
             : kind === "add" ? "곡을 추가하지 못했어요. 링크와 대기열을 확인해 주세요."
@@ -73,8 +76,8 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
     if (!draft || !canAdd || queueFull) return;
     const title = draft.title.trim();
     const url = draft.url.trim();
-    if (!title || !parseYoutubeUrl(url)) {
-      setError(!title ? "곡 이름을 입력해 주세요." : "유튜브 영상 또는 재생목록의 HTTPS 주소를 입력해 주세요.");
+    if (!title || !parseYoutubeUrl(url)?.videoId) {
+      setError(!title ? "곡 이름을 입력해 주세요." : "유튜브 영상 링크를 입력해 주세요.");
       return;
     }
     if (await changeMusic("add", () => enqueueGroupMusic(groupId, { title, url }))) {
@@ -95,6 +98,11 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
 
   const advance = useCallback(async (command) => {
     if (!canAdd || advanceDenied.current) return;
+    if (command.checkUnavailable) {
+      const previous = unavailableCheck.current;
+      if (previous.revision === command.expectedRevision && performance.now() - previous.time < 10000) return;
+      unavailableCheck.current = { revision: command.expectedRevision, time: performance.now() };
+    }
     try { onSnapshot(await advanceMusicPlayback(groupId, command)); }
     catch (failure) {
       if (failure.status === 401 || failure.status === 403) advanceDenied.current = true;
@@ -154,6 +162,7 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
         <button type="button" className="group-music__icon-button" aria-label="음악 패널 접기" data-ph-capture-attribute-action="group_music_collapse" onClick={togglePanel}><ChevronDown size={19} aria-hidden="true" /></button>
       </header>}
       <div className="group-music__body">
+        {expanded && music.lastSkippedTitle && <p role="status">「{music.lastSkippedTitle}」은 재생할 수 없어 건너뛰었어요.</p>}
         {expanded && connectionError && <p role="status">실시간 연결을 복구하고 있어요.</p>}
         <section className="group-music__current" aria-label="현재 재생">
           {expanded && <h2>현재 재생</h2>}
@@ -179,7 +188,7 @@ function MusicPanel({ groupId, memberId, snapshot, onSnapshot, refresh, connecti
           {draft && <form ref={addForm} className="group-music__form" onSubmit={addTrack} data-ph-capture-attribute-action="group_music_queue_submit">
             <fieldset disabled={Boolean(pending) || !canAdd}>
               <label>유튜브 링크<input ref={urlInput} type="url" maxLength={500} placeholder="https://youtu.be/…" required value={draft.url} data-ph-capture-attribute-action="group_music_queue_url" onChange={(event) => setDraft({ ...draft, url: event.target.value })} /></label>
-              <label>곡 또는 재생목록 이름<input maxLength={80} required placeholder="함께 들을 곡 이름" value={draft.title} data-ph-capture-attribute-action="group_music_queue_title" onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+              <label>곡 이름<input maxLength={80} required placeholder="함께 들을 곡 이름" value={draft.title} data-ph-capture-attribute-action="group_music_queue_title" onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
             </fieldset>
             <div className="group-music__form-actions">
               <button type="button" disabled={pending === "add"} data-ph-capture-attribute-action="group_music_queue_cancel" onClick={closeDraft}>취소</button>

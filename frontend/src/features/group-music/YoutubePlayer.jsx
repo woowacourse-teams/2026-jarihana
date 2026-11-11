@@ -106,8 +106,13 @@ function PlayerInstance({ audioPreferences, onAudioPreferencesChange, snapshot, 
           onError: (event) => {
             if (cancelled) return;
             clearTimeout(readyTimeout); setState(-1);
+            if ([100, 101, 150].includes(event.data)) {
+              void latest.current.onAdvance({
+                expectedRevision: latest.current.snapshot.playback.revision, checkUnavailable: true
+              });
+            }
             setError([100, 101, 150].includes(event.data)
-              ? "삭제되었거나 외부 재생이 허용되지 않은 영상이에요. 다른 영상이나 재생목록을 골라 주세요."
+              ? "삭제되었거나 외부 재생이 허용되지 않은 영상이에요."
               : "유튜브에서 재생하지 못했어요. 연결을 확인하고 다시 시도해 주세요.");
           }
         }

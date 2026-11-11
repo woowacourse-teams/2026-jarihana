@@ -1,8 +1,8 @@
 # 모임 음악
 
 모임 상세와 3D 아지트가 공유하는 유튜브 음악 설정이다. 공간 배치와 별도의 문서·revision으로
-저장하므로 음악 수정이 공간 배치의 저장 충돌을 만들지 않는다. 오디오 파일이나 외부 메타데이터를
-서버가 내려받지 않으며 실제 재생은 클라이언트의 유튜브 플레이어가 담당한다.
+저장하므로 음악 수정이 공간 배치의 저장 충돌을 만들지 않는다. 서버는 YouTube Data API로
+영상 길이와 외부 재생 허용 여부를 확인한다. 실제 재생은 클라이언트의 유튜브 플레이어가 담당한다.
 
 ## GET /api/groups/{groupId}/music
 
@@ -42,24 +42,29 @@ updatedAt은 기존 공통 계약의 Asia/Seoul LocalDateTime이다.
 
 ## POST /api/groups/{groupId}/music/queue
 
-ACTIVE 모임의 구성원 누구나 유튜브 영상 또는 재생목록을 신청할 수 있다. 인증 쿠키와 CSRF가 필요하다.
+ACTIVE 모임의 구성원 누구나 유튜브 단일 영상을 신청할 수 있다. 인증 쿠키와 CSRF가 필요하다.
 
 ```json
 {"title":"저녁 재즈","url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
 ```
 
 - title은 공백이 아닌 1~80자, url은 1~500자이며 아래 유튜브 주소 검증을 따른다.
-- 그룹 쓰기 잠금 안에서 추가한다. 추가 요청에는 expectedRevision이 없으며 동시 신청을 모두 보존한다.
+- 신청 권한을 확인하고 DB 트랜잭션 밖에서 영상 정보를 조회한다. 그룹 쓰기 잠금을 얻은 뒤 권한을 다시 확인하고 추가한다.
+- 추가 요청에는 expectedRevision이 없으며 동시 신청을 모두 보존한다.
+- 재생목록 전용 주소는 400으로 거절한다. 영상과 list 매개변수가 함께 있으면 해당 영상의 watch 주소로 정규화한다.
+- 삭제·비공개·외부 재생 금지 영상은 400 GROUP_MUSIC_VIDEO_UNPLAYABLE이다.
+- 조회 장애·응답 이상·API 키 미설정은 503 GROUP_MUSIC_VERIFICATION_UNAVAILABLE이며 기존 음악을 보존한다.
 - 현재 활성 음악이 없으면 새 항목을 곧바로 index0/position0/PLAYING으로 시작한다.
 - 현재 음악이 있으면 재생·정지 상태, 위치, anchorTime, playback.revision을 그대로 둔 채 대기열 끝에 추가한다.
-- music.queue는 **아직 재생하지 않은 항목만** 담는다. 최대 50개이며 각 항목은 서버 UUID id, title, url이다.
+- music.queue는 **아직 재생하지 않은 항목만** 담는다. 최대 50개이며 각 항목은 서버 UUID id, title, url, durationSeconds, verifiedAt이다.
+  현재 곡의 durationSeconds와 verifiedAt도 music 문서에 저장한다. verifiedAt은 UTC Instant다.
 - 동일한 URL도 다시 신청할 수 있다. music.currentQueueId는 현재 큐 항목 UUID로, 같은 URL을 연속 재생해도 바뀐다.
 - 기존 url/title과 playlists는 첫 추가 시 보존한다. playlists 저장 목록은 자동으로 대기열에 들어가지 않는다.
 - 성공 시 GET과 같은 응답을 반환하며 설정 revision이 1 증가한다. 새 현재 곡을 시작하면 playback.revision도 증가한다.
 
 큐가 도입된 문서는 서버가 관리한다. 기존 PUT 전체 문서 교체로 큐를 덮어쓰려 하면 409
 GROUP_MUSIC_CONFLICT를 반환한다. 큐가 없는 기존 저장 요청은 이전 계약대로 지원한다.
-queue와 currentQueueId는 서버 응답 전용 필드이며 PUT 입력으로 받지 않는다.
+queue, currentQueueId, durationSeconds, verifiedAt, lastSkippedTitle은 서버 응답 전용 필드다.
 
 ### POST /api/groups/{groupId}/music/queue/skip
 
@@ -87,7 +92,7 @@ currentQueueId를 제거하고 PAUSED/position0으로 멈춘다. 설정·재생 
 - youtu.be는 /VIDEO 형태만 허용한다.
 - VIDEO는 `[A-Za-z0-9_-]{11}`, PLAYLIST는 `[A-Za-z0-9_-]{10,100}`이다.
 - watch/share 주소의 list 매개변수도 동일하게 검증한다. si/t 등 공유 매개변수는 허용하되 중복 키는 거절한다.
-- 서버는 URL을 요청하거나 리디렉션을 따라가지 않는다.
+- 서버는 입력 URL에 직접 접속하지 않는다. 검증한 ID로 고정된 YouTube Data API 주소에 요청한다.
 
 ### 플레이리스트 추가 예시
 
@@ -117,6 +122,8 @@ playlists는 모임에서 선택할 수 있는 저장 목록이고, 최상위 ur
 | 상태 | 코드 | 조건 |
 | --- | --- | --- |
 | 400 | INVALID_PARAMETER | 잘못된 설정·유튜브 주소·revision |
+| 400 | GROUP_MUSIC_VIDEO_UNPLAYABLE | 재생할 수 없는 영상 신청 |
+| 503 | GROUP_MUSIC_VERIFICATION_UNAVAILABLE | 유튜브 정보 조회 실패 또는 API 키 미설정 |
 | 401 | UNAUTHENTICATED | 로그인하지 않은 저장 요청 |
 | 403 | GROUP_ACCESS_DENIED | 모임장이 아닌 회원의 저장 |
 | 404 | GROUP_NOT_FOUND | 모임 없음 |
@@ -160,30 +167,42 @@ playback.revision을 1 증가시킨다. 설정 revision은 유지한다. 재생�
 
 ### POST /api/groups/{groupId}/music/playback/advance
 
-ACTIVE 모임의 로그인한 현재 구성원만 곡이 끝났음을 알릴 수 있다. 인증/CSRF가 필요하다.
+ACTIVE 모임의 로그인한 현재 구성원만 곡 종료 또는 영상 오류를 보고할 수 있다. 인증/CSRF가 필요하다.
 
 ```json
-{"expectedRevision":3,"playlistIndex":0,"trackDurationSeconds":120,"queueLength":8}
+{"expectedRevision":3}
 ```
 
-- expectedRevision과 playlistIndex가 현재 재생 상태와 일치해야 한다.
-- PLAYING 상태, 활성화된 음악이어야 한다.
-- duration은 0 초과~86,400 이하 유한수, queueLength는 1~5,000 정수다.
-- playlistIndex는 queueLength보다 작아야 한다.
-- 서버가 계산한 현재 위치가 보고된 duration-1초 이상일 때만 전환한다.
-- queueLength는 현재 유튜브 소스의 **내부 영상 수**이며 music.queue의 길이가 아니다.
-- 큐 모드에서 단일 영상은 queueLength=1, playlistIndex=0이어야 한다.
-- 유튜브 재생목록 내부에 다음 영상이 있으면 index를 1 증가시키며 설정 revision은 유지한다.
-- 큐 모드의 현재 소스가 끝나면 대기열 첫 항목을 제거해 선택하고 index0으로 시작한다.
-  초과 시간은 max(0,현재위치-duration)으로 전달하며 설정 revision도 1 증가한다.
-- 대기열이 비었으면 skip과 같은 종료 상태로 멈춘다. 마지막 소스를 반복하지 않는다.
-- 모든 성공에서 anchorTime=서버현재시각, playback.revision+=1이다.
-- 아직 큐를 도입하지 않은 기존 문서는 호환성을 위해 index=(index+1)%queueLength로 반복한다.
-- 같은 끝 지점을 여러 구성원이 보고해도 그룹 쓰기 잠금과 revision 비교로 하나만 성공한다.
-- stale revision/index, PAUSED, 너무 이른 요청, 미설정/비활성 음악은 409 GROUP_MUSIC_CONFLICT다.
-  범위·형식 오류는 400 INVALID_PARAMETER, 비구성원은 403, 비로그인은 401, 종료 모임은 409 GROUP_ENDED다.
+- expectedRevision은 현재 playback.revision과 일치해야 한다. PLAYING 상태와 활성 음악이 필요하다.
+- 영상 길이는 서버가 저장한 durationSeconds를 사용한다. 기존 문서 또는 확인 후 하루가 지난 정보는 YouTube Data API로 다시 확인한다.
+- 서버 현재 시각과 anchorTime·positionSeconds로 계산한 위치가 확인된 영상 길이 이상일 때만 전환한다.
+- 이전 클라이언트의 playlistIndex, trackDurationSeconds, queueLength 필드는 호환을 위해 무시한다.
+- 큐 모드에서는 다음 신청곡을 index0/position0으로 시작한다. 대기열이 비면 PAUSED로 멈춘다.
+- 기존 저장 재생목록은 서버가 현재 index의 영상과 다음 항목 유무를 조회해 진행한다.
+  같은 소스 안에서는 초과 시간을 다음 영상으로 전달한다. 큐 없는 기존 소스의 반복 재생도 지원한다.
+- 그룹 쓰기 잠금과 revision 비교로 같은 종료 지점에 대한 요청 하나만 성공한다.
+  외부 조회 중 곡·재생 상태·권한이 바뀌면 잠금 안에서 재검증하여 오래된 결과를 거절한다.
+- 성공하면 anchorTime과 playback.revision을 갱신하고 SSE change 이벤트를 발행한다.
+- 오래된 revision, PAUSED, 너무 이른 요청, 비활성 음악은 409 GROUP_MUSIC_CONFLICT다.
+  비구성원은 403, 비로그인은 401, 종료 모임은 409 GROUP_ENDED다.
 
-영상 길이와 큐 길이는 유튜브 플레이어를 가진 구성원 클라이언트가 보고한다. 서버는 실제 유튜브
-길이를 외부 조회하지 않으므로 허위 길이 보고까지 판별하지 못한다. CAS는 중복 전환과 보고된
-길이 기준의 조기 전환을 제한한다. 공개 방문자는 타임라인을 읽지만 다음 곡 전환 요청 권한은 없다.
-구성원이 없는 동안 여러 곡이 지나간 경우에도 다음 연결 구성원의 보고를 통해 한 곡씩 전환한다.
+유튜브 오류 100·101·150을 받은 구성원 클라이언트는 다음 요청으로 재확인을 요청한다.
+
+```json
+{"expectedRevision":3,"checkUnavailable":true}
+```
+
+서버가 삭제·비공개·외부 재생 금지를 확인하면 대기열을 진행하고 music.lastSkippedTitle로 안내할 곡명을 반환한다.
+서버 조회에서 재생 가능하면 409로 현재 곡을 유지한다. API 장애는 503으로 반환하며 큐와 재생 위치를 유지한다.
+개인 네트워크 오류·자동 재생 차단·플레이어 오류 5·153은 공통 건너뛰기 요청을 보내지 않는다.
+공개 방문자는 공통 타임라인을 읽으며 자동 전환 요청은 구성원에게만 허용한다.
+구성원이 없는 동안 곡이 끝나면 다음 연결 구성원이 종료를 보고하는 시점에 다음 신청곡을 시작한다.
+
+### 유튜브 API 설정
+
+서버 환경 변수 YOUTUBE_DATA_API_KEY에 YouTube Data API v3 사용이 가능한 키를 설정한다.
+키는 HTTP X-Goog-Api-Key 헤더로 보내고 클라이언트 응답에 포함하지 않는다.
+연결 제한은 2초, 응답 제한은 3초다. 영상 정보 조회 실패를 영상 삭제로 취급하지 않는다.
+
+[YouTube 영상 정보](https://developers.google.com/youtube/v3/docs/videos),
+[기존 재생목록 항목 조회](https://developers.google.com/youtube/v3/docs/playlistItems/list).

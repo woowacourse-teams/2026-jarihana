@@ -2,11 +2,14 @@ package com.project.jarihana.groupmusic.command.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.groupmusic.client.YoutubeMusicClient;
+import com.project.jarihana.groupmusic.client.YoutubeMusicClient.PlaylistTrack;
 import com.project.jarihana.groupmusic.command.repository.GroupMusicCommandRepository;
 import com.project.jarihana.groupmusic.command.service.dto.AddMusicQueueCommand;
 import com.project.jarihana.groupmusic.command.service.dto.AdvancePlaybackCommand;
@@ -18,6 +21,7 @@ import com.project.jarihana.groupmusic.domain.MusicDocumentValidator;
 import com.project.jarihana.groupmusic.domain.PlaybackState;
 import com.project.jarihana.groupmusic.stream.GroupMusicChanged;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -39,6 +43,8 @@ public class GroupMusicCommandService {
     private final MusicDocumentValidator validator;
     private final ObjectMapper mapper;
     private final Clock clock;
+    private final YoutubeMusicClient youtube;
+    private final ConcurrentCommandExecutor transactions;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -59,11 +65,21 @@ public class GroupMusicCommandService {
         return result(groupId, musicRepository.saveAndFlush(changed), true, now);
     }
 
-    @Transactional
     public SaveGroupMusicResult addToQueue(long memberId, long groupId, AddMusicQueueCommand command) {
+        String videoId = validator.validateQueueEntry(command.title(), command.url());
+        transactions.execute(() -> {
+            authorize(findGroup(groupId), memberId, false);
+            return true;
+        });
+        Duration duration = youtube.findPlayableDuration(videoId).orElseThrow(() ->
+                new BusinessException(ErrorCode.GROUP_MUSIC_VIDEO_UNPLAYABLE, "삭제되었거나 외부 재생이 허용되지 않은 영상입니다."));
+        return transactions.execute(() -> appendVerifiedVideo(memberId, groupId, command, videoId, duration));
+    }
+
+    private SaveGroupMusicResult appendVerifiedVideo(long memberId, long groupId, AddMusicQueueCommand command,
+                                                     String videoId, Duration duration) {
         Group group = lockGroup(groupId);
         GroupMember membership = authorize(group, memberId, false);
-        validator.validateQueueEntry(command.title(), command.url());
         GroupMusic current = musicRepository.findByGroupId(groupId).orElse(null);
         ObjectNode document = (ObjectNode) mapper.readTree(current == null
                 ? MusicDocumentValidator.DEFAULT_MUSIC : current.getMusicJson());
@@ -72,7 +88,9 @@ public class GroupMusicCommandService {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "대기열에는 최대 50개까지 추가할 수 있습니다.");
         }
         ObjectNode entry = mapper.createObjectNode().put("id", UUID.randomUUID().toString())
-                .put("title", command.title()).put("url", command.url());
+                .put("title", command.title()).put("url", "https://www.youtube.com/watch?v=" + videoId)
+                .put("durationSeconds", duration.toMillis() / 1000.0)
+                .put("verifiedAt", clock.instant().toString());
         boolean start = !document.get("enabled").asBoolean() || document.get("url").asString().isEmpty();
         if (start) selectSource(document, entry);
         else queue.add(entry);
@@ -104,21 +122,65 @@ public class GroupMusicCommandService {
         return result(groupId, musicRepository.saveAndFlush(changed), true, now);
     }
 
-    @Transactional
     public SaveGroupMusicResult advancePlayback(long memberId, long groupId, AdvancePlaybackCommand command) {
+        GroupMusic observed = transactions.execute(() -> {
+            authorize(findGroup(groupId), memberId, false);
+            GroupMusic music = enabledMusic(groupId);
+            music.requirePlayingRevision(command.expectedRevision());
+            return music;
+        });
+        ObjectNode document = (ObjectNode) mapper.readTree(observed.getMusicJson());
+        String url = document.get("url").asString();
+        int index = observed.getPlayback().playlistIndex();
+        PlaylistTrack track = resolveTrack(url, index);
+        // A browser report only asks for verification. It never supplies trusted metadata.
+        Duration duration = verifiedDuration(document, track.videoId(), command.checkUnavailable());
+        return transactions.execute(() -> advanceVerifiedVideo(memberId, groupId, command, url, index, track, duration));
+    }
+
+    private PlaylistTrack resolveTrack(String url, int index) {
+        return validator.playlistId(url)
+                .map(playlistId -> youtube.getPlaylistTrack(playlistId, index))
+                .orElseGet(() -> new PlaylistTrack(validator.videoId(url).orElseThrow(this::conflict), false));
+    }
+
+    private Duration verifiedDuration(ObjectNode document, String videoId, boolean checkUnavailable) {
+        if (!checkUnavailable && validator.playlistId(document.get("url").asString()).isEmpty()
+                && document.has("durationSeconds") && document.has("verifiedAt")
+                && Instant.parse(document.get("verifiedAt").asString()).plus(Duration.ofDays(1)).isAfter(clock.instant())) {
+            return Duration.ofMillis((long) (document.get("durationSeconds").asDouble() * 1000));
+        }
+        return youtube.findPlayableDuration(videoId).orElse(null);
+    }
+
+    private SaveGroupMusicResult advanceVerifiedVideo(long memberId, long groupId, AdvancePlaybackCommand command,
+                                                      String url, int index, PlaylistTrack track, Duration duration) {
         Group group = lockGroup(groupId);
         GroupMember membership = authorize(group, memberId, false);
         GroupMusic music = enabledMusic(groupId);
-        Instant now = clock.instant();
+        music.requirePlayingRevision(command.expectedRevision());
         ObjectNode document = (ObjectNode) mapper.readTree(music.getMusicJson());
-        boolean queueMode = document.has("queue");
-        if (queueMode && !validator.isPlaylist(document.get("url").asString())
-                && (command.queueLength() != 1 || command.playlistIndex() != 0)) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "단일 영상의 재생 순서를 확인해 주세요.");
+        if (!url.equals(document.get("url").asString()) || index != music.getPlayback().playlistIndex()) {
+            throw conflict();
         }
-        GroupMusic changed = music.advancePlayback(command.expectedRevision(), command.playlistIndex(), command.trackDurationSeconds(), command.queueLength(), now);
-        if (queueMode && command.playlistIndex() + 1 == command.queueLength()) {
-            changed = consumeNext(music, command.expectedRevision(), changed.getPlayback().positionSeconds(), now);
+        Instant now = clock.instant();
+        int nextIndex = track.hasNext() ? index + 1 : 0;
+        GroupMusic changed;
+        if (duration == null) {
+            changed = music.skipUnavailableTrack(command.expectedRevision(), nextIndex, now);
+        } else {
+            if (command.checkUnavailable()) {
+                throw conflict();
+            }
+            changed = music.advancePlayback(command.expectedRevision(), nextIndex, duration.toMillis() / 1000.0, now);
+        }
+        if ((document.has("queue") || duration == null) && !track.hasNext()) {
+            changed = consumeNext(music, command.expectedRevision(), 0, now);
+        }
+        if (duration == null) {
+            ObjectNode changedDocument = (ObjectNode) mapper.readTree(changed.getMusicJson());
+            changedDocument.put("lastSkippedTitle", document.get("title").asString());
+            changed = changed.replaceMusic(mapper.writeValueAsString(changedDocument), false, PlaybackState.PLAYING, now);
         }
         return result(groupId, musicRepository.saveAndFlush(changed), membership.getRole() == GroupMemberRole.LEADER, now);
     }
@@ -126,10 +188,13 @@ public class GroupMusicCommandService {
     private GroupMusic consumeNext(GroupMusic current, long expectedRevision, double position, Instant now) {
         ObjectNode document = (ObjectNode) mapper.readTree(current.getMusicJson());
         ArrayNode queue = document.has("queue") ? (ArrayNode) document.get("queue") : document.putArray("queue");
+        document.remove("lastSkippedTitle");
         boolean exhausted = queue.isEmpty();
         if (exhausted) {
             document.put("enabled", false).put("url", "").put("title", "우리 모임의 음악");
             document.remove("currentQueueId");
+            document.remove("durationSeconds");
+            document.remove("verifiedAt");
         } else {
             selectSource(document, queue.remove(0));
         }
@@ -138,8 +203,20 @@ public class GroupMusicCommandService {
     }
 
     private void selectSource(ObjectNode document, JsonNode entry) {
+        document.remove("lastSkippedTitle");
+        document.remove("durationSeconds");
+        document.remove("verifiedAt");
+        if (entry.has("durationSeconds")) {
+            document.set("durationSeconds", entry.get("durationSeconds"));
+            document.set("verifiedAt", entry.get("verifiedAt"));
+        }
         document.put("enabled", true).put("autoplay", true).put("title", entry.get("title").asString())
                 .put("url", entry.get("url").asString()).put("currentQueueId", entry.get("id").asString());
+    }
+
+    private Group findGroup(long groupId) {
+        return groups.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "모임을 찾을 수 없습니다."));
     }
 
     private Group lockGroup(long groupId) {

@@ -37,19 +37,17 @@ export function createTimelineFollower({ source, getSnapshot, getPlayer, isListe
     const actualIndex = source.playlistId ? target.getPlaylistIndex() : 0;
     const duration = target.getDuration();
     if (actualIndex >= 0 && Number.isFinite(duration) && duration > 0) durations.set(actualIndex, duration);
-    const trackDuration = durations.get(timeline.playlistIndex);
-    const queueLength = source.playlistId ? target.getPlaylist()?.length : 1;
+    const trackDuration = snapshot.music.durationSeconds ?? durations.get(timeline.playlistIndex);
     const playerState = target.getPlayerState();
 
     if (!isListening()) {
       if (playerState === 1 || playerState === 3) target.pauseVideo();
       return;
     }
-    if (timeline.state === "PLAYING" && trackDuration && (desired >= trackDuration - 1 || ended)) {
-      if (!advancing && now() - lastAdvance >= 2000 && queueLength) {
+    if (timeline.state === "PLAYING" && (ended || (trackDuration && desired >= trackDuration))) {
+      if (!advancing && now() - lastAdvance >= 10000) {
         lastAdvance = now(); advancing = true;
-        Promise.resolve().then(() => onAdvance({ expectedRevision: timeline.revision, playlistIndex: timeline.playlistIndex,
-          trackDurationSeconds: trackDuration, queueLength })).catch(() => undefined).finally(() => { advancing = false; });
+        Promise.resolve().then(() => onAdvance({ expectedRevision: timeline.revision })).catch(() => undefined).finally(() => { advancing = false; });
       }
       if (playerState === 1 || playerState === 3) target.pauseVideo();
       return;

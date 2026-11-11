@@ -61,7 +61,7 @@ test("a member can advance after actual duration and remembers old duration when
   const sync = follower(p, snap, { now: () => time, onAdvance }); sync();
   p.current.index = 1; p.current.duration = 99; time = 12000; sync();
   await Promise.resolve();
-  expect(onAdvance).toHaveBeenCalledWith({ expectedRevision: 2, playlistIndex: 0, trackDurationSeconds: 20, queueLength: 3 });
+  expect(onAdvance).toHaveBeenCalledWith({ expectedRevision: 2 });
   expect(p.loadPlaylist).toHaveBeenCalledTimes(1);
 });
 test("advance overlap is bounded and rejected calls do not produce unhandled promises", async () => {
@@ -74,4 +74,20 @@ test("local listen off pauses only the local player and sends no advance", () =>
   const p = player({ state: 1, duration: 12 }); const onAdvance = jest.fn();
   follower(p, base(), { isListening: () => false, onAdvance })();
   expect(p.pauseVideo).toHaveBeenCalledTimes(1); expect(onAdvance).not.toHaveBeenCalled();
+});
+test("verified duration takes precedence over a stale iframe duration", async () => {
+  const p = player({ duration: 1 }); const onAdvance = jest.fn();
+  const snap = base({ music: { enabled: true, durationSeconds: 120 } });
+  const sync = follower(p, snap, { onAdvance }); sync();
+  await Promise.resolve();
+  expect(onAdvance).not.toHaveBeenCalled();
+  sync({ ended: true });
+  await Promise.resolve();
+  expect(onAdvance).toHaveBeenCalledWith({ expectedRevision: 2 });
+});
+test("ended notification can request verification before iframe duration is available", async () => {
+  const p = player({ duration: 0 }); const onAdvance = jest.fn();
+  follower(p, base(), { onAdvance })({ ended: true });
+  await Promise.resolve();
+  expect(onAdvance).toHaveBeenCalledWith({ expectedRevision: 2 });
 });

@@ -15,7 +15,10 @@ export const musicSchema = z.object({
   enabled: z.boolean(), autoplay: z.boolean(), title: playlistTitle, url: playlistUrl,
   playlists: z.array(playlistSchema).max(20).optional(),
   queue: z.array(playlistSchema.extend({ id: z.string().min(1) })).max(50).optional(),
-  currentQueueId: z.string().min(1).nullable().optional()
+  currentQueueId: z.string().min(1).nullable().optional(),
+  durationSeconds: z.number().positive().optional(),
+  verifiedAt: z.string().datetime().optional(),
+  lastSkippedTitle: z.string().optional()
 }).refine((music) => music.url === "" ? !music.enabled : Boolean(parseYoutubeUrl(music.url)), {
   message: youtubeUrlError, path: ["url"]
 });
@@ -43,7 +46,11 @@ export function advanceMusicPlayback(groupId, command) {
 }
 
 export function enqueueGroupMusic(groupId, item) {
-  const parsed = playlistSchema.safeParse(item);
+  const source = parseYoutubeUrl(item.url);
+  if (!source?.videoId) throw new Error("유튜브 영상 링크를 입력해 주세요.");
+  const parsed = playlistSchema.safeParse({
+    ...item, url: `https://www.youtube.com/watch?v=${source.videoId}`
+  });
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   return apiRequest(`groups/${groupId}/music/queue`, { method: "post", json: parsed.data, schema: groupMusicSchema }).then(stampMusicSnapshot);
 }

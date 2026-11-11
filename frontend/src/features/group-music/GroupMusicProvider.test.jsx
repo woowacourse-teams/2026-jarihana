@@ -254,12 +254,12 @@ test("an offscreen video waits to start and resumes from the shared position whe
 test("poll errors preserve the same mounted player and dirty settings", async () => {
   const view = setup(); await loaded(); openQueue(); const frame = screen.getByTitle("실제 유튜브 플레이어");
   fireEvent.click(screen.getByRole("button", { name: "곡 추가" }));
-  fireEvent.change(screen.getByLabelText("곡 또는 재생목록 이름"), { target: { value: "미저장 설정 초안" } });
+  fireEvent.change(screen.getByLabelText("곡 이름"), { target: { value: "미저장 설정 초안" } });
   fetchGroupMusic.mockRejectedValue({ status: 503 });
   await act(async () => { await view.refetch(); });
   expect(await screen.findByText(/실시간 연결을 복구/)).toBeInTheDocument();
   expect(screen.getByTitle("실제 유튜브 플레이어")).toBe(frame);
-  expect(screen.getByLabelText("곡 또는 재생목록 이름")).toHaveValue("미저장 설정 초안");
+  expect(screen.getByLabelText("곡 이름")).toHaveValue("미저장 설정 초안");
 });
 test("stale poll response cannot overwrite a newer playback command", async () => {
   const view = setup(); await loaded(); openQueue();
@@ -280,7 +280,7 @@ test("an ordinary member can append without changing the current track, and sees
   expect(screen.queryByLabelText("유튜브 링크")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "곡 추가" }));
   fireEvent.change(screen.getByLabelText("유튜브 링크"), { target: { value: url } });
-  fireEvent.change(screen.getByLabelText("곡 또는 재생목록 이름"), { target: { value: track.title } });
+  fireEvent.change(screen.getByLabelText("곡 이름"), { target: { value: track.title } });
   fireEvent.click(screen.getByRole("button", { name: "대기열에 추가" }));
   const next = screen.getByRole("region", { name: "다음 곡" });
   expect(await within(next).findByText(track.title)).toBeInTheDocument();
@@ -299,10 +299,10 @@ test("an unsuccessful member append keeps both fields for a retry", async () => 
   setup(); await loaded(); openQueue();
   fireEvent.click(screen.getByRole("button", { name: "곡 추가" }));
   fireEvent.change(screen.getByLabelText("유튜브 링크"), { target: { value: "https://youtu.be/abcdefghijk" } });
-  fireEvent.change(screen.getByLabelText("곡 또는 재생목록 이름"), { target: { value: "다시 추가할 곡" } });
+  fireEvent.change(screen.getByLabelText("곡 이름"), { target: { value: "다시 추가할 곡" } });
   fireEvent.click(screen.getByRole("button", { name: "대기열에 추가" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("곡을 추가하지 못했어요.");
-  expect(screen.getByLabelText("곡 또는 재생목록 이름")).toHaveValue("다시 추가할 곡");
+  expect(screen.getByLabelText("곡 이름")).toHaveValue("다시 추가할 곡");
   expect(screen.getByLabelText("유튜브 링크")).toHaveValue("https://youtu.be/abcdefghijk");
 });
 test("visitor explicitly opening unset music sees an empty state with no settings", async () => {
@@ -336,7 +336,35 @@ test("member listener advances after YouTube duration without a leader present",
   p.actual.duration = 14; p.actual.state = 0;
   act(() => p.options.events.onStateChange({ data: 0, target: p }));
   await waitFor(() => expect(advanceMusicPlayback).toHaveBeenCalledTimes(1));
-  expect(advanceMusicPlayback).toHaveBeenCalledWith("41", { expectedRevision: 3, playlistIndex: 0, trackDurationSeconds: 14, queueLength: 2 });
+  expect(advanceMusicPlayback).toHaveBeenCalledWith("41", { expectedRevision: 3 });
+});
+test("unplayable video errors request server verification with bounded duplicate reports", async () => {
+  fetchGroupMusic.mockResolvedValue(snapshot({ canEdit: false, canAdd: true }));
+  advanceMusicPlayback.mockRejectedValue({ status: 409 });
+  setup(); const p = await loaded();
+  act(() => {
+    p.options.events.onError({ data: 150 });
+    p.options.events.onError({ data: 150 });
+  });
+  await waitFor(() => expect(advanceMusicPlayback).toHaveBeenCalledTimes(1));
+  expect(advanceMusicPlayback).toHaveBeenCalledWith("41", { expectedRevision: 3, checkUnavailable: true });
+});
+test.each([5, 153])("local playback error %s never skips the shared queue", async (code) => {
+  setup(); const p = await loaded();
+  act(() => p.options.events.onError({ data: code }));
+  await act(async () => {});
+  expect(advanceMusicPlayback).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toHaveTextContent("연결을 확인");
+});
+test("playlist-only enqueue stays in the draft and shows a video-link instruction", async () => {
+  setup(); await loaded(); openQueue();
+  fireEvent.click(screen.getByRole("button", { name: "곡 추가" }));
+  fireEvent.change(screen.getByLabelText("곡 이름"), { target: { value: "재즈 목록" } });
+  fireEvent.change(screen.getByLabelText("유튜브 링크"), { target: { value: music.url } });
+  fireEvent.click(screen.getByRole("button", { name: "대기열에 추가" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("유튜브 영상 링크");
+  expect(enqueueGroupMusic).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("곡 이름")).toHaveValue("재즈 목록");
 });
 test("advance CAS conflict refreshes the room instead of displaying an error loop", async () => {
   advanceMusicPlayback.mockRejectedValue({ status: 409 }); setup(); const p = await loaded();

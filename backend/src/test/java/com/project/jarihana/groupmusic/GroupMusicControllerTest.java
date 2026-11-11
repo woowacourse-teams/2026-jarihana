@@ -6,6 +6,16 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static com.project.jarihana.support.TestSupportConfig.FIXED_NOW;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+
+import com.project.jarihana.groupmusic.client.YoutubeMusicClient;
+import com.project.jarihana.groupmusic.client.YoutubeMusicClient.PlaylistTrack;
+import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.common.exception.ErrorCode;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import java.util.Optional;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
@@ -47,6 +57,7 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
+    @MockitoBean YoutubeMusicClient youtube;
     private Member leader;
     private Member member;
     private Member outsider;
@@ -55,6 +66,9 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
 
     @BeforeEach
     void fixtures() {
+        when(youtube.findPlayableDuration(anyString())).thenReturn(Optional.of(Duration.ofSeconds(120)));
+        when(youtube.getPlaylistTrack(anyString(), anyInt())).thenAnswer(invocation ->
+                new PlaylistTrack("dQw4w9WgXcQ", (int) invocation.getArgument(1) < 2));
         leader = members.save(Member.create("리더", 8, "space-leader", Course.BACKEND));
         member = members.save(Member.create("멤버", 8, "space-member", Course.BACKEND));
         outsider = members.save(Member.create("외부", 8, "space-outsider", Course.BACKEND));
@@ -185,7 +199,7 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
             assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))).containsExactlyInAnyOrder(200, 409);
         }
         given().get(path()).then().statusCode(200).body("data.playback.revision", equalTo(2))
-                .body("data.playback.playlistIndex", equalTo(1)).body("data.playback.positionSeconds", equalTo(5.0f));
+                .body("data.playback.playlistIndex", equalTo(0)).body("data.playback.positionSeconds", equalTo(5.0f));
     }
 
     @Test
@@ -293,9 +307,9 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
 
         // Then
         var added = enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200)
-                .body("data.music.url", equalTo("https://youtu.be/abcdefghijk"))
+                .body("data.music.url", equalTo("https://www.youtube.com/watch?v=abcdefghijk"))
                 .body("data.music.queue[0].title", equalTo("둘째 곡"))
-                .body("data.music.queue[0].url", equalTo("https://youtu.be/lmnopqrstuv")).extract().jsonPath();
+                .body("data.music.queue[0].url", equalTo("https://www.youtube.com/watch?v=lmnopqrstuv")).extract().jsonPath();
         assertThat(added.getMap("data.playback")).isEqualTo(before.getMap("data.playback"));
         assertThat(added.getString("data.music.queue[0].id")).matches("[0-9a-f-]{36}");
         given().get(path()).then().statusCode(200).body("data.canAdd", equalTo(false))
@@ -340,7 +354,7 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
         advance(member, 2, 0, 120, 1).then().statusCode(200)
                 .body("data.music.title", equalTo("둘째 곡")).body("data.music.queue.size()", equalTo(1))
                 .body("data.music.queue[0].title", equalTo("셋째 곡"))
-                .body("data.playback.positionSeconds", equalTo(5.0f)).body("data.playback.revision", equalTo(3));
+                .body("data.playback.positionSeconds", equalTo(0.0f)).body("data.playback.revision", equalTo(3));
         advance(leader, 2, 0, 120, 1).then().statusCode(409);
         skip(leader, 3).then().statusCode(200).body("data.music.title", equalTo("셋째 곡"))
                 .body("data.music.queue.size()", equalTo(0)).body("data.playback.revision", equalTo(4));
@@ -355,7 +369,10 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
     void playlistContinuesInternallyThenConsumesNextQueuedSource() {
         // Given
         String playlist = "https://youtube.com/playlist?list=PL1234567890_abc";
-        enqueue(member, "연속 음악", playlist).then().statusCode(200);
+        save(leader, MUSIC.replace("https://www.youtube.com/watch?v=dQw4w9WgXcQ", playlist), 0)
+                .then().statusCode(200);
+        when(youtube.getPlaylistTrack(playlist.substring(playlist.indexOf("list=") + 5), 1))
+                .thenReturn(new PlaylistTrack("abcdefghijk", false));
         enqueue(member, "다음 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
         control(leader, "PLAYING", 0, 122, 1).then().statusCode(200);
 
@@ -438,10 +455,10 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
 
         // When / Then
         advance(member, 1, 0, 120, 1).then().statusCode(409);
-        advance(member, 1, 0, 120, 2).then().statusCode(400);
+        advance(member, 1, 0, 120, 2).then().statusCode(409);
         given().get(path()).then().statusCode(200).body("data.music.queue.size()", equalTo(1));
         skip(leader, 1).then().statusCode(200).body("data.music.currentQueueId", equalTo(nextId))
-                .body("data.music.url", equalTo("https://youtu.be/abcdefghijk"))
+                .body("data.music.url", equalTo("https://www.youtube.com/watch?v=abcdefghijk"))
                 .body("data.playback.positionSeconds", equalTo(0.0f)).body("data.playback.revision", equalTo(2));
         skip(leader, 2).then().statusCode(200).body("data.music.currentQueueId", nullValue())
                 .body("data.music.enabled", equalTo(false));
@@ -473,6 +490,121 @@ class GroupMusicControllerTest extends IntegrationTestSupport {
         given().get(path()).then().statusCode(200).body("data.music.title", equalTo("둘째 곡"))
                 .body("data.music.queue.size()", equalTo(1)).body("data.music.queue[0].title", equalTo("셋째 곡"))
                 .body("data.playback.revision", equalTo(3));
+    }
+
+    @Test
+    @DisplayName("새 신청곡으로 외부 재생목록 전체를 추가할 수 없다")
+    void rejectsPlaylistOnlyQueueEntry() {
+        // Given
+        String playlist = "https://youtube.com/playlist?list=PL1234567890_abc";
+
+        // When / Then
+        enqueue(member, "재생목록", playlist).then().statusCode(400);
+        given().get(path()).then().statusCode(200).body("data.revision", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("구성원이 보낸 짧은 길이와 목록 길이를 신뢰하지 않는다")
+    void ignoresForgedDurationAndQueueLength() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+        control(leader, "PLAYING", 0, 20, 1).then().statusCode(200);
+
+        // When / Then
+        advance(member, 2, 0, 1, 1).then().statusCode(409);
+        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("첫 곡"))
+                .body("data.music.queue.size()", equalTo(1))
+                .body("data.music.durationSeconds", equalTo(120.0f));
+    }
+
+    @Test
+    @DisplayName("영상 링크에 재생목록이 함께 있어도 해당 영상 한 곡만 추가한다")
+    void normalizesVideoWithPlaylistParameter() {
+        // Given / When / Then
+        enqueue(member, "단일 곡", "https://youtube.com/watch?v=abcdefghijk&list=PL1234567890_abc")
+                .then().statusCode(200)
+                .body("data.music.url", equalTo("https://www.youtube.com/watch?v=abcdefghijk"));
+    }
+
+    @Test
+    @DisplayName("모임원은 서버가 재생 불가를 확인한 곡을 건너뛸 수 있다")
+    void memberSkipsOnlyServerConfirmedUnavailableVideo() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+
+        // When / Then
+        reportUnavailable(member, 1).then().statusCode(409);
+        when(youtube.findPlayableDuration("abcdefghijk")).thenReturn(Optional.empty());
+        reportUnavailable(outsider, 1).then().statusCode(403);
+        reportUnavailable(member, 1).then().statusCode(200)
+                .body("data.music.title", equalTo("둘째 곡"))
+                .body("data.music.lastSkippedTitle", equalTo("첫 곡"))
+                .body("data.playback.positionSeconds", equalTo(0.0f));
+        reportUnavailable(member, 1).then().statusCode(409);
+        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("둘째 곡"));
+    }
+
+    @Test
+    @DisplayName("유튜브 조회 실패를 재생 불가로 오인해 대기열을 소비하지 않는다")
+    void metadataOutagePreservesCurrentVideoAndQueue() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "둘째 곡", "https://youtu.be/lmnopqrstuv").then().statusCode(200);
+        when(youtube.findPlayableDuration(anyString())).thenThrow(
+                new BusinessException(ErrorCode.GROUP_MUSIC_VERIFICATION_UNAVAILABLE, "확인 실패"));
+
+        // When / Then
+        reportUnavailable(member, 1).then().statusCode(503);
+        enqueue(member, "셋째 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(503);
+        given().get(path()).then().statusCode(200).body("data.music.title", equalTo("첫 곡"))
+                .body("data.music.queue.size()", equalTo(1)).body("data.playback.revision", equalTo(1));
+    }
+
+    @Test
+    @DisplayName("확인되지 않은 클라이언트 영상 길이는 기존 저장 영상에도 적용하지 않는다")
+    void verifiesDurationForLegacyVideo() {
+        // Given
+        save(leader, MUSIC, 0).then().statusCode(200);
+        control(leader, "PLAYING", 0, 20, 1).then().statusCode(200);
+
+        // When / Then
+        advance(member, 2, 0, 1, 1).then().statusCode(409);
+    }
+
+    @Test
+    @DisplayName("영상 길이 없는 종료 요청은 서버가 저장한 길이로 검증하고 다음 신청곡을 처음부터 재생한다")
+    void advancesUsingOnlyServerVerifiedDuration() {
+        // Given
+        enqueue(member, "첫 곡", "https://youtu.be/abcdefghijk").then().statusCode(200);
+        enqueue(member, "다음 곡", "https://youtu.be/dQw4w9WgXcQ").then().statusCode(200);
+        control(leader, "PLAYING", 0, 125, 1).then().statusCode(200);
+
+        // When / Then
+        request(member).body("{\"expectedRevision\":2}").post(path() + "/playback/advance").then().statusCode(200)
+                .body("data.music.title", equalTo("다음 곡"))
+                .body("data.music.durationSeconds", equalTo(120.0f))
+                .body("data.playback.positionSeconds", equalTo(0.0f));
+    }
+
+    @Test
+    @DisplayName("기존 저장 영상도 삭제가 확인되면 같은 곡을 반복하지 않고 멈춘다")
+    void stopsUnavailableLegacyVideo() {
+        // Given
+        save(leader, MUSIC, 0).then().statusCode(200);
+        when(youtube.findPlayableDuration(anyString())).thenReturn(Optional.empty());
+
+        // When / Then
+        reportUnavailable(member, 1).then().statusCode(200)
+                .body("data.music.enabled", equalTo(false))
+                .body("data.playback.state", equalTo("PAUSED"))
+                .body("data.music.url", equalTo(""));
+    }
+
+    private io.restassured.response.Response reportUnavailable(Member caller, long revision) {
+        return request(caller).body("{\"expectedRevision\":" + revision + ",\"checkUnavailable\":true}")
+                .post(path() + "/playback/advance");
     }
 
     private io.restassured.response.Response enqueue(Member caller, String title, String url) {

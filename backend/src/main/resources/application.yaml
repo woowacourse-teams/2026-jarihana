@@ -62,6 +62,8 @@ jarihana:
     weather:
       enabled: ${GROUP_SPACE_WEATHER_ENABLED:false}
       api-key: ${OPEN_METEO_API_KEY:}
+  group-music:
+    youtube-api-key: ${YOUTUBE_DATA_API_KEY:}
   minigame:
     pepero-day:
       opens-at: 2026-11-11T00:00:00

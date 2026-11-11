@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { apiRequest, createApiClient } from "../../shared/api/index.js";
-import { advanceMusicPlayback, fetchGroupMusic, saveGroupMusic, saveMusicPlayback } from "./api.js";
+import { advanceMusicPlayback, enqueueGroupMusic, fetchGroupMusic, saveGroupMusic, saveMusicPlayback } from "./api.js";
 import { parseYoutubeUrl } from "./youtubeUrl.js";
 jest.mock("../../shared/api/index.js", () => ({ ...jest.requireActual("../../shared/api/index.js"), apiRequest: jest.fn() }));
 const music = { enabled: true, autoplay: true, title: "우리 모임의 음악", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" };
@@ -51,12 +51,28 @@ test("shared playback commands and member advance use independent CAS endpoints"
   const bodies = [];
   wire.mockImplementation(async (request) => { bodies.push({ method: request.method, url: request.url, body: await request.clone().json() }); return reply(snapshot); });
   const command = { expectedRevision: 3, state: "PAUSED", playlistIndex: 1, positionSeconds: 25 };
-  const advance = { expectedRevision: 3, playlistIndex: 1, trackDurationSeconds: 120, queueLength: 4 };
+  const advance = { expectedRevision: 3 };
   await saveMusicPlayback(41, command); await advanceMusicPlayback(41, advance);
   expect(bodies).toEqual([
     { method: "PUT", url: "https://app.test/api/groups/41/music/playback", body: command },
     { method: "POST", url: "https://app.test/api/groups/41/music/playback/advance", body: advance }
   ]);
+});
+
+test("queue accepts only one video and removes the external playlist parameter", async () => {
+  expect(() => enqueueGroupMusic(41, { title: "목록", url: "https://youtube.com/playlist?list=PLabcdefghijk" })).toThrow("영상 링크");
+  expect(wire).not.toHaveBeenCalled();
+  let body;
+  wire.mockImplementation(async (request) => { body = await request.clone().json(); return reply(snapshot); });
+  await enqueueGroupMusic(41, { title: "노래", url: `${music.url}&list=PLabcdefghijk` });
+  expect(body).toEqual({ title: "노래", url: music.url });
+});
+
+test("server verified duration and skip notice survive snapshot validation", async () => {
+  wire.mockImplementation(async () => reply({ ...snapshot, music: {
+    ...music, durationSeconds: 205, verifiedAt: "2026-11-11T00:00:00Z", lastSkippedTitle: "삭제된 곡"
+  } }));
+  expect((await fetchGroupMusic(41)).music).toMatchObject({ durationSeconds: 205, lastSkippedTitle: "삭제된 곡" });
 });
 test("invalid shared timestamp or negative playback position cannot enter synchronization", async () => {
   wire.mockImplementationOnce(async () => reply({ ...snapshot, serverTime: "2026-11-09T05:00:10" }));
