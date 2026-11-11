@@ -68,7 +68,7 @@ export function LandingClubhouseHero({ active }) {
               <span>함께 꾸미는 아지트</span>
             </h1>
             <p className="landing-clubhouse__lead">
-              동아리와 스터디마다 3D 아지트가 생겨요. 모임장은 가구를 놓고 조명을 바꿔 꾸미고, 멤버는 놀러 와서 같은 음악을 함께 들어요.
+              동아리와 스터디마다 3D 아지트가 생겨요. 함께 꾸미고 놀러 와요.
             </p>
             <div className="landing-clubhouse__actions">
               <button

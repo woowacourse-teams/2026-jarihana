@@ -344,6 +344,23 @@
   height: 10rem;
   mix-blend-mode: multiply;
 }
+/* 모임 유형 그림은 1254px 정사각형의 가운데 40%에만 인물이 있어, 가운데를 확대해 보여 준다. */
+.landing-feature-page__type-art {
+  position: relative;
+  display: block;
+  height: 12rem;
+  overflow: hidden;
+}
+.landing-feature-page__type-art > img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: auto;
+  height: 30rem;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: multiply;
+}
 .landing-feature-page__grid > li > h3 {
   font-size: var(--text-h3);
   font-weight: var(--font-weight-extrabold);

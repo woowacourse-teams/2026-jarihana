@@ -210,7 +210,9 @@ export function LandingCreatePage() {
         <ul className="landing-feature-page__grid">
           {groupTypes.map((type) => (
             <li key={type.id}>
-              <img alt="" height="1254" loading="lazy" src={type.image} width="1254" />
+              <span aria-hidden="true" className="landing-feature-page__type-art">
+                <img alt="" height="1254" loading="lazy" src={type.image} width="1254" />
+              </span>
               <h3>{type.label}</h3>
               <p>{type.description}</p>
             </li>
