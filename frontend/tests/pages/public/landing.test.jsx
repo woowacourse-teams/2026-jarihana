@@ -99,7 +99,7 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
     expect(card).toHaveAttribute("data-ph-capture-attribute-action", action);
   }
   expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(
-    expect.arrayContaining(["말로 한 판 붙고,게임으로도 겨뤄요", "함께할 모임을 찾거나,직접 열어 보세요"])
+    expect.arrayContaining(["말로 한 판 붙고,게임으로도 겨뤄봐요", "함께할 모임을 찾거나,직접 열어 보세요"])
   );
 
   const footer = screen.getByRole("navigation", { name: "하단 메뉴" });

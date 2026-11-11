@@ -173,7 +173,7 @@ export function LandingFeatureCards({ active }) {
       chapter="features"
       eyebrow="모임이 없는 날에도 심심할 틈 없게"
       features={extraFeatures}
-      title={["말로 한 판 붙고,", "게임으로도 겨뤄요"]}
+      title={["말로 한 판 붙고,", "게임으로도 겨뤄봐요"]}
     />
   );
 }
