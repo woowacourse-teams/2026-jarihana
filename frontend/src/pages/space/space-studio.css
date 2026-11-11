@@ -73,7 +73,21 @@
 .space-studio__stage[data-background-style="gradient"] { background: radial-gradient(ellipse at 48% 40%, color-mix(in srgb, var(--studio-background) 65%, white) 0%, var(--studio-background) 68%, color-mix(in srgb, var(--studio-background) 86%, #27364c) 100%); }
 .space-studio__stage > .room-canvas { position: absolute; inset: 0; }
 .room-canvas canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-.room-canvas:focus-visible { outline: 3px solid var(--studio-accent); outline-offset: -3px; }
+.room-canvas:focus-visible { outline: none; }
+.room-canvas[tabindex="0"]:focus-visible:not([data-mouse-look="active"])::after {
+  content: "키보드 조작";
+  position: absolute;
+  top: var(--clubhouse-hud-top, 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--studio-panel);
+  color: var(--studio-ink);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
 .space-studio__look-mode { display: none; }
 @media (any-pointer: fine) and (min-width: 768px) {
   .space-studio__look-mode {
