@@ -1,0 +1,675 @@
+/*
+ * 혼자 연습의 클레이 화면. 민트 바탕 위에 흰 클레이 카드를 아래 그림자로 띄우고,
+ * 난이도는 세균 그림 타일, 점수와 콤보와 라이프는 판 오른쪽 카드에 둔다.
+ * 공식 도전과 따라 하기는 rhythm-game.css의 어두운 화면을 그대로 쓰므로 모든 규칙을
+ * .rhythm-game--clay(판)와 .game-player--clay(도구 막대) 안으로 한정한다.
+ */
+.game-player--clay,
+.rhythm-game.rhythm-game--clay {
+  --clay-bg: #eaf7f2;
+  --clay-surface: #ffffff;
+  --clay-base: #cfe5dc;
+  --clay-frame: #cdeee3;
+  --clay-frame-base: #b3dccd;
+  --clay-line: #d6ebe3;
+  --clay-muted: #3d5a53;
+  --clay-press: 3px;
+}
+
+.game-player--clay {
+  background: var(--clay-bg);
+}
+
+.rhythm-game.rhythm-game--clay {
+  --mint: var(--color-brand-ink);
+  --muted: var(--clay-muted);
+  --line: var(--clay-line);
+  --rhythm-bg: var(--clay-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  background: var(--clay-bg);
+}
+
+/* 도구 막대 */
+.game-player--rhythm.game-player--clay .game-player__toolbar {
+  color: var(--color-ink);
+  background: var(--clay-bg);
+}
+.game-player--rhythm.game-player--clay .game-player__back {
+  color: var(--color-ink);
+}
+.game-player--rhythm.game-player--clay .game-player__toolbar h1 {
+  font-weight: var(--font-weight-extrabold);
+}
+.game-player--rhythm.game-player--clay .game-player__toolbar .ui-button--secondary {
+  color: var(--color-ink);
+  background: var(--clay-surface);
+  border-color: transparent;
+  border-radius: 14px;
+  box-shadow: 0 4px 0 var(--clay-base);
+  font-weight: var(--font-weight-bold);
+}
+.game-player--rhythm.game-player--clay .game-player__toolbar .ui-button--secondary:hover:not(:disabled) {
+  border-color: var(--clay-base);
+}
+.game-player--rhythm.game-player--clay .game-player__toolbar :focus-visible {
+  outline-color: var(--color-brand-ink);
+}
+
+/* 판, 난이도, 상태 카드의 배치. 넓은 화면은 세 열, 중간 화면은 상태 카드를 판 위 한 줄로 올린다. */
+.rhythm-game.rhythm-game--clay .rhythm-levels {
+  grid-area: levels;
+}
+.rhythm-game.rhythm-game--clay .arena-shell {
+  grid-area: board;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud {
+  grid-area: hud;
+}
+@media (min-width: 701px) {
+  .rhythm-game.rhythm-game--clay .game-layout--levels {
+    grid-template-columns: 12.5rem minmax(0, var(--rhythm-board-size)) 15rem;
+    grid-template-areas: "levels board hud";
+    gap: 24px;
+  }
+}
+@media (min-width: 701px) and (max-width: 1023px) {
+  .rhythm-game.rhythm-game--clay .game-layout--levels {
+    --rhythm-board-size: calc(var(--rhythm-board-space) - 2.75rem - 7rem);
+    grid-template-columns: 11.5rem minmax(0, var(--rhythm-board-size));
+    grid-template-areas:
+      "levels hud"
+      "levels board";
+    gap: 16px 20px;
+  }
+}
+@media (max-width: 700px) {
+  .rhythm-game.rhythm-game--clay .game-layout--levels {
+    grid-template-areas:
+      "levels"
+      "hud"
+      "board";
+  }
+}
+
+/* 난이도: 세균 그림을 붙인 흰 클레이 타일. 고른 타일은 민트로 채운다. */
+.rhythm-game.rhythm-game--clay .rhythm-levels {
+  gap: 12px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .eyebrow {
+  margin-inline-start: 4px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty {
+  gap: 12px;
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 3.5rem;
+  padding: 6px 12px 6px 8px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--clay-surface);
+  box-shadow: 0 5px 0 var(--clay-base);
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.2;
+  text-align: left;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:active:not(:disabled) {
+  transform: translateY(var(--clay-press));
+  box-shadow: 0 2px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level][aria-pressed="true"] {
+  background: var(--color-brand);
+  box-shadow: 0 5px 0 var(--color-brand-display);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level="anotherHard"] {
+  margin-top: 10px;
+}
+.rhythm-game.rhythm-game--clay .level-sprite {
+  flex: none;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+}
+.rhythm-game.rhythm-game--clay .level-name {
+  flex: 1;
+  min-inline-size: 0;
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge {
+  background: var(--clay-bg);
+  color: var(--clay-muted);
+  font-weight: var(--font-weight-extrabold);
+}
+.rhythm-game.rhythm-game--clay .difficulty button[aria-pressed="true"] .life-badge {
+  background: rgb(255 255 255 / 60%);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-levels #difficulty-copy {
+  margin-inline: 4px;
+  color: var(--clay-muted);
+  font-size: 0.82rem;
+}
+
+/* 판: 민트 클레이 틀 안에 둥근 판을 넣는다. 안내와 결과 막은 틀 안쪽에만 덮는다. */
+.rhythm-game.rhythm-game--clay .arena-shell {
+  padding: 14px;
+  border: 0;
+  border-radius: 40px;
+  background: var(--clay-frame);
+  box-shadow: 0 8px 0 var(--clay-frame-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay #arena {
+  border-radius: 28px;
+}
+.rhythm-game.rhythm-game--clay .overlay {
+  inset: 14px;
+  border-radius: 28px;
+  background: rgb(234 247 242 / 80%);
+  backdrop-filter: blur(6px);
+}
+
+/* 상태 카드: 점수, 터지는 별 위의 콤보, 하트 스프라이트 라이프, 루프와 곡 위치 */
+.rhythm-game.rhythm-game--clay .rhythm-hud {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-inline-size: 0;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__card {
+  min-inline-size: 0;
+  padding: 14px 18px;
+  border-radius: 22px;
+  background: var(--clay-surface);
+  box-shadow: 0 5px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud .eyebrow {
+  color: var(--clay-muted);
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__score strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 2.1rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__combo {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-block-size: 9rem;
+  overflow: hidden;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__burst {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  inline-size: 8.5rem;
+  block-size: 8.5rem;
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__combo strong {
+  font-size: 3.25rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow:
+    0 2px 0 #ffffff,
+    0 -2px 0 #ffffff,
+    2px 0 0 #ffffff,
+    -2px 0 0 #ffffff;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__tag {
+  margin-top: 6px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: 0.1em;
+}
+/* 하트는 스프라이트 시트의 15번째 프레임(가로 248, 세로 212, 시트 1254)을 잘라 그린다. */
+.rhythm-game.rhythm-game--clay .rhythm-hud #lives {
+  --heart-width: 1.75rem;
+  display: grid;
+  grid-template-columns: repeat(5, var(--heart-width));
+  justify-content: start;
+  gap: 6px;
+  min-block-size: 0;
+  padding-top: 8px;
+  font-size: 0;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud #lives > span {
+  inline-size: var(--heart-width);
+  aspect-ratio: 248 / 212;
+  background-image: var(--rhythm-sprite-sheet);
+  background-position: calc(var(--heart-width) * -640 / 248) calc(var(--heart-width) * -979 / 248);
+  background-repeat: no-repeat;
+  background-size: calc(var(--heart-width) * 1254 / 248) auto;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud #lives > .life-off {
+  opacity: 0.2;
+  filter: grayscale(1);
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__stage {
+  display: grid;
+  gap: 4px;
+  color: var(--clay-muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-game.rhythm-game--clay .rhythm-hud__stage #loop-info {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: var(--font-weight-extrabold);
+}
+@media (max-width: 1023px) {
+  .rhythm-game.rhythm-game--clay .rhythm-hud {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 10px;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__card {
+    padding: 10px 12px;
+    border-radius: 18px;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__score strong {
+    font-size: 1.4rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__combo {
+    min-block-size: 4.5rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__burst {
+    inline-size: 5rem;
+    block-size: 5rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__combo strong {
+    font-size: 1.9rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__tag {
+    margin-top: 2px;
+    font-size: 0.6rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud #lives {
+    --heart-width: 1.05rem;
+    gap: 3px;
+    padding-top: 6px;
+  }
+}
+/* 휴대폰: 난이도 타일을 줄이고, 상태 카드는 판 바로 위 한 줄에 작게 둔다. */
+@media (max-width: 700px) {
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level] {
+    gap: 6px;
+    min-block-size: 3rem;
+    padding: 4px 8px 4px 6px;
+    border-radius: 16px;
+    font-size: 0.82rem;
+  }
+  .rhythm-game.rhythm-game--clay .level-sprite {
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty .life-badge {
+    padding-inline: 4px 6px;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud {
+    gap: 6px;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__card {
+    padding: 8px;
+    border-radius: 14px;
+    box-shadow: 0 4px 0 var(--clay-base);
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud .eyebrow {
+    font-size: 0.66rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__score strong {
+    font-size: 1rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__combo {
+    min-block-size: 3.5rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__burst {
+    inline-size: 3.75rem;
+    block-size: 3.75rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__combo strong {
+    font-size: 1.35rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__tag {
+    padding: 0 6px;
+    font-size: 0.5rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud #lives {
+    --heart-width: 0.75rem;
+    gap: 2px;
+    padding-top: 4px;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__stage {
+    gap: 2px;
+    font-size: 0.62rem;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-hud__stage #loop-info {
+    font-size: 0.68rem;
+  }
+  .rhythm-game.rhythm-game--clay .arena-shell {
+    padding: 10px;
+    border-radius: 30px;
+  }
+  .rhythm-game.rhythm-game--clay #arena {
+    border-radius: 22px;
+  }
+  .rhythm-game.rhythm-game--clay .overlay {
+    inset: 10px;
+    border-radius: 22px;
+  }
+  .rhythm-game.rhythm-game--clay .touch-controls {
+    margin-top: 10px;
+    padding: 10px 0 6px;
+    background: var(--clay-frame);
+  }
+  .rhythm-game.rhythm-game--clay .touch-controls button {
+    border: 0;
+    border-radius: 16px;
+    background: var(--clay-surface);
+    box-shadow: 0 5px 0 var(--clay-frame-base);
+    color: var(--color-ink);
+  }
+  .rhythm-game.rhythm-game--clay .touch-controls button:active {
+    background: var(--color-brand-soft);
+    box-shadow: 0 2px 0 var(--clay-frame-base);
+    transform: translateY(var(--clay-press));
+  }
+}
+
+/* 시작, 쉬기, 결과 카드와 버튼 */
+.rhythm-game.rhythm-game--clay .overlay-card {
+  width: min(420px, 100%);
+  border-radius: 28px;
+  background: var(--clay-surface);
+  box-shadow: 0 8px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .overlay-card h2 {
+  color: var(--color-ink);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.rhythm-game.rhythm-game--clay .overlay-card .eyebrow,
+.rhythm-game.rhythm-game--clay .overlay-card .muted {
+  color: var(--clay-muted);
+}
+.rhythm-game.rhythm-game--clay #overlay-kicker {
+  color: var(--color-brand-ink);
+  font-weight: var(--font-weight-extrabold);
+}
+.rhythm-game.rhythm-game--clay kbd {
+  border: 0;
+  border-radius: 12px;
+  background: var(--clay-bg);
+  box-shadow: inset 0 -3px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .button {
+  border: 0;
+  border-radius: 14px;
+  background: var(--clay-surface);
+  box-shadow:
+    inset 0 0 0 2px var(--clay-line),
+    0 4px 0 var(--clay-base);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-bold);
+}
+.rhythm-game.rhythm-game--clay .button:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 2px var(--clay-base),
+    0 4px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .button.primary {
+  padding: 14px 28px;
+  border-radius: 18px;
+  background: var(--color-brand);
+  box-shadow: 0 5px 0 var(--color-brand-display);
+  color: var(--color-ink);
+  font-weight: 900;
+}
+.rhythm-game.rhythm-game--clay .button:active:not(:disabled) {
+  transform: translateY(var(--clay-press));
+}
+
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] {
+  padding: 14px;
+  color: var(--color-ink);
+  background: rgb(234 247 242 / 88%);
+  backdrop-filter: blur(6px);
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] .overlay-card {
+  width: min(400px, 100%);
+  padding: 0 0 18px;
+  overflow: hidden;
+  border: 0;
+  background: var(--clay-surface);
+  box-shadow: 0 8px 0 var(--clay-base);
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] #overlay-kicker {
+  padding: 16px 16px 0;
+  border: 0;
+  background: none;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] h2 {
+  color: var(--color-ink);
+  font-style: normal;
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] #overlay-copy {
+  padding: 0 16px;
+  color: var(--clay-muted);
+  font-size: 12px;
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] #start {
+  margin: 14px 16px 0;
+  border: 0;
+  border-radius: 18px;
+  background: var(--color-brand);
+  box-shadow: 0 5px 0 var(--color-brand-display);
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.rhythm-game.rhythm-game--clay .overlay[data-mode="result"] #start:hover {
+  color: var(--color-ink);
+  background: var(--color-brand-strong);
+}
+.rhythm-game.rhythm-game--clay .overlay-card .result-score {
+  padding: 4px 16px 6px;
+  color: var(--color-ink);
+  background: none;
+}
+.rhythm-game.rhythm-game--clay .result-score small {
+  color: var(--clay-muted);
+  font-size: 11px;
+}
+.rhythm-game.rhythm-game--clay .result-mascot {
+  position: static;
+  display: block;
+  inline-size: 76px;
+  block-size: 76px;
+  margin: 0 auto 4px;
+  opacity: 1;
+  transform: none;
+}
+.rhythm-game.rhythm-game--clay .result-score strong {
+  font-family: var(--font-sans);
+  font-style: normal;
+  letter-spacing: -0.03em;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+.rhythm-game.rhythm-game--clay .result-table {
+  margin-top: 6px;
+  background: none;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-extrabold);
+}
+.rhythm-game.rhythm-game--clay .result-table thead,
+.rhythm-game.rhythm-game--clay .result-table tfoot {
+  border-block: 0;
+  background: var(--clay-bg);
+  color: var(--color-ink);
+  text-shadow: none;
+}
+.rhythm-game.rhythm-game--clay .result-table thead > tr > *,
+.rhythm-game.rhythm-game--clay .result-table tfoot > tr > * {
+  padding-block: 8px;
+  -webkit-text-stroke: 0;
+}
+.rhythm-game.rhythm-game--clay .result-table tbody th {
+  font-style: normal;
+}
+.rhythm-game.rhythm-game--clay .result-table tbody span {
+  padding: 1px 10px;
+  border-radius: 8px;
+  background: var(--judgment-chip, transparent);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+.rhythm-game.rhythm-game--clay .result-table tbody td {
+  text-shadow: none;
+}
+.rhythm-game.rhythm-game--clay .result-judgment--perfect {
+  --judgment-ink: #6b5600;
+  --judgment-chip: var(--color-rhythm-perfect);
+}
+.rhythm-game.rhythm-game--clay .result-judgment--hit {
+  --judgment-ink: #0b4a63;
+  --judgment-chip: #d8f4ff;
+}
+.rhythm-game.rhythm-game--clay .result-judgment--enough {
+  --judgment-ink: #2d5a10;
+  --judgment-chip: #e6fbd6;
+}
+.rhythm-game.rhythm-game--clay .result-judgment--uhoh {
+  --judgment-ink: #8a1621;
+  --judgment-chip: #ffe3e5;
+}
+
+/* 설정 서랍: 흰 클레이 판 */
+@media (min-width: 701px) {
+  .rhythm-game.rhythm-game--clay .controls.rhythm-drawer {
+    border-left: 0;
+    border-radius: 28px 0 0 28px;
+    background: var(--clay-surface);
+    box-shadow: -12px 0 32px rgb(29 61 52 / 16%);
+  }
+}
+.rhythm-game.rhythm-game--clay .practice-notice {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  font-weight: var(--font-weight-bold);
+}
+.rhythm-game.rhythm-game--clay select {
+  border: 0;
+  border-radius: 10px;
+  background: var(--clay-bg);
+  box-shadow: inset 0 -2px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay input[type="checkbox"],
+.rhythm-game.rhythm-game--clay input[type="range"],
+.rhythm-game.rhythm-game--clay progress {
+  accent-color: var(--color-brand-display);
+}
+.rhythm-game.rhythm-game--clay .judgment em {
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .key-binding__button,
+.rhythm-game.rhythm-game--clay .offset-sign {
+  border: 0;
+  border-radius: 10px;
+  background: var(--clay-bg);
+  box-shadow: inset 0 -2px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .key-binding__button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px var(--color-brand);
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .rhythm-game-error {
+  color: var(--color-danger);
+}
+
+/* 싱크 진단 창 */
+.rhythm-game.rhythm-game--clay .sync-dialog {
+  border: 0;
+  border-radius: 28px;
+  background: var(--clay-surface);
+  box-shadow: 0 8px 0 var(--clay-base);
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .sync-dialog::backdrop {
+  background: rgb(29 61 52 / 45%);
+}
+.rhythm-game.rhythm-game--clay .sync-dialog .muted,
+.rhythm-game.rhythm-game--clay .sync-current,
+.rhythm-game.rhythm-game--clay .sync-result dt {
+  color: var(--clay-muted);
+}
+.rhythm-game.rhythm-game--clay .sync-current strong {
+  color: var(--color-ink);
+}
+.rhythm-game.rhythm-game--clay .sync-status,
+.rhythm-game.rhythm-game--clay .sync-result dd {
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .sync-tap {
+  border: 0;
+  border-radius: 20px;
+  background: var(--color-brand-soft);
+  box-shadow:
+    inset 0 0 0 2px var(--color-brand),
+    0 5px 0 var(--color-brand-display);
+  color: var(--color-brand-ink);
+}
+.rhythm-game.rhythm-game--clay .sync-tap small {
+  color: var(--clay-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level] {
+    transition: none;
+  }
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:hover:not(:disabled),
+  .rhythm-game.rhythm-game--clay .rhythm-levels .difficulty button[data-level]:active:not(:disabled),
+  .rhythm-game.rhythm-game--clay .button:active:not(:disabled),
+  .rhythm-game.rhythm-game--clay .touch-controls button:active {
+    transform: none;
+  }
+  .rhythm-game.rhythm-game--clay .overlay,
+  .rhythm-game.rhythm-game--clay .overlay[data-mode="result"] {
+    backdrop-filter: none;
+  }
+}
