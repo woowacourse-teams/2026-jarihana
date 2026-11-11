@@ -58,7 +58,7 @@ export function mountRankedGame({
     send: (batch) => api.submit(session.challengeId, batch),
     onResponse: (serverState, batch) => {
       if (serverState.status === "INVALID") {
-        stopPlay();
+        end("invalid");
         onInvalid(serverState.invalidReason ?? "ABANDONED");
       } else if (serverState.status === "FINISHED" || batch.finished) {
         stopPlay();
@@ -67,7 +67,10 @@ export function mountRankedGame({
       }
     },
     onFailure: (error) => {
-      stopPlay();
+      // 기록되지 않는 판이므로 진행 중이었다면 서버에도 끝났다고 알린다. 화면에는 이탈이 아니라 이 오류를 보여 준다.
+      const running = state === "running";
+      end("error");
+      if (running) void api.abandon(session.challengeId).catch(() => {});
       onError(error);
     }
   });
@@ -116,6 +119,14 @@ export function mountRankedGame({
     transport?.stop();
   }
 
+  // 서버 무효나 전송 실패로 판이 끝났다. 화면이 판을 내릴 때(dispose) 이탈로 다시 알려
+  // 앞서 보여 준 사유를 덮지 않도록, 화면에 알리기 전에 상태부터 바꾼다.
+  function end(nextState) {
+    state = nextState;
+    sender.stop();
+    stopPlay();
+  }
+
   // 일시정지가 없으므로 판을 떠나면 바로 무효로 알린다.
   function leave() {
     if (state !== "running" && state !== "starting") return;
@@ -139,6 +150,7 @@ export function mountRankedGame({
       const started = await api.start(session.challengeId);
       if (disposed || state !== "starting") return;
       if (started.status !== "PLAYING") {
+        state = "invalid";
         onInvalid(started.invalidReason ?? "EXPIRED");
         return;
       }
