@@ -3656,21 +3656,21 @@
      "step": 572.0,
      "sample": 2860000,
      "keys": [
-      "up"
+      "down"
      ]
     },
     {
      "step": 573.333333,
      "sample": 2866667,
      "keys": [
-      "left"
+      "up"
      ]
     },
     {
      "step": 574.666667,
      "sample": 2873333,
      "keys": [
-      "right"
+      "down"
      ]
     },
     {

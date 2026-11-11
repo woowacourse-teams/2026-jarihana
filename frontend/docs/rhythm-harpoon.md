@@ -284,8 +284,9 @@ ANOTHER는 Pixel Circuit을 144 BPM, 8분 스윙(2:1)으로 편곡한 번외 스
 - 음원은 `pixel-circuit-swing.ogg`(48마디, 80초 루프)이고 원곡과 음량을 맞췄다(약 -13.8 LUFS).
   채보 `swing-chart.json`(판본 `swing-another-3`)은 난이도별 채보를 `levels`에 따로 두고 단순화 없이 그대로 친다.
   연습은 ANOTHER를 고를 때 곡을 처음 한 번만 받는다.
-- `swing-another-3`에서 ANOTHER Hardest 37마디 트릴 바로 앞(139ms 전)의 [왼쪽+아래] 동시타를 왼쪽 단타로 바꿔,
-  앞의 왼쪽, 오른쪽에서 트릴이 이어지게 했다. 규칙 판본(`rhythm-harpoon-ranked-4`)은 그대로 두어 랭킹 기록은 이어진다.
+- `swing-another-3`에서 ANOTHER Hardest 37마디 트릴 바로 앞(139ms 전)의 [왼쪽+아래] 동시타를 왼쪽 단타로 바꾸고,
+  36마디 마지막 박의 셋잇단 세 음(위, 왼쪽, 오른쪽)을 아래, 위, 아래로 바꿨다. 아래, 위 교대 뒤에 왼쪽, 오른쪽 트릴이 이어진다.
+  규칙 판본(`rhythm-harpoon-ranked-4`)은 그대로 두어 랭킹 기록은 이어진다.
 
 | 난이도 | 노트 | 동시타 | 라이프, 완주 충전, 가속 |
 | --- | --- | --- | --- |
