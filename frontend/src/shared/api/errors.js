@@ -6,6 +6,7 @@ const messages = Object.freeze({
   SPARRING_STREAM_BUSY: "실시간 연결이 많아요. 잠시 후 다시 연결할게요.",
   ACCESS_DENIED: "이 작업을 수행할 권한이 없어요.",
   ANNOUNCEMENT_NOT_FOUND: "공지를 찾을 수 없어요.",
+  ANNOUNCEMENT_REQUEST_CONFLICT: "이미 다른 내용으로 사용한 요청이에요. 공지 목록을 확인해 주세요.",
   GROUP_ALREADY_ENDED: "이미 종료된 모임이에요.",
   CALENDAR_CLIENT_OUTDATED: "화면이 오래되었어요. 새로고침한 뒤 일정을 다시 저장해 주세요.",
   GROUP_ACCESS_DENIED: "이 모임을 관리할 권한이 없어요.",

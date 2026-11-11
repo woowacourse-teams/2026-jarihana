@@ -124,7 +124,7 @@ playlists는 모임에서 선택할 수 있는 저장 목록이고, 최상위 ur
 | 409 | GROUP_MUSIC_CONFLICT | revision 불일치 |
 
 `group_music.group_id`는 유일하며 그룹 삭제 시 FK ON DELETE CASCADE로 함께 삭제한다.
-모든 환경에서 Flyway `V35__group_music.sql`로 스키마를 생성하고 Hibernate `validate`로 확인한다.
+모든 환경에서 Flyway `V39__group_music.sql`로 스키마를 생성하고 Hibernate `validate`로 확인한다.
 음악 설정은 공개 응답에 포함되므로 비공개 주소나 개인 정보를 입력하지 않는 UI가 필요하다.
 
 `GroupMusicControllerTest`는 실제 PostgreSQL에서 기본값·공개/회원별 조회·저장·충돌·종료·

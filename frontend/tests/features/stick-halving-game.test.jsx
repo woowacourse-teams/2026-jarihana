@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { StickHalvingGame } from "../../src/features/stick-halving";
+import { formatGrams } from "../../src/features/stick-halving/CutResult";
 import { generatePracticeStick } from "../../src/features/stick-halving/puzzle";
 
 const firstStick = generatePracticeStick(11, 1);
@@ -107,6 +108,19 @@ it("counts the first stick from when the run was requested too", async () => {
 
   // Then
   expect(await screen.findByText("26초 남음")).toBeInTheDocument();
+});
+
+it("shows the weight each side should end up with, half of the whole stick", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+
+  // When
+  render(<StickHalvingGame adapter={adapter} />);
+  expect(await screen.findByText("30초 남음")).toBeInTheDocument();
+
+  // Then: 양쪽 끝에 같은 값을 하나씩 적는다.
+  expect(screen.getByText(formatGrams(firstStick.totalMilligrams))).toBeInTheDocument();
+  expect(screen.getAllByText(`한쪽 ${formatGrams(firstStick.totalMilligrams / 2)}`)).toHaveLength(2);
 });
 
 it("brings the game area back into view when the next stick starts, instead of leaving the page at the ranking below", async () => {

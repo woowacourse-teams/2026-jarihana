@@ -195,7 +195,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
 
     @Test
     void migrationSupportsSavingAndDeletingGroupWithoutOrphanedSpace() throws Exception {
-        String migration = Files.readString(Path.of("src/main/resources/db/migration/V34__group_space.sql"));
+        String migration = Files.readString(Path.of("src/main/resources/db/migration/V38__group_space.sql"));
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_migration_test");

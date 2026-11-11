@@ -1,8 +1,16 @@
 # 자리하나 프론트엔드 구현 매핑
 
+## 득템하나? 상점
+
+- `/shop`은 기본 체험 상점이며 로그인 회원은 실제 포인트를 구분해 조회한다.
+- 서버가 판매를 열면 `features/shop/api.js`로 상품·잔액/보유·구매 API를 연결한다.
+- `entities/shop`은 미리보기와 구매 응답을 검증한다. `pages/shop`은 상품·보유 표시와 확인창을 공유한다.
+- 실제 판매 목록은 프로필 프레임 두 종이다. 구매한 프레임은 상점에서 적용해 마이페이지에서 확인한다. 아바타 파츠는 체험용이며 입어보기는 회원 아바타 편집기와 별도로 동작한다.
+- [연동 계약·선행 조건·검증](shop-preview.md). 포인트 적립 구현은 #589에 둔다.
+
 ## 오목 흑돌 금수 표시
 
-- 렌주 대국의 흑돌 참가자에게 빈 교차점의 쌍3/쌍4/장목을 빨간 원으로 표시한다. 백돌, 관전자, 자유룰과 대기/종료 화면에는 표시하지 않는다.
+- 렌주 대국의 흑돌 참가자에게 빈 교차점의 쌍3/쌍4/장목을 교차점의 35% 크기인 채워진 빨간 점으로 표시한다. 백돌, 관전자, 자유룰과 대기/종료 화면에는 표시하지 않는다.
 - `forbiddenMoves.js`는 서버 `GomokuBoard`의 정확한 오목 우선, 네 돌 집합 중복 제거, 합법적인 열린 사 확장에 대한 재귀 판정과 같은 기준으로 안내 위치를 계산한다. 판 문자열이 바뀔 때만 다시 계산하며 실제 착수의 최종 판정은 서버에 남는다.
 - `Board.jsx`는 접근성 이름과 title에 금수 사유를 제공하고 클릭/더블클릭을 막는다. 화살표 포커스 탐색과 기존 action은 유지한다. 부모의 선택 유효성/확정 처리도 같은 위치 집합을 확인해 판 갱신 후 오래된 선택으로 금수를 전송하지 않는다.
 
@@ -128,7 +136,7 @@ header 구현으로 확대하지 않았다.
 | `/board/new` | 회원 | `POST /api/proposals` | ProposalCreatePage, 분야 칩, TextField, Textarea, 분위기 선택지 0~3개를 칩으로 입력(Enter나 쉼표 뒤 띄어쓰기로 더하기, 빈 입력에서 Backspace로 마지막 칩 지우기, 한글 조합 중 Enter는 조합이 끝난 뒤 더하기) | 필드 검증과 첫 오류 포커스, 서버 오류, 작성 중, 성공 시 상세로 replace 이동 |
 | `/board/:proposalId` | 공개 (응답과 코멘트는 회원) | 제안 상세, 응답 저장과 취소, 코멘트 조회, 작성, 숨김과 제안 숨김 | 새 페이지 상세, 조건 칩 응답 패널(1024px 이상 sticky 오른쪽 rail, 미만은 본문 바로 아래), 모인 조건 요약 칩(가장 많이 고른 선택지, 마우스를 올리거나 누르면 선택지별 인원 드롭다운), 코멘트 | loading, 404(지운 제안), error, 비로그인 안내, 마음만 보낸 응답의 조건 더하기, 응답 고치기와 취소, 목록에서 왔으면 뒤로 가기로 분야와 스크롤 복원 |
 | `/sparring` | 공개 (주제 생성은 회원) | 토론 목록·검색, 마감일과 대표 이미지가 있는 주제 생성 | 소개 히어로, 진행 토론 가로 목록, 마감 토론 결과, 단계별 생성 모달 | loading, empty, error, 로그인 안내, 이미지 업로드 실패 |
-| `/events/pepero-day` | 공개 (순위 도전은 회원) | `GET /api/events/pepero-day`, `GET /api/events/pepero-day/rankings`, `POST /api/events/pepero-day/runs`, `POST /api/events/pepero-day/runs/{runId}/cuts` | PeperoDayEventPage, 모드 선택(연습, 순위 도전), StickHalvingGame(무게표, 1/48cm 격자에 서는 칼, 칼 주변 2cm 확대 창, 저울 결과, 최종 표), 5판 뒤 순위 창, 순위 목록. 진행 중일 때만 헤더에 `반띵 게임` 진입점 | 열리기 전 카운트다운, 열림과 닫힘을 새로고침 없이 반영, 닫힌 뒤에도 하던 판은 끝까지, 끝난 뒤 게임방으로 옮기는 시각 안내와 그 뒤의 게임방 링크, 순위 도전 횟수 제한 없음, 30초 지나면 자동 자르기, 순위 loading, empty, error. local, dev 프로필은 기간 없이 항상 열림 |
+| `/events/pepero-day` | 공개 (순위 도전은 회원) | `GET /api/events/pepero-day`, `GET /api/events/pepero-day/rankings`, `POST /api/events/pepero-day/runs`, `POST /api/events/pepero-day/runs/{runId}/cuts` | PeperoDayEventPage, 모드 선택(연습, 순위 도전), StickHalvingGame(무게표, 1/48cm 격자에 서는 칼, 칼 주변 2cm 확대 창, 저울 결과, 최종 표), 5판 뒤 순위 창, 순위 목록. 진행 중일 때만 헤더에 `반띵 게임` 진입점 | 열리기 전 카운트다운, 열림과 닫힘을 새로고침 없이 반영, 닫힌 뒤에도 하던 판은 끝까지, 끝난 뒤 게임방으로 옮기는 시각 안내와 그 뒤의 게임방 링크, 순위 도전 횟수 제한 없음, 60초 지나면 자동 자르기, 순위 loading, empty, error. local, dev 프로필은 기간 없이 항상 열림 |
 | `/sparring/:topicId` | 공개 (투표와 의견은 회원) | 토론 상세, 투표, 의견, SSE 최신 30개 초기화·추가 글 본문 수신 | 3D 캡슐 경기장, 캐릭터 말풍선 입력과 지난 대화 재생 | loading, 연결 상태, 인증 안내, 저장 실패, 마감 |
 | `/groups/:groupId/recruitments/:recruitmentId`                      | 조회 공개, 신청은 회원 | 모집 상세, 신청 생성/철회                | DetailLayout, RecruitmentPanel, Modal, Toast                         | closed/ended, validation, 401, 403, 404, 409, mutation pending/success/failure   |
 | `/oauth/callback`                                                   | 공개                   | `GET /api/members/me`                    | CenteredStateLayout                                                  | callback loading, invalid callback, signup required, authenticated, 401, network |
@@ -195,6 +203,7 @@ header 구현으로 확대하지 않았다.
 - 공지 상세는 `/groups/:groupId/announcements/:announcementId`의 공개 URL이다. 본문은 Markdown을 해석하지 않고 개행을 보존한다. 목록으로 돌아갈 때 `/groups/:groupId?tab=announcements`를 연다. MEMBERS 공지는 다른 비구성원이 상세 URL을 알아도 API 404를 받아 본문을 표시하지 않는다. 작성자는 탈퇴 후에도 본인이 작성한 공지를 확인하고 관리할 수 있다.
 - 로그인 상태에서 공지 목록·상세를 요청하기 직전에는 `GET /api/members/me`로 세션을 확인한다. 공개 공지 API는 만료된 Access Token을 401로 드러내지 않으므로, 기존 API client의 401 재발급·재시도 흐름을 먼저 거쳐 MEMBERS 범위가 올바르게 조회되도록 한다. 인증 bootstrap이 끝날 때까지 공지 조회를 시작하지 않는다.
 - 등록 성공 시 현재 목록을 다시 조회하고 공지 탭에 머문다. 수정 성공 시 상세와 목록을 다시 조회한다. 삭제 성공 시 공지 목록으로 돌아간다. 알림함/푸시 알림은 작성자를 뺀 현재 모임원에게만 생성되며, 알림 클릭은 본인 알림 확인·읽음 처리 후 공지 상세 URL로 이동한다. 모임이 종료된 뒤에도 기존 공지는 계속 읽을 수 있다.
+- 공지 등록 전에 회원과 모임별로 최초 요청 내용과 요청 ID를 탭 저장소에 기록한다. 일시적 통신 오류에는 같은 요청을 최대 두 번 자동 재전송한다. 결과를 확인할 수 없거나 같은 탭에서 해당 작성창을 다시 열면 목록 확인을 안내하고 복구 동작을 선택하게 한다. `이전 요청 불러오기`는 최초 요청의 내용, 공개 범위, 요청 ID만 복원한다. 사용자가 `이전 요청 다시 보내기`를 눌러야 같은 요청을 전송한다. `새 공지 쓰기`는 해당 회원과 모임의 이전 요청을 탭 저장소에서 지우고 빈 양식을 연다. 새 요청 ID는 새 양식을 제출할 때 만든다.
 - 작성 요청·응답과 목록·상세 schema는 [백엔드 공지 API 계약](../../backend/docs/context/api/endpoints/announcements.md)을 따른다. UI 입력과 공지 텍스트는 세션 녹화에서 `data-ph-private`로 가린다.
 
 ### 초대 기능 설계 계약

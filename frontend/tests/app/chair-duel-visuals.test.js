@@ -16,8 +16,9 @@ const post = { side: 'b', memberType: 'COACH' };
 let scene, stage, visuals, group, actors, viewportWidth;
 
 function matrixAt(mesh, index) {
-  const matrix = new THREE.Matrix4();
-  mesh.getMatrixAt(index, matrix);
+  const physicalIndex = mesh.userData.avatarInstanceIds?.indexOf(index) ?? index;
+  const matrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  if (physicalIndex >= 0) mesh.getMatrixAt(physicalIndex, matrix);
   return matrix;
 }
 

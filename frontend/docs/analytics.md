@@ -1,5 +1,17 @@
 # PostHog 행동 분석
 
+## 상점 미리보기
+
+진입은 `shop_open`, 카테고리는 `shop_category_change`, 상품 선택은 `shop_product_select`, 마이페이지 이동은
+`shop_profile_open`이다. 구매창 열기·닫기·취소·확정은 `shop_purchase_open`,
+`shop_purchase_dismiss`, `shop_purchase_cancel`, `shop_purchase_confirm`을 사용한다.
+착용/해제는 `shop_equipment_toggle`, 조회 재시도는 `shop_load_retry`다.
+실제 포인트 조회 재시도는 `shop_points_retry`다.
+모바일 미리보기에서 선택했던 상품으로 돌아가기는 `shop_product_list_return`을 사용한다.
+상품·외형·잔액·요청 키를 action에 포함하지 않는다.
+잔액과 외형 미리보기는 `data-ph-private`로 가린다. 체험 구매에 실제 구매 성공 이벤트를
+발행하지 않으며 분석 전송 허용 목록을 확장하지 않는다.
+
 ## 헤더 자리 메뉴
 
 상위 `자리` disclosure 버튼은 `group_navigation_toggle`을 사용한다. 하위 `뭐있나?`, `뭐했나?`,
@@ -33,6 +45,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | --- | --- |
 | 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
 | 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 이전 요청 불러오기 / 새 공지 쓰기 / 이전 요청 다시 보내기 | `group_announcement_create_restore`, `group_announcement_create_start_new`, `group_announcement_create_resubmit` |
 | 공지 수정 모달 열기·닫기·취소·저장 | `group_announcement_edit_open`, `group_announcement_edit_dismiss`, `group_announcement_edit_cancel`, `group_announcement_edit_submit` |
 | 공지 숨김 확인 열기·닫기·취소·확정 | `group_announcement_delete_open`, `group_announcement_delete_dismiss`, `group_announcement_delete_cancel`, `group_announcement_delete_confirm` |
 | 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |

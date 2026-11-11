@@ -156,7 +156,7 @@ wallPatternScale/floorPatternScale은 0.5~2다. 모든 범위는 양끝을 포�
 
 `group_space.group_id`는 유일하며 그룹 삭제 시 FK ON DELETE CASCADE로 함께 삭제한다.
 탈퇴·리더 위임 후 권한은 매 요청의 현재 멤버십을 기준으로 판단한다.
-모든 환경에서 Flyway `V34__group_space.sql`로 스키마를 생성하고 Hibernate `validate`로 확인한다.
+모든 환경에서 Flyway `V38__group_space.sql`로 스키마를 생성하고 Hibernate `validate`로 확인한다.
 
 ## 검증과 문서 범위
 
