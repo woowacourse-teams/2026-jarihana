@@ -4013,8 +4013,7 @@
      "step": 640.0,
      "sample": 3200000,
      "keys": [
-      "left",
-      "down"
+      "left"
      ]
     },
     {
