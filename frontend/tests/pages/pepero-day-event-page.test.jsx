@@ -61,7 +61,7 @@ it("asks anonymous visitors to log in instead of offering a practice run", async
   mount();
 
   expect(await screen.findByRole("heading", { name: "공평하게 반띵" })).toBeInTheDocument();
-  expect(screen.getByText(/11월 11일 00:00 ~ 11월 12일 10:00/)).toBeInTheDocument();
+  expect(screen.getByText("11월 12일 10시까지")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "연습 시작" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "자르기" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" }));

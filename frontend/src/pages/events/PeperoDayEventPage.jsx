@@ -46,6 +46,14 @@ const RANKED_ERRORS = {
   UNAUTHENTICATED: "로그인이 풀렸어요. 다시 로그인한 뒤 도전해 주세요."
 };
 
+// 마감 시각을 "11월 12일 10시"처럼 시 단위로 쓴다. 분이 있으면 "10시 30분"처럼 붙인다.
+function formatServiceHour(value) {
+  const [date, time] = value.split("T");
+  const [, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return `${month}월 ${day}일 ${hour}시${minute ? ` ${minute}분` : ""}`;
+}
+
 export function formatServiceDateTime(value) {
   const [date, time] = value.split("T");
   const [, month, day] = date.split("-").map(Number);
@@ -378,7 +386,7 @@ export function PeperoDayEventPage() {
     <PageContainer className="pepero-day">
       <PageHeader title="공평하게 반띵" />
       <ul aria-label="이벤트 안내" className="pepero-day__facts">
-        <li>{formatServiceDateTime(event.opensAt)} ~ {formatServiceDateTime(event.closesAt)}</li>
+        <li>{formatServiceHour(event.closesAt)}까지</li>
       </ul>
       <div className={`pepero-day__layout${showRanking ? " pepero-day__layout--with-ranking" : ""}`}>
         <div className="pepero-day__main">
