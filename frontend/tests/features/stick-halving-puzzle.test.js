@@ -29,15 +29,11 @@ describe("반 나누기 막대", () => {
     expect(leftMilligrams(stick, 1.76)).toBeCloseTo(628);
   });
 
-  it("drops steeply to 750 at a 2.5% error, then gently to 0 at 25%, the same table as the server", () => {
+  it("scores 1000 for an exact cut and loses points linearly until a 10% error", () => {
     expect(scoreOf(0)).toBe(1000);
-    expect(scoreOf(0.01)).toBe(900);
     expect(scoreOf(0.025)).toBe(750);
-    expect(scoreOf(0.05)).toBe(667);
-    expect(scoreOf(0.1)).toBe(500);
-    expect(scoreOf(0.15)).toBe(333);
-    expect(scoreOf(0.25)).toBe(0);
-    expect(scoreOf(0.4)).toBe(0);
+    expect(scoreOf(0.1)).toBe(0);
+    expect(scoreOf(0.3)).toBe(0);
   });
 
   it("generates fair practice sticks whose answer is off center but never on an almond", () => {
