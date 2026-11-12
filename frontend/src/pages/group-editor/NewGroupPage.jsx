@@ -4,6 +4,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
+import { useAuth } from "../../features/auth/index.js";
+import { rememberPendingClubhouseSetup } from "../../features/group-space/setupProgress.js";
 import { useCreateGroup } from "../../features/group/index.js";
 import {
   DEFAULT_GROUP_IMAGE_URL,
@@ -147,6 +149,8 @@ function draftSummary(values) {
 
 export function NewGroupPage() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const memberId = (auth.member ?? auth.user)?.id;
   const [searchParams] = useSearchParams();
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
@@ -242,8 +246,8 @@ export function NewGroupPage() {
           toCreateBody(formValues, representativeImageKey)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        /* 모집을 시작할지는 상세 화면이 자리를 잡은 뒤에 묻는다. 방금 만들었다는 사실만 넘긴다. */
-        navigate(`/groups/${result.id}`, { state: { justCreated: true } });
+        const setupPending = formValues.type !== "SESSION" && rememberPendingClubhouseSetup(result.id, memberId);
+        navigate(`/groups/${result.id}`, { state: setupPending ? null : { justCreated: true } });
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",

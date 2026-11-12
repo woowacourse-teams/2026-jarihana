@@ -6,35 +6,68 @@ import { STUDY_PHOTO_LAYOUTS } from "./studyPhotoAssets";
 
 // World units are metres. Rendering, furniture placement and walking share this plan.
 export const BUILDING = Object.freeze({ minX: -10, maxX: 10, minZ: -8, maxZ: 5, height: 6.4, wingHeight: 4.2 });
+const LOUNGE_BUILDING = Object.freeze({ ...BUILDING, minX: -15, height: 7.6 });
 // Legacy exterior bounds are retained only for saved-room validation.
 export const YARD = Object.freeze({ minX: -11, maxX: 11, minZ: 5, maxZ: 12.5 });
 export const STREET = Object.freeze({ minX: -14, maxX: 14, minZ: 12.5, maxZ: 16 });
 export const ENTRANCE = Object.freeze({ minX: -10, maxX: 10, minZ: 5, maxZ: 8.2 });
 export const PLAYER = Object.freeze({ radius: 0.3, eyeHeight: 1.45, height: 1.7, speed: 3.4, spawn: { x: -2, z: 6.8 } });
 export const ROOM_ZONES = Object.freeze([
-  { id: "hall", name: "메인홀", minX: -10, maxX: 4, minZ: -8, maxZ: 5 },
+  { id: "hall", name: "메인홀", minX: LOUNGE_BUILDING.minX, maxX: 4, minZ: -8, maxZ: 5 },
   { id: "studio", name: "작은 모임방", minX: 4, maxX: 10, minZ: -8, maxZ: -1.5 },
   { id: "lounge", name: "휴게실", minX: 4, maxX: 10, minZ: -1.5, maxZ: 5 },
   { id: "entrance", name: "입구 복도", ...ENTRANCE }
 ]);
-export const BUILDING_WALLS = Object.freeze([
-  { x: -3, z: -8, width: 14.2, depth: 0.24, height: 6.4 },
-  { x: 7, z: -8, width: 6, depth: 0.24, height: 4.2 },
-  { x: -10, z: -1.5, width: 0.24, depth: 13, height: 6.4 },
-  { x: 10, z: -1.5, width: 0.24, depth: 13, height: 4.2, cutaway: true },
-  { x: -6.75, z: 5, width: 6.5, depth: 0.24, height: 6.4, cutaway: true },
-  { x: 1.75, z: 5, width: 4.5, depth: 0.24, height: 6.4, cutaway: true },
-  { x: 7, z: 5, width: 6, depth: 0.24, height: 4.2, cutaway: true },
-  { x: 4, z: -6.75, width: 0.2, depth: 2.5, height: 4.2 },
-  { x: 4, z: -1.25, width: 0.2, depth: 4.5, height: 4.2 },
-  { x: 4, z: 4, width: 0.2, depth: 2, height: 4.2 },
-  { x: 7, z: -1.5, width: 6, depth: 0.2, height: 4.2 }
-]);
+function loungeWalls({ minX, minZ, maxZ, height, wingHeight }) {
+  const depth = maxZ - minZ;
+  const centerZ = (minZ + maxZ) / 2;
+  return [
+    { x: (minX + 4) / 2, z: minZ, width: 4.2 - minX, depth: 0.24, height },
+    { x: 7, z: minZ, width: 6, depth: 0.24, height: wingHeight },
+    { x: minX, z: centerZ, width: 0.24, depth, height },
+    { x: 10, z: centerZ, width: 0.24, depth, height: wingHeight, cutaway: true },
+    { x: (minX - 3.5) / 2, z: maxZ, width: -3.5 - minX, depth: 0.24, height, cutaway: true },
+    { x: 1.75, z: maxZ, width: 4.5, depth: 0.24, height, cutaway: true },
+    { x: 7, z: maxZ, width: 6, depth: 0.24, height: wingHeight, cutaway: true },
+    { x: 4, z: -6.75, width: 0.2, depth: 2.5, height: wingHeight },
+    { x: 4, z: -1.25, width: 0.2, depth: 4.5, height: wingHeight },
+    { x: 4, z: 4, width: 0.2, depth: 2, height: wingHeight },
+    { x: 7, z: -1.5, width: 6, depth: 0.2, height: wingHeight }
+  ];
+}
+export const BUILDING_WALLS = Object.freeze(loungeWalls(BUILDING));
+const LOUNGE_WALLS = Object.freeze(loungeWalls(LOUNGE_BUILDING));
 export const CLEAR_PATHS = Object.freeze([
   { minX: -3.25, maxX: -0.75, minZ: -4.5, maxZ: 12.5 },
   { minX: -0.75, maxX: 5, minZ: -5.3, maxZ: -3.7 },
   { minX: -0.75, maxX: 5, minZ: 1.2, maxZ: 2.8 }
 ]);
+const LOUNGE_DECK = { minX: -14.84, maxX: 3.84, minZ: -7.86, maxZ: -4.3, height: 4.45 };
+const LOUNGE_STAIRS = { minX: -14.4, maxX: -12.3, minZ: LOUNGE_DECK.maxZ, maxZ: 3.7, height: LOUNGE_DECK.height, steps: 26 };
+const LOUNGE_SINGLE_FLOOR = { building: LOUNGE_BUILDING, walls: LOUNGE_WALLS, clearPaths: CLEAR_PATHS };
+const LOUNGE_LAYOUT = {
+  ...LOUNGE_SINGLE_FLOOR,
+  displayName: "기본 아지트",
+  upperName: "2층 라운지",
+  mezzanine: LOUNGE_DECK,
+  stairs: LOUNGE_STAIRS,
+  pillars: [],
+  railings: [
+    { x: (LOUNGE_DECK.minX + LOUNGE_STAIRS.minX) / 2, z: LOUNGE_DECK.maxZ, width: LOUNGE_STAIRS.minX - LOUNGE_DECK.minX, depth: 0.08 },
+    { x: (LOUNGE_STAIRS.maxX + LOUNGE_DECK.maxX) / 2, z: LOUNGE_DECK.maxZ, width: LOUNGE_DECK.maxX - LOUNGE_STAIRS.maxX, depth: 0.08 },
+    { x: LOUNGE_DECK.maxX, z: (LOUNGE_DECK.minZ + LOUNGE_DECK.maxZ) / 2, width: 0.08, depth: LOUNGE_DECK.maxZ - LOUNGE_DECK.minZ }
+  ],
+  stairRails: [LOUNGE_STAIRS.minX, LOUNGE_STAIRS.maxX].map((x) => ({
+    x, z: (LOUNGE_STAIRS.minZ + LOUNGE_STAIRS.maxZ) / 2, width: 0.12, depth: LOUNGE_STAIRS.maxZ - LOUNGE_STAIRS.minZ
+  })),
+  clearPaths: [...CLEAR_PATHS, {
+    minX: LOUNGE_STAIRS.minX, maxX: CLEAR_PATHS[0].maxX, minZ: LOUNGE_STAIRS.maxZ, maxZ: LOUNGE_BUILDING.maxZ
+  }],
+  mezzaninePaths: [
+    { minX: LOUNGE_DECK.minX, maxX: LOUNGE_STAIRS.maxX + 0.4, minZ: -6.3, maxZ: LOUNGE_DECK.maxZ },
+    { minX: LOUNGE_STAIRS.maxX, maxX: LOUNGE_DECK.maxX, minZ: -5.55, maxZ: LOUNGE_DECK.maxZ }
+  ]
+};
 export const CLIMBING_V5 = Object.freeze({
   building: { minX: -10, maxX: 10, minZ: -9, maxZ: 5, height: 12 },
   mezzanine: { minX: 1.5, maxX: 10, minZ: -9, maxZ: -2.7, height: 4.2 },
@@ -260,10 +293,15 @@ export const BOARDGAME = Object.freeze({
     { minX: -7.4, maxX: 9.7, minZ: -7.85, maxZ: -7.15 }
   ]
 });
-export function getRoomLayout(template, version = 11) {
-  if (template && typeof template === "object") { version = template.version ?? version; template = template.template; }
+export function getRoomLayout(template = "lounge", version = 11, { loungeLayout = "current" } = {}) {
+  if (template && typeof template === "object") {
+    version = template.version ?? version;
+    template = template.template ?? "lounge";
+  }
   const extended = version >= 11 ? CURRENT_LAYOUTS[template] : version >= 10 ? REFERENCE_LAYOUTS[template] : version >= 9 && (DINING_BAND_LAYOUTS[template] || STUDY_PHOTO_LAYOUTS[template]);
-  const layout = extended || (template === "climbing" ? CLIMBING : template === "boardgame" ? BOARDGAME :
+  const lounge = template === "lounge" && version >= 9 && loungeLayout !== "original"
+    ? (loungeLayout === "singleFloor" ? LOUNGE_SINGLE_FLOOR : LOUNGE_LAYOUT) : null;
+  const layout = extended || lounge || (template === "climbing" ? CLIMBING : template === "boardgame" ? BOARDGAME :
     { building: BUILDING, walls: BUILDING_WALLS, clearPaths: CLEAR_PATHS });
   const island = version >= 9 ? getIslandLayout(layout.building) : null;
   return { ...layout,
@@ -312,9 +350,9 @@ export function roomZoneAt(x, z, template, y = 0) {
     return "옆마당 산책길";
   }
   if (layout.mezzanine) {
-    if (contains(layout.stairs, point)) return "중층으로 가는 계단";
-    if (y >= layout.mezzanine.height - 0.2) return "중층 라운지";
-    if (contains(layout.building, point)) return layout.groundName;
+    if (contains(layout.stairs, point)) return layout.upperName ? `${layout.upperName}로 가는 계단` : "중층으로 가는 계단";
+    if (y >= layout.mezzanine.height - 0.2) return layout.upperName || "중층 라운지";
+    if (layout.groundName && contains(layout.building, point)) return layout.groundName;
   }
   return ROOM_ZONES.find((area) => area.id !== "entrance" && contains(area, point))?.name || "아지트";
 }

@@ -54,7 +54,7 @@ export function GroupPhotoDetail({ group, children }) {
   </div>;
 }
 
-export default function GroupClubhouse({ auth, group, groupId, isMember, children }) {
+export default function GroupClubhouse({ auth, group, groupId, isMember, setup, children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const memberId = auth.member?.id ?? auth.user?.id;
@@ -210,7 +210,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
 
   const clubhouse = {
     mode, canDecorate, onModeChange: changeMode, onOpenFeature: openFeature, activityExhibit: exhibit,
-    inputBlocked: Boolean(chatOpen || contentDialog || musicOpen || orientationBlocked), orientationBlocked, unreadCount, muted, toggleMuted,
+    inputBlocked: Boolean(setup || chatOpen || contentDialog || musicOpen || orientationBlocked), orientationBlocked, unreadCount, muted, toggleMuted,
     onActivityLinksChange: updateActivityLinks, canChat: isMember,
     presentation: expanded ? "immersive" : "web", previewExterior, previewWideAngle, cameraFlight, visitPointerLockRef, onBackdropChange: updateBackdrop,
     onDirtyChange: updateUnsavedSpace, onSceneStatus: setSceneStatus,
@@ -230,7 +230,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, childre
     <div className="group-clubhouse__frontage" ref={frontageRef} inert={orientationBlocked}>
       <div className="group-clubhouse__scene" id="group-clubhouse-scene" ref={sceneRef}>
         <Suspense fallback={<div className="route-loading"><Skeleton aria-label="우리 모임 공간 불러오는 중" /></div>}>
-          <GroupSpaceLoader groupId={groupId} memberId={memberId} clubhouse={clubhouse} />
+          <GroupSpaceLoader groupId={groupId} memberId={memberId} clubhouse={clubhouse} setup={setup} />
         </Suspense>
         <ClubhouseLoading />
       </div>

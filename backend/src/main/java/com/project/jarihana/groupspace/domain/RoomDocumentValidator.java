@@ -94,8 +94,7 @@ public class RoomDocumentValidator {
             number(item.get("z"), -64, 64);
             integer(item.get("rotation"), 0, 3);
             if (item.has("level")) {
-                boolean mezzanine = version >= 9 ? !template.equals("lounge")
-                        : Set.of("climbing", "boardgame").contains(template);
+                boolean mezzanine = version >= 9 || Set.of("climbing", "boardgame").contains(template);
                 integer(item.get("level"), 0, mezzanine ? 1 : 0);
             }
             for (String axis : Set.of("scaleX", "scaleY", "scaleZ")) if (item.has(axis)) number(item.get(axis), 0.25, 3);

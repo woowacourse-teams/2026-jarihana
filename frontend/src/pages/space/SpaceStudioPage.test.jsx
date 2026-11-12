@@ -644,11 +644,26 @@ test("new furniture can be placed in the expanded lawn and saved without moving 
   expect(sceneProps.room.items.at(-1).z).toBeGreaterThan(5);
   expect(sceneProps.room.items.at(-1).z).toBeGreaterThan(8.2);
   expect(sceneProps.view).toBe("site");
-  click("실내에 놓기");
+  click("1층에 놓기");
   openFurniture(); click("초록 친구 추가");
   expect(sceneProps.room.items.at(-1).z).toBeLessThan(5);
   click("저장");
   expect(JSON.parse(localStorage.getItem(STORAGE_KEY)).items).toEqual(sceneProps.room.items);
+});
+
+test("default clubhouse floor views place furniture on the second floor and restore it after saving", () => {
+  const { unmount } = render(<SpaceStudioPage />);
+  click("2층 라운지");
+  expect(sceneProps.floorView).toBe("mezzanine");
+  openFurniture();
+  expect(screen.getByRole("button", { name: "2층에 놓기" })).toHaveAttribute("aria-pressed", "true");
+  openFurniture(); click("초록 친구 추가");
+  const plant = sceneProps.room.items.at(-1);
+  expect(plant).toMatchObject({ kind: "plant", level: 1 });
+  click("저장");
+  unmount();
+  render(<SpaceStudioPage />);
+  expect(sceneProps.room.items).toEqual(expect.arrayContaining([plant]));
 });
 
 test("climbing floor views place and save furniture on the mezzanine", () => {
@@ -705,7 +720,7 @@ test("floor isolation follows selected furniture and walking restores the select
   expect(sceneProps.room.items.at(-1).z).toBeGreaterThan(5);
 });
 
-test("template changes, undo and cancel cannot leave unsupported mezzanine placement active", () => {
+test("template changes, undo and cancel reset the active placement floor", () => {
   render(<SpaceStudioPage />);
   click("아지트"); click("클라이밍"); click("이 아지트로 꾸미기");
   click("중층 라운지");
@@ -714,7 +729,7 @@ test("template changes, undo and cancel cannot leave unsupported mezzanine place
   expect(sceneProps.floorView).toBe("all");
   expect(screen.queryByRole("button", { name: "중층에 놓기" })).not.toBeInTheDocument();
   openFurniture();
-  expect(screen.getByRole("button", { name: "실내에 놓기" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "1층에 놓기" })).toHaveAttribute("aria-pressed", "true");
   click("다시 실행"); click("중층 라운지");
   click("아지트"); click("밴드"); click("이 아지트로 꾸미기");
   expect(sceneProps.floorView).toBe("all");

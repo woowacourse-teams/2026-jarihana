@@ -358,7 +358,7 @@ describe("climbing-specific floors and migration", () => {
       expect(canPlace({ kind, x: 8.6, z: 0, rotation: 0 }, [], "climbing")).toBe(false);
     }
     expect(canPlace({ kind: "stool", x: 8.6, z: -3.6, rotation: 0, level: 1 }, [], "climbing")).toBe(false);
-    expect(findOpenPosition("stool", [], "lounge", "mezzanine")).toBeNull();
+    expect(findOpenPosition("stool", [], "lounge", "mezzanine")).toMatchObject({ level: 1 });
     expect(findOpenPosition("stool", [], "band", "mezzanine")).toMatchObject({ level: 1 });
   });
 
@@ -741,4 +741,21 @@ test("v9 saved lawn furniture and weather survive migration and reload without a
   expect(loaded.room.version).toBe(10);
   expect(validateRoom(loaded.room)).toEqual(loaded.room);
   expect(storage.setItem).not.toHaveBeenCalled();
+});
+
+test.each([9, 10, 11])("v%s original default room preserves and relocates furniture blocking the new stair approach", (version) => {
+  const table = { id: "table", kind: "coffeeTable", x: -8, z: 4, rotation: 0, scaleX: 1.25 };
+  const cup = { id: "cup", kind: "propCup", x: -7.8, z: 4, rotation: 0, parentId: table.id, surfaceIndex: 0 };
+  const plant = { id: "plant", kind: "plant", x: 7, z: 2, rotation: 0 };
+  const saved = { ...createInitialRoom("lounge"), version, items: [table, cup, plant] };
+  const migrated = validateRoom(saved);
+  const [movedTable, movedCup, untouched] = migrated.items;
+
+  expect(movedTable).toMatchObject({ id: table.id, scaleX: table.scaleX });
+  expect([movedTable.x, movedTable.z]).not.toEqual([table.x, table.z]);
+  expect(movedCup.parentId).toBe(table.id);
+  expect(movedCup.x - movedTable.x).toBeCloseTo(cup.x - table.x);
+  expect(movedCup.z).toBeCloseTo(movedTable.z);
+  expect(untouched).toEqual(plant);
+  expect(validateRoom(migrated)).toEqual(migrated);
 });

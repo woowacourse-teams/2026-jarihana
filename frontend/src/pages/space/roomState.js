@@ -36,7 +36,7 @@ export const ATMOSPHERE_PRESETS = Object.freeze([
     backgroundColor: "#81788e", ambient: 35, sunlight: 20, warmth: 90, sunAngle: 270, lamps: 140, shadowSoftness: 85 }) }
 ]);
 export const ROOM_TEMPLATES = Object.freeze([
-  { id: "lounge", name: "기본 아지트", description: "함께 쉬고 이야기하는 우리 동아리방", facility: "작은 카페 코너 · 소파와 공동 테이블", theme: "blue" },
+  { id: "lounge", name: "기본 아지트", description: "함께 쉬고 이야기하는 우리 동아리방", facility: "공동 테이블 · 작은 카페 · 2층 라운지", theme: "blue" },
   { id: "climbing", name: "클라이밍", description: "12m 높이의 홀과 암벽과 중층 라운지가 있는 우리 암장", facility: "대형 암벽 · 장비 보관 · 중층 관람 라운지", theme: "chalk" },
   { id: "boardgame", name: "보드게임", description: "게임 라이브러리와 복층 라운지에서 함께 노는 공간", facility: "보드게임 서가 · 넓은 게임 테이블 · 중층 라운지", theme: "walnut" },
   { id: "dining", name: "맛집 · 다이닝", description: "오픈 키친과 긴 식탁, 복층 카페에서 함께 먹는 아지트", facility: "주방 · 공동 식탁 · 중층 다이닝", theme: "wood" },
@@ -175,6 +175,16 @@ export function createInitialRoom(templateId = "lounge") {
     item("seat3", "stool", -6, -1.3), item("bench", "bench", -6, template.id === "climbing" ? 2.6 : 2),
     item("lounge", "sofa", 1.4, -0.4), item("beanbag", "beanbag", 1.5, -2.8)
   );
+  if (template.id === "lounge") items.push(...[
+    item("upper-sofa", "sofa", -10.55, -7.15, 0, "#8c9d85"),
+    item("upper-stool", "stool", -10.55, -6.15, 0, "#c08c64"),
+    item("upper-plant", "plant", -8.35, -7.25),
+    item("upper-bookshelf", "bookshelf", -6.3, -7.35),
+    item("upper-table", "table", -3.35, -6.65),
+    item("upper-seat", "armchair", -1.4, -6.65, 3, "#788f88"),
+    item("upper-sofa2", "sofa", 1.05, -7.15, 0, "#b98567"),
+    item("upper-plant2", "plant", 3, -7.25)
+  ].map(({ color, ...entry }) => ({ ...entry, level: 1, ...(color ? { color } : {}) })));
   const musicPosition = template.id === "boardgame" ? { x: 7.8, z: 2.7 } :
     template.id === "climbing" ? { x: 4.3, z: -3.5 } : { x: 1.5, z: 4.1 };
   if (!items.some((entry) => entry.kind === "musicConsole")) items.push(item("music-console", "musicConsole", musicPosition.x, musicPosition.z));
@@ -371,7 +381,7 @@ function canPlaceLegacy(item, items, template) {
 
 export function snapPosition(value) { return Math.round(value * 4) / 4; }
 
-export function findOpenPosition(kind, items, template = "lounge", region, rotation = 0, customization = {}) {
+export function findOpenPosition(kind, items, template = "lounge", region, rotation = 0, customization = {}, accepts = () => true) {
   const layout = getRoomLayout(template);
   const level = region === "mezzanine" ? 1 : 0;
   if (level === 1 && !layout.mezzanine) return null;
@@ -387,7 +397,7 @@ export function findOpenPosition(kind, items, template = "lounge", region, rotat
         const item = { ...customization, kind, x, z, rotation, level };
         const bounds = boundsForBox({ ...item, ...footprint(item) });
         if (commonPaths.some((path) => overlaps(bounds, path, PLAYER.radius + 0.1))) continue;
-        if (canPlace(item, items, template) && contains(area, bounds)) return { x, z, level };
+        if (contains(area, bounds) && canPlace(item, items, template) && accepts(item)) return { x, z, level };
       }
     }
   }
@@ -407,6 +417,34 @@ function migrateItems(items, template) {
     result.set(item.id, { ...item, ...position });
   }
   return items.map((item) => result.get(item.id));
+}
+
+function migrateLoungeItems(items, room) {
+  const layout = getRoomLayout(room);
+  const roots = items.filter((item) => !item.parentId);
+  const groupFor = (root) => [root, ...items.filter((item) => item.parentId === root.id)];
+  const placed = new Map();
+  const addGroup = (group) => group.forEach((item) => placed.set(item.id, item));
+
+  for (const root of roots) {
+    const group = groupFor(root);
+    if (group.every((item) => canPlaceInLayout(item, items, layout, [], room.version))) addGroup(group);
+  }
+  for (const root of roots) {
+    if (placed.has(root.id)) continue;
+    const group = groupFor(root);
+    const occupied = [...placed.values()];
+    const fits = (position) => {
+      const moved = transformAttachedItems(group, root.id, position);
+      return moved.every((item) => canPlaceInLayout(item, [...occupied, ...moved], layout, [], room.version));
+    };
+    const preferred = root.level === 1 ? "mezzanine" : root.z > layout.building.maxZ ? "entrance" : "building";
+    const position = findOpenPosition(root.kind, occupied, room, preferred, root.rotation, root, fits) ||
+      (root.level !== 1 && findOpenPosition(root.kind, occupied, room, undefined, root.rotation, root, fits));
+    if (!position) return null;
+    addGroup(transformAttachedItems(group, root.id, position));
+  }
+  return items.map((item) => placed.get(item.id));
 }
 
 export function isSafeRecordLink(value) {
@@ -458,6 +496,7 @@ export function validateRoom(value) {
     typeof notice !== "string" || notice.length > 100 || !atmosphere) return null;
   const ids = new Set();
   const items = [];
+  let needsLoungeMigration = false;
   for (const item of value.items) {
     if (!item || typeof item.id !== "string" || !item.id || item.id.length > 80 || ids.has(item.id) ||
       !CATALOG.some((type) => type.kind === item.kind) ||
@@ -483,10 +522,21 @@ export function validateRoom(value) {
       if (!isRoomPhoto(clean.photo) || !isSafeRecordLink(clean.link)) return null;
     }
     const validPlacement = value.version < 4 ? canPlaceLegacy : value.version === 4 ? canPlaceVersion4 : value.version === 5 ? canPlaceVersion5 : value.version === 6 ? canPlaceVersion6 : value.version === 7 ? canPlaceVersion7 : value.version === 8 ? canPlaceVersion8 : value.version === 9 ? canPlaceVersion9 : canPlace;
-    if (!validPlacement(clean, value.version >= 9 ? value.items : items, value.version >= 10 ? { template, version: value.version } : template)) return null;
+    if (!validPlacement(clean, value.version >= 9 ? value.items : items, value.version >= 10 ? { template, version: value.version } : template)) {
+      if (template !== "lounge" || value.version < 9) return null;
+      needsLoungeMigration = true;
+    }
     items.push(clean);
   }
-  let migrated = value.version < 10 ? migrateItems(items, { template, version: 10 }) : items;
+  if (needsLoungeMigration && !["original", "singleFloor"].some((loungeLayout) => {
+    const layout = getRoomLayout(template, value.version, { loungeLayout });
+    return items.every((item) => canPlaceInLayout(item, items, layout, [], value.version));
+  })) return null;
+
+  const version = Math.max(10, value.version);
+  const room = { template, version };
+  const migrated = needsLoungeMigration || (value.version < 10 && template === "lounge")
+    ? migrateLoungeItems(items, room) : value.version < 10 ? migrateItems(items, room) : items;
   if (migrated && value.version < 9) {
     const facilities = ["dining", "band"].includes(template)
       ? createDiningBandPresetItems(template).filter((entry) => [...DINING_BAND_ASSETS, ...LEGACY_FACILITY_ASSETS].some((type) => type.kind === entry.kind))
@@ -503,7 +553,7 @@ export function validateRoom(value) {
     }
   }
   if (!migrated) return null;
-  return { version: Math.max(10, value.version), template, name: value.name, theme: value.theme, avatarColor: value.avatarColor,
+  return { version, template, name: value.name, theme: value.theme, avatarColor: value.avatarColor,
     accentColor, matColor, food, coverPhoto, notice, atmosphere, items: migrated };
 }
 

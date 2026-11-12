@@ -47,7 +47,7 @@
 | items[].id / title / note | 각각 1~80자 / 최대40자 / 최대500자 |
 | items[].x, z | 유한한 수, -64~64 (정확한 배치 가능 여부는 클라이언트 검증) |
 | items[].rotation | 정수 0~3 |
-| items[].level | 생략 또는 0; v9 이상은 lounge를 제외한 모든 테마에서 1 허용, v8은 climbing/boardgame만 1 허용 |
+| items[].level | 생략 또는 0; v9 이상은 모든 테마에서 1 허용, v8은 climbing/boardgame만 1 허용 |
 | items[].color | 생략 또는 #RRGGBB |
 | items[].link | memory에만 허용, 빈 문자열 또는 사용자정보 없는 HTTP(S) 절대 URL, 최대1,000자 |
 | 전체 문서 | 공백을 제거한 JSON UTF-8 바이트 기준 2,097,152바이트 이하 |

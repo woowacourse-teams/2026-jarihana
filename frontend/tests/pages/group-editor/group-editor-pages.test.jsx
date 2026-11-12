@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { hasPendingClubhouseSetup } from "../../../src/features/group-space/setupProgress.js";
 
 const mockCreateGroup = jest.fn();
 const mockModifyGroup = jest.fn();
@@ -16,6 +17,7 @@ const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
 
+jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: { id: 7 } }) }));
 jest.mock("../../../src/features/group/index.js", () => ({
   useCreateGroup: () => ({ mutateAsync: mockCreateGroup, isPending: false }),
   useDeleteGroup: () => ({ mutateAsync: mockDeleteGroup, isPending: false }),
@@ -198,6 +200,7 @@ describe("NewGroupPage", () => {
   });
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
   });
 
@@ -521,11 +524,11 @@ describe("NewGroupPage", () => {
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
     );
   });
 
-  it("만들고 나면 방금 만들었다는 사실과 함께 상세로 보낸다", async () => {
+  it("모임을 만들고 나면 아지트 선택을 예약하고 상세로 보낸다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -535,10 +538,11 @@ describe("NewGroupPage", () => {
     // When
     submitForm("group-create-form");
 
-    // Then 모집 여부는 상세 화면이 묻는다. 이 화면은 완료만 알리고 표식을 넘긴다.
+    // Then
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
     );
+    expect(hasPendingClubhouseSetup(73, 7)).toBe(true);
     expect(mockShowToast).toHaveBeenCalledWith({ title: "모임을 만들었어요.", tone: "success" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

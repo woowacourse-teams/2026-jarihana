@@ -4,13 +4,14 @@ import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
+import { ClubhouseSetupDialog } from "./ClubhouseSetupDialog.jsx";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
 import { createInitialRoom, readSavedRoom, validateRoom } from "./roomState.js";
 
-function SpaceError({ error, groupId, onRetry, clubhouse }) {
+function SpaceError({ error, groupId, onRetry, clubhouse, setup }) {
   const denied = error?.status === 403;
   const missing = error?.status === 404;
-  return <div className={clubhouse ? "clubhouse-unavailable" : "page-container"} aria-label="모임 공간 안내">
+  return <><div className={clubhouse ? "clubhouse-unavailable" : "page-container"} aria-label="모임 공간 안내">
     <ErrorState title={denied ? "모임원만 들어갈 수 있어요" : missing ? "모임을 찾을 수 없어요" : "공간을 불러오지 못했어요"}
       description={denied ? "모임에 참여한 계정으로 아지트에 들어와 주세요." : missing ? "모임이 삭제되었거나 주소가 바뀌었을 수 있어요." : "연결을 확인하고 다시 시도해 주세요. 저장된 공간을 기본 배치로 바꾸지 않았어요."}
       action={<>
@@ -18,11 +19,14 @@ function SpaceError({ error, groupId, onRetry, clubhouse }) {
         <Link className="ui-button ui-button--secondary" data-ph-capture-attribute-action="group_space_back" to={missing ? "/groups" : `/groups/${groupId}`}>모임으로 돌아가기</Link>
       </>} />
     {clubhouse?.overlay}
-  </div>;
+  </div>
+    {setup && <ClubhouseSetupDialog {...setup}
+      notice="아지트를 불러오지 못했어요. 나중에 꾸미기에서 선택해 주세요." />}
+  </>;
 }
 
-function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) {
-  const [initial] = useState(initialRoom);
+function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse, setup }) {
+  const [initial, setInitial] = useState(initialRoom);
   const [canEdit, setCanEdit] = useState(snapshot.canEdit);
   const [savedAt, setSavedAt] = useState(snapshot.updatedAt);
   const revision = useRef(snapshot.revision);
@@ -60,12 +64,23 @@ function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) 
     }
   }
 
-  return <SpaceStudioPage clubhouse={clubhouse} initialRoom={initial} onSave={save} canEdit={canEdit} savedAt={savedAt}
-    groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
-      backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />;
+  async function saveInitialTemplate(template) {
+    const room = { ...createInitialRoom(template), name: initial.name };
+    setInitial(await save(room));
+  }
+
+  const hasSavedRoom = snapshot.room !== null;
+  return <>
+    <SpaceStudioPage key={initial.template} clubhouse={clubhouse} initialRoom={initial} onSave={save} canEdit={canEdit} savedAt={savedAt}
+      groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
+        backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
+    {setup && <ClubhouseSetupDialog {...setup}
+      onSave={canEdit && !hasSavedRoom ? saveInitialTemplate : undefined}
+      notice={hasSavedRoom ? "이미 저장한 아지트가 있어요." : "지금은 아지트를 저장할 수 없어요. 나중에 꾸미기에서 선택해 주세요."} />}
+  </>;
 }
 
-export function GroupSpaceLoader({ groupId, memberId, clubhouse }) {
+export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const group = useGroup(groupId);
   const space = useGroupSpace(groupId, memberId);
@@ -87,15 +102,15 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse }) {
   }, [onSceneStatus, unavailableStatus]);
   if (failed) {
     return <SpaceError clubhouse={clubhouse} groupId={groupId} error={accessError ?? errors[0]}
-      onRetry={() => { void group.refetch(); void space.refetch(); }} />;
+      onRetry={() => { void group.refetch(); void space.refetch(); }} setup={setup} />;
   }
   if (pending) {
     return <div className="route-loading"><Skeleton aria-label="우리 모임 공간 불러오는 중" /></div>;
   }
-  if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} />;
+  if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} setup={setup} />;
   if (!hasLoaded) setHasLoaded(true);
   return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId}
-    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} />;
+    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup} />;
 }
 
 export function GroupSpacePage() {
