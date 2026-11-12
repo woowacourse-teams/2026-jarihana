@@ -6,6 +6,9 @@ import { createInitialRoom, findOpenPosition, validateRoom } from "./roomState";
 
 let sceneProps;
 const mockOpenMusic = jest.fn();
+let mockRealtimeStatus = { status: "connected" };
+const mockSharedCommand = jest.fn().mockResolvedValue({ success: true });
+jest.mock("../../features/group-space/realtime/useRoomRealtime.js", () => ({ useRoomRealtime: () => ({ runtime: { connection: { command: mockSharedCommand } }, status: mockRealtimeStatus }) }));
 jest.mock("react-router", () => ({ Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a> }), { virtual: true });
 jest.mock("../../features/group-music/index.js", () => ({ useGroupMusic: () => ({ openMusic: mockOpenMusic }) }));
 jest.mock("./RoomCanvas", () => ({ RoomCanvas: (props) => { sceneProps = props; return <div data-testid="room-scene" />; } }));
@@ -20,7 +23,7 @@ function options() {
       overlay: <aside aria-label="모임 패널">패널 내용</aside> } };
 }
 
-beforeEach(() => { mockOpenMusic.mockReset(); });
+beforeEach(() => { mockOpenMusic.mockReset(); mockSharedCommand.mockClear(); mockRealtimeStatus = { status: "connected" }; });
 
 test("the building sign follows the actual group name independently of the saved room name", () => {
   const props = options();
@@ -42,11 +45,16 @@ test("a visitor can toggle the same light from settings and the first-person wal
   const originalRoom = sceneProps.room;
   expect(button).toHaveAttribute("aria-pressed", "true");
   fireEvent.click(button);
+  expect(mockSharedCommand).toHaveBeenLastCalledWith({ action: "TOGGLE", assetId: ROOM_LIGHT_SWITCH_ID });
+  expect(sceneProps.generalLighting).toBe(true);
+  act(() => sceneProps.onSharedLighting(false));
   expect(sceneProps.generalLighting).toBe(false);
   expect(button).toHaveAttribute("aria-pressed", "false");
   fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
   expect(sceneProps.view).toBe("firstPerson");
   act(() => sceneProps.onSelect(ROOM_LIGHT_SWITCH_ID));
+  expect(mockSharedCommand).toHaveBeenCalledTimes(2);
+  act(() => sceneProps.onSharedLighting(true));
   expect(sceneProps.generalLighting).toBe(true);
   expect(button).toHaveAttribute("aria-pressed", "true");
   expect(sceneProps.room).toBe(originalRoom);
@@ -113,7 +121,7 @@ test("use mode opens the shared feature while blocking all furniture edits", () 
 
 });
 
-test("switching modes retains the unsaved draft and edit clicks never open activities", () => {
+test("shared visits show the saved layout while editing retains the draft", () => {
   const props = options();
   const { rerender } = render(<SpaceStudioPage {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "메뉴 펼치기" }));
@@ -147,7 +155,7 @@ test("switching modes retains the unsaved draft and edit clicks never open activ
   expect(sceneProps.editable).toBe(false);
   expect(sceneProps.focusBuilding).toBe(false);
   expect(sceneProps.selectedId).toBeNull();
-  expect(sceneProps.room).toEqual(draft);
+  expect(sceneProps.room).toEqual(props.initialRoom);
   fireEvent.click(screen.getByRole("button", { name: "시점 설정" }));
   expect(screen.getByRole("button", { name: "3인칭" })).toHaveAttribute("aria-pressed", "true");
   expect(sceneProps).toMatchObject({ view: "thirdPerson", preserveWalkPose: true });
@@ -155,6 +163,7 @@ test("switching modes retains the unsaved draft and edit clicks never open activ
   rerender(<SpaceStudioPage {...props} clubhouse={{ ...props.clubhouse, mode: "decorate" }} />);
   act(() => sceneProps.onSelect("activity-frame"));
   expect(screen.getByLabelText("추억 이름")).toHaveValue("바꾼 액자 제목");
+  expect(sceneProps.room).toEqual(draft);
 });
 
 test("displaying and removing an activity frame changes room state only and can be undone", () => {
@@ -336,4 +345,38 @@ test("visiting from the web hero keeps the canvas and hands control to first per
   expect(sceneProps.walkCommand).toMatchObject({ action: "jump" });
   rerender(<SpaceStudioPage {...props} clubhouse={{ ...web, cameraFlight: flight }} />);
   expect(sceneProps).toMatchObject({ view: "front", interactive: false });
+});
+
+
+test("only an explicitly disabled realtime service restores standalone interactions", () => {
+  const props = options();
+  mockRealtimeStatus = { status: "error", error: { code: "REALTIME_DISABLED", message: "disabled" } };
+  const { rerender } = render(<SpaceStudioPage {...props} canEdit={false} />);
+  expect(sceneProps.realtime).toBeNull();
+  act(() => sceneProps.onSelect(ROOM_LIGHT_SWITCH_ID));
+  expect(sceneProps.generalLighting).toBe(false);
+  expect(mockSharedCommand).not.toHaveBeenCalled();
+  mockRealtimeStatus = { status: "error", error: { code: "ACCESS_DENIED", message: "denied" } };
+  rerender(<SpaceStudioPage {...props} canEdit={false} />);
+  expect(sceneProps.realtime).not.toBeNull();
+  act(() => sceneProps.onSelect(ROOM_LIGHT_SWITCH_ID));
+  expect(mockSharedCommand).toHaveBeenCalledTimes(1);
+  expect(sceneProps.generalLighting).toBe(false);
+});
+
+
+test("a saved layout replacement is visible in shared use while the editor draft survives", () => {
+  const props = options();
+  const edit = { ...props.clubhouse, mode: "decorate" };
+  const { rerender } = render(<SpaceStudioPage {...props} layoutRevision={1} clubhouse={edit} />);
+  act(() => sceneProps.onSelect("activity-frame"));
+  fireEvent.change(screen.getByLabelText("추억 이름"), { target: { value: "내가 편집 중인 제목" } });
+  const draft = sceneProps.room;
+  const updated = { ...props.initialRoom, notice: "서버에서 바뀐 공지" };
+  rerender(<SpaceStudioPage {...props} initialRoom={updated} layoutRevision={2} clubhouse={edit} />);
+  expect(sceneProps.room).toEqual(draft);
+  rerender(<SpaceStudioPage {...props} initialRoom={updated} layoutRevision={2} clubhouse={props.clubhouse} />);
+  expect(sceneProps.room).toEqual(updated);
+  rerender(<SpaceStudioPage {...props} initialRoom={updated} layoutRevision={2} clubhouse={edit} />);
+  expect(sceneProps.room).toEqual(draft);
 });

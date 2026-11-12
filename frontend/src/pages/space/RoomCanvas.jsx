@@ -7,11 +7,11 @@ const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 �
 
 export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
-  avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange }) {
+  avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange, realtime, realtimeStatus, onCapture, onSharedLighting }) {
   const host = useRef(null);
   const scene = useRef(null);
   const interactionMenu = useRef(null);
-  const callbacks = useRef({ onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose });
+  const callbacks = useRef({ onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose, onCapture, onSharedLighting });
   const current = useRef({ room, selectedId, view, zoom, floorView, cameraReset, activityExhibit });
   const currentAvatarAppearance = useRef(avatarAppearance);
   const currentOutdoorLight = useRef(outdoorLight);
@@ -37,8 +37,8 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
     if (status === "ready") scene.current?.requestVisitPointerLock();
   }, [status]);
 
-  useLayoutEffect(() => { callbacks.current = { onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose }; },
-    [onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose]);
+  useLayoutEffect(() => { callbacks.current = { onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose, onCapture, onSharedLighting }; },
+    [onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose, onCapture, onSharedLighting]);
   useLayoutEffect(() => {
     scene.current?.setWalkInputBlocked?.(walkInputBlocked);
   }, [walkInputBlocked]);
@@ -114,6 +114,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
   }, [walking, view, status]);
 
   useEffect(() => { onStatusChange?.(status); }, [onStatusChange, status]);
+  useEffect(() => { if (status === "ready") scene.current?.setRealtime?.(realtime); }, [realtime, status]);
 
   useEffect(() => {
     if (status !== "ready" || !studioCameraTurn || lastStudioTurn.current === studioCameraTurn.id) return;
@@ -164,6 +165,8 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
         onMove: (...values) => callbacks.current.onMove(...values),
         onInvalid: () => callbacks.current.onInvalid(),
         onWalkInteraction: setInteraction,
+        onCapture: (file) => callbacks.current.onCapture?.(file),
+        onSharedLighting: (enabled) => callbacks.current.onSharedLighting?.(enabled),
         onWalkPointerLock: setLookMode,
         onWalkPosition: (position) => callbacks.current.onWalkPosition?.(position),
         onExitWalk: () => callbacks.current.onExitWalk?.(),
@@ -271,6 +274,13 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
           {interaction.feedback && <span className="space-studio__interaction-feedback" role="status">{interaction.feedback}</span>}
         </div>
       )}
+      {walkingReady && realtime && <div className="room-canvas__shared-tools">
+        <span role="status">{realtimeStatus?.status === "connected" ? "함께 있는 아지트" : realtimeStatus?.error?.message || "아지트에 연결하는 중…"}</span>
+        <button type="button" data-ph-capture-attribute-action="space_member_greet" onClick={() => interactionCommand("greet")}>인사 H</button>
+        {interaction?.throwable && <button type="button" data-ph-capture-attribute-action="space_item_throw" onClick={() => interactionCommand("throw")}>던지기 G</button>}
+        {interaction?.consumable && <button type="button" data-ph-capture-attribute-action="space_item_consume" onClick={() => interactionCommand("consume")}>먹기 · 마시기</button>}
+        {interaction?.camera && <button type="button" data-ph-capture-attribute-action="space_camera_capture" onClick={() => interactionCommand("capture")}>사진 찍기</button>}
+      </div>}
       {status === "loading" && <div className="space-studio__scene-state" role="status">우리 공간을 펼치는 중…</div>}
       {status === "error" && (
         <div className="space-studio__scene-state" role="alert">

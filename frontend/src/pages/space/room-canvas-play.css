@@ -18,3 +18,44 @@
 }
 
 .space-studio__interaction.room-canvas__play-interaction { top: calc(50% + 52px); }
+
+.room-canvas__shared-tools {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: .5rem;
+  max-width: calc(100% - 2rem);
+  padding: .5rem .75rem;
+  border-radius: .75rem;
+  color: #363341;
+  background: rgba(255, 253, 249, .95);
+  font-size: .75rem;
+}
+.room-canvas__shared-tools button, .room-canvas__connection-notice button {
+  padding: .5rem .65rem;
+  border: 1px solid #d8d3e0;
+  border-radius: .5rem;
+  background: white;
+  color: inherit;
+  cursor: pointer;
+}
+.room-canvas__connection-notice {
+  position: absolute;
+  z-index: 5;
+  top: 5rem;
+  left: 1rem;
+  right: 1rem;
+  padding: .75rem;
+  border-radius: .75rem;
+  background: #fff8e7;
+  color: #514531;
+  font-size: .875rem;
+}
+.room-photo-preview { display: block; width: 100%; max-height: 65vh; object-fit: contain; border-radius: .75rem; }
+.room-photo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }

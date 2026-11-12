@@ -484,7 +484,7 @@ function clubSofa(target, color) {
     seam(target, [[x - 0.42, 0.61, 0.48], [x, 0.634, 0.51], [x + 0.42, 0.61, 0.48]], new THREE.Color(color).multiplyScalar(0.7));
   }
   for (const [x, pillowColor] of [[-1.24, "#b89263"], [1.24, "#777a61"]]) {
-    const pillow = target.box(0.44, 0.45, 0.17, pillowColor, x, 0.81, 0.09, 0.075, "fabric");
+    const pillow = target.box(0.44, 0.45, 0.17, pillowColor, x, 0.81, -0.17, 0.075, "fabric");
     pillow.name = "sofa-throw-pillow";
     pillow.rotation.set(-0.17, 0, x < 0 ? -0.2 : 0.2);
   }

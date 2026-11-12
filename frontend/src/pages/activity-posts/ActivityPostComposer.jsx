@@ -19,6 +19,7 @@ function errorMessage(error) {
 
 export function ActivityPostComposer({
   fixedGroup = null,
+  initialFile = null,
   groups = [],
   groupsError = false,
   groupsHasNext = false,
@@ -31,12 +32,12 @@ export function ActivityPostComposer({
   savePending = false
 }) {
   const [selectedGroupId, setSelectedGroupId] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(initialFile);
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [activityDate, setActivityDate] = useState(post?.activityDate ?? todayLocalDate());
-  const [previewUrl, setPreviewUrl] = useState(post?.imageUrl ?? null);
+  const [previewUrl, setPreviewUrl] = useState(() => initialFile ? URL.createObjectURL(initialFile) : post?.imageUrl ?? null);
   const [submissionInProgress, setSubmissionInProgress] = useState(false);
-  const previewUrlReference = useRef(post?.imageUrl ?? null);
+  const previewUrlReference = useRef(previewUrl);
   const submissionInProgressReference = useRef(false);
   const [formError, setFormError] = useState("");
   const imageUpload = useImageUpload();

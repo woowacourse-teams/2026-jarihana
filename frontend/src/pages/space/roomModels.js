@@ -1,3 +1,4 @@
+import { sharedDoor } from "./sharedDoor.js";
 import { createSurfaceFurniture } from "./surfaceFurniture";
 import { createDetailAsset } from "./detailAssets";
 import { buildLowEdgeLight } from "./lowEdgeLight";
@@ -171,7 +172,7 @@ function addPlant(kit, x, y, z, scale = 1, flowering = false) {
 
 function addCup(kit, x, y, z, color = PALETTE.cream, liquid = "#92715e") {
   kit.cylinder(0.085, 0.066, 0.15, color, x, y + 0.075, z);
-  kit.cylinder(0.065, 0.065, 0.007, liquid, x, y + 0.152, z);
+  kit.cylinder(0.065, 0.065, 0.007, liquid, x, y + 0.152, z).name = "cup-liquid";
   const handle = kit.mesh(
     new THREE.TorusGeometry(0.049, 0.015, 7, 12),
     color,
@@ -213,14 +214,14 @@ function createSofa(color) {
   }
   for (const x of [-1.31, 1.31]) kit.box(0.18, 0.54, 1.02, color, x, 0.62, 0, 0.08);
   for (const [x, pillowColor, tilt] of [[-0.89, "#fff0d3", -0.16], [0.94, "#d79a79", 0.13]]) {
-    const pillow = kit.box(0.5, 0.44, 0.2, pillowColor, x, 0.88, -0.035, 0.09);
+    const pillow = kit.box(0.5, 0.44, 0.2, pillowColor, x, 0.88, -0.18, 0.09);
     pillow.rotation.set(-0.12, 0, tilt);
   }
-  kit.box(0.55, 0.025, 0.77, "#dfb7a0", 0.39, 0.7, 0.12, 0.018);
-  kit.box(0.55, 0.34, 0.025, "#dfb7a0", 0.39, 0.52, 0.52, 0.018);
+  kit.box(0.55, 0.025, 0.77, "#dfb7a0", 0.39, 1.148, -0.427, 0.018).scale.z = 0.3;
+  kit.box(0.55, 0.30, 0.025, "#dfb7a0", 0.39, 1.012, -0.307, 0.018);
   for (const x of [0.2, 0.38, 0.56]) {
-    kit.box(0.035, 0.008, 0.75, "#f8e7cb", x, 0.718, 0.12, 0.004);
-    kit.box(0.035, 0.32, 0.008, "#f8e7cb", x, 0.52, 0.537, 0.004);
+    kit.box(0.035, 0.008, 0.75, "#f8e7cb", x, 1.165, -0.427, 0.004).scale.z = 0.3;
+    kit.box(0.035, 0.28, 0.008, "#f8e7cb", x, 1.012, -0.307, 0.004);
   }
   return kit.group;
 }
@@ -232,7 +233,7 @@ function createArmchair(color) {
   kit.box(1.08, 0.85, 0.26, color, 0, 0.78, -0.4, 0.11);
   kit.box(0.78, 0.2, 0.77, color, 0, 0.56, 0.08, 0.1);
   for (const x of [-0.46, 0.46]) kit.box(0.18, 0.48, 0.92, color, x, 0.65, 0.02, 0.08);
-  const pillow = kit.box(0.46, 0.44, 0.16, "#fff0d4", 0.03, 0.83, -0.18, 0.09);
+  const pillow = kit.box(0.46, 0.44, 0.16, "#fff0d4", 0.03, 0.83, -0.23, 0.09);
   pillow.rotation.set(-0.12, 0.08, -0.15);
   return kit.group;
 }
@@ -257,11 +258,11 @@ function createBookshelf(color) {
   kit.box(1.6, 0.52, 0.48, "#cfa374", 0, 0.39, 0.03, 0.035);
   kit.box(0.017, 0.42, 0.018, "#a97e57", 0, 0.39, 0.28, 0.005);
   for (const x of [-0.1, 0.1]) kit.sphere(0.026, 0.026, 0.018, PALETTE.darkWood, x, 0.39, 0.295);
-  addBooks(kit, -0.7, 0.74, 0.09, 7);
+  addBooks(kit, -0.7, 0.74, 0.09, 4);
   addBooks(kit, -0.7, 1.37, 0.09, 5, 1.2);
-  kit.box(0.38, 0.28, 0.38, "#c2bbd9", 0.52, 0.88, 0.06, 0.03);
-  kit.box(0.15, 0.04, 0.015, "#f2e6d9", 0.52, 0.92, 0.26, 0.009);
-  addPlant(kit, 0.48, 1.37, 0.05, 0.48);
+  kit.box(0.38, 0.28, 0.28, "#c2bbd9", 0.60, 1.51, 0.12, 0.03);
+  kit.box(0.15, 0.04, 0.015, "#f2e6d9", 0.60, 1.55, 0.26, 0.009);
+  addPlant(kit, 0.55, 1.37, -0.15, 0.38);
   return kit.group;
 }
 
@@ -1259,7 +1260,9 @@ function createLegacyFacility(kind, { color, panelBacking } = {}) {
   else if (kind === "cafeCounter") addCafeCounter(item, color || "#536bd6");
   else if (kind === "cafeFridge") {
     item.box(0.92, 1.95, 0.87, "#f0e5d7", 0, 0.975, 0, 0.07);
-    item.box(0.05, 0.35, 0.055, "#b2a18b", -0.3, 1.15, 0.47, 0.01);
+    const panel = item.box(0.86, 1.84, 0.04, "#f6eee4", 0, 0.975, 0.445, 0.025);
+    const handle = item.box(0.05, 0.35, 0.055, "#b2a18b", -0.3, 1.15, 0.47, 0.01);
+    sharedDoor(item.group, [panel, handle], -0.43, 0.445);
   } else return null;
   return item.group;
 }
@@ -1298,7 +1301,12 @@ const MASCOT_SKIN = "#f3c8a8";
 
 export function createWalkProp(kind, avatarColor) {
   const kit = modelKit("walk-prop");
-  if (kind === "book") {
+  if (kind === "camera") {
+    kit.box(0.32, 0.22, 0.16, "#454854", 0, 0.08, 0, 0.025);
+    kit.box(0.12, 0.07, 0.13, "#454854", 0, 0.22, 0, 0.015);
+    kit.sphere(0.085, 0.085, 0.06, "#262f3c", 0, 0.08, 0.11);
+    kit.sphere(0.055, 0.055, 0.012, "#7eb6cf", 0, 0.08, 0.17);
+  } else if (kind === "book") {
     kit.box(0.37, 0.035, 0.25, "#566595", 0, 0, 0, 0.015);
     for (const side of [-1, 1]) {
       kit.box(0.17, 0.022, 0.23, "#fff1d3", side * 0.09, 0.024, 0, 0.01).rotation.z = side * 0.1;
@@ -1312,6 +1320,7 @@ export function createWalkProp(kind, avatarColor) {
   } else {
     const colors = { coffee: ["#ecdfc9", "#523429"], latte: ["#ecb2a9", "#d5a981"], tea: ["#9ab88a", "#bd823e"] };
     addCup(kit, 0, 0, 0, ...(colors[kind] || []));
+    if (kind === "cup") kit.group.getObjectByName("cup-liquid").visible = false;
   }
   const grip = modelKit("first-person-grip");
   const book = kind === "book";
@@ -1325,30 +1334,48 @@ export function createWalkProp(kind, avatarColor) {
   return kit.group;
 }
 
+// Held models keep their grip origin. For floor and shelf placement, use their bottom.
+export function walkPropBaseOffset(kind) {
+  return { book: 0.0175, camera: 0.03, cookie: -0.0275 }[kind] ?? 0;
+}
+
 export function createMascot({ color = "#5369dc", pose = "standing", held = null } = {}) {
-  const kit = modelKit("mascot");
+  const model = new THREE.Group();
+  model.name = "mascot";
+  const kit = modelKit("mascot-motion");
+  model.add(kit.group);
   const seated = pose === "seated" || pose === "sitting";
   const lift = seated ? -0.22 : 0;
   const skin = MASCOT_SKIN;
   const hair = "#695044";
   for (const x of [-0.14, 0.14]) {
+    const firstPart = kit.group.children.length;
     if (seated) {
-      const leg = kit.box(0.2, 0.2, 0.39, "#666c88", x, 0.36, 0.17, 0.08);
-      leg.rotation.x = -0.16;
-      kit.box(0.21, 0.15, 0.29, "#fff3e0", x, 0.23, 0.34, 0.065);
+      const thigh = kit.box(0.2, 0.17, 0.6, "#666c88", x, 0.425, 0.255, 0.08);
+      thigh.name = "seated-thigh";
+      kit.box(0.19, 0.24, 0.15, "#666c88", x, 0.31, 0.56, 0.065);
+      const shoe = kit.box(0.21, 0.15, 0.29, "#fff3e0", x, 0.18, 0.63, 0.065);
+      shoe.name = "seated-shoe";
     } else {
       kit.box(0.19, 0.29, 0.21, "#68708e", x, 0.3, 0, 0.075);
       kit.box(0.23, 0.15, 0.32, "#fff3e0", x, 0.075, 0.065, 0.07);
       kit.box(0.235, 0.04, 0.32, "#d7c9b8", x, 0.025, 0.065, 0.018);
+      const limb = new THREE.Group();
+      limb.name = x < 0 ? "walking-leg-left" : "walking-leg-right";
+      limb.position.set(x, 0.44, 0);
+      for (const part of kit.group.children.slice(firstPart)) {
+        part.position.sub(limb.position); limb.add(part);
+      }
+      kit.group.add(limb);
     }
   }
-  kit.sphere(0.285, 0.34, 0.22, color, 0, 0.67 + lift, 0);
-  kit.box(0.44, 0.09, 0.32, color, 0, 0.43 + lift, 0.015, 0.04);
+  kit.sphere(0.285, seated ? 0.24 : 0.34, 0.22, color, 0, seated ? 0.58 : 0.67, 0);
+  kit.box(0.44, 0.09, 0.32, color, 0, seated ? 0.385 : 0.43, 0.015, 0.04);
   kit.sphere(0.27, 0.12, 0.19, color, 0, 0.94 + lift, -0.05);
   for (const x of [-0.09, 0.09]) {
     kit.box(0.018, 0.19, 0.018, "#fff2df", x, 0.78 + lift, 0.214, 0.008);
   }
-  kit.box(0.19, 0.09, 0.025, color, 0, 0.56 + lift, 0.22, 0.03);
+  kit.box(0.19, 0.09, 0.025, color, 0, seated ? 0.45 : 0.56, 0.22, 0.03);
   for (const side of [-1, 1]) {
     if (pose === "greeting" && side === -1) {
       const upperArm = kit.sphere(0.12, 0.2, 0.125, color, -0.36, 0.87, 0.04);
@@ -1364,12 +1391,26 @@ export function createMascot({ color = "#5369dc", pose = "standing", held = null
     if (held === "book" || (held && side === 1)) {
       const sleeve = kit.sphere(0.12, 0.13, 0.19, color, side * 0.25, 0.67 + lift, 0.17);
       sleeve.rotation.y = side * 0.32;
-      kit.sphere(0.088, 0.075, 0.082, skin, side * (held === "book" ? 0.16 : 0.28), 0.68 + lift, 0.32);
+      const hand = kit.sphere(0.088, 0.075, 0.082, skin, side * (held === "book" ? 0.16 : 0.28), 0.68 + lift, 0.32);
+      if (side === 1) {
+        sleeve.name = "mascot-grip-sleeve";
+        hand.name = "mascot-grip-hand";
+      }
       continue;
     }
-    const sleeve = kit.sphere(0.12, 0.24, 0.125, color, side * 0.29, 0.68 + lift, 0.025);
+    if (seated) {
+      const sleeve = kit.sphere(0.115, 0.2, 0.125, color, side * 0.29, 0.56, 0.1);
+      sleeve.rotation.x = -0.62;
+      kit.sphere(0.09, 0.08, 0.09, skin, side * 0.29, 0.46, 0.25);
+      continue;
+    }
+    const arm = new THREE.Group();
+    arm.name = side < 0 ? "walking-arm-left" : "walking-arm-right";
+    arm.position.set(side * 0.29, 0.86 + lift, 0.025);
+    kit.group.add(arm);
+    const sleeve = kit.sphere(0.12, 0.24, 0.125, color, 0, -0.18, 0, arm);
     sleeve.rotation.z = side * 0.18;
-    kit.sphere(0.092, 0.105, 0.09, skin, side * 0.32, 0.49 + lift, 0.065);
+    kit.sphere(0.092, 0.105, 0.09, skin, side * 0.03, -0.37, 0.04, arm);
   }
   kit.sphere(0.37, 0.35, 0.32, skin, 0, 1.24 + lift, 0.01);
   for (const side of [-1, 1]) kit.sphere(0.078, 0.105, 0.069, skin, side * 0.36, 1.21 + lift, 0.02);
@@ -1392,7 +1433,63 @@ export function createMascot({ color = "#5369dc", pose = "standing", held = null
   }
   kit.sphere(0.035, 0.025, 0.027, skin, 0, 1.19 + lift, 0.338);
   kit.sphere(0.032, 0.021, 0.008, "#a86661", 0, 1.11 + lift, 0.313);
-  return kit.group;
+  if (held) {
+    const anchor = new THREE.Group();
+    anchor.name = "mascot-held-anchor";
+    kit.group.add(anchor);
+    poseMascotGrip(model, held, seated, 0);
+  }
+  return model;
+}
+
+const gripShoulder = new THREE.Vector3(0.24, 0.59, 0.1);
+const gripDirection = new THREE.Vector3();
+const up = new THREE.Vector3(0, 1, 0);
+
+export function poseMascotGrip(model, held, seated, amount) {
+  const anchor = model.getObjectByName("mascot-held-anchor");
+  if (!anchor) return null;
+  const hand = model.getObjectByName("mascot-grip-hand");
+  const sleeve = model.getObjectByName("mascot-grip-sleeve");
+  if (seated && held !== "book" && hand && sleeve) {
+    hand.position.set(0.28 - 0.12 * amount, 0.46 + 0.32 * amount, 0.32 + 0.025 * amount);
+    gripDirection.subVectors(hand.position, gripShoulder);
+    sleeve.position.copy(gripShoulder).addScaledVector(gripDirection, 0.5);
+    sleeve.scale.set(0.115, gripDirection.length() / 2 + 0.065, 0.106);
+    sleeve.quaternion.setFromUnitVectors(up, gripDirection.normalize());
+    anchor.position.copy(hand.position);
+    anchor.position.x -= 0.04;
+    anchor.position.y -= 0.02;
+    anchor.position.z += 0.03;
+  } else {
+    anchor.position.set(held === "book" ? 0 : 0.24, seated ? 0.44 : 0.66, 0.35);
+  }
+  anchor.rotation.set(-0.18 * amount, 0, 0.18 * amount);
+  return anchor;
+}
+
+export function animateMascot(model, locomotion, time) {
+  const running = locomotion === "running";
+  const stepping = running || locomotion === "walking";
+  const jumping = locomotion === "jumping";
+  const phase = time / (running ? 65 : 105);
+  const stride = stepping ? Math.sin(phase) : 0;
+  const motion = model.getObjectByName("mascot-motion");
+  motion.position.y = stepping ? (1 - Math.cos(phase * 2)) * (running ? 0.04 : 0.018) : 0;
+  motion.rotation.x = running ? 0.17 : jumping ? 0.08 : 0;
+
+  for (const [side, direction] of [["left", 1], ["right", -1]]) {
+    const step = stride * direction;
+    const leg = model.getObjectByName(`walking-leg-${side}`);
+    const arm = model.getObjectByName(`walking-arm-${side}`);
+    if (leg) {
+      leg.rotation.x = jumping ? (direction > 0 ? -0.62 : 0.38) : step * (running ? 0.85 : 0.52);
+      leg.position.y = 0.44 + Math.max(0, -step) * (running ? 0.08 : 0.04);
+    }
+    if (arm) arm.rotation.x = jumping ? -0.72 : -step * (running ? 0.9 : 0.45);
+  }
+  const hand = model.getObjectByName("greeting-hand");
+  if (hand) hand.rotation.z = 0.21 + Math.sin(time / 140) * 0.35;
 }
 
 export function disposeObject(group) {

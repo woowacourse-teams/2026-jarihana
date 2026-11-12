@@ -3,20 +3,21 @@ import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
 import { getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
 import { isWalkablePosition, moveWalker } from "./roomNavigation";
-import { createMascot, createWalkProp, disposeObject } from "./roomModels";
+import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip } from "./roomModels";
+import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
+import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
+import { fitSeatedAvatar } from "./seatedAvatar.js";
 import { aimedInteraction, nearestSeat, SEATED_CHOICES } from "./walkInteractions";
+import { availableSeat, portableDefinition, sharedInteractionTarget } from "./roomCapabilities.js";
 
 const WALK_VIEWS = new Set(["firstPerson", "thirdPerson"]);
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 const JUMP_SPEED = 4.5;
 const GRAVITY = 18;
-const WALK_AVATAR_SCALE = 0.82;
-const CARRY_POSE = { rightArm: -0.18, rightElbow: -1.10, rightSpread: -0.18 };
-const BOOK_POSE = { ...CARRY_POSE, leftArm: -0.18, leftElbow: -1.10, leftSpread: 0.18 };
 const WALK_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
 const MOVEMENT_KEYS = new Set([...WALK_KEYS, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
-export function createWalkthrough(scene, container, { getRoom, getObstacles, render, onPosition, getInteractionTargets, onInteractionChange, onInteract, onPointerLockChange }) {
+export function createWalkthrough(scene, container, { getRoom, getObstacles, render, onPosition, getInteractionTargets, onInteractionChange, onInteract, onPointerLockChange, onCapture, prepareAvatarMaterial = () => {} }) {
   const camera = new THREE.PerspectiveCamera(62, 1, 0.08, 120);
   const keys = new Set();
   const sprintKeys = new Set();
@@ -32,6 +33,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let mascotKey;
   let customAvatar;
   let playerAppearance;
+  let sharedAppearance;
   const avatarOrigin = new THREE.Vector3();
   let walkPhase = 0;
   let stride = 0;
@@ -63,19 +65,37 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let jumpVelocity = 0;
   let frame = 0;
   let lastTime = 0;
+  let stepUntil = 0;
+  let walkStep;
   let lastZone;
   let lastTemplate;
   let disposed = false;
+  let realtime = null;
+  let applyingServer = false;
+  let actionPending = false;
+  let heldItemId = null;
+  let serverEmote = null;
+  let appliedRevision = null;
+  let appliedEpoch = null;
+  let lastLocomotion = "idle";
+  let sharedPose = "relaxed";
+  const cupLift = createCupLift();
+  let cupLiftMoving = false;
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
   const active = () => WALK_VIEWS.has(view);
   const acceptsInput = () => active() && controlsEnabled && !inputBlocked;
-  const hasMotion = () => jumpVelocity !== 0 || jumpHeight > 0 || keys.size > 0 || Boolean(approaching);
+  const hasMotion = () => jumpVelocity !== 0 || jumpHeight > 0 || keys.size > 0 || stepUntil > 0 || Boolean(walkStep || approaching) ||
+    cupLiftMoving || Boolean(serverEmote && realtime && serverEmote.expiresAt > realtime.store.serverNow());
   function stop() {
     const airborne = jumpHeight > 0;
+    const wasMoving = keys.size > 0 || stepUntil > 0 || Boolean(walkStep);
     keys.clear();
     cancelAnimationFrame(frame);
     frame = 0;
     lastTime = 0;
+    stepUntil = 0;
+    walkStep = undefined;
     const capture = container.querySelector("canvas");
     const pointerId = pointer?.id;
     pointer = null;
@@ -87,7 +107,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     approaching = null;
     const wasStriding = Boolean(stride);
     stride = 0;
-    if (airborne || wasApproaching || wasStriding) syncCamera();
+    if (airborne || wasApproaching || wasStriding || wasMoving || realtime) syncCamera();
   }
 
   function releasePointerLock() {
@@ -190,8 +210,39 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     pitch = arrival ? 0.21 : 0;
   }
 
+  function sharedPoseChoices() {
+    if (!realtime) return SEATED_CHOICES;
+    return [{ id: "relaxed", label: "편히 앉기", action: "space_seat_relax" },
+      ...(held === "book" ? [{ id: "reading", label: "책 읽기", action: "space_seat_read" }] : []),
+      ...(["cup", "coffee", "latte", "tea"].includes(held) ? [{ id: "drinking", label: "컵 들기", action: "space_seat_hold_cup" }] : [])];
+  }
+
   function publishInteraction() {
-    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? SEATED_CHOICES : null, held, feedback });
+    const poseChoices = sharedPoseChoices();
+    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? poseChoices : null, held,
+      throwable: Boolean(realtime && portableDefinition(held)?.throwable),
+      consumable: Boolean(realtime && portableDefinition(held)?.consumable),
+      camera: Boolean(realtime && portableDefinition(held)?.camera), shared: Boolean(realtime), pending: actionPending, feedback });
+  }
+
+  function sharedCommand(command) {
+    if (!realtime || actionPending) return;
+    actionPending = true;
+    publishInteraction();
+    const authority = realtime;
+    authority.connection.command(command).catch((error) => {
+      if (!disposed && realtime === authority) showFeedback(error.message || "동작을 완료하지 못했어요.");
+    }).finally(() => { actionPending = false; if (!disposed) publishInteraction(); });
+  }
+
+  function heldAction(action) {
+    if (!realtime || !heldItemId) return;
+    if (action === "CAPTURE") { onCapture?.(); return; }
+    const forward = { x: Math.sin(yaw), z: -Math.cos(yaw) };
+    const payload = { action, itemId: heldItemId };
+    if (action === "DROP") payload.position = { x: position.x + forward.x * 0.7, y: position.y || 0, z: position.z + forward.z * 0.7 };
+    if (action === "THROW") payload.velocity = { x: forward.x * 5, y: 3, z: forward.z * 5 };
+    sharedCommand(payload);
   }
 
   function showFeedback(message) {
@@ -215,6 +266,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function putAway() {
     if (!held) return;
+    if (realtime) { heldAction("DROP"); return; }
     setHeld(null);
     syncCamera();
     showFeedback("손에 든 소품을 내려놓았어요.");
@@ -224,6 +276,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (!seated) return;
     position = seated.approach;
     seated = null;
+    sharedPose = "relaxed";
   }
 
   function interactionInView() {
@@ -232,7 +285,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (!getInteractionTargets) return null;
     sight.origin.copy(camera.position);
     camera.getWorldDirection(sight.direction);
-    return aimedInteraction(getInteractionTargets(), position, sight, getRoom());
+    const targets = getInteractionTargets();
+    return aimedInteraction(realtime ? targets.map((target) => sharedInteractionTarget(target, realtime.store.getState())).filter(Boolean) : targets.filter((target) => !target.sharedOnly), position, sight, getRoom());
   }
 
   function interactionAtPointer(event) {
@@ -240,7 +294,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
     pointerNdc.set((event.clientX - left) / width * 2 - 1, 1 - (event.clientY - top) / height * 2);
     cameraRay.setFromCamera(pointerNdc, camera);
-    return aimedInteraction(getInteractionTargets(), position, cameraRay.ray, getRoom());
+    const targets = getInteractionTargets();
+    return aimedInteraction(realtime ? targets.map((target) => sharedInteractionTarget(target, realtime.store.getState())).filter(Boolean) : targets.filter((target) => !target.sharedOnly), position, cameraRay.ray, getRoom());
   }
 
   function interact(target = interactionInView()) {
@@ -249,12 +304,20 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       return;
     }
     if (seated) {
+      if (realtime) { sharedCommand({ action: "STAND" }); return; }
       stand();
       syncCamera();
       return;
     }
     if (!target) return;
+    if (realtime && target.sharedItem) { sharedCommand({ action: "PICKUP", itemId: target.itemId }); return; }
     if (target.seat) {
+      if (realtime) {
+        const slot = availableSeat(target, position, realtime.store.getState());
+        if (slot === undefined) { showFeedback("빈자리가 없어요."); return; }
+        sharedCommand({ action: "SIT", assetId: target.id, slot });
+        return;
+      }
       const seat = nearestSeat(target, position, getRoom());
       if (!seat) {
         showFeedback("이쪽에서 닿을 수 있는 빈자리가 없어요.");
@@ -272,7 +335,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     } else if (target.feature) {
       if (target.feature !== "light") pauseWalk();
       onInteract?.(target);
-    }
+    } else if (realtime && target.hint) showFeedback(target.hint);
   }
 
   function closeInteraction() {
@@ -282,15 +345,23 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
 
   function chooseInteraction(selection) {
-    const choices = seated ? SEATED_CHOICES : menu?.choices;
+    const choices = seated ? sharedPoseChoices() : menu?.choices;
     const choice = typeof selection === "number" ? choices?.[selection] : choices?.find(({ id }) => id === selection);
     if (!acceptsInput() || !choice) return;
     const { id } = choice;
     const target = menu?.target;
     menu = null;
+    if (realtime) {
+      if (seated) sharedCommand({ action: "POSE", pose: id });
+      else if (choice.command?.action === "CAPTURE") onCapture?.();
+      else if (choice.command) sharedCommand(choice.command);
+      syncCamera(); publishInteraction();
+      return;
+    }
     if (seated) {
       if (id === "empty") setHeld(null);
       else if (id !== "cup" || !held || held === "book" || held === "cookie") setHeld(id);
+      sharedPose = id === "cup" ? "drinking" : "relaxed";
     } else if (target.carry) {
       setHeld(id);
       showFeedback(choice.label + " 준비했어요.");
@@ -300,10 +371,12 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     syncCamera();
     publishInteraction();
+    if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
   }
 
   function jump() {
     if (jumpHeight || jumpVelocity) return;
+    if (realtime && seated) { sharedCommand({ action: "STAND" }); return; }
     stand();
     jumpVelocity = JUMP_SPEED;
     if (!frame) frame = requestAnimationFrame(tick);
@@ -341,19 +414,33 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (!active() || disposed) return;
     const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
     const floorHeight = position.y || 0;
-    const location = seated?.position || position;
-    const nextMascotKey = playerAppearance ? null : [avatarColor, Boolean(seated), held].join(":");
+    const translating = [...keys].some((key) => WALK_KEYS.has(key) || key === "ArrowUp" || key === "ArrowDown") || Boolean(approaching || walkStep) || stepUntil > 0;
+    const locomotion = jumpHeight ? "jumping" : translating ? sprintKeys.size ? "running" : "walking" : "idle";
+    const fit = seated ? fitSeatedAvatar(seated.item, seated) : null;
+    const location = fit?.position ?? position;
+    const now = performance.now();
+    const time = realtime?.store.serverNow() ?? now;
+    const greeting = serverEmote?.expiresAt > time;
+    const appearance = sharedAppearance === undefined ? playerAppearance : sharedAppearance;
+    const nextMascotKey = appearance ? null : [avatarColor, Boolean(seated), held, greeting].join(":");
     if (!avatar || mascotKey !== nextMascotKey) {
       disposeAvatar();
-      avatar = playerAppearance ? new THREE.Group() : createMascot({ color: avatarColor, pose: seated ? "seated" : "standing", held });
-      if (playerAppearance) avatar.name = "player-avatar";
+      avatar = appearance ? new THREE.Group() : createMascot({ color: avatarColor, pose: seated ? "seated" : greeting ? "greeting" : "standing", held });
+      if (appearance) avatar.name = "player-avatar";
+      else avatar.traverse((object) => prepareAvatarMaterial(object.material));
       mascotKey = nextMascotKey;
       scene.add(avatar);
     }
     avatar.position.set(location.x, (location.y || 0) + jumpHeight, location.z);
+    avatar.scale.setScalar(fit?.scale ?? 1);
     avatar.rotation.y = Math.PI - (seated?.yaw ?? yaw);
+    if (!appearance) {
+      animateMascot(avatar, seated ? "idle" : locomotion, time);
+      const hand = avatar.getObjectByName("greeting-hand");
+      if (hand) hand.rotation.z = 0.21 + Math.sin(time / 140) * 0.35;
+    }
     avatar.visible = view === "thirdPerson";
-    const eye = new THREE.Vector3(location.x, (location.y || 0) + jumpHeight + (seated ? 1.16 : PLAYER.eyeHeight), location.z);
+    const eye = new THREE.Vector3(location.x, (location.y || 0) + jumpHeight + (fit ? 1.16 * fit.scale : PLAYER.eyeHeight), location.z);
     if (view === "firstPerson") {
       camera.position.copy(eye);
       camera.lookAt(eye.clone().add(new THREE.Vector3(forward.x * Math.cos(pitch), Math.sin(pitch), forward.z * Math.cos(pitch))));
@@ -386,14 +473,16 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       avatar.visible = distance > 0.8;
     }
     camera.updateMatrixWorld();
+    const lift = cupLiftAmount(cupLift, Boolean(seated && sharedPose === "drinking" && isCup(held)), now, reduceMotion?.matches);
+    cupLiftMoving = now < cupLift.until;
     let hands;
-    if (playerAppearance && avatar.visible) {
-      customAvatar ??= createWalkingCharacters(avatar, 1);
-      // A prop picked up in the room takes the place of the avatar's equipped hand item.
-      const appearance = held && playerAppearance.handheld !== "none" ? { ...playerAppearance, handheld: "none" } : playerAppearance;
-      hands = customAvatar.draw(0, { appearance }, avatarOrigin, WALK_AVATAR_SCALE, {
-        seated: Number(Boolean(seated)), stride: jumpHeight ? 0 : stride,
-        ...(held === "book" ? BOOK_POSE : held ? CARRY_POSE : {})
+    if (appearance && avatar.visible) {
+      if (!customAvatar) {
+        customAvatar = createWalkingCharacters(avatar, 1);
+        for (const mesh of customAvatar.pickMeshes) prepareAvatarMaterial(mesh.material);
+      }
+      hands = drawClubhouseAvatar(customAvatar, 0, appearance, avatarOrigin, 1, 0, {
+        seated: Boolean(seated), locomotion, stride, held, lift, greeting, time,
       });
     }
     if (prop) {
@@ -401,21 +490,25 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       prop.visible = true;
       if (view === "firstPerson") {
         const book = held === "book";
-        prop.position.set(book ? 0 : 0.27, -0.23, -0.68).applyQuaternion(camera.quaternion).add(camera.position);
+        prop.position.set(book ? 0 : 0.27 - 0.13 * lift, -0.23 + 0.16 * lift, -0.68 + 0.17 * lift)
+          .applyQuaternion(camera.quaternion).add(camera.position);
         prop.quaternion.copy(camera.quaternion);
         if (book) prop.rotateX(0.42);
+        if (lift) prop.rotateZ(0.18 * lift);
       } else {
         prop.visible = avatar.visible;
         if (hands) {
-          prop.position.copy(hands.rightHand);
-          if (held === "book") prop.position.lerp(hands.leftHand, 0.5);
-          prop.position.y += 0.04;
-        } else {
-          prop.position.set(held === "book" ? 0 : 0.24, seated ? 0.44 : 0.66, held === "book" ? 0.37 : 0.35)
-            .applyQuaternion(avatar.quaternion).add(avatar.position);
+          placeAvatarProp(prop, hands, held, avatar.scale.x);
+          prop.quaternion.copy(avatar.quaternion);
+        } else if (!appearance) {
+          const grip = poseMascotGrip(avatar, held, Boolean(seated), lift);
+          grip.getWorldPosition(prop.position);
+          grip.getWorldQuaternion(prop.quaternion);
         }
-        prop.quaternion.copy(avatar.quaternion);
       }
+      const size = (held === "cookie" ? Math.max(0.2, Math.sqrt(prop.userData.remaining ?? 1)) : 1);
+      prop.scale.setScalar(size * (view === "firstPerson" ? 1 : avatar.scale.x));
+      firstPersonGrip.scale.setScalar(1 / size);
     }
     const next = interactionInView();
     highlightInteraction(next);
@@ -425,12 +518,17 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     const zone = roomZoneAt(position.x, position.z, getRoom(), floorHeight);
     if (zone !== lastZone) { lastZone = zone; onPosition?.({ ...position, zone }); }
+    if (realtime && !applyingServer && !seated) {
+      realtime.connection.move({ x: position.x, y: floorHeight + jumpHeight, z: position.z, yaw, locomotion }, lastLocomotion !== locomotion && locomotion === "idle");
+      lastLocomotion = locomotion;
+    }
     render(moving);
   }
 
   const seatedTarget = { id: "current-seat", label: "일어서기", action: "space_seat_stand" };
 
   function move(forward, sideways, distance) {
+    if (realtime && seated) { sharedCommand({ action: "STAND" }); return; }
     stand();
     const length = Math.hypot(forward, sideways) || 1;
     position = moveWalker(position, {
@@ -442,6 +540,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   function tick(time) {
     frame = 0;
     if (!acceptsInput() || !hasMotion() || disposed) return;
+    if (time >= stepUntil) stepUntil = 0;
     const elapsed = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
     lastTime = time;
     const { x: beforeX, z: beforeZ } = position;
@@ -467,19 +566,24 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     yaw += (has("ArrowRight") - has("ArrowLeft")) * elapsed * 1.7;
     const forward = has("KeyW") + has("ArrowUp") - has("KeyS") - has("ArrowDown");
     const sideways = has("KeyD") - has("KeyA");
-    if (forward || sideways) move(forward, sideways, PLAYER.speed * elapsed * (sprintKeys.size ? 1.7 : 1));
+    if (forward || sideways) {
+      walkStep = undefined;
+      move(forward, sideways, PLAYER.speed * elapsed * (sprintKeys.size ? 1.7 : 1));
+    } else if (walkStep) {
+      const distance = Math.min(walkStep.remaining, PLAYER.speed * elapsed);
+      move(...walkStep.direction, distance);
+      walkStep.remaining -= distance;
+      if (walkStep.remaining <= 0 || (position.x === beforeX && position.z === beforeZ)) walkStep = undefined;
+    }
     if (jumpVelocity || jumpHeight) {
       jumpHeight = Math.max(0, jumpHeight + jumpVelocity * elapsed - GRAVITY * elapsed ** 2 / 2);
       jumpVelocity = jumpHeight ? jumpVelocity - GRAVITY * elapsed : 0;
     }
-    const moving = hasMotion();
-    if (playerAppearance) {
-      const distance = Math.hypot(position.x - beforeX, position.z - beforeZ);
-      walkPhase += distance * 5 / PLAYER.speed;
-      stride = moving && distance > 0.001 ? Math.sin(walkPhase) : 0;
-    }
-    syncCamera(true);
-    if (moving) frame = requestAnimationFrame(tick);
+    const distance = Math.hypot(position.x - beforeX, position.z - beforeZ);
+    walkPhase += distance * 5 / PLAYER.speed;
+    stride = distance > 0.001 ? Math.sin(walkPhase) : 0;
+    syncCamera(keys.size > 0 || Boolean(approaching || walkStep) || jumpHeight > 0);
+    if (hasMotion()) frame = requestAnimationFrame(tick);
     else lastTime = 0;
   }
 
@@ -505,6 +609,12 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       event.preventDefault();
       if (!event.repeat) putAway();
       return;
+    }
+    if (realtime && event.code === "KeyG" && held) {
+      event.preventDefault(); if (!event.repeat && portableDefinition(held)?.throwable) heldAction("THROW"); return;
+    }
+    if (realtime && event.code === "KeyH") {
+      event.preventDefault(); if (!event.repeat) sharedCommand({ action: "EMOTE", kind: "wave" }); return;
     }
     if ((menu || seated) && /^[1-9]$/.test(event.key)) {
       event.preventDefault();
@@ -546,16 +656,10 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (playMode && (keys.size || sprintKeys.size) && !container.contains(event.target) && !isPlayHudTarget(event.target)) stop();
   }
   function onKeyUp(event) {
-    const wasMoving = hasMotion();
+    const wasPressed = sprintKeys.has(event.code) || keys.has(event.code);
     sprintKeys.delete(event.code);
     keys.delete(event.code);
-    if (!hasMotion()) {
-      cancelAnimationFrame(frame); frame = 0; lastTime = 0;
-      if (stride) {
-        stride = 0;
-        syncCamera();
-      } else if (wasMoving) render(false);
-    }
+    if (!hasMotion()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; stride = 0; if (wasPressed) syncCamera(); }
   }
   function look(dx, dy) {
     if (!dx && !dy) return;
@@ -591,12 +695,50 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   return {
     camera, active,
     isMoving: hasMotion,
+    setRealtime(value) {
+      if (realtime && !value) { stand(); setHeld(null); heldItemId = null; serverEmote = null; sharedPose = "relaxed"; appliedEpoch = null; }
+      if (realtime !== value) sharedAppearance = undefined;
+      realtime = value;
+    },
+    applyRealtimeState(state) {
+      const actor = state.participants.find((entry) => entry.memberId === state.selfId);
+      if (!actor || !realtime) return;
+      applyingServer = true;
+      const reset = state.type === "ROOM_SNAPSHOT" || appliedEpoch !== state.roomEpoch || appliedRevision !== state.layoutRevision ||
+        actor.seat?.assetId !== seated?.item?.id || actor.seat?.slot !== seated?.slot;
+      const distance = Math.hypot(actor.position.x - position.x, actor.position.z - position.z);
+      if (reset || (state.type === "MOVEMENT_FRAME" && distance > 1.25)) {
+        approaching = null;
+        walkStep = undefined;
+        seated = actor.seat ? { ...actor.seat, item: getRoom()?.items.find((item) => item.id === actor.seat.assetId) } : null;
+        position = { ...(actor.seat?.approach ?? actor.position) };
+        yaw = actor.yaw;
+        if (actor.locomotion !== "jumping") { jumpHeight = 0; jumpVelocity = 0; }
+      }
+      appliedRevision = state.layoutRevision; appliedEpoch = state.roomEpoch;
+      heldItemId = actor.heldItemId;
+      const sharedItem = state.items.find((item) => item.id === heldItemId);
+      setHeld(sharedItem?.kind ?? null);
+      if (prop) {
+        prop.userData.remaining = sharedItem.remaining;
+        const liquid = prop.getObjectByName("cup-liquid");
+        if (liquid) liquid.position.y = 0.04 + sharedItem.remaining * 0.112;
+      }
+      sharedPose = actor.pose;
+      if (reset) cupLiftAmount(cupLift, Boolean(seated && sharedPose === "drinking" && isCup(held)), performance.now(), true);
+      serverEmote = actor.emote;
+      avatarColor = actor.avatarColor;
+      sharedAppearance = actor.avatarAppearance;
+      if (menu) menu = { target: menu.target, choices: sharedInteractionTarget(menu.target, state)?.choices ?? [] };
+      syncCamera(); publishInteraction();
+      applyingServer = false;
+      if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
+    },
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
     },
     setPlayerAppearance(value) {
       playerAppearance = readAvatarAppearance(value);
-      if (!playerAppearance && customAvatar) disposeAvatar();
       if (active()) syncCamera();
     },
     setInputBlocked(blocked) {
@@ -664,12 +806,28 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (!acceptsInput()) return;
       if (action === "interact") { interact(); return; }
       if (action === "putAway") { putAway(); return; }
+      if (action === "throw") { heldAction("THROW"); return; }
+      if (action === "consume") { heldAction("CONSUME"); return; }
+      if (action === "capture") { onCapture?.(); return; }
+      if (action === "greet") { sharedCommand({ action: "EMOTE", kind: "wave" }); return; }
       if (action === "cancelInteraction") { closeInteraction(); return; }
       if (menu || approaching) return;
       if (action === "lockPointer") { lockPointer(); return; }
       if (action === "jump") { jump(); return; }
       const steps = { forward: [1, 0], backward: [-1, 0], left: [0, -1], right: [0, 1] };
-      if (steps[action]) move(...steps[action], 0.8);
+      if (steps[action]) {
+        if (realtime && !seated) {
+          walkStep = { direction: steps[action], remaining: 0.8 };
+          if (!frame) frame = requestAnimationFrame(tick);
+          return;
+        }
+        const previous = position;
+        move(...steps[action], 0.8);
+        if (previous.x !== position.x || previous.z !== position.z) {
+          stepUntil = performance.now() + 280;
+          if (!frame) frame = requestAnimationFrame(tick);
+        }
+      }
       if (action === "turnLeft") yaw -= Math.PI / 9;
       if (action === "turnRight") yaw += Math.PI / 9;
       if (action === "lookUp") pitch = Math.min(1.1, pitch + 0.18);
@@ -679,6 +837,11 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     },
     onDown(event) {
       if (!active()) return false;
+      if (realtime && acceptsInput() && event.button === 0 && held && !menu && !approaching &&
+        (pointerLocked || hoverLook)) {
+        if (portableDefinition(held)?.consumable) { heldAction("CONSUME"); return true; }
+        if (portableDefinition(held)?.camera) { onCapture?.(); return true; }
+      }
       if (!acceptsInput() || menu || approaching || pointerLocked) return true;
       container.focus({ preventScroll: true });
       const target = event.button === 0 ? interactionAtPointer(event) : null;

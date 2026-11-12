@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
+import { fetchGroupSpace } from "../../features/group-space/api.js";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
 import { LOUNGE_LOFT_VERSION } from "./roomLayout.js";
 import { LOUNGE_LOFT_WRITES_ENABLED, createInitialRoom, readSavedRoom, validateRoom } from "./roomState.js";
@@ -22,13 +23,35 @@ function SpaceError({ error, groupId, onRetry, clubhouse }) {
   </div>;
 }
 
-function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) {
-  const [initial] = useState(initialRoom);
-  const [canEdit, setCanEdit] = useState(snapshot.canEdit && (LOUNGE_LOFT_WRITES_ENABLED || initialRoom.version !== LOUNGE_LOFT_VERSION));
+function canEditRoom(snapshot, room) {
+  return snapshot.canEdit && (LOUNGE_LOFT_WRITES_ENABLED || room.version !== LOUNGE_LOFT_VERSION);
+}
+
+function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse }) {
+  const [layout, setLayout] = useState({ room: initialRoom, revision: snapshot.revision });
+  const reloadPending = useRef(false);
+  const [layoutError, setLayoutError] = useState(null);
+  const [canEdit, setCanEdit] = useState(canEditRoom(snapshot, initialRoom));
   const [savedAt, setSavedAt] = useState(snapshot.updatedAt);
   const revision = useRef(snapshot.revision);
   const saving = useRef(false);
   const mutation = useSaveGroupSpace(groupId);
+
+  const reloadLayout = useCallback(async () => {
+    if (reloadPending.current) return;
+    reloadPending.current = true;
+    try {
+      const response = await fetchGroupSpace(groupId);
+      const room = response.room === null ? { ...createInitialRoom(), name: group.name.slice(0, 30) } : readSavedRoom(response.room);
+      if (!room) throw new Error("새 공간 배치를 읽지 못했어요.");
+      setLayoutError(null);
+      if (response.revision > revision.current) {
+        revision.current = response.revision;
+        setLayout({ room, revision: response.revision }); setSavedAt(response.updatedAt); setCanEdit(canEditRoom(response, room));
+      }
+    } catch (error) { setLayoutError(error.message || "새 배치를 불러오지 못했어요."); }
+    finally { reloadPending.current = false; }
+  }, [groupId, group.name]);
 
   async function save(room) {
     if (!canEdit) throw new Error("모임장만 공간을 꾸밀 수 있어요.");
@@ -43,8 +66,9 @@ function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) 
         throw new Error("서버의 저장 결과를 확인하지 못했어요. 편집 내용은 그대로 있어요. 공간을 다시 열어 확인해 주세요.");
       }
       revision.current = response.revision;
+      setLayout({ room: saved, revision: response.revision });
       setSavedAt(response.updatedAt);
-      setCanEdit(response.canEdit);
+      setCanEdit(canEditRoom(response, saved));
       return saved;
     } catch (error) {
       if (error?.code === "GROUP_SPACE_CONFLICT") {
@@ -61,7 +85,7 @@ function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) 
     }
   }
 
-  return <SpaceStudioPage clubhouse={clubhouse} initialRoom={initial} onSave={save} canEdit={canEdit} savedAt={savedAt}
+  return <SpaceStudioPage clubhouse={clubhouse} initialRoom={layout.room} layoutRevision={layout.revision} memberId={memberId} onLayoutChange={reloadLayout} layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
     groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
       backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />;
 }
@@ -95,7 +119,7 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse }) {
   }
   if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} />;
   if (!hasLoaded) setHasLoaded(true);
-  return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId}
+  return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId} memberId={memberId}
     clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} />;
 }
 

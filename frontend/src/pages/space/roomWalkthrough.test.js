@@ -800,3 +800,66 @@ test("E toggles asset menus, numbers choose drinks or garden actions and R clear
     walk.dispose();
   }
 });
+
+test("shared pickup waits for authority and a removed seat restores the server safe position", async () => {
+  const scene = new THREE.Scene();
+  const container = document.createElement("div"); container.tabIndex = 0; document.body.append(container);
+  const room = { ...createInitialRoom(), items: [{ id: "sofa", kind: "sofa", x: 0, z: 0, rotation: 0 }] };
+  const command = jest.fn().mockRejectedValue(new Error("연결을 확인해 주세요"));
+  const actor = { memberId: "1", avatarColor: "#536bd6", position: { x: 0, y: 0, z: 8 }, yaw: 0, locomotion: "idle",
+    seat: null, heldItemId: null, emote: null, pose: "relaxed" };
+  let state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor], items: [], assets: {} };
+  const runtime = { connection: { command, move: jest.fn() }, store: { getState: () => state, serverNow: () => 1000 } };
+  const walk = createWalkthrough(scene, container, { getRoom: () => room, getObstacles: () => [], render: jest.fn() });
+  try {
+    walk.update("thirdPerson", "#536bd6"); walk.setRealtime(runtime); walk.applyRealtimeState(state);
+    walk.command("greet"); await Promise.resolve(); await Promise.resolve();
+    expect(command).toHaveBeenCalledWith({ action: "EMOTE", kind: "wave" });
+    expect(scene.getObjectByName("greeting-hand")).toBeUndefined();
+    state = { ...state, type: "ROOM_STATE", participants: [{ ...actor, heldItemId: "cookie", seat: { assetId: "sofa", slot: 0,
+      position: { x: -.81, y: .335, z: .33 }, approach: { x: 0, y: 0, z: 2 }, yaw: Math.PI } }],
+      items: [{ id: "cookie", kind: "cookie", remaining: .5 }] };
+    walk.applyRealtimeState(state);
+    expect(scene.getObjectByName("walk-prop")).toBeDefined();
+    expect(scene.getObjectByName("mascot").position.y).toBeCloseTo(.381);
+    state = { ...state, layoutRevision: 2, participants: [{ ...actor, position: { x: 2, y: 0, z: 8 } }], items: [] };
+    walk.applyRealtimeState(state);
+    expect(scene.getObjectByName("mascot").position.toArray()).toEqual([2, 0, 8]);
+    expect(scene.getObjectByName("walk-prop")).toBeUndefined();
+  } finally { walk.dispose(); }
+});
+
+test("rapid shared direction clicks move at walking speed and end at idle", () => {
+  const { walk } = setup();
+  const move = jest.fn();
+  const state = { participants: [], items: [], assets: {} };
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.setRealtime({ connection: { move }, store: { getState: () => state, serverNow: () => 1000 } });
+    const start = walk.camera.position.z;
+    for (let click = 0; click < 6; click += 1) walk.command("forward");
+    expect(walk.camera.position.z).toBe(start);
+    advance(16);
+    expect(start - walk.camera.position.z).toBeCloseTo(PLAYER.speed / 60);
+    for (let time = 32; time <= 320; time += 16) advance(time);
+    expect(start - walk.camera.position.z).toBeCloseTo(0.8);
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+  } finally { walk.dispose(); }
+});
+
+test("shared movement ends with idle and looking around does not report walking", () => {
+  const { walk, container } = setup();
+  const move = jest.fn();
+  const state = { participants: [], items: [], assets: {} };
+  const realtime = { connection: { move }, store: { getState: () => state, serverNow: () => 1000 } };
+  try {
+    walk.update("firstPerson", "#536bd6"); walk.setRealtime(realtime);
+    walk.command("turnRight");
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), false);
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW", bubbles: true }));
+    advance(100); advance(200);
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "walking" }), false);
+    container.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW", bubbles: true }));
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+  } finally { walk.dispose(); }
+});

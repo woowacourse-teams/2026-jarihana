@@ -1,3 +1,5 @@
+import { useRoomRealtime } from "../../features/group-space/realtime/useRoomRealtime.js";
+import { RoomPhotoDialog } from "./RoomPhotoDialog.jsx";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
@@ -165,15 +167,20 @@ function AtmosphereColor({ field, label, value, action, codeAction, onStart, onP
   </div>;
 }
 
-export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function SpaceStudioPage({ initialRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
   const Root = clubhouse ? "section" : "main";
+  const sharedRequested = Boolean(groupContext && !webPreview && !canEdit);
+  const { runtime: roomRealtime, status: realtimeStatus } = useRoomRealtime({ groupId: groupContext?.id, memberId, enabled: sharedRequested, layoutRevision, onLayoutChange });
+  const shared = sharedRequested && realtimeStatus.error?.code !== "REALTIME_DISABLED";
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
   const { openMusic } = useGroupMusic();
   const [initial] = useState(() => initialRoom ? { room: initialRoom, warning: "" } : readInitialRoom());
   const [history, dispatch] = useReducer(historyReducer, { past: [], present: initial.room, future: [] });
   const [savedRoom, setSavedRoom] = useState(initial.room);
+  const [pendingLayout, setPendingLayout] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [category, setCategory] = useState(null);
   const [hudHidden, setHudHidden] = useState(false);
@@ -186,7 +193,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     setSceneReady(status === "ready");
     onSceneStatus?.(status);
   }, [onSceneStatus]);
-  const walkInputBlocked = playMode && Boolean(clubhouse.inputBlocked || playOverlayOpen);
+  const walkInputBlocked = playMode && Boolean(clubhouse.inputBlocked || playOverlayOpen || capturedPhoto);
   const [generalLighting, setGeneralLighting] = useState(true);
   const hudToggle = useRef(null);
   const [assetCollection, setAssetCollection] = useState("all");
@@ -240,22 +247,23 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const noticeFocusPending = useRef(false);
   const [gestureDirty, setGestureDirty] = useState(false);
   const room = history.present;
+  const visibleRoom = shared ? pendingLayout ?? savedRoom : room;
   const announcementText = clubhouse?.announcementText;
   const defaultOutdoorMode = groupContext ? "live" : "custom";
-  const outdoors = room.atmosphere.outdoors ?? { ...DEFAULT_OUTDOORS, mode: defaultOutdoorMode };
+  const outdoors = visibleRoom.atmosphere.outdoors ?? { ...DEFAULT_OUTDOORS, mode: defaultOutdoorMode };
   const { mode: outdoorMode, phase: fixedPhase, weather: fixedWeather } = outdoors;
   const live = useLiveOutdoors(outdoorMode === "live");
   const outdoorLight = useMemo(() => outdoorMode === "fixed"
     ? fixedOutdoors({ phase: fixedPhase, weather: fixedWeather }) : live, [outdoorMode, fixedPhase, fixedWeather, live]);
-  const canvasRoom = useMemo(() => announcementText === undefined ? room : { ...room, notice: announcementText },
-    [room, announcementText]);
+  const canvasRoom = useMemo(() => announcementText === undefined ? visibleRoom : { ...visibleRoom, notice: announcementText },
+    [visibleRoom, announcementText]);
   const onActivityLinksChange = clubhouse?.onActivityLinksChange;
   useEffect(() => {
-    onActivityLinksChange?.(room.items.filter((item) => item.kind === "memory" && item.link).map((item) => item.link));
-  }, [room.items, onActivityLinksChange]);
+    onActivityLinksChange?.(visibleRoom.items.filter((item) => item.kind === "memory" && item.link).map((item) => item.link));
+  }, [visibleRoom.items, onActivityLinksChange]);
   const onBackdropChange = clubhouse?.onBackdropChange;
-  const backgroundColor = outdoorLight ? roomSkyColor(outdoorLight) : room.atmosphere.backgroundColor;
-  const backgroundStyle = outdoorLight ? "sky" : room.atmosphere.backgroundStyle;
+  const backgroundColor = outdoorLight ? roomSkyColor(outdoorLight) : visibleRoom.atmosphere.backgroundColor;
+  const backgroundStyle = outdoorLight ? "sky" : visibleRoom.atmosphere.backgroundStyle;
   useEffect(() => { onBackdropChange?.(backgroundColor, backgroundStyle, outdoorLight); },
     [onBackdropChange, backgroundColor, backgroundStyle, outdoorLight]);
   const climbing = room.template === "climbing";
@@ -269,6 +277,15 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const selected = room.items.find((item) => item.id === selectedId);
   const selectedType = CATALOG.find((item) => item.kind === selected?.kind);
   const dirty = JSON.stringify(room) !== JSON.stringify(savedRoom);
+  const [receivedRoom, setReceivedRoom] = useState(initialRoom);
+  if (initialRoom && initialRoom !== receivedRoom) {
+    setReceivedRoom(initialRoom);
+    if (dirty) setPendingLayout(initialRoom);
+    else {
+      setSavedRoom(initialRoom);
+      dispatch({ type: "reset", room: initialRoom }); setPendingLayout(null);
+    }
+  }
   const onDirtyChange = clubhouse?.onDirtyChange;
   useEffect(() => { onDirtyChange?.(dirty, saving); }, [dirty, saving, onDirtyChange]);
   const onHudHiddenChange = clubhouse?.onHudHiddenChange;
@@ -632,7 +649,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
         normalized = validateRoom(normalized);
         if (!normalized) throw new Error("저장 응답을 확인하지 못했어요. 편집 내용은 그대로 있어요.");
       } else normalized = saveRoom(window.localStorage, draft);
-      setSavedRoom(normalized);
+      setSavedRoom(normalized); setPendingLayout(null);
       currentRoom.current = normalized;
       dispatch({ type: "reset", room: normalized });
       announce(onSave ? "우리 모임 공간을 저장했어요." : "이 브라우저에 공간을 저장했어요.", false, 3500);
@@ -650,8 +667,10 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
     atmosphereGesture.current = null;
     setGestureDirty(false);
     cancelPhotoRequest();
-    currentRoom.current = savedRoom;
-    dispatch({ type: "reset", room: savedRoom });
+    const restored = pendingLayout ?? savedRoom;
+    setPendingLayout(null); setSavedRoom(restored);
+    currentRoom.current = restored;
+    dispatch({ type: "reset", room: restored });
     setSelectedId(savedRoom.items.find((item) => item.kind === "sofa")?.id ?? null);
     setFloorView("all");
     setPlacementArea("building");
@@ -706,6 +725,10 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   }
 
   function toggleGeneralLighting() {
+    if (shared) {
+      roomRealtime.connection.command({ action: "TOGGLE", assetId: ROOM_LIGHT_SWITCH_ID }).catch((error) => announce(error.message, true));
+      return;
+    }
     setGeneralLighting((enabled) => !enabled);
   }
 
@@ -894,6 +917,13 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
 
       <section className={`space-studio__stage${!walking && canEdit && category === "atmosphere" ? " space-studio__stage--atmosphere" : ""}`}
         aria-label="공간 배치" aria-busy={templateSwitching || undefined} data-background-style={backgroundStyle}>
+        {shared && realtimeStatus.status === "connected" && realtimeStatus.layoutRevision !== layoutRevision && <p className="room-canvas__connection-notice" role="status">새 가구 배치를 불러오고 있어요…</p>}
+        {pendingLayout && <p className="room-canvas__connection-notice" role="status">다른 곳에서 배치가 저장됐어요. 편집 내용은 유지했어요. 취소하면 새 배치를 불러와요.</p>}
+        {shared && (layoutError || realtimeStatus.status === "error") && <div className="room-canvas__connection-notice" role="alert">
+          <p>{layoutError || (realtimeStatus.error?.code === "LAYOUT_UPGRADE_REQUIRED" ? "모임장이 현재 배치를 한 번 저장하면 함께 이용할 수 있어요." : realtimeStatus.error?.message || "공간에 연결하지 못했어요.")}</p>
+          <button type="button" data-ph-capture-attribute-action="space_connection_retry" onClick={() => { onLayoutChange?.(); roomRealtime.connection.stop(); roomRealtime.connection.start(); }}>다시 연결</button>
+        </div>}
+        {capturedPhoto && <RoomPhotoDialog file={capturedPhoto} group={groupContext} onClose={() => setCapturedPhoto(null)} />}
         {!clubhouse && <RoomSky outdoors={outdoorLight} />}
         <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
           onInvalid={invalidPlacement} interactive={!clubhouse?.cameraFlight && !clubhouse?.orientationBlocked && !templateSwitching} view={webPreview ? "front" : view} previewExterior={clubhouse?.previewExterior} previewWideAngle={clubhouse?.previewWideAngle} zoom={webPreview ? 1 : zoom} cameraReset={cameraReset} onZoomChange={setZoom} floorView={webPreview || (clubhouse && exterior) ? "all" : activeFloorView} onThumbnails={canEdit && !templateSwitching && (category === "furniture" || category === "memories") ? setThumbnails : undefined}
@@ -901,7 +931,8 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           onExitWalk={playMode ? undefined : () => changeView("perspective")} onWalkPosition={playMode ? undefined : updateWalkPosition}
           playMode={playMode} walkInputBlocked={walkInputBlocked} preserveWalkPose={Boolean(clubhouse && !webPreview)}
           studioWideAngle={canEdit && clubhouse ? studioWideAngle : 0} studioCameraTurn={studioCameraTurn}
-          onStatusChange={updateSceneStatus}
+          onStatusChange={updateSceneStatus} realtime={shared ? roomRealtime : null} realtimeStatus={realtimeStatus}
+          onCapture={setCapturedPhoto} onSharedLighting={setGeneralLighting}
           avatarAppearance={clubhouse?.avatarAppearance} activityExhibit={clubhouse?.activityExhibit} speechMessages={clubhouse?.speechMessages} greetingMembers={clubhouse?.greetingMembers} cameraFlight={clubhouse?.cameraFlight}
           generalLighting={generalLighting} onTemplateTransition={setTemplateSwitching} />
 

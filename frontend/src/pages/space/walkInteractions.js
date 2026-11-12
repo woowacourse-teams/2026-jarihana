@@ -3,15 +3,8 @@ import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } fr
 import { boundsForBox, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition, moveWalker } from "./roomNavigation";
 import { footprint } from "./roomState";
+import { capabilitiesFor } from "./roomCapabilities.js";
 
-const SEATS = {
-  sofa: [[-0.84, 0, 0.84], 0.68], clubSofa: [[-1.04, 0, 1.04], 0.64],
-  armchair: [[0], 0.66], beanbag: [[0], 0.59], roundChair: [[0], 0.62],
-  bench: [[-0.48, 0.48], 0.78], stool: [[0], 0.70], gameChair: [[0], 0.55]
-};
-const PLANTS = new Set(["plant", "leafyPlant", "propPlant", "climbingPlant", "vinePlanter"]);
-const COFFEE = new Set(["cafeCounter", "cafeCabinet"]);
-const SNACKS = new Set(["cafeCabinet", "pantryShelf", "cafeFridge", "kitchenFridge"]);
 const FEATURE_LABELS = { dashboard: "공지 읽기", activities: "활동 기록 보기", info: "모임 정보 보기", music: "음악 열기" };
 const WATER = { id: "water", label: "물 주기", action: "space_plant_water" };
 const FLOWER_CHOICES = [
@@ -35,17 +28,20 @@ export const SEATED_CHOICES = [
 export const GARDEN_CHOICES = [WATER, ...FLOWER_CHOICES];
 
 export function itemInteraction(item, elevation, occupied, room) {
-  const seat = SEATS[item.kind];
+  const definition = capabilitiesFor(item.kind);
+  const seat = definition.seats?.length ? [definition.seats.map((entry) => entry.x), definition.seats[0].y] : null;
   const feature = featureForRoomItem(item);
-  const plant = PLANTS.has(item.kind);
-  const coffee = COFFEE.has(item.kind), snacks = SNACKS.has(item.kind);
-  if ((!seat || occupied) && !feature && !plant && !coffee && !snacks) return null;
+  const plant = definition.capabilities.includes("careable");
+  const coffee = Boolean(definition.producer), snacks = definition.storage?.kinds.includes("cookie");
+  if (occupied && seat && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
+  if (!seat && !feature && !definition.capabilities.length) return null;
   const { width, depth, height, name } = footprint(item, room.version);
   return {
     id: item.id, item, name, x: item.x, z: item.z, width, depth, floor: seat ? elevation : item.level === 1 ? getRoomLayout(room).mezzanine?.height || 0 : 0,
     minY: elevation, maxY: elevation + height * (item.scaleY || 1),
     label: seat ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : "간식 고르기",
     action: seat ? "space_seat_sit" : undefined,
+    sharedOnly: !seat && !feature && !plant && !coffee && !snacks,
     feature, seat, carry: coffee || snacks,
     choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...(coffee ? DRINKS : []), ...(snacks ? SNACK_CHOICES : [])]
   };
@@ -96,8 +92,8 @@ export function aimedInteraction(targets, position, sight, room) {
 }
 
 export function nearestSeat(target, position, room) {
-  const { item, floor, seat } = target;
-  const [offsets, height] = seat;
+  const { item, floor } = target;
+  const { seats } = capabilitiesFor(item.kind);
   const angle = item.rotation * Math.PI / 2;
   const c = Math.cos(angle), s = Math.sin(angle);
   const sx = item.scaleX || 1, sy = item.scaleY || 1, sz = item.scaleZ || 1;
@@ -106,8 +102,9 @@ export function nearestSeat(target, position, room) {
   const point = (x, z) => ({ x: item.x + x * c + z * s, y: floor, z: item.z - x * s + z * c });
   const distance = (point) => Math.hypot(point.x - position.x, point.z - position.z);
   const clearance = PLAYER.radius + 0.08;
-  const seatOffsets = offsets.map((offset) => offset * sx).sort((a, b) => distance(point(a, 0)) - distance(point(b, 0)));
-  for (const x of seatOffsets) {
+  const seatOffsets = seats.map((seat, slot) => ({ x: seat.x * sx, slot }))
+    .sort((a, b) => distance(point(a.x, 0)) - distance(point(b.x, 0)));
+  for (const { x, slot } of seatOffsets) {
     const approach = [point(x, depth + clearance), point(-width - clearance, 0), point(width + clearance, 0),
       point(x, -depth - clearance)]
       .filter((candidate) => isWalkablePosition(candidate, room))
@@ -118,9 +115,10 @@ export function nearestSeat(target, position, room) {
         const reached = moveWalker(position, delta, room);
         return Math.hypot(reached.x - candidate.x, reached.z - candidate.z) < 0.04;
       });
-    if (approach) return {
-      approach, position: { ...point(x, 0.08 * sz), y: floor + height * sy - 0.34 }, yaw: Math.PI - angle
-    };
+    if (approach) {
+      const seat = seats[slot];
+      return { approach, slot, position: { ...point(x, seat.z * sz), y: floor + seat.y * sy + seat.avatarOffsetY }, yaw: Math.PI - angle };
+    }
   }
   return null;
 }

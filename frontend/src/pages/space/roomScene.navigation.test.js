@@ -44,7 +44,7 @@ jest.mock("./roomModels", () => {
     shell.add(context, ceiling, wall);
     return shell;
   },
-    createMascot: () => new Group(),
+    createMascot: () => new Group(), animateMascot: jest.fn(),
     disposeObject: jest.fn() };
 });
 jest.mock("./roomLighting", () => ({ createRoomLighting: jest.fn((scene) => {

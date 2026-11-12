@@ -417,6 +417,35 @@ test("point and spot lights skip shading outside their range or cone", () => {
   rig.dispose();
 });
 
+test.each([THREE.MeshPhysicalMaterial, THREE.MeshLambertMaterial])("%p avatars keep custom shaders and share the night light switch", (Material) => {
+  const scene = new THREE.Scene();
+  const update = createRoomLighting(scene);
+  const { building } = getRoomLayout("boardgame");
+  const night = { ...DEFAULT_ATMOSPHERE, outdoorLight: { phase: "night", weather: "clear" } };
+  update(night, scene, false, "boardgame", { building });
+
+  const material = new Material();
+  const prepareAvatar = jest.fn((shader) => { shader.vertexShader += "\n// avatar deformation"; });
+  material.onBeforeCompile = prepareAvatar;
+  material.customProgramCacheKey = () => "avatar-variant";
+  // Avatar materials can appear after the room has already been lit.
+  update.applyMaterial(material);
+  update.applyMaterial(material);
+  const base = THREE.ShaderLib[material.isMeshLambertMaterial ? "lambert" : "physical"];
+  const shader = { ...base, uniforms: {} };
+  material.onBeforeCompile(shader);
+  expect(prepareAvatar).toHaveBeenCalledTimes(1);
+  expect(material.customProgramCacheKey()).toContain("avatar-variant");
+  expect(shader.vertexShader).toContain("// avatar deformation");
+  expect(shader.fragmentShader).toContain("all(greaterThanEqual(roomPosition, roomMin))");
+  expect(shader.uniforms.roomMin.value.x).toBe(building.minX);
+  expect(shader.uniforms.roomFill.value.r).toBeGreaterThan(0);
+  update(night, scene, false, "boardgame", { building, generalLighting: false });
+  expect(shader.uniforms.roomFill.value.r).toBe(0);
+  material.dispose();
+  disposeObject(scene);
+});
+
 test("the wall switch controls the general lighting and leaves the spotlights and moonlight alone", () => {
   const scene = new THREE.Scene();
   const layout = getRoomLayout("boardgame");

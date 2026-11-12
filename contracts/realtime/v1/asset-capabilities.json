@@ -1,0 +1,590 @@
+{
+  "version": 1,
+  "items": {
+    "cup": {
+      "portable": true,
+      "throwable": true,
+      "consumable": false
+    },
+    "coffee": {
+      "portable": true,
+      "throwable": true,
+      "consumable": true,
+      "emptyKind": "cup"
+    },
+    "latte": {
+      "portable": true,
+      "throwable": true,
+      "consumable": true,
+      "emptyKind": "cup"
+    },
+    "tea": {
+      "portable": true,
+      "throwable": true,
+      "consumable": true,
+      "emptyKind": "cup"
+    },
+    "cookie": {
+      "portable": true,
+      "throwable": true,
+      "consumable": true
+    },
+    "book": {
+      "portable": true,
+      "throwable": false,
+      "consumable": false
+    },
+    "camera": {
+      "portable": true,
+      "throwable": false,
+      "consumable": false,
+      "camera": true
+    }
+  },
+  "assets": {
+    "sofa": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": -0.81,
+          "y": 0.675,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        },
+        {
+          "x": 0,
+          "y": 0.675,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        },
+        {
+          "x": 0.81,
+          "y": 0.675,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.53,
+        "maxScale": 0.88
+      }
+    },
+    "clubSofa": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": -1.04,
+          "y": 0.635,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        },
+        {
+          "x": 0,
+          "y": 0.635,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        },
+        {
+          "x": 1.04,
+          "y": 0.635,
+          "z": 0.33,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.545,
+        "maxScale": 1
+      }
+    },
+    "armchair": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": 0,
+          "y": 0.66,
+          "z": 0.34,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.51,
+        "maxScale": 0.8
+      }
+    },
+    "beanbag": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": 0,
+          "y": 0.62,
+          "z": 0.39,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.6,
+        "maxScale": 0.95
+      }
+    },
+    "roundChair": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": 0,
+          "y": 0.602,
+          "z": 0.465,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.64,
+        "maxScale": 0.87
+      }
+    },
+    "bench": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": -0.48,
+          "y": 0.78,
+          "z": 0.08,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        },
+        {
+          "x": 0.48,
+          "y": 0.78,
+          "z": 0.08,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.4,
+        "maxScale": 1
+      }
+    },
+    "stool": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": 0,
+          "y": 0.7,
+          "z": 0.08,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.325,
+        "maxScale": 1
+      }
+    },
+    "gameChair": {
+      "capabilities": [
+        "seatable"
+      ],
+      "seats": [
+        {
+          "x": 0,
+          "y": 0.548,
+          "z": 0.28,
+          "yaw": 3.141592653589793,
+          "avatarOffsetY": -0.34
+        }
+      ],
+      "seatFit": {
+        "front": 0.39,
+        "maxScale": 0.65
+      }
+    },
+    "table": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "diningTable": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "feastTable": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "gameTable": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "coffeeTable": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "cafeTable": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "kitchenIsland": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "kitchenCounter": {
+      "capabilities": [
+        "surface",
+        "storage",
+        "openable"
+      ],
+      "storage": {
+        "kinds": [
+          "cup",
+          "cookie"
+        ],
+        "capacity": 8
+      }
+    },
+    "cafeCounter": {
+      "capabilities": [
+        "producer",
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "cup"
+        ],
+        "capacity": 8
+      },
+      "producer": {
+        "kinds": [
+          "coffee",
+          "latte"
+        ],
+        "durationMs": 4000
+      }
+    },
+    "cafeCabinet": {
+      "capabilities": [
+        "producer",
+        "surface",
+        "storage",
+        "openable"
+      ],
+      "storage": {
+        "kinds": [
+          "cup",
+          "tea",
+          "cookie"
+        ],
+        "capacity": 8
+      },
+      "producer": {
+        "kinds": [
+          "coffee",
+          "latte"
+        ],
+        "durationMs": 4000
+      }
+    },
+    "cafeFridge": {
+      "capabilities": [
+        "openable",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "tea",
+          "cookie"
+        ],
+        "capacity": 8
+      }
+    },
+    "kitchenFridge": {
+      "capabilities": [
+        "openable",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "tea",
+          "cookie"
+        ],
+        "capacity": 8
+      }
+    },
+    "pantryShelf": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "cup",
+          "tea",
+          "cookie"
+        ],
+        "capacity": 8
+      }
+    },
+    "bookshelf": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "gameShelf": {
+      "capabilities": [
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "projectShelf": {
+      "capabilities": [
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "libraryShelfWood": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "libraryShelfDark": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "libraryShelfDisplay": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "cameraCabinet": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "camera"
+        ],
+        "capacity": 4
+      }
+    },
+    "studyCabinet": {
+      "capabilities": [
+        "surface",
+        "storage",
+        "openable"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "studyDesk": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "focusDesk": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "photoEditDesk": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "photoPrintBench": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "mixingDesk": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "gameCredenza": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "longCredenza": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "openDisplayShelf": {
+      "capabilities": [
+        "surface",
+        "storage"
+      ],
+      "storage": {
+        "kinds": [
+          "book"
+        ],
+        "capacity": 8
+      }
+    },
+    "worktop": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "wallShelf": {
+      "capabilities": [
+        "surface"
+      ]
+    },
+    "plant": {
+      "capabilities": [
+        "careable"
+      ],
+      "cooldownMs": 30000
+    },
+    "leafyPlant": {
+      "capabilities": [
+        "careable"
+      ],
+      "cooldownMs": 30000
+    },
+    "propPlant": {
+      "capabilities": [
+        "careable"
+      ],
+      "cooldownMs": 30000
+    },
+    "climbingPlant": {
+      "capabilities": [
+        "careable"
+      ],
+      "cooldownMs": 30000
+    },
+    "vinePlanter": {
+      "capabilities": [
+        "careable"
+      ],
+      "cooldownMs": 30000
+    },
+    "room-general-light-switch": {
+      "capabilities": [
+        "switchable"
+      ]
+    },
+    "floorLamp": {
+      "capabilities": [
+        "switchable"
+      ]
+    },
+    "stageLight": {
+      "capabilities": [
+        "switchable"
+      ]
+    },
+    "clubDashboard": {
+      "capabilities": [
+        "panelEntry"
+      ],
+      "panel": "dashboard"
+    },
+    "activityBoard": {
+      "capabilities": [
+        "panelEntry"
+      ],
+      "panel": "activities"
+    },
+    "musicConsole": {
+      "capabilities": [
+        "panelEntry"
+      ],
+      "panel": "music"
+    },
+    "memory": {
+      "capabilities": [
+        "panelEntry"
+      ],
+      "panel": "activities"
+    },
+    "photoTripod": {
+      "capabilities": [
+        "camera"
+      ]
+    }
+  }
+}
