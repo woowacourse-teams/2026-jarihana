@@ -11,7 +11,6 @@ import {
 import { useAuth } from "../../features/auth/index.js";
 import { ChatLink } from "../../features/chat/ChatLink";
 import { useGroup } from "../../features/group/index.js";
-import { clearPendingClubhouseSetup, hasPendingClubhouseSetup } from "../../features/group-space/setupProgress.js";
 import GroupClubhouse, { GroupPhotoDetail } from "./GroupClubhouse.jsx";
 import { GroupAnnouncementTab } from "./GroupAnnouncementTab.jsx";
 import { GroupRecentActivities, GroupScheduleSummary } from "./GroupDetailOverview.jsx";
@@ -81,9 +80,7 @@ function GroupDetail({ auth, groupId, memberId }) {
   const justCreatedReference = useRef(location.state?.justCreated === true);
   const toast = useToast();
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
-  const [offerSetup, setOfferSetup] = useState(() => (
-    location.state?.justCreated === true || hasPendingClubhouseSetup(groupId, memberId)
-  ));
+  const [setupDismissed, setSetupDismissed] = useState(false);
   const [invitationOpenScope, setInvitationOpenScope] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
@@ -101,13 +98,13 @@ function GroupDetail({ auth, groupId, memberId }) {
   const isArchived = group?.status === "ENDED";
   const canInvite = auth.status === "authenticated" && isApprovedMember && !isArchived;
   const invitationScope = `${groupId}:${memberId ?? "guest"}:${auth.sessionVersion ?? 0}`;
-  const setupPending = offerSetup && isLeader && !isArchived && !photoDetail;
+  const setupPending = !setupDismissed && group?.clubhouseSetupEnabled && isLeader && !isArchived && !photoDetail;
 
   useEffect(() => {
-    if (loadedGroupId && !redirectSpace && !setupPending && !recruitmentPromptOpen) {
+    if (loadedGroupId && !redirectSpace && !recruitmentPromptOpen) {
       document.getElementById("group-title")?.focus({ preventScroll: true });
     }
-  }, [loadedGroupId, recruitmentPromptOpen, redirectSpace, setupPending]);
+  }, [loadedGroupId, recruitmentPromptOpen, redirectSpace]);
 
   /* 세션은 아지트가 없어서 상세 화면이 열린 뒤 바로 모집을 안내한다. */
   useEffect(() => {
@@ -154,11 +151,7 @@ function GroupDetail({ auth, groupId, memberId }) {
   }
 
   function completeSetup() {
-    clearPendingClubhouseSetup(groupId, memberId);
-    setOfferSetup(false);
-    if (location.state?.justCreated) {
-      navigate(`${location.pathname}${location.search}${location.hash ?? ""}`, { replace: true, state: null });
-    }
+    setSetupDismissed(true);
     if (!group.activeRecruitment) setRecruitmentPromptOpen(true);
   }
 
@@ -267,7 +260,7 @@ function GroupDetail({ auth, groupId, memberId }) {
       groupId={groupId}
       isMember={Boolean(memberId && (isApprovedMember || isLeader))}
       key={invitationScope}
-      setup={setupPending ? { onComplete: completeSetup, onDismiss: () => setOfferSetup(false) } : undefined}
+      setup={setupPending ? { onComplete: completeSetup, onDismiss: () => setSetupDismissed(true) } : undefined}
     >
       {detail}
     </GroupClubhouse>

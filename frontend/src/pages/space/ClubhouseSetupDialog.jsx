@@ -13,25 +13,21 @@ import "./clubhouse-setup.css";
 
 const previews = { band, boardgame, climbing, dining, lounge, photo, study };
 
-export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave, notice }) {
+export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave }) {
   const [selected, setSelected] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
 
-  function skip() {
-    if (!inFlight.current) onComplete();
-  }
-
-  async function saveSelection() {
-    if (!selected || !onSave || inFlight.current) return;
+  async function saveSelection(template) {
+    if (!template || inFlight.current) return;
     inFlight.current = true;
     setSaving(true);
     setError("");
     try {
-      await onSave(selected);
+      await onSave(template);
     } catch {
-      setError("아지트를 저장하지 못했어요. 다시 시도하거나 기본 아지트로 시작해 주세요.");
+      setError("아지트를 저장하지 못했어요. 다시 시도해 주세요.");
       return;
     } finally {
       inFlight.current = false;
@@ -43,52 +39,50 @@ export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave, notice }) 
   return (
     <Modal
       closeAction="group_space_setup_dismiss"
-      description={onSave ? "나중에도 꾸미기에서 아지트를 바꿀 수 있어요." : notice}
+      description="나중에도 꾸미기에서 아지트를 바꿀 수 있어요."
       dismissible={!saving}
       onClose={() => { if (!inFlight.current) onDismiss(); }}
       open
       panelClassName="clubhouse-setup"
       title={<>
-        {onSave && <span className="clubhouse-setup__success" aria-hidden="true">
+        <span className="clubhouse-setup__success" aria-hidden="true">
           <Check size={18} /> 모임을 만들었어요!
-        </span>}
-        {onSave ? "어떤 아지트에서 모일까요?" : "모임을 만들었어요!"}
+        </span>
+        어떤 아지트에서 모일까요?
       </>}
     >
-      {onSave && (
-        <div aria-label="아지트 테마" className="clubhouse-setup__cards" role="group">
-          {ROOM_TEMPLATES.map(({ id, name }) => (
-            <button
-              aria-pressed={selected === id}
-              className="clubhouse-setup__card"
-              data-ph-capture-attribute-action="space_template_select"
-              disabled={saving}
-              key={id}
-              onClick={() => { setSelected(id); setError(""); }}
-              type="button"
-            >
-              <img alt="" src={previews[id]} width={384} height={351} />
-              <span>{name}</span>
-              {selected === id && <Check aria-hidden="true" className="clubhouse-setup__check" size={22} />}
-            </button>
-          ))}
-        </div>
-      )}
+      <div aria-label="아지트 테마" className="clubhouse-setup__cards" role="group">
+        {ROOM_TEMPLATES.map(({ id, name }) => (
+          <button
+            aria-pressed={selected === id}
+            className="clubhouse-setup__card"
+            data-ph-capture-attribute-action="space_template_select"
+            disabled={saving}
+            key={id}
+            onClick={() => { setSelected(id); setError(""); }}
+            type="button"
+          >
+            <img alt="" src={previews[id]} width={384} height={351} />
+            <span>{name}</span>
+            {selected === id && <Check aria-hidden="true" className="clubhouse-setup__check" size={22} />}
+          </button>
+        ))}
+      </div>
       {error && <p className="clubhouse-setup__error" role="alert">{error}</p>}
       <div className="ui-dialog__actions clubhouse-setup__actions">
-        <Button data-ph-capture-attribute-action="group_space_setup_skip" disabled={saving} onClick={skip} variant="secondary">
-          {onSave ? "기본 아지트로 시작하기" : "계속하기"}
+        <Button data-ph-capture-attribute-action="group_space_setup_skip" disabled={saving} onClick={() => saveSelection("lounge")} variant="secondary">
+          기본 아지트로 시작하기
         </Button>
-        {onSave && <Button
+        <Button
           className="clubhouse-setup__confirm"
           data-ph-capture-attribute-action="group_space_setup_confirm"
           disabled={!selected}
-          onClick={saveSelection}
+          onClick={() => saveSelection(selected)}
           pending={saving}
           pendingLabel="저장 중"
         >
           이 아지트로 시작하기
-        </Button>}
+        </Button>
       </div>
     </Modal>
   );
