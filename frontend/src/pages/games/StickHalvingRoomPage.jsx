@@ -115,12 +115,12 @@ export function StickHalvingRoomPage() {
               key={game.key}
               onFinish={(summary) => {
                 void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
-                setFinished({ key: game.key, mode: "ranked", totalScore: summary.totalScore });
+                setFinished({ key: game.key, totalScore: summary.totalScore });
               }}
               onRestart={start}
             />
             {finished?.key === game.key ? (
-              <RankingDialog board="room" onChallenge={null} onClose={() => setFinished(null)} result={finished} />
+              <RankingDialog board="room" onClose={() => setFinished(null)} result={finished} />
             ) : null}
           </section>
         ) : (

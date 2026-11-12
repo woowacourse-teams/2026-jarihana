@@ -153,6 +153,30 @@ it("starts over from the first stick with the restart button or the R key", asyn
   expect(createRankedAdapter).toHaveBeenCalledTimes(3);
 });
 
+it("shows the game room standing after five sticks, with no practice comparison", async () => {
+  openRoom();
+  asMember();
+  getStickHalvingRoomRankings.mockResolvedValue({
+    items: [{ nickname: "라온", rank: 1, totalDurationMillis: 30100, totalScore: 5000 }],
+    me: { nickname: "요크", rank: 2, totalDurationMillis: 41000, totalScore: 4000 }
+  });
+  mount(<StickHalvingRoomPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "시작하기" }));
+
+  for (let round = 1; round <= 5; round += 1) {
+    fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
+    fireEvent.click(await screen.findByRole("button", { name: round < 5 ? "다음 막대" : "최종 결과 보기" }));
+  }
+
+  const dialog = await screen.findByRole("dialog", { name: "순위 도전 결과" });
+  expect(await within(dialog).findByText((_, element) => element?.textContent?.startsWith("내 순위 2위") ?? false, {
+    selector: "p"
+  })).toBeInTheDocument();
+  expect(within(dialog).queryByText(/순위 도전이었다면/)).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: "순위 도전하러 가기" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "새 막대로 다시 도전" })).toBeInTheDocument();
+});
+
 it("asks visitors to log in and come back to the game room", async () => {
   openRoom();
   const login = jest.fn();
