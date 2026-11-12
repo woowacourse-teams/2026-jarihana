@@ -29,7 +29,7 @@ const highlights = [
     title: "놀러 가기",
     description: "1인칭이나 3인칭 시점으로 걸어 들어가 공지와 활동 기록을 보고 채팅도 열어요.",
     image: insideImage,
-    alt: "3인칭 캐릭터가 아지트 거실에 들어선 모습"
+    alt: "문이 열린 아지트 현관 옆에서 캐릭터가 손을 흔들고, 안쪽 탁자에 사람들이 둘러앉아 있는 모습"
   },
   {
     id: "music",
