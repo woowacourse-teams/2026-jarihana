@@ -40,6 +40,7 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "HomePage", path: "/" },
   { access: "public", page: "GroupsPage", path: "/home" },
   { access: "public", page: "LandingPage", path: "/land" },
+  { access: "public", page: "DemodayLandingPage", path: "/land/demoday" },
   { access: "public", page: "LandingJoinPage", path: "/land/join" },
   { access: "public", page: "LandingCreatePage", path: "/land/create" },
   { access: "public", page: "LandingSparringPage", path: "/land/sparring" },

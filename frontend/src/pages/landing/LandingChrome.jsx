@@ -171,7 +171,7 @@ function savedScrollPosition(key) {
 // 사이트에서 돌아오면 이 페이지 코드가 늦게 불려 와 ScrollRestoration이 높이가 모자란 화면에서 위치를
 // 되돌리므로 맨 위에 머문다. 그래서 본문이 그려진 뒤 저장된 위치로 한 번 더 옮긴다.
 // 처음 들어온 주소는 key가 "default"라서 해시가 있으면 그 구역을 직접 찾아간다.
-export function LandingShell({ children, rootRef }) {
+export function LandingShell({ children, footer, header, rootRef }) {
   const { hash, key, pathname } = useLocation();
   const navigationType = useNavigationType();
   useEffect(() => {
@@ -192,11 +192,11 @@ export function LandingShell({ children, rootRef }) {
       <a className="skip-link" data-ph-capture-attribute-action="skip_to_content" href="#main-content">
         본문으로 건너뛰기
       </a>
-      <LandingHeader />
+      {header ?? <LandingHeader />}
       <main id="main-content" tabIndex="-1">
         {children}
       </main>
-      <LandingFooter />
+      {footer ?? <LandingFooter />}
     </div>
   );
 }

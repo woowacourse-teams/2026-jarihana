@@ -164,7 +164,7 @@ frontend/
 header 구현으로 확대하지 않았다.
 
 - `AppShell`은 앱 route에 공통 navigation/auth state와 skip link/main landmark를 적용한다.
-  `/land`와 기능 소개 `/land/*`는 로그인 여부와 관계없이 랜딩 자체의 header/main/footer(`LandingShell`)를 사용한다. `/`는 인증 확인을 기다린 뒤 로그인 사용자를 `/home`, 그 외 상태를 `/land`로 replace 이동하며 검색 조건과 해시를 유지한다.
+  `/land`와 기능 소개 페이지는 로그인 여부와 관계없이 랜딩 자체의 header/main/footer(`LandingShell`)를 사용한다. `/`는 인증 확인을 기다린 뒤 로그인 사용자를 `/home`, 그 외 상태를 `/land`로 replace 이동하며 검색 조건과 해시를 유지한다.
 - 공통 main은 밝은 surface와 `--app-body-radius`(태블릿·데스크톱 16px, 모바일 14px)를 사용해 검은 header/footer와 맞닿는 네 모서리를 통일한다.
   바깥 shell은 검은 배경이며 `overflow: clip`은 본문 경계만 자르고 문서 스크롤과 sticky 배치를 유지한다.
 - 360–767px에서는 full-bleed header + drawer를 사용해 44px 이상 touch target을 확보한다.
@@ -179,6 +179,7 @@ header 구현으로 확대하지 않았다.
 | ------------------------------------------------------------------- | ---------------------- | ---------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `/` (비로그인) | 공개 | 인증 상태 확인 | HomePage, 검색 조건과 해시를 보존해 `/land`로 replace 이동 | auth loading, anonymous, signup-required, unavailable |
 | `/land` (로그인 여부 무관) | 공개 | 없음 | LandingPage, 아지트 장막 히어로(녹화 영상), 토론하나?와 게임하나? 카드 2개, 핵심 기능 카드 2개(모임 신청, 모임 만들기), 기술 소개, 바닥글. 세부 기능은 카드가 여는 소개 페이지에서 설명. 아지트 체험 버튼은 준비 중 토스트만 띄움 | auth loading, anonymous, signup-required, authenticated, reduced motion(영상 대신 첫 장면) |
+| `/land/demoday` | 공개 | 없음 | 브랜드 머리글과 바닥글이 있는 랜딩. 첫 화면과 팀원 소개 아래에서 운영 사이트의 서비스 홈으로 연결하며 기술 소개는 생략 | reduced motion |
 | `/land/join` | 공개 | 없음 | LandingJoinPage, 찾고 신청하기(검색, 상세 확인과 신청, 신청 결과), 모임 채팅과 일정, 활동 피드 이용 예시 | reduced motion |
 | `/land/create` | 공개 | 없음 | LandingCreatePage, 모임 종류, 만들기, 신청 관리, 초대, 자유게시판 제안 이용 예시 | auth loading, anonymous, signup-required, authenticated, reduced motion |
 | `/land/sparring` | 공개 | 없음 | LandingSparringPage, 토론 세 단계, 경기장 녹화 이용 예시 | reduced motion |
