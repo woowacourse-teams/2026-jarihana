@@ -27,12 +27,15 @@ phase, run_id, deployment_id, old/target, image, pending, sealed와 cleanup_defe
 앱의 worker-intent.json과 stop-intent.json도 현재 boot, 컨테이너와 DB 권한에 대조한다.
 상태 파일과 환경 전체를 공개 로그에 출력하지 않는다.
 
-운영 앱 Compose의 출처는 해당 실행의 prepare 로그에 남은 커밋 SHA와 파일 SHA-256으로 확인한다.
+운영 앱 Compose의 출처는 저널에서 해당 앱의 receipt에 기록된 `compose_source.commit`과
+`compose_source.sha256`으로 확인한다. backend/both 배포의 후보는 `target_status`, 이전 앱은
+`old_status`에 기록되며, 다음 plan의 `previous_backend_status`로 전달한다.
+frontend-only 완료 시에는 기존 백엔드 receipt를 `old_status`에 보존한다.
 배포 저널의 `sha`는 그 실행의 소스 커밋이고 `image`는 선택한 백엔드 이미지다.
 frontend-only 실행은 이전 백엔드를 유지하므로 최신 저널의 `sha`를 현재 앱 Compose의 SHA로 사용하지 않는다.
-현재 앱이 만들어진 성공한 backend/both 실행의 prepare 로그를 확인한다.
-실행 스크립트도 그 SHA에서 가져온다. 원본 Git 객체와 로그 해시를 대조하고,
-실제 컨테이너 설정의 비밀값은 출력하지 않는다.
+receipt의 hostId, bootId와 image를 실제 앱에 대조한 뒤 원본 Git 객체와 기록된 파일 해시를 비교한다.
+출처가 없는 기존 receipt는 자동으로 보완하지 않는다. 해당 앱을 만든 backend/both 실행의 prepare 로그나
+보존한 배포 자료를 확인한다. 실제 컨테이너 설정의 비밀값은 출력하지 않는다.
 
 ## 관찰 기준
 

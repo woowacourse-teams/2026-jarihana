@@ -38,6 +38,9 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
 
 기존 `test-app.sh`와 `test-release-workflow.sh`는 main SHA의 앱 Compose 선택,
 파일 누락과 다른 SHA 거부, Compose 검사 실패 시 컨테이너 교체 전에 멈추는 동작을 확인한다.
+앱/coordinator/프론트 계약 시험은 receipt의 Compose 출처 생성과 단계 간 보존, 잘못된 출처 거부,
+기존 앱의 알 수 없는 출처와 연속 frontend-only 배포의 출처 보존을 확인한다.
+실제 Compose 통합 시험은 prepare receipt의 커밋과 해시가 사용한 Git 객체와 일치하는지도 확인한다.
 Docker 대역을 쓰는 계약 시험과 실제 Compose 파서를 쓰는 검증을 구분한다.
 로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.
 

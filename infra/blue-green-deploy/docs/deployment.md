@@ -64,8 +64,11 @@ frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 
 앱 작업 workflow가 GitHub Secrets에서 전달한다. 키가 미설정이면 기존처럼 빈 값을 전달한다.
 runner는 checkout HEAD와 `GITHUB_SHA`가 같은지 확인하고, 작업 디렉터리의 수정 파일이 아닌
 해당 Git 객체의 원본을 읽는다. 배포 도중 이동하는 main이나 최근 서버 파일을 다시 선택하지 않는다.
-배포 저널의 `sha`와 `image`는 소스 커밋과 이미지 digest이며, Compose의 커밋과 파일 SHA-256은
-prepare 로그에 기록한다. 렌더링된 환경 변수와 비밀값은 로그나 artifact에 올리지 않는다.
+배포 저널의 `sha`와 `image`는 소스 커밋과 이미지 digest다. Compose 원본의 커밋과 파일 SHA-256은
+prepare 로그와 앱 작업 결과(receipt)의 `compose_source.commit`, `compose_source.sha256`에 기록한다.
+coordinator는 receipt를 저널에 저장하며, 이후 앱 단계와 frontend-only 배포에도 같은 앱의 출처를 보존한다.
+출처가 없는 기존 앱은 `compose_source: null`로 남기고 현재 실행 SHA로 추측해서 채우지 않는다.
+렌더링된 환경 변수와 비밀값은 로그나 artifact에 올리지 않는다.
 
 임시 파일에 읽은 Compose를 `docker compose config --quiet`로 확인한 뒤 같은 파일로 pull/up을 실행한다.
 이 검사는 Compose 문법과 필수 환경 변수 등을 확인한다. 별도의 YAML 파서나 설정 허용 목록 검사는 두지 않는다.

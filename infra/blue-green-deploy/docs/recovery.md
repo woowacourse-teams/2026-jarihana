@@ -27,12 +27,15 @@
 
 전환 후 확정 전 자동 롤백은 남아 있는 이전 앱 컨테이너의 트래픽과 worker를 복구한다.
 최신 Compose로 이전 앱을 재생성하지 않으며, Compose를 자동으로 다시 설치하는 rollback job도 없다.
-컨테이너 삭제나 호스트 교체로 이전 앱을 재구성해야 한다면 그 앱을 만든 성공한 backend/both 실행의 소스 SHA와 이미지 digest를
-확인하고, 그 SHA의 앱 Compose를 다시 가져와 사용한다. 환경 변수/secret 호환성과 현재 DB 스키마도
+컨테이너 삭제나 호스트 교체로 이전 앱을 재구성해야 한다면 해당 앱의 receipt에서
+`compose_source.commit`, `compose_source.sha256`과 `image`를 확인한다.
+그 커밋의 앱 Compose를 가져와 파일 SHA-256을 대조한 뒤 사용한다. 환경 변수/secret 호환성과 현재 DB 스키마도
 함께 확인한다. 새 배포의 Compose와 이전 이미지를 임의로 조합하지 않는다.
 이 재구성은 관리자 복구이며, 기존 deploy 입력으로 임의의 과거 backend 트리 배포를 허용하는 변경은 아니다.
-후속 frontend-only 실행의 SHA는 기존 백엔드 Compose를 가리키지 않는다. Compose만 바꾼 배포는 같은
-이미지 digest를 재사용할 수 있으므로 digest만으로 원본 SHA를 정하지 말고 당시 prepare 로그의 SHA/해시를 보존한다.
+후속 frontend-only 실행도 기존 백엔드 receipt의 출처를 보존하지만, 저널 최상위 `sha`는 프론트 실행을 가리킨다.
+Compose만 바꾼 배포는 같은 이미지 digest를 재사용할 수 있으므로 digest만으로 원본 SHA를 정하지 않는다.
+receipt의 위치는 [상태 확인](status.md#실제-실행과-저널)을 따른다. `compose_source`가 없거나 null인 기존 앱은
+당시 prepare 로그나 보존한 배포 자료로 출처를 확인해야 한다. 출처를 확인하지 못하면 최신 SHA로 대체하지 않는다.
 
 ## 복구 허가와 기한
 

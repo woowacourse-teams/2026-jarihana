@@ -166,6 +166,12 @@ checkout SHA, 실제 EC2, image와 허가를 대조한다. A/B 앱은 로컬 관
 coordinator가 SSH 원격 명령으로 앱을 배포하지 않는다. SSH는 최신 저널 읽기 전용이다.
 앱 작업 결과와 Nginx 종료 증거를 native outputs로 검증하며 누락 값을 0이나 true로 채우지 않는다.
 
+앱 receipt의 `compose_source`는 원본 Compose의 40자리 커밋 SHA와 64자리 파일 SHA-256을 보관한다.
+새 `prepare` 결과는 현재 실행 SHA와 일치하는 출처가 필수다. 이후 작업은 hostId/bootId와 image가 같은
+저널 receipt의 출처를 전달하며 coordinator는 단계 사이의 변경이나 유실을 거부한다.
+frontend-only 배포도 `previous_backend_status`에서 기존 백엔드 receipt를 이어받는다.
+기존 receipt의 누락/null 출처는 알 수 없는 값으로 허용한다. 새 서버 파일이나 렌더링된 비밀값은 저장하지 않는다.
+
 | 제한 | 값과 의미 |
 | --- | --- |
 | 전체 저널 | 7200초 |
