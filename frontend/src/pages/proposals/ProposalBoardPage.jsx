@@ -8,7 +8,6 @@ import {
 } from "../../entities/proposal/index.js";
 import { useInfiniteProposals, useToggleProposalInterest } from "../../features/proposal/hooks.js";
 import { toUserMessage } from "../../shared/api/index.js";
-import createChairImage from "../../shared/assets/brand/jarihana-chair-create.png";
 import { Button, EmptyState, ErrorState, PageContainer, Skeleton } from "../../shared/ui/index.js";
 import { useToast } from "../../shared/ui/Toast.jsx";
 import { useInfiniteScroll } from "../account/useInfiniteScroll.js";
@@ -17,7 +16,6 @@ import { useProposalViewer } from "./proposalAuth.js";
 import "./proposals.css";
 
 const CATEGORY_CODES = new Set(PROPOSAL_CATEGORIES.map((category) => category.code));
-const GUIDE_STEPS = Object.freeze(["마음이 가는 제안 열기", "가능한 조건 골라 보내기", "조건이 모이면 모임으로"]);
 
 function ProposalCard({ onToggleInterest, pending, proposal, returnSearch }) {
   return (
@@ -29,7 +27,9 @@ function ProposalCard({ onToggleInterest, pending, proposal, returnSearch }) {
             {proposalCategoryLabel(proposal.category)}
           </span>
           <span className="proposal-card__author">{proposal.authorNickname}</span>
-          <span>모임 제안</span>
+          <time className="proposal-card__time" dateTime={proposal.createdAt}>
+            {formatProposalTime(proposal.createdAt)}
+          </time>
         </p>
         <h2 className="proposal-card__title">
           <Link
@@ -59,7 +59,6 @@ function ProposalCard({ onToggleInterest, pending, proposal, returnSearch }) {
             <MessageCircle aria-hidden="true" size={15} />
             코멘트 {proposal.commentCount}
           </span>
-          <span className="proposal-card__time">{formatProposalTime(proposal.createdAt)}</span>
         </div>
       </article>
     </li>
@@ -68,20 +67,11 @@ function ProposalCard({ onToggleInterest, pending, proposal, returnSearch }) {
 
 function ProposalGuide() {
   return (
-    <aside aria-labelledby="proposal-guide-title" className="proposal-guide">
-      <p className="proposal-eyebrow">이렇게 모여요</p>
-      <h2 className="proposal-guide__title" id="proposal-guide-title">
-        괜찮은 생각 하나,
-        <br />
-        모임이 될 수 있어요.
-      </h2>
-      <ol className="proposal-guide__steps">
-        {GUIDE_STEPS.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-      <p className="proposal-note">모임 신청이 아니라 함께할 가능성을 알아보는 단계예요.</p>
-    </aside>
+    <details className="proposal-guide">
+      <summary data-ph-capture-attribute-action="proposal_guide_toggle">뭐할래? 이용 안내</summary>
+      <p>같이 하고 싶은 일을 제안하고, 관심 있는 글에 ‘함께하고 싶어요’를 눌러 보세요.</p>
+      <p>글을 열면 가능한 시간과 진행 방식도 고를 수 있어요. 관심을 보내도 모임에 바로 가입되지는 않아요.</p>
+    </details>
   );
 }
 
@@ -201,17 +191,27 @@ export function ProposalBoardPage() {
   }
 
   return (
-    <PageContainer className="proposal-page">
-      <section aria-labelledby="proposal-board-title" className="proposal-hero">
-        <p className="proposal-eyebrow">작은 생각이 모임이 되는 곳</p>
-        <h1 className="proposal-hero__title" id="proposal-board-title">
-          이런 모임,
-          <br />
-          같이할 사람?
-        </h1>
-        <p className="proposal-hero__lead">아직은 작은 생각이어도 좋아요. 함께할 마음부터 모아 봐요.</p>
-        <img alt="" aria-hidden="true" className="proposal-hero__chair" src={createChairImage} />
-      </section>
+    <PageContainer className="proposal-page proposal-board">
+      <header className="proposal-board__header">
+        <div>
+          <h1 className="proposal-board__title">뭐할래?</h1>
+          <p className="proposal-board__lead">같이 하고 싶은 일, 여기서 얘기해요.</p>
+        </div>
+        <Link
+          className="ui-button ui-button--primary ui-button--md proposal-board__create"
+          data-ph-capture-attribute-action="proposal_create_start"
+          onClick={(event) => {
+            if (!viewer.isAuthenticated) {
+              event.preventDefault();
+              viewer.openLogin("/board/new");
+            }
+          }}
+          to="/board/new"
+        >
+          <Plus aria-hidden="true" size={16} />
+          <span>제안하기</span>
+        </Link>
+      </header>
 
       <div className="proposal-bar">
         <div aria-label="분야" className="proposal-filters" role="group">
@@ -238,28 +238,12 @@ export function ProposalBoardPage() {
             </button>
           ))}
         </div>
-        <Link
-          className="ui-button ui-button--primary ui-button--md proposal-bar__create"
-          data-ph-capture-attribute-action="proposal_create_start"
-          onClick={(event) => {
-            if (!viewer.isAuthenticated) {
-              event.preventDefault();
-              viewer.openLogin("/board/new");
-            }
-          }}
-          to="/board/new"
-        >
-          <Plus aria-hidden="true" size={16} />
-          <span>모임 제안하기</span>
-        </Link>
       </div>
 
-      <div className="proposal-layout">
-        <section aria-label="모임 제안 목록" className="proposal-layout__main">
-          {renderList()}
-        </section>
-        <ProposalGuide />
-      </div>
+      <section aria-label="모임 제안 목록">
+        {renderList()}
+      </section>
+      <ProposalGuide />
     </PageContainer>
   );
 }
