@@ -51,7 +51,6 @@ Compose 사전 검사는 실제 Docker Compose CLI와 jq를 사용한다. 문법
 기존 앱의 알 수 없는 출처와 연속 frontend-only 배포의 출처 보존을 확인한다.
 실제 Compose 통합 시험은 prepare receipt의 커밋과 해시가 사용한 Git 객체와 일치하는지도 확인한다.
 Docker 대역을 쓰는 계약 시험과 실제 Compose 파서를 쓰는 검증을 구분한다.
-로컬 실험용 생성 파일과 가짜 credential fixture는 저장소에 추가하지 않는다.
 
 시험별 실행 조건과 대역 범위는 [각 하네스](../tests/actions/run-tests.sh)에서 확인한다.
 `run-local-e2e.sh`의 기본 Java 이미지 ID가 로컬에 없다면 검증할 Java 21 이미지를 준비하고

@@ -180,9 +180,11 @@ GitHub Variables 이름과 프로세스 안의 이름이 다른 OAuth 설정은 
 | OAuth | GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, GITHUB_OAUTH_REDIRECT_URI |
 | push | PUSH_ENABLED, PUSH_WORKER_ENABLED, PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_PRIVATE_KEY, PUSH_VAPID_SUBJECT |
 | 이미지 | IMAGE_S3_BUCKET, IMAGE_S3_REGION, IMAGE_S3_KEY_PREFIX, IMAGE_S3_PUBLIC_BASE_URL, IMAGE_CDN_DELIVERY_BASE_URL, IMAGE_CLOUDFRONT_KEY_PAIR_ID, IMAGE_CLOUDFRONT_PRIVATE_KEY |
-| 선택 | SENTRY_BACKEND_DSN |
+| 선택 기능 | YOUTUBE_DATA_API_KEY, GOMOKU_CHAT_ENABLED, POINTS_STARTS_AT, IMAGE_CLEANUP_ENABLED, IMAGE_CLEANUP_GRACE_PERIOD, SENTRY_BACKEND_DSN |
 
 필수 값과 활성 기능에 필요한 키를 보호 원본에서 채우며 선택 값만 빈 값을 허용한다.
+선택 기능의 값도 운영 workflow와 맞춘다. 생략하면 음악 키와 포인트 시작 시각, Sentry DSN은 비어 있고,
+오목 채팅과 이미지 정리는 false, 이미지 정리 유예 기간은 P7D로 적용된다.
 RDS_URL은 endpoint만, PEM은 Bash 인용 안에서 줄바꿈을 보존한다. bootstrap.env는
 컨테이너 기동 환경을 전달하는 파일이며 Compose 구조나 PAUSED/graceful 설정은 변경하지 않는다.
 
