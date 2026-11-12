@@ -311,13 +311,17 @@ ANOTHER는 Pixel Circuit을 144 BPM, 8분 스윙(2:1)으로 편곡한 번외 스
 연습과 랭킹 도전 모두에서 고른다. 랭킹도 난이도마다 따로 매긴다(`ANOTHER_HARD`, `ANOTHER_HARDEST`).
 
 - 음원은 `pixel-circuit-swing.ogg`(48마디, 80초 루프)이고 원곡과 음량을 맞췄다(약 -13.8 LUFS).
-  채보 `swing-chart.json`(판본 `swing-another-2`)은 난이도별 채보를 `levels`에 따로 두고 단순화 없이 그대로 친다.
+  채보 `swing-chart.json`(판본 `swing-another-3`)은 난이도별 채보를 `levels`에 따로 두고 단순화 없이 그대로 친다.
   연습은 ANOTHER를 고를 때 곡을 처음 한 번만 받는다.
+- `swing-another-3`에서 ANOTHER Hardest 37마디 트릴 바로 앞(139ms 전)의 [왼쪽+아래] 동시타를 왼쪽 단타로 바꾸고,
+  36마디 마지막 박의 셋잇단 세 음(위, 왼쪽, 오른쪽)을 아래, 위, 아래로 바꿨다. 아래, 위 교대 뒤에 왼쪽, 오른쪽 트릴이 이어진다.
+  2연타 구간(41~42마디) 첫 박의 [왼쪽+아래] 동시타도 왼쪽 단타로 바꿔, 구간이 왼쪽 두 번부터 같은 키 두 번씩으로 이어진다.
+  규칙 판본(`rhythm-harpoon-ranked-4`)은 그대로 두어 랭킹 기록은 이어진다.
 
 | 난이도 | 노트 | 동시타 | 라이프, 완주 충전, 가속 |
 | --- | --- | --- | --- |
 | ANOTHER Hard | 280타, 288개 | 8 | 라이프 10, 충전과 가속은 Hard와 같다(3, 3루프부터) |
-| ANOTHER Hardest | 348타, 381개 | 33 | Hardest와 같다(10, 5, 6루프부터) |
+| ANOTHER Hardest | 348타, 379개 | 31 | Hardest와 같다(10, 5, 6루프부터) |
 
 - 채보는 박을 6 tick으로 나눈 셋잇단 격자라 step이 정수가 아니다(서버 `RhythmChart.Event`의 step도 실수다).
   색은 다른 난이도와 같은 `noteColor`로 박 안 위치를 따른다. 정박은 빨강, 박의 1/3과 2/3 자리(스윙 엇박과 셋잇단)는 초록이다.

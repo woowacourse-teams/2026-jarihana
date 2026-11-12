@@ -12,7 +12,7 @@
 - 무효(`INVALID`)나 기록(`FINISHED`)으로 끝난 도전에 시작, 묶음, 이탈을 보내면 오류 대신 현재 상태를 `200 OK`로 돌려준다.
   클라이언트는 응답의 `status`로 분기한다.
 - `level`은 `EASY`, `MEDIUM`, `HARD`, `HARDEST`, `ANOTHER_HARD`, `ANOTHER_HARDEST`다.
-  ANOTHER 두 난이도는 스윙 편곡 곡을 치므로 응답의 `chartVersion`이 원곡 난이도와 다르다(`swing-another-2`).
+  ANOTHER 두 난이도는 스윙 편곡 곡을 치므로 응답의 `chartVersion`이 원곡 난이도와 다르다(`swing-another-3`).
 
 ## API 목록
 
