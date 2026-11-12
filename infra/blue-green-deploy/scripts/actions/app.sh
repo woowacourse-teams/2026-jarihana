@@ -228,6 +228,7 @@ app_release_compose() {
   (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
   git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
   release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
+  RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$source_sha" --arg sha256 "${release_hash%% *}" '{commit:$commit,sha256:$sha256}')
   printf 'Release Compose commit: %s, SHA-256: %s, path: %s\n' "$source_sha" "${release_hash%% *}" "$source_path"
 }
 
@@ -344,10 +345,21 @@ app_run() {
 }
 
 app_result() {
+  local compose_source
+  if [[ $OPERATION == prepare ]]; then
+    compose_source=${RELEASE_COMPOSE_SOURCE:?Prepared Compose source is required}
+  else
+    compose_source=$(jq -c --argjson app "$SNAPSHOT" '
+      [.target_status,.old_status,.previous_backend_status]
+      | map(select(.identity==$app.identity and .image==$app.version) | .compose_source // empty)
+      | unique | if length>1 then error("Conflicting Compose sources") else .[0] end
+    ' <<<"$STATE") || bg_die 'Cannot establish application Compose source'
+  fi
   RESULT=$(jq -c --arg instance "$INSTANCE_ID" --arg op "$OPERATION" --arg dep "$DEPLOYMENT_ID" --arg slot "$BG_SLOT" \
     --argjson run "$RUN_ID" --arg grant "$GRANT_ID" --argjson stopped "$STOPPED" --argjson evidence "${SHUTDOWN_EVIDENCE:-null}" \
+    --argjson compose "$compose_source" \
     --argjson started "${OBSERVED_STARTED_AT:-null}" --argjson finished "${OBSERVED_FINISHED_AT:-null}" \
-    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
+    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,compose_source:$compose,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
   bg_output result "$RESULT"
 }
 

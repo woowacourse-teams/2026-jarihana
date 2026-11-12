@@ -420,6 +420,50 @@ case_receipt() {
     and .running and .healthy and (.normal_exit|not) and .shutdown_evidence==null
     and (.observed_finished_at-.observed_started_at)==300 and .authority.revision==10' "$APP_DIR/receipt" >/dev/null
 }
+case_receipt_prepared_compose() {
+  prepare_release_fixture
+  app_release_compose "$APP_DIR/source.yml"
+  STOPPED=false OPERATION=prepare
+  bg_output() { printf '%s\n' "$2" > "$APP_DIR/receipt"; }
+  app_result
+  local hash
+  hash=$(sha256sum "$APP_DIR/source.yml"); hash=${hash%% *}
+  jq -e --arg commit "$GITHUB_SHA" --arg hash "$hash" '.compose_source=={commit:$commit,sha256:$hash}' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_carries_compose() {
+  local source key
+  source=$(jq -cn --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '{commit:$commit,sha256:$hash}')
+  GITHUB_SHA=$(printf '%040d' 2)
+  for key in target_status old_status previous_backend_status; do
+    STATE=$(jq -cn --arg key "$key" --argjson app "$SNAPSHOT" --argjson source "$source" '{($key):{identity:$app.identity,image:$app.version,compose_source:$source}}')
+    for OPERATION in handoff activate observe complete stop rollback; do
+      STOPPED=false
+      bg_output() { printf '%s\n' "$2" > "$APP_DIR/receipt"; }
+      app_result
+      jq -e --argjson source "$source" '.compose_source==$source' "$APP_DIR/receipt" >/dev/null
+    done
+  done
+}
+case_receipt_unknown_compose() {
+  GITHUB_SHA=$(printf '%040d' 2)
+  case_receipt
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_different_app_compose() {
+  case_receipt_carries_compose
+  STATE=$(jq '.previous_backend_status.identity.bootId="another-boot"' <<<"$STATE")
+  app_result
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+  case_receipt_carries_compose
+  STATE=$(jq '.previous_backend_status.image="sha256:another-image"' <<<"$STATE")
+  app_result
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_conflicting_compose() {
+  case_receipt_carries_compose
+  STATE=$(jq '.old_status=.previous_backend_status | .old_status.compose_source.commit="another-commit"' <<<"$STATE")
+  reject app_result
+}
 
 docker_fixture() {
   change '.worker.state="PAUSED"|.authority.phase="COMPLETE"|.authority.owner={hostId:"dev-b",bootId:"55555555-5555-4555-8555-555555555555"}'
@@ -473,7 +517,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_missing_file prepare_release_compose_wrong_commit prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_missing_file prepare_release_compose_wrong_commit prepare_release_compose_checks_before_removal receipt receipt_prepared_compose receipt_carries_compose receipt_unknown_compose receipt_different_app_compose receipt_conflicting_compose shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))

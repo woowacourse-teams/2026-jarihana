@@ -45,6 +45,8 @@ sleep() {
 
 if [[ $ROLE == app ]]; then
   app_prepare() {
+    # This JVM fixture bypasses Compose; real source provenance is covered by run-compose-e2e.sh.
+    RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$GITHUB_SHA" --arg sha256 "$(printf '%064d' 1)" '{commit:$commit,sha256:$sha256}')
     app_read; BOOT_ID=$(jq -r '.identity.bootId' <<< "$SNAPSHOT")
     if [[ ${BG_E2E_PREPARE_STOP_ONLY:-false} == true ]]; then app_stop_container; return; fi
     app_all_drained; app_assert '.healthy'

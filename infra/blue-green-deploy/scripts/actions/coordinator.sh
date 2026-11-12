@@ -105,9 +105,18 @@ bg_accept() {
      elif $op=="rollback" and $slot==$state.target then (.healthy|type)=="boolean" and .running==true
      else .healthy==true and .running==true end) and
     (if $slot==$state.target and $op!="bootstrap" then .image==$state.image else true end)' <<<"$result" >/dev/null || bg_die 'App receipt identity or health is invalid'
-  previous=$(jq -c --arg key "$key" '.[$key]' <<<"$STATE")
+  jq -e --arg op "$op" --arg sha "$GITHUB_SHA" '
+    (.compose_source==null or (.compose_source |
+      (.commit|type=="string" and test("^[a-f0-9]{40}$")) and
+      (.sha256|type=="string" and test("^[a-f0-9]{64}$")))) and
+    ($op!="prepare" or (.compose_source!=null and .compose_source.commit==$sha))
+  ' <<<"$result" >/dev/null || bg_die 'App receipt Compose source is invalid'
+  previous=$(jq -c --arg key "$key" --argjson receipt "$result" '
+    .[$key] // (.previous_backend_status | select(.identity==$receipt.identity and .image==$receipt.image)) // null
+  ' <<<"$STATE")
   if [[ $previous != null ]]; then
     jq -e --argjson previous "$previous" '.identity==$previous.identity and .image==$previous.image' <<<"$result" >/dev/null || bg_die 'App boot or image changed between phases'
+    jq -e --argjson previous "$previous" '.compose_source==$previous.compose_source' <<<"$result" >/dev/null || bg_die 'App Compose source changed between phases'
   fi
   bg_save "$(jq -c --arg key "$key" --argjson result "$result" '.[$key]=$result' <<<"$STATE")"
 }

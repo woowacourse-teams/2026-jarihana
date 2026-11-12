@@ -54,17 +54,40 @@ setup() {
   chmod 700 "$TEST_DIR/state" "$TEST_DIR/state/nginx"
   export STATE_FILE="$TEST_DIR/state/state.json"
   CONFIG=$(jq -c --arg directory "$TEST_DIR/state/nginx" '.nginx.directory=$directory' "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
-  ENVIRONMENT=dev; RUN_ID=123; GITHUB_SHA=bbbb; REPO=woowacourse-teams/2026-jarihana
+  ENVIRONMENT=dev; RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2); REPO=woowacourse-teams/2026-jarihana
   STATE=$(jq -cn '{schema_version:2,revision:0,environment:"dev",run_id:123,attempt:1,sha:"bbbb",mode:"deploy",deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",phase:"PREPARING",target:"B",old:"A",image:"sha256:test",heartbeat:900,expires_at:8000,pending:{id:"grant-1",operation:"prepare",slot:"B",deadline:2500},old_status:null,target_status:null,switched:false,sealed:false}')
-  STATE=$(jq -c --arg topology "$(bg_topology_digest)" '.topology_digest=$topology' <<<"$STATE")
+  STATE=$(jq -c --arg topology "$(bg_topology_digest)" --arg sha "$GITHUB_SHA" '.topology_digest=$topology | .sha=$sha' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
   RECEIPT='{"operation":"prepare","slot":"B","deployment_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","pending_id":"grant-1","grant_id":"grant-1","run_id":123,"instance_id":"i-bbbbbbbbbbbbbbbbb","environment":"dev","identity":{"hostId":"dev-b","bootId":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"},"worker":{"state":"PAUSED","inFlight":0,"unresolved":0},"activity":{"httpInFlight":0,"backgroundInFlight":0,"backgroundDrained":true},"authority":null,"healthy":true,"running":true,"image":"sha256:test"}'
+  RECEIPT=$(jq -c --arg commit "$GITHUB_SHA" --arg hash "$(printf '%064d' 1)" '.compose_source={commit:$commit,sha256:$hash}' <<<"$RECEIPT")
   printf '%s\n' '{"Reservations":[{"OwnerId":"000000000000","Instances":[{"InstanceId":"i-bbbbbbbbbbbbbbbbb","VpcId":"vpc-00000000000000000","PrivateIpAddress":"10.0.0.11","RootDeviceType":"ebs","State":{"Name":"stopped"}}]}]}' >"$AWS_FIXTURE"
   printf 'old config\n' >"$TEST_DIR/state/nginx/current.conf"; chmod 600 "$TEST_DIR/state/nginx/current.conf"
 }
 rejects() { if ( "$@" ) >"$TEST_DIR/rejection.log" 2>&1; then echo "Unexpected success: $*" >&2; return 1; fi; }
 run() { local name=$1; shift; ( setup; "$@" ); printf 'PASS %s\n' "$name"; }
 valid_receipt() { bg_accept "$RECEIPT" prepare B target_status; jq -e '.target_status.pending_id=="grant-1" and .revision==1' "$STATE_FILE" >/dev/null; }
+invalid_compose_receipt() {
+  local change
+  for change in 'del(.compose_source)' '.compose_source.sha256="bad"' '.compose_source.commit="bad"' '.compose_source.commit="1111111111111111111111111111111111111111"'; do
+    rejects bg_accept "$(jq "$change" <<<"$RECEIPT")" prepare B target_status
+    jq -e '.target_status==null and .revision==0' "$STATE_FILE" >/dev/null
+  done
+}
+changed_compose_receipt() {
+  bg_accept "$RECEIPT" prepare B target_status
+  rejects bg_accept "$(jq '.compose_source.sha256="2222222222222222222222222222222222222222222222222222222222222222"' <<<"$RECEIPT")" prepare B target_status
+  jq -e --argjson source "$(jq '.compose_source' <<<"$RECEIPT")" '.target_status.compose_source==$source and .revision==1' "$STATE_FILE" >/dev/null
+}
+legacy_compose_receipt() {
+  STATE=$(jq '.pending.operation="bootstrap"' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  RECEIPT=$(jq 'del(.compose_source) | .operation="bootstrap" | .authority={environment:"dev"}' <<<"$RECEIPT")
+  bg_accept "$RECEIPT" bootstrap B old_status
+  jq -e '.old_status.compose_source==null' "$STATE_FILE" >/dev/null
+}
+previous_compose_receipt() {
+  STATE=$(jq --argjson receipt "$RECEIPT" '.previous_backend_status=$receipt' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  rejects bg_accept "$(jq '.compose_source.sha256="2222222222222222222222222222222222222222222222222222222222222222"' <<<"$RECEIPT")" prepare B target_status
+}
 wrong_grant() { rejects bg_accept "$(jq '.grant_id="stale"' <<<"$RECEIPT")" prepare B target_status; }
 fractional_activity() { rejects bg_accept "$(jq '.activity.httpInFlight=0.5' <<<"$RECEIPT")" prepare B target_status; }
 wrong_boot() { bg_accept "$RECEIPT" prepare B target_status; rejects bg_accept "$(jq '.identity.bootId="cccccccc-cccc-cccc-cccc-cccccccccccc"' <<<"$RECEIPT")" prepare B target_status; }
@@ -380,4 +403,4 @@ api_recovery_independent_of_s3() {
   jq -e '.http_recovered==true and .pending.operation=="rollback" and .pending.slot=="B" and .pending.deadline==3400' "$STATE_FILE" >/dev/null
   [[ $(cat "$EVENTS") == recovered ]]
 }
-for test in waiting_poll_budget valid_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_switch_fast_confirmation nginx_unknown_reload nginx_drain nginx_bad_current zero_http_traffic missing_http_metrics_are_unknown stale_up_with_zero_traffic_is_unknown scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
+for test in waiting_poll_budget valid_receipt invalid_compose_receipt changed_compose_receipt legacy_compose_receipt previous_compose_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_switch_fast_confirmation nginx_unknown_reload nginx_drain nginx_bad_current zero_http_traffic missing_http_metrics_are_unknown stale_up_with_zero_traffic_is_unknown scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done

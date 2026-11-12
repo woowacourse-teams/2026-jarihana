@@ -31,7 +31,11 @@ bg_state_file() { [[ -f $STATE_FILE && ! -L $STATE_FILE ]] || bg_die 'Missing te
 bg_uuid() { local n; n=$(( $(cat "$CASE_DIR/uuid")+1 )); echo "$n" >"$CASE_DIR/uuid"; printf 'aaaaaaaa-aaaa-aaaa-aaaa-%012d\n' "$n"; }
 bg_output() { if [[ $1 == result && ${ACTOR:-} == app ]]; then printf '%s\n' "$2" >"$CASE_DIR/receipt"; fi; }
 timeout() { shift; "$@"; }
-app_release_compose() { cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$1"; }
+app_release_compose() {
+  cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$1"
+  local hash; hash=$(sha256sum "$1")
+  RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$GITHUB_SHA" --arg sha256 "${hash%% *}" '{commit:$commit,sha256:$sha256}')
+}
 ssh() { cat "$STATE_FILE"; }
 curl() { public_curl "$@"; }
 api_event() {
@@ -140,7 +144,7 @@ for slot in A B; do
 done
 jq -cn --argjson identity "$(jq .identity "$CASE_DIR/api-A")" '{environment:"prod",deploymentId:"11111111-1111-1111-1111-111111111111",epoch:4,phase:"COMPLETE",revision:10,authorityRevision:7,owner:$identity,status:"ACTIVE"}' >"$CASE_DIR/authority.json"
 CONFIG=$(cat "$CASE_DIR/coordinator.json")
-old_status=$(jq -c --slurpfile a "$CASE_DIR/authority.json" --arg image "$OLD_DIGEST" '.authority=$a[0]|.slot="A"|.image=$image|.running=true|.healthy=true' "$CASE_DIR/api-A")
+old_status=$(jq -c --slurpfile a "$CASE_DIR/authority.json" --arg image "$OLD_DIGEST" --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '.authority=$a[0]|.slot="A"|.image=$image|.running=true|.healthy=true|.compose_source={commit:$commit,sha256:$hash}' "$CASE_DIR/api-A")
 STATE=$(jq -c --argjson status "$old_status" --arg topology "$(bg_topology_digest)" '.phase="COMPLETE"|.sealed=true|.pending=null|.old_status=$status|.topology_digest=$topology' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
 for ((i=5;i<FILES;i++)); do echo "old $i" >"$CASE_DIR/s3/$FE_LIVE/assets/file-$i.txt"; echo "new $i" >"$BG_FRONTEND_DIST/assets/file-$i.txt"; done
 LABEL=seed
@@ -239,6 +243,11 @@ else
   fi
   jq -e '.phase=="ROLLED_BACK" and .frontend.recovered==true' "$STATE_FILE" >/dev/null
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+fi
+jq -e --argjson previous "$old_status" '.old_status.compose_source==$previous.compose_source' "$STATE_FILE" >/dev/null
+if [[ $SCOPE != frontend ]]; then
+  compose_hash=$(sha256sum "$ROOT/infra/blue-green-deploy/controller/app-compose.yml")
+  jq -e --arg commit "$GITHUB_SHA" --arg hash "${compose_hash%% *}" '.target_status.compose_source=={commit:$commit,sha256:$hash}' "$STATE_FILE" >/dev/null
 fi
 finish=$(bg_now)
 # Run the real guardian loop on an independent virtual clock over the same interval as deployment jobs.

@@ -185,6 +185,9 @@ docker inspect "$CONTAINER" | jq '.[0]|{Id,Image,State,Config:{Image:.Config.Ima
 jq -e '.State.Running and .HostConfig.Memory==939524096 and .HostConfig.RestartPolicy.Name=="no" and .Config.StopTimeout==120 and .Config.User=="app" and .Config.Entrypoint==["java","-jar","app.jar"] and (.Config.Graceful|sort)==["SERVER_SHUTDOWN=graceful","SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE=90s"]' "$DIR/container-profile.json" >/dev/null
 awk '/^result<</{body=1;next} body&&/^bg-/{exit} body{print}' "$DIR/prepare.output" > "$DIR/prepare.json"
 jq -e --arg digest "$DIGEST" '.healthy and .version==$digest and .worker.state=="PAUSED" and .worker.inFlight==0 and .worker.unresolved==0 and .activity.backgroundDrained and .authority.owner==null' "$DIR/prepare.json" >/dev/null
+compose_hash=$(git -C "$DIR/source" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" | sha256sum)
+jq -e --arg commit "$GITHUB_SHA" --arg hash "${compose_hash%% *}" '.compose_source=={commit:$commit,sha256:$hash}' "$DIR/prepare.json" >/dev/null
+record compose-source-receipt-matches-git-blob
 # A healthy but unassigned existing candidate cannot prove the other host owns shutdown authority.
 id_before=$(docker inspect "$CONTAINER" --format '{{.Id}}')
 if runner "$DIGEST" unsafe-standby; then exit 1; fi
@@ -198,5 +201,5 @@ docker inspect "$CONTAINER" | jq '.[0]|{State,RestartCount}' > "$DIR/shutdown.js
 jq -e '(.State.Running|not) and (.State.OOMKilled|not) and (.State.ExitCode==0 or .State.ExitCode==143) and .RestartCount==0' "$DIR/shutdown.json" >/dev/null
 record graceful-sigterm-normal-exit
 sha256sum "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$DIR/etc/app-compose.yml" > "$DIR/compose-sha256.txt"
-jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","mismatched-checkout-rejected","ready-paused-production-profile","image-signing-config-preserved","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
+jq -cn --arg image "$IMAGE_REPOSITORY@$DIGEST" '{success:true,image:$image,scenarios:["evicted-image-real-pull","invalid-digest-no-promotion","mismatched-checkout-rejected","ready-paused-production-profile","image-signing-config-preserved","compose-source-receipt","unsafe-standby-blocked","graceful-SIGTERM"],fixture_boundaries:["isolated privileged Linux Docker daemon with private Unix socket, no host ports","local registry instead of GHCR","Postgres with self-signed TLS instead of RDS","host identity/config bootstrap","GitHub read API","read-only SSH grant transport"],production_unchanged:["app_prepare","app_profile","app_snapshot","bg_grant","app-compose.yml"],remote_deployment:false}' > "$DIR/summary.json"
 cat "$DIR/summary.json"
