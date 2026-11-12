@@ -250,7 +250,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("v9 공간은 모든 테마의 공용 에셋과 복층 배치를 저장하고 다시 읽는다")
+    @DisplayName("v9 공간은 모든 테마의 공용 에셋과 기존 층 배치를 저장하고 다시 읽는다")
     void savesVersionNineSharedAssetsAcrossAllTemplates() throws Exception {
         // Given
         var catalog = mapper.readTree(Files.readString(Path.of("src/test/resources/group-space-v9-catalog.json")));
@@ -264,10 +264,11 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         }
         long revision = 0;
         for (var template : catalog.get("templates")) {
+            int level = template.asString().equals("lounge") ? 0 : 1;
             room.put("template", template.asString());
             room.put("theme", template.asString().equals("band") ? "rehearsal"
                     : template.asString().equals("photo") ? "gallery" : "studio");
-            ((ObjectNode) items.get(0)).put("level", 1);
+            ((ObjectNode) items.get(0)).put("level", level);
             // When
             save(leader, room.toString(), revision).then().statusCode(200);
             revision++;
@@ -275,14 +276,14 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
             request(member).get(path()).then().statusCode(200)
                     .body("data.room.version", equalTo(9))
                     .body("data.room.template", equalTo(template.asString()))
-                    .body("data.room.items[0].level", equalTo(1))
+                    .body("data.room.items[0].level", equalTo(level))
                     .body("data.room.items.size()", equalTo(catalog.get("kinds").size()))
                     .body("data.revision", equalTo((int) revision));
         }
     }
 
     @Test
-    @DisplayName("기본 아지트는 v11에서 2층 배치를 저장하고 v8에서는 거부한다")
+    @DisplayName("기본 아지트의 2층 배치는 v12에서만 저장할 수 있다")
     void savesSecondFloorFurnitureForCurrentDefaultClubhouse() {
         ObjectNode room = (ObjectNode) mapper.readTree(ROOM);
         room.put("version", 8).put("template", "lounge");
@@ -290,8 +291,13 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         save(leader, room.toString(), 0).then().statusCode(400);
 
         room.put("version", 11);
+        save(leader, room.toString(), 0).then().statusCode(400);
+        room.put("version", 12).put("template", "boardgame");
+        save(leader, room.toString(), 0).then().statusCode(400);
+        room.put("template", "lounge");
         save(leader, room.toString(), 0).then().statusCode(200);
         request(member).get(path()).then().statusCode(200)
+                .body("data.room.version", equalTo(12))
                 .body("data.room.items[0].level", equalTo(1));
     }
 

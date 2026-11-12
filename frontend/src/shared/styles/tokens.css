@@ -49,8 +49,8 @@
   --color-rhythm-result-line: #42635f;
   --color-activity-study-ink: #24457f;
   --color-activity-study-soft: #e7eefc;
-  --color-activity-club-ink: #453a95;
-  --color-activity-club-soft: #ece9fb;
+  --color-activity-club-ink: var(--color-brand-ink);
+  --color-activity-club-soft: var(--color-brand-soft);
   --color-activity-session-ink: #7a5405;
   --color-activity-session-soft: #fdf0da;
   --color-calendar-event-ink: #24457f;
@@ -58,8 +58,11 @@
   --color-cohort-1: #2ac1bc;
   --color-cohort-2: #ed6a5a;
   --color-cohort-3: #63bd7c;
-  --color-cohort-4: #8d80d9;
+  --color-cohort-4: var(--color-activity-study-ink);
   --color-cohort-5: #d4a62a;
+  --color-shop-lilac: #8d80d9;
+  --color-shop-lilac-soft: #ece9fb;
+  --color-shop-lilac-ink: #453a95;
   /* 반 나누기 게임의 막대과자 재료색. 막대 그림과 무게표가 같은 색을 쓴다. */
   --color-game-biscuit: #e3b877;
   --color-game-biscuit-low: #d29f58;

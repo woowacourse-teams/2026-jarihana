@@ -56,8 +56,8 @@ describe("walkable clubhouse", () => {
   });
 
   test("the default staircase connects the furnished 2nd floor and lets walkers return to the hall", () => {
-    const room = createInitialRoom("lounge");
-    const { stairs, mezzanine } = getRoomLayout("lounge");
+    const room = createInitialRoom("lounge", { loungeLoft: true });
+    const { stairs, mezzanine } = getRoomLayout(room);
     const x = (stairs.minX + stairs.maxX) / 2;
     const hallEntrance = moveWalker(PLAYER.spawn, { x: 0, z: -2.4 }, room);
     const start = moveWalker(hallEntrance, { x: x - hallEntrance.x, z: 0 }, room);

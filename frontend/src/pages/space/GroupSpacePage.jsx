@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
+import { fetchGroupSpace, useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { ClubhouseSetupDialog } from "./ClubhouseSetupDialog.jsx";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
@@ -23,15 +23,22 @@ function SpaceError({ error, groupId, onRetry, clubhouse }) {
 }
 
 function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse, setup }) {
-  const [initial, setInitial] = useState(initialRoom);
+  const [editor, setEditor] = useState({ room: initialRoom, revision: snapshot.revision });
   const [canEdit, setCanEdit] = useState(snapshot.canEdit);
   const [savedAt, setSavedAt] = useState(snapshot.updatedAt);
-  const [savedHere, setSavedHere] = useState(false);
+  const [hasSavedRoom, setHasSavedRoom] = useState(snapshot.room !== null);
   const revision = useRef(snapshot.revision);
   const saving = useRef(false);
   const mutation = useSaveGroupSpace(groupId);
 
-  async function save(room) {
+  function acceptSavedSnapshot(response) {
+    revision.current = response.revision;
+    setSavedAt(response.updatedAt);
+    setHasSavedRoom(true);
+    setCanEdit(response.canEdit);
+  }
+
+  async function save(room, { initialSetup = false } = {}) {
     if (!canEdit) throw new Error("모임장만 공간을 꾸밀 수 있어요.");
     if (saving.current) throw new Error("공간을 저장하고 있어요. 잠시만 기다려 주세요.");
     const normalized = validateRoom(room);
@@ -43,13 +50,11 @@ function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse, se
       if (!saved || response.revision <= revision.current) {
         throw new Error("서버의 저장 결과를 확인하지 못했어요. 편집 내용은 그대로 있어요. 공간을 다시 열어 확인해 주세요.");
       }
-      revision.current = response.revision;
-      setSavedAt(response.updatedAt);
-      setSavedHere(true);
-      setCanEdit(response.canEdit);
+      acceptSavedSnapshot(response);
       return saved;
     } catch (error) {
       if (error?.code === "GROUP_SPACE_CONFLICT") {
+        if (initialSetup) throw error;
         throw new Error("다른 곳에서 공간이 먼저 저장됐어요. 편집 내용은 그대로 있어요. 새로고침하여 최신 공간을 확인한 뒤 다시 꾸며 주세요.");
       }
       if (error?.status === 403 || error?.code === "GROUP_ENDED") {
@@ -64,13 +69,26 @@ function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse, se
   }
 
   async function saveInitialTemplate(template) {
-    const room = { ...createInitialRoom(template), name: initial.name };
-    setInitial(await save(room));
+    const room = { ...createInitialRoom(template), name: editor.room.name };
+    try {
+      const saved = await save(room, { initialSetup: true });
+      setEditor({ room: saved, revision: revision.current });
+      return true;
+    } catch (error) {
+      if (error?.code !== "GROUP_SPACE_CONFLICT") throw error;
+      const latest = await fetchGroupSpace(groupId);
+      const saved = latest.room && readSavedRoom(latest.room);
+      if (!saved || latest.revision <= revision.current) throw error;
+      acceptSavedSnapshot(latest);
+      setEditor({ room: saved, revision: latest.revision });
+      return false;
+    }
   }
 
-  const needsSetup = setup && canEdit && snapshot.room === null && !savedHere;
+  const needsSetup = Boolean(setup && canEdit && snapshot.room === null && !hasSavedRoom);
+  const scene = clubhouse && needsSetup ? { ...clubhouse, inputBlocked: true } : clubhouse;
   return <>
-    <SpaceStudioPage key={initial.template} clubhouse={clubhouse} initialRoom={initial} onSave={save} canEdit={canEdit} savedAt={savedAt}
+    <SpaceStudioPage key={editor.revision} clubhouse={scene} initialRoom={editor.room} onSave={save} canEdit={canEdit} savedAt={savedAt}
       groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
         backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
     {needsSetup && <ClubhouseSetupDialog {...setup} onSave={saveInitialTemplate} />}

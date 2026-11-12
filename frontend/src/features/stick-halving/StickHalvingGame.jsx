@@ -88,12 +88,14 @@ function Progress({ round }) {
 // "다음 막대"를 눌렀을 때 받고, adapter가 remainingMillis를 주면 서버 마감 기준으로 남은 시간을 센다.
 // 서버는 요청을 받은 뒤에 막대를 내주므로, 요청을 보낸 시각부터 remainingMillis를 세면 응답이 늦게 와도
 // 화면이 서버 마감보다 긴 시간을 보여 주지 않는다. label은 연습인지 순위 도전인지 머리 줄에 붙이는 이름이다.
+// onRestart를 주면 판 도중에 "처음부터 다시 하기" 버튼과 R 키로 1번 막대부터 새 판을 시작할 수 있다.
 export function StickHalvingGame({
   adapter,
   errorMessage,
   finalActions,
   label,
   onFinish,
+  onRestart,
   timeLimitSeconds = ROUND_TIME_LIMIT_SECONDS
 }) {
   const [phase, setPhase] = useState("starting");
@@ -201,6 +203,33 @@ export function StickHalvingGame({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [phase, submit]);
+
+  // R 키로 처음부터 다시 한다. 한글 입력 상태에서도 같은 자리의 키로 동작하도록 event.code로 본다.
+  // 새로고침(Ctrl+R) 같은 조합, 입력 칸, 분석이나 순위 창이 열려 있을 때는 건드리지 않는다.
+  const restartReference = useRef(onRestart);
+  useEffect(() => {
+    restartReference.current = onRestart;
+  }, [onRestart]);
+  const canRestart = Boolean(onRestart);
+
+  useEffect(() => {
+    if (!canRestart || phase === "starting") return undefined;
+    function handleKeyDown(event) {
+      if (event.code !== "KeyR" || event.repeat || event.defaultPrevented) return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest("input, textarea, select, [role='dialog'], dialog"))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      restartReference.current?.();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canRestart, phase]);
 
   // 자르기와 다음 막대는 같은 자리의 같은 버튼이라 커서를 옮기지 않고 이어서 누를 수 있다. 다만 더블클릭의
   // 두 번째 클릭(detail > 1)이 결과를 건너뛰거나 새 막대를 바로 자르지 않도록 양쪽 모두 무시한다.
@@ -354,18 +383,34 @@ export function StickHalvingGame({
         >
           {showingResult ? (outcome.finished ? "최종 결과 보기" : "다음 막대") : "자르기"}
         </Button>
-        {showingResult ? (
-          <button
-            className="stick-game__analyze"
-            data-ph-capture-attribute-action="stick_cut_analyze"
-            onClick={() => setAnalysisOpen(true)}
-            type="button"
-          >
-            분석하기
-          </button>
-        ) : (
-          <span aria-hidden="true" className="stick-game__analyze stick-game__analyze--placeholder" />
-        )}
+        <div className="stick-game__links">
+          {showingResult ? (
+            <button
+              className="stick-game__analyze"
+              data-ph-capture-attribute-action="stick_cut_analyze"
+              onClick={() => setAnalysisOpen(true)}
+              type="button"
+            >
+              분석하기
+            </button>
+          ) : onRestart ? null : (
+            <span aria-hidden="true" className="stick-game__analyze stick-game__analyze--placeholder" />
+          )}
+          {onRestart ? (
+            <button
+              aria-keyshortcuts="R"
+              className="stick-game__analyze stick-game__restart"
+              data-ph-capture-attribute-action="stick_run_restart"
+              onClick={onRestart}
+              type="button"
+            >
+              처음부터 다시 하기
+              <span aria-hidden="true" className="stick-game__keys">
+                <kbd>R</kbd>
+              </span>
+            </button>
+          ) : null}
+        </div>
       </div>
       {showingResult ? (
         <Modal

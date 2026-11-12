@@ -365,7 +365,6 @@ export async function installApiFixture(pageInstance, options = {}) {
     if (path === "/notifications/unread-count") return json(route, success({ unreadCount: 0 }));
     if (path === "/chats" && method === "GET") return json(route, success(page([])));
     if (path === "/push-config") return json(route, success({ enabled: false, vapidPublicKey: null, payloadVersions: [1] }));
-    // 헤더가 모든 화면에서 빼빼로데이 이벤트 진행 상태를 묻는다. 끝난 상태로 두어 헤더 메뉴를 평소 모양으로 유지한다.
     if (path === "/events/pepero-day" && method === "GET") {
       return json(route, success({
         closesAt: "2026-11-12T10:00:00",

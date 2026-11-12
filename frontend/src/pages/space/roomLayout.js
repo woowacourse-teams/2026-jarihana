@@ -6,6 +6,7 @@ import { STUDY_PHOTO_LAYOUTS } from "./studyPhotoAssets";
 
 // World units are metres. Rendering, furniture placement and walking share this plan.
 export const BUILDING = Object.freeze({ minX: -10, maxX: 10, minZ: -8, maxZ: 5, height: 6.4, wingHeight: 4.2 });
+export const LOUNGE_LOFT_VERSION = 12;
 const LOUNGE_BUILDING = Object.freeze({ ...BUILDING, minX: -15, height: 7.6 });
 // Legacy exterior bounds are retained only for saved-room validation.
 export const YARD = Object.freeze({ minX: -11, maxX: 11, minZ: 5, maxZ: 12.5 });
@@ -13,7 +14,7 @@ export const STREET = Object.freeze({ minX: -14, maxX: 14, minZ: 12.5, maxZ: 16 
 export const ENTRANCE = Object.freeze({ minX: -10, maxX: 10, minZ: 5, maxZ: 8.2 });
 export const PLAYER = Object.freeze({ radius: 0.3, eyeHeight: 1.45, height: 1.7, speed: 3.4, spawn: { x: -2, z: 6.8 } });
 export const ROOM_ZONES = Object.freeze([
-  { id: "hall", name: "메인홀", minX: LOUNGE_BUILDING.minX, maxX: 4, minZ: -8, maxZ: 5 },
+  { id: "hall", name: "메인홀", minX: BUILDING.minX, maxX: 4, minZ: -8, maxZ: 5 },
   { id: "studio", name: "작은 모임방", minX: 4, maxX: 10, minZ: -8, maxZ: -1.5 },
   { id: "lounge", name: "휴게실", minX: 4, maxX: 10, minZ: -1.5, maxZ: 5 },
   { id: "entrance", name: "입구 복도", ...ENTRANCE }
@@ -44,9 +45,9 @@ export const CLEAR_PATHS = Object.freeze([
 ]);
 const LOUNGE_DECK = { minX: -14.84, maxX: 3.84, minZ: -7.86, maxZ: -4.3, height: 4.45 };
 const LOUNGE_STAIRS = { minX: -14.4, maxX: -12.3, minZ: LOUNGE_DECK.maxZ, maxZ: 3.7, height: LOUNGE_DECK.height, steps: 26 };
-const LOUNGE_SINGLE_FLOOR = { building: LOUNGE_BUILDING, walls: LOUNGE_WALLS, clearPaths: CLEAR_PATHS };
 const LOUNGE_LAYOUT = {
-  ...LOUNGE_SINGLE_FLOOR,
+  building: LOUNGE_BUILDING,
+  walls: LOUNGE_WALLS,
   displayName: "기본 아지트",
   upperName: "2층 라운지",
   mezzanine: LOUNGE_DECK,
@@ -293,14 +294,13 @@ export const BOARDGAME = Object.freeze({
     { minX: -7.4, maxX: 9.7, minZ: -7.85, maxZ: -7.15 }
   ]
 });
-export function getRoomLayout(template = "lounge", version = 11, { loungeLayout = "current" } = {}) {
+export function getRoomLayout(template = "lounge", version = 11) {
   if (template && typeof template === "object") {
     version = template.version ?? version;
     template = template.template ?? "lounge";
   }
   const extended = version >= 11 ? CURRENT_LAYOUTS[template] : version >= 10 ? REFERENCE_LAYOUTS[template] : version >= 9 && (DINING_BAND_LAYOUTS[template] || STUDY_PHOTO_LAYOUTS[template]);
-  const lounge = template === "lounge" && version >= 9 && loungeLayout !== "original"
-    ? (loungeLayout === "singleFloor" ? LOUNGE_SINGLE_FLOOR : LOUNGE_LAYOUT) : null;
+  const lounge = template === "lounge" && version === LOUNGE_LOFT_VERSION ? LOUNGE_LAYOUT : null;
   const layout = extended || lounge || (template === "climbing" ? CLIMBING : template === "boardgame" ? BOARDGAME :
     { building: BUILDING, walls: BUILDING_WALLS, clearPaths: CLEAR_PATHS });
   const island = version >= 9 ? getIslandLayout(layout.building) : null;
@@ -353,6 +353,7 @@ export function roomZoneAt(x, z, template, y = 0) {
     if (contains(layout.stairs, point)) return layout.upperName ? `${layout.upperName}로 가는 계단` : "중층으로 가는 계단";
     if (y >= layout.mezzanine.height - 0.2) return layout.upperName || "중층 라운지";
     if (layout.groundName && contains(layout.building, point)) return layout.groundName;
+    if (layout.upperName && x < BUILDING.minX && contains(layout.building, point)) return "메인홀";
   }
   return ROOM_ZONES.find((area) => area.id !== "entrance" && contains(area, point))?.name || "아지트";
 }

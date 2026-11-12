@@ -25,7 +25,7 @@ export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave }) {
     setSaving(true);
     setError("");
     try {
-      await onSave(template);
+      if (await onSave(template)) onComplete();
     } catch {
       setError("아지트를 저장하지 못했어요. 다시 시도해 주세요.");
       return;
@@ -33,7 +33,6 @@ export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave }) {
       inFlight.current = false;
       setSaving(false);
     }
-    onComplete();
   }
 
   return (

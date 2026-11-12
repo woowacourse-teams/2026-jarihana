@@ -180,8 +180,8 @@
 | `--color-warning-soft`          | `#fff6df`        | 경고 배경                                    |
 | `--color-activity-study-ink`    | `#24457f`        | 스터디 유형 chip text                        |
 | `--color-activity-study-soft`   | `#e7eefc`        | 스터디 유형 chip surface                     |
-| `--color-activity-club-ink`     | `#453a95`        | 동아리 유형 chip text                        |
-| `--color-activity-club-soft`    | `#ece9fb`        | 동아리 유형 chip surface                     |
+| `--color-activity-club-ink`     | `--color-brand-ink` | 동아리 유형 chip text                    |
+| `--color-activity-club-soft`    | `--color-brand-soft` | 동아리 유형 chip surface                |
 | `--color-activity-session-ink`  | `#7a5405`        | 세션 유형 chip text                          |
 | `--color-activity-session-soft` | `#fdf0da`        | 세션 유형 chip surface                       |
 | `--color-cohort-1..5`           | categorical ramp | 참여자 기수 분포의 비텍스트 구간·아바타 배경 |
@@ -344,6 +344,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   `YYYY-MM-DD`, `groups`는 오늘 예정된 ACTIVE SESSION 목록을 받으며, 표시 정보는 목록 API에 존재하는
   이름, 소개, 대표 이미지, 세션 시간, 장소, 모집 인원만 사용한다. 장소는 기존 저장된 location을
   목록 응답으로 전달하며 비어 있으면 생략한다. 긴 장소는 말줄임하고 소요 시간은 같은 줄에 단위와 함께 유지한다.
+- 오늘 같이해요 조회 결과가 0개면 섹션 전체를 숨긴다. 조회 중에는 스켈레톤을, 조회 실패 시에는 다시 시도 안내를 표시한다.
 - 탐색 페이지의 discovery는 hero 아래에서 두 영역으로 분리한다. 먼저 같이해요 전용 탐색을 보여 발견성을
   높이고, 그 아래에 기존 스터디·동아리 탐색을 별도 heading, 설명, section surface로 구분한다. 각 영역의
   검색·필터·더 보기 상태는 독립적으로 유지한다. 같이해요는 처음에 한 행(desktop 4개,

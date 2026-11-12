@@ -14,7 +14,7 @@ function defaultOutfit(memberId) {
 
 export function placeYardGreeters(room, memberIds) {
   if (!memberIds.length) return [];
-  const { building, island } = getRoomLayout(room.template);
+  const { building, island } = getRoomLayout(room);
   const yard = island.entrance;
   const display = getDioramaBounds(building);
   let positions = [];

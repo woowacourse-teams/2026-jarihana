@@ -210,7 +210,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, setup, 
 
   const clubhouse = {
     mode, canDecorate, onModeChange: changeMode, onOpenFeature: openFeature, activityExhibit: exhibit,
-    inputBlocked: Boolean(setup || chatOpen || contentDialog || musicOpen || orientationBlocked), orientationBlocked, unreadCount, muted, toggleMuted,
+    inputBlocked: Boolean(chatOpen || contentDialog || musicOpen || orientationBlocked), orientationBlocked, unreadCount, muted, toggleMuted,
     onActivityLinksChange: updateActivityLinks, canChat: isMember,
     presentation: expanded ? "immersive" : "web", previewExterior, previewWideAngle, cameraFlight, visitPointerLockRef, onBackdropChange: updateBackdrop,
     onDirtyChange: updateUnsavedSpace, onSceneStatus: setSceneStatus,

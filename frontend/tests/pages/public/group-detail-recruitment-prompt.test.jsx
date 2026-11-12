@@ -18,7 +18,7 @@ jest.mock("../../../src/pages/groups/GroupClubhouse.jsx", () => ({
   __esModule: true,
   default: ({ auth, children, group, groupId, setup }) => <>
     <h1 id="group-title" tabIndex={-1}>{group.name}</h1>
-    <MockGroupSpaceLoader groupId={groupId} memberId={auth.member?.id} setup={setup} />
+    <MockGroupSpaceLoader groupId={groupId} memberId={auth.member?.id} setup={setup} clubhouse={{ inputBlocked: false }} />
     {children}
   </>,
   GroupPhotoDetail: ({ children, group }) => <><h1 id="group-title" tabIndex={-1}>{group.name}</h1>{children}</>
@@ -41,9 +41,13 @@ jest.mock(
 );
 
 jest.mock("../../../src/pages/space/SpaceStudioPage.jsx", () => ({
-  SpaceStudioPage: ({ initialRoom }) => <main aria-label="아지트 미리보기" data-template={initialRoom.template} />
+  SpaceStudioPage: ({ initialRoom, clubhouse, onSave }) => <main aria-label="아지트 미리보기"
+    data-template={initialRoom.template} data-room-name={initialRoom.name} data-input-blocked={clubhouse.inputBlocked}>
+    <button onClick={() => onSave(initialRoom)}>편집기 테스트 저장</button>
+  </main>
 }));
 jest.mock("../../../src/features/group-space/index.js", () => ({
+  fetchGroupSpace: jest.fn(),
   useGroupSpace: jest.fn(),
   useSaveGroupSpace: jest.fn()
 }));
@@ -111,11 +115,13 @@ function renderDetail({ group = baseGroup, memberId = leaderMemberId, state = nu
 
 const prompt = () => screen.queryByRole("dialog", { name: "모집을 시작할까요?" });
 const setup = () => screen.queryByRole("dialog", { name: "어떤 아지트에서 모일까요?" });
+const scene = () => screen.getByRole("main", { name: "아지트 미리보기", hidden: true });
 const startWithDefault = () => act(async () => fireEvent.click(screen.getByRole("button", { name: "기본 아지트로 시작하기" })));
 const saveSpace = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  spaceHooks.fetchGroupSpace.mockReset();
   saveSpace.mockReset();
   saveSpace.mockImplementation(async ({ room }) => ({ room, revision: 1, canEdit: true, updatedAt: null }));
   spaceHooks.useGroupSpace.mockReturnValue({
@@ -140,6 +146,7 @@ it("방금 만든 모임에서 기본 아지트로 시작하면 기본 배치를
   renderDetail({ state: { justCreated: true } });
 
   expect(setup()).toBeVisible();
+  expect(scene()).toHaveAttribute("data-input-blocked", "true");
   expect(screen.getByRole("group", { name: "아지트 테마" }).querySelectorAll("button")).toHaveLength(7);
   expect(prompt()).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "이 아지트로 시작하기" })).toBeDisabled();
@@ -147,7 +154,9 @@ it("방금 만든 모임에서 기본 아지트로 시작하면 기본 배치를
 
   await startWithDefault();
 
-  expect(saveSpace).toHaveBeenCalledWith({ expectedRevision: 0, room: expect.objectContaining({ template: "lounge" }) });
+  expect(saveSpace).toHaveBeenCalledWith({ expectedRevision: 0, room: expect.objectContaining({
+    template: "lounge", version: 12, items: expect.arrayContaining([expect.objectContaining({ level: 1 })])
+  }) });
   expect(setup()).not.toBeInTheDocument();
   expect(prompt()).toBeVisible();
   expect(screen.getByText("모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요.")).toBeVisible();
@@ -242,6 +251,27 @@ it("이미 저장된 아지트가 있으면 초기 설정에서 다시 저장하
   expect(saveSpace).not.toHaveBeenCalled();
   expect(prompt()).not.toBeInTheDocument();
   expect(screen.getByRole("main", { name: "아지트 미리보기" })).toHaveAttribute("data-template", "photo");
+  expect(scene()).toHaveAttribute("data-input-blocked", "false");
+});
+
+it("초기 저장이 충돌하면 이미 저장된 같은 테마의 공간과 revision을 불러온다", async () => {
+  const room = { ...createInitialRoom(), name: "먼저 저장한 방" };
+  saveSpace.mockRejectedValueOnce({ status: 409, code: "GROUP_SPACE_CONFLICT" });
+  spaceHooks.fetchGroupSpace.mockResolvedValue({ room, revision: 4, canEdit: true, updatedAt: null });
+  renderDetail({ state: { justCreated: true } });
+
+  await startWithDefault();
+
+  expect(spaceHooks.fetchGroupSpace).toHaveBeenCalledWith("41");
+  expect(saveSpace).toHaveBeenCalledTimes(1);
+  expect(setup()).not.toBeInTheDocument();
+  expect(prompt()).not.toBeInTheDocument();
+  expect(scene()).toHaveAttribute("data-room-name", room.name);
+  expect(scene()).toHaveAttribute("data-input-blocked", "false");
+
+  saveSpace.mockResolvedValueOnce({ room, revision: 5, canEdit: true, updatedAt: null });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "편집기 테스트 저장" })));
+  expect(saveSpace).toHaveBeenLastCalledWith({ room, expectedRevision: 4 });
 });
 
 it("아지트 조회가 실패하면 선택과 모집 안내를 열지 않는다", () => {

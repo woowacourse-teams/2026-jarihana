@@ -60,8 +60,9 @@ test("the taller hall is enclosed above the lower side-room roofs, including abo
 });
 
 test("the default shell matches the widened walkable gallery and stair plan", () => {
-  const { building, mezzanine, stairs } = getRoomLayout("lounge");
-  const shell = createRoomShell({ template: "lounge" });
+  const room = createInitialRoom("lounge", { loungeLoft: true });
+  const { building, mezzanine, stairs } = getRoomLayout(room);
+  const shell = createRoomShell(room);
   shell.updateMatrixWorld(true);
   try {
     expect([building.maxX - building.minX, building.maxZ - building.minZ]).toEqual([25, 13]);

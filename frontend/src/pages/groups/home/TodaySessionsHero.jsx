@@ -69,15 +69,6 @@ function isTicketFocusable(index, startIndex, count) {
   return index >= startIndex && index < startIndex + count;
 }
 
-function EmptyTodaySessions() {
-  return (
-    <div className="today-sessions-hero__empty">
-      <p className="today-sessions-hero__empty-title">오늘 예정된 같이해요가 아직 없어요.</p>
-      <p>아래 탐색에서 다음에 열릴 가벼운 자리를 확인해보세요.</p>
-    </div>
-  );
-}
-
 function LoadingTodaySessions() {
   return (
     <div className="today-sessions-hero__loading" aria-label="오늘 같이해요를 불러오는 중">
@@ -271,8 +262,6 @@ export function TodaySessionsHero({
           title="오늘의 같이해요를 불러오지 못했어요"
         />
       ) : null}
-
-      {!isLoading && !error && sessions.length === 0 ? <EmptyTodaySessions /> : null}
 
       {!isLoading && sessions.length > 0 ? (
         <div

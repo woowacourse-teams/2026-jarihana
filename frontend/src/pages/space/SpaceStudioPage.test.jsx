@@ -644,7 +644,7 @@ test("new furniture can be placed in the expanded lawn and saved without moving 
   expect(sceneProps.room.items.at(-1).z).toBeGreaterThan(5);
   expect(sceneProps.room.items.at(-1).z).toBeGreaterThan(8.2);
   expect(sceneProps.view).toBe("site");
-  click("1층에 놓기");
+  fireEvent.click(screen.getByRole("button", { name: /^(실내|1층)에 놓기$/ }));
   openFurniture(); click("초록 친구 추가");
   expect(sceneProps.room.items.at(-1).z).toBeLessThan(5);
   click("저장");
@@ -652,6 +652,7 @@ test("new furniture can be placed in the expanded lawn and saved without moving 
 });
 
 test("default clubhouse floor views place furniture on the second floor and restore it after saving", () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(createInitialRoom("lounge", { loungeLoft: true })));
   const { unmount } = render(<SpaceStudioPage />);
   click("2층 라운지");
   expect(sceneProps.floorView).toBe("mezzanine");
@@ -729,7 +730,7 @@ test("template changes, undo and cancel reset the active placement floor", () =>
   expect(sceneProps.floorView).toBe("all");
   expect(screen.queryByRole("button", { name: "중층에 놓기" })).not.toBeInTheDocument();
   openFurniture();
-  expect(screen.getByRole("button", { name: "1층에 놓기" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: /^(실내|1층)에 놓기$/ })).toHaveAttribute("aria-pressed", "true");
   click("다시 실행"); click("중층 라운지");
   click("아지트"); click("밴드"); click("이 아지트로 꾸미기");
   expect(sceneProps.floorView).toBe("all");

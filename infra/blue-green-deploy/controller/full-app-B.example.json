@@ -17,10 +17,6 @@
       "host_id": "dev-b",
       "instance_id": "i-bbbbbbbbbbbbbbbbb",
       "upstream": "10.0.0.11:8080"
-    },
-    "control": {
-      "ref": "refs/tags/deployment-control-v1",
-      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   },
   "local_slot": "B",
@@ -28,7 +24,6 @@
   "journal_key": "/etc/jarihana-deploy/dev/grant-key",
   "known_hosts": "/etc/jarihana-deploy/dev/known-hosts",
   "worker_token_file": "/etc/jarihana-deploy/dev/worker-token",
-  "compose_file": "/etc/jarihana-deploy/dev/app-compose.yml",
   "container_name": "jarihana-dev-backend-1",
   "project": "jarihana-dev",
   "management_port": 8081,

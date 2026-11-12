@@ -31,6 +31,11 @@ bg_state_file() { [[ -f $STATE_FILE && ! -L $STATE_FILE ]] || bg_die 'Missing te
 bg_uuid() { local n; n=$(( $(cat "$CASE_DIR/uuid")+1 )); echo "$n" >"$CASE_DIR/uuid"; printf 'aaaaaaaa-aaaa-aaaa-aaaa-%012d\n' "$n"; }
 bg_output() { if [[ $1 == result && ${ACTOR:-} == app ]]; then printf '%s\n' "$2" >"$CASE_DIR/receipt"; fi; }
 timeout() { shift; "$@"; }
+app_release_compose() {
+  cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$1"
+  local hash; hash=$(sha256sum "$1")
+  RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$GITHUB_SHA" --arg sha256 "${hash%% *}" '{commit:$commit,sha256:$sha256}')
+}
 ssh() { cat "$STATE_FILE"; }
 curl() { public_curl "$@"; }
 api_event() {
@@ -58,7 +63,7 @@ bg_github() {
 bg_init() {
   # Identity, machine and protected-file checks are environment doubles. Preserve both startup HTTP reads.
   ENVIRONMENT=prod; BG_MODE=deploy; REPO=woowacourse-teams/2026-jarihana; BRANCH=main; WORKFLOW_ID=999
-  RUN_ID=123; ATTEMPT=1; CONTROL_SHA=$(printf '%040d' 3)
+  RUN_ID=123; ATTEMPT=1
   BG_READ_ONLY_VERIFIED_AT=0; BG_LIVE_CACHED_AT=0
   CONFIG=$(cat "$CASE_DIR/coordinator.json")
   [[ $1 != app ]] || CONFIG=$(cat "$CASE_DIR/app-$BG_SLOT.json")
@@ -131,7 +136,7 @@ echo abcdefghijklmnopqrstuvwxyz1234567890 >"$CASE_DIR/token"
 jq --arg directory "$CASE_DIR/nginx" '.topology.environment="prod"|.topology.a.host_id="prod-a"|.topology.b.host_id="prod-b"|.nginx.directory=$directory' "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json" >"$CASE_DIR/coordinator.json"
 mkdir -m700 "$CASE_DIR/nginx"; echo initial >"$CASE_DIR/nginx/current.conf"; chmod 600 "$CASE_DIR/nginx/current.conf"
 for slot in A B; do
-  jq --slurpfile c "$CASE_DIR/coordinator.json" --arg token "$CASE_DIR/token" --arg compose "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" '.topology=$c[0].topology|.coordinator_address="10.0.0.5"|.journal_key="/etc/jarihana-deploy/prod/grant-key"|.known_hosts="/etc/jarihana-deploy/prod/known-hosts"|.worker_token_file=$token|.compose_file=$compose' "$ROOT/infra/blue-green-deploy/controller/full-app-$slot.example.json" >"$CASE_DIR/app-$slot.json"
+  jq --slurpfile c "$CASE_DIR/coordinator.json" --arg token "$CASE_DIR/token" '.topology=$c[0].topology|.coordinator_address="10.0.0.5"|.journal_key="/etc/jarihana-deploy/prod/grant-key"|.known_hosts="/etc/jarihana-deploy/prod/known-hosts"|.worker_token_file=$token' "$ROOT/infra/blue-green-deploy/controller/full-app-$slot.example.json" >"$CASE_DIR/app-$slot.json"
   digest=$OLD_DIGEST; worker=ACTIVE; boot=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
   [[ $slot != B ]] || { digest=$BG_IMAGE_DIGEST; worker=PAUSED; boot=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb; }
   jq -cn --arg image "$digest" --arg slot "${slot,,}" --arg boot "$boot" --arg worker "$worker" '{version:$image,environment:"prod",identity:{hostId:("prod-"+$slot),bootId:$boot},worker:{state:$worker,inFlight:0,unresolved:0},activity:{httpInFlight:0,backgroundInFlight:0,backgroundDrained:true}}' >"$CASE_DIR/api-$slot"
@@ -139,8 +144,8 @@ for slot in A B; do
 done
 jq -cn --argjson identity "$(jq .identity "$CASE_DIR/api-A")" '{environment:"prod",deploymentId:"11111111-1111-1111-1111-111111111111",epoch:4,phase:"COMPLETE",revision:10,authorityRevision:7,owner:$identity,status:"ACTIVE"}' >"$CASE_DIR/authority.json"
 CONFIG=$(cat "$CASE_DIR/coordinator.json")
-old_status=$(jq -c --slurpfile a "$CASE_DIR/authority.json" --arg image "$OLD_DIGEST" '.authority=$a[0]|.slot="A"|.image=$image|.running=true|.healthy=true' "$CASE_DIR/api-A")
-STATE=$(jq -c --argjson status "$old_status" --arg topology "$(bg_topology_digest)" '.phase="COMPLETE"|.old_status=$status|.topology_digest=$topology' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+old_status=$(jq -c --slurpfile a "$CASE_DIR/authority.json" --arg image "$OLD_DIGEST" --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '.authority=$a[0]|.slot="A"|.image=$image|.running=true|.healthy=true|.compose_source={commit:$commit,sha256:$hash}' "$CASE_DIR/api-A")
+STATE=$(jq -c --argjson status "$old_status" --arg topology "$(bg_topology_digest)" '.phase="COMPLETE"|.sealed=true|.pending=null|.old_status=$status|.topology_digest=$topology' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
 for ((i=5;i<FILES;i++)); do echo "old $i" >"$CASE_DIR/s3/$FE_LIVE/assets/file-$i.txt"; echo "new $i" >"$BG_FRONTEND_DIST/assets/file-$i.txt"; done
 LABEL=seed
 BG_API_MIN_REMAINING=10
@@ -238,6 +243,11 @@ else
   fi
   jq -e '.phase=="ROLLED_BACK" and .frontend.recovered==true' "$STATE_FILE" >/dev/null
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+fi
+jq -e --argjson previous "$old_status" '.old_status.compose_source==$previous.compose_source' "$STATE_FILE" >/dev/null
+if [[ $SCOPE != frontend ]]; then
+  compose_hash=$(sha256sum "$ROOT/infra/blue-green-deploy/controller/app-compose.yml")
+  jq -e --arg commit "$GITHUB_SHA" --arg hash "${compose_hash%% *}" '.target_status.compose_source=={commit:$commit,sha256:$hash}' "$STATE_FILE" >/dev/null
 fi
 finish=$(bg_now)
 # Run the real guardian loop on an independent virtual clock over the same interval as deployment jobs.
