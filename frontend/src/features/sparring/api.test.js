@@ -1,4 +1,5 @@
-import { postSchema, streamSchema } from "./api.js";
+import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appearance.js";
+import { avatarPoolsSchema, postSchema, streamSchema } from "./api.js";
 import { arenaMessageSchema } from "./arenaBridge.js";
 
 const post = {
@@ -11,6 +12,23 @@ it.each(["BOOTCAMP", "PROFESSIONAL"])("accepts %s posts and reply parents after 
     ...post, memberType,
     replyTo: { ...post, id: 2, memberType }
   })).toMatchObject({ memberType, replyTo: { memberType } });
+});
+
+it("keeps both author appearances and tolerates a missing or unsupported avatar in a post", () => {
+  const mint = AVATAR_PRESETS[0].appearance;
+  const coral = AVATAR_PRESETS[1].appearance;
+  const replyTo = { ...post, id: 2, side: "CORAL", appearance: coral };
+  expect(postSchema.parse({ ...post, appearance: { ...mint, extra: "ignored" }, replyTo })).toMatchObject({
+    appearance: mint, replyTo: { appearance: coral }
+  });
+  expect(postSchema.parse(post).appearance).toBeUndefined();
+  expect(postSchema.parse({ ...post, appearance: { version: 2 } }).appearance).toBeNull();
+});
+
+it("bounds the decorative pools independently and omits unsupported avatars", () => {
+  const appearance = AVATAR_PRESETS[0].appearance;
+  expect(avatarPoolsSchema.parse({ mint: [appearance, { version: 2 }], coral: [] })).toEqual({ mint: [appearance], coral: [] });
+  expect(avatarPoolsSchema.safeParse({ mint: Array(9).fill(appearance), coral: [] }).success).toBe(false);
 });
 
 it.each(["sparring_composer_toggle", "sparring_clash_replay"])("forwards %s as a stable interaction", (action) => {

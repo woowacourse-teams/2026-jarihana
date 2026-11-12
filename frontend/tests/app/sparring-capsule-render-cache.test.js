@@ -1,5 +1,6 @@
 import { createCapsules } from '../../public/sparring-arena/src/capsules.js';
 import { CAPACITY } from '../../public/sparring-arena/src/physics.js';
+import { AVATAR_BASIC_APPEARANCE } from '../../public/sparring-arena/src/avatar-appearance.js';
 
 let mockPhysics, mockBatch;
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => mockBatch }));
@@ -140,4 +141,70 @@ it('편별 파이프 공급 목록은 메시지 갱신 때 바뀌고 대화 없�
   expect(mockPhysics.launch.mock.lastCall[0].id).toBe('new-mint');
   expect(capsules.replayPipe()).toBe('b');
   expect(mockPhysics.launch.mock.lastCall[0]).toMatchObject({ id: 'vote-b', side: 'b' });
+});
+
+it('늦게 받은 투표자 외형을 같은 편 캡슐에 고르게 넣고 파이프에서도 순환한다', () => {
+  const capsules = populated();
+  const mint = ['curly', 'bob'].map(hair => ({ ...AVATAR_BASIC_APPEARANCE, hair }));
+  const coral = ['long', 'flowing'].map(hair => ({ ...AVATAR_BASIC_APPEARANCE, hair }));
+  capsules.updateState(posts, votes, undefined, { a: mint, b: coral });
+  const decorated = mockBatch.draw.mock.calls.filter(([, , , , , appearance]) => appearance);
+  expect(decorated).toHaveLength(24);
+  for (const [side, pool] of [['a', mint], ['b', coral]]) {
+    const avatars = decorated.filter(([, entry]) => entry.visualSide === side).map(call => call[5]);
+    expect(avatars).toEqual(Array.from({ length: 12 }, (_, i) => pool[i % 2]));
+  }
+  mockBatch.draw.mockClear();
+  capsules.updateState(posts, votes, undefined, { a: mint.map(item => ({ ...item })), b: coral });
+  expect(mockBatch.draw).not.toHaveBeenCalled();
+
+  for (const [side, appearance] of [['a', mint[0]], ['b', coral[0]], ['a', mint[1]], ['b', coral[1]]]) {
+    expect(capsules.replayPipe()).toBe(side);
+    capsules.step(0);
+    expect(mockBatch.draw.mock.calls.findLast(([index]) => index === 0)[5]).toBe(appearance);
+  }
+});
+
+it('기존 통에 없던 편의 캡슐이 파이프에서 들어오면 통의 아바타 배치를 갱신한다', () => {
+  const capsules = createCapsules({}, jest.fn(), jest.fn());
+  const mint = { ...AVATAR_BASIC_APPEARANCE, hair: 'curly' };
+  const coral = { ...AVATAR_BASIC_APPEARANCE, hair: 'long' };
+  const displayed = new Map();
+  mockBatch.draw.mockImplementation((index, entry, _size, _opening, _burst, appearance) => {
+    displayed.set(index, { side: entry.visualSide, appearance });
+  });
+  capsules.updateState(posts, { total: 1, a: 1, b: 0, ratio: 1 }, undefined, { a: [mint], b: [] });
+  capsules.updateState(posts, { total: 4, a: 1, b: 3, ratio: 0.25 }, undefined, { a: [mint], b: [coral] });
+  expect([...displayed.values()].some(item => item.side === 'b')).toBe(false);
+
+  let recycled = 0;
+  mockPhysics.launch.mockImplementation(post => Object.assign(mockPhysics.entries[recycled++], {
+    post, visualSide: post.side,
+  }));
+  for (let i = 0; i < 80; i++) capsules.replayPipe();
+  capsules.step(0);
+  const decorated = [...displayed.values()].filter(item => item.appearance);
+  // Four are allowed to have pipe appearances. The remaining coral avatars must be in tank slots.
+  expect(decorated.filter(item => item.appearance === coral).length).toBeGreaterThan(4);
+  expect(decorated.length).toBeLessThanOrEqual(28);
+  expect(decorated.every(item => item.appearance === (item.side === 'a' ? mint : coral))).toBe(true);
+  mockBatch.draw.mockClear();
+  capsules.step(0);
+  expect(mockBatch.draw).not.toHaveBeenCalled();
+});
+
+it('장식 외형이 있어도 보낸 캡슐과 미끄럼틀에 넘길 글은 실제 작성자 외형을 사용한다', () => {
+  const capsules = populated();
+  const appearance = { ...AVATAR_BASIC_APPEARANCE, hair: 'parted' };
+  const voter = { ...AVATAR_BASIC_APPEARANCE, hair: 'bob' };
+  const actual = { ...posts[0], appearance };
+  capsules.updateState([actual], votes, undefined, { a: [voter], b: [] });
+  mockPhysics.launch.mockImplementationOnce(post => Object.assign(mockPhysics.entries[0], {
+    post, visualSide: post.side, fresh: true, revealed: false, landedAt: null,
+  }));
+  mockBatch.draw.mockClear();
+  capsules.launch(actual);
+  expect(mockBatch.draw.mock.calls.find(([index]) => index === 0)[5]).toBe(appearance);
+  expect(capsules.pick({}, {}, {})).toBe(true);
+  expect(capsules.takeForDraw()).toEqual({ post: actual, fresh: false });
 });

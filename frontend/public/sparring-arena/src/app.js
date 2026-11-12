@@ -21,8 +21,14 @@ const mySide = () => state.mySide;
 const mobileComposer = () => innerWidth <= 700;
 const composerInput = side => mobileComposer() ? $('#message') : $(`[data-input-side="${side}"]`);
 function scenePost(post) {
-  const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-  return { ...post, mine: own(post), name: displayName(post), replyTo: parent ? { ...parent, name: displayName(parent) } : null };
+  const cachedParent = state.posts.find(item => item.id === post.replyToId);
+  const parent = post.replyTo ? { ...cachedParent, ...post.replyTo } : cachedParent;
+  const withAppearance = item => ({
+    ...item,
+    appearance: item.appearance === undefined && own(item) ? state.actorAppearance : item.appearance,
+    name: displayName(item),
+  });
+  return { ...withAppearance(post), mine: own(post), replyTo: parent ? withAppearance(parent) : null };
 }
 const scenePosts = () => state.posts.map(scenePost);
 function announce(text) { $('#stage-status').textContent = text; }
@@ -229,7 +235,7 @@ function renderCounts() {
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) });
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) }, state.avatarPools);
   renderInput(); storageStatus();
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }

@@ -111,7 +111,7 @@ class SparringStreamsTest {
         var firstMessages = new CopyOnWriteArrayList<String>();
         var secondMessages = new CopyOnWriteArrayList<String>();
         attach(recordingEmitter(firstMessages));
-        var post = new SparringPostResult(1, 1, "작성자", "CREW", "MINT", "내용", null, null);
+        var post = new SparringPostResult(1, 1, "작성자", "CREW", "MINT", "내용", null, null, null);
         when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
                 .thenAnswer(
                         invocation -> {

@@ -9,6 +9,7 @@
 | POST | `/sparrings` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}` | PUBLIC | 주장·표수·내 편·글 수·revision |
 | POST | `/sparrings/{topicId}/votes` | MEMBER + CSRF | 204, 본문 없음 |
+| GET | `/sparrings/{topicId}/avatar-pools` | PUBLIC | 장식 캡슐용 진영별 외형 목록 |
 | GET | `/sparrings/{topicId}/posts` | PUBLIC | 저장된 의견과 받아치기 원문 |
 | POST | `/sparrings/{topicId}/posts` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}/events` | PUBLIC | `text/event-stream`, 메시지 스냅샷·추가분 및 공개 집계 |
@@ -29,6 +30,13 @@ mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open
 응답은 `{items, nextCursor, hasNext}`, 더 없으면 nextCursor는 null이다.
 원문 `replyTo`에는 ID/작성자ID/이름/회원유형/진영/내용이 포함되어,
 부모 글이 현재 페이지 밖에 있어도 두 주장을 함께 표시할 수 있다.
+글과 `replyTo` 각각의 `appearance`는 조회 시점 작성자의
+[저장된 아바타 외형](member-avatar.md)이다. 저장한 외형이 없으면 `null`을 반환한다.
+작성 당시 진영은 글에 저장한 값을 반환한다.
+
+장식 캡슐용 응답의 `data`는 `{mint: Appearance[], coral: Appearance[]}`다.
+해당 토론의 현재 투표자 중 저장 외형이 있는 회원을 회원 ID 오름차순으로 진영별 최대 8명씩 고른다.
+각 원소는 외형 파츠만 포함한다. 목록은 비어 있을 수 있으며 없는 주제는 `SPARRING_NOT_FOUND`(404)다.
 
 등록 입력: title 1..80자, a/b 각 1..32자, description 선택 0..240자.
 대표사진은 선택이다. 기존 `POST /api/image-uploads`로 업로드 정보를 받고 파일 전송을 마친 뒤,
@@ -46,7 +54,7 @@ mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open
 `SPARRING_NOT_FOUND`(404), 잘못된 입력/다른 주제의 부모 글은 `INVALID_PARAMETER`(400)다.
 
 SSE는 JSON 봉투 없이 다음 이벤트를 보낸다. 두 이벤트의 필드는 동일하며 `posts` 원소는
-의견 HTTP 응답과 같은 ID·작성자·본문·작성 시각·원문(`replyTo`) 계약이다.
+의견 HTTP 응답과 같은 ID·작성자·본문·작성 시각·원문(`replyTo`)·외형 계약이다.
 
 ```text
 id:12

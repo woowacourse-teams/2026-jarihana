@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHistoryConversation } from '../../public/sparring-arena/src/history-conversation.js';
 import { createCharacterDuel } from '../../public/sparring-arena/src/character-duel.js';
 import { revealComposer } from '../../public/sparring-arena/src/composer.js';
+import { AVATAR_BASIC_APPEARANCE } from '../../public/sparring-arena/src/avatar-appearance.js';
 
 it('편을 고르기 전에 누른 말풍선도 받아치기 대상으로 유지하고 편 선택 후 전송한다', async () => {
   const first = { id: '1', side: 'a', authorId: 'crew', name: '크루', text: '기다리면 금방이야', createdAt: 1 };
@@ -134,6 +135,24 @@ async function setupVoting(initialSide = null) {
   listen.mockRestore();
   return { state, store, arena, receive, reply: id => createArena.mock.calls[0][3](id), cleanup() { document.body.replaceChildren(); Object.defineProperty(window, 'matchMedia', media); global.ResizeObserver = observer; } };
 }
+
+it('실시간 받아치기는 관람자의 아바타나 장식 목록과 무관하게 발언자 두 사람의 편과 외형으로 넘긴다', async () => {
+  const { state, store, arena, cleanup } = await setupVoting('a');
+  const avatar = hair => ({ ...AVATAR_BASIC_APPEARANCE, hair });
+  const original = { id: '4', authorId: '2', name: '크루', side: 'a', text: '첫 의견', appearance: avatar('bob') };
+  const reply = { id: '5', authorId: '3', name: '코치', side: 'b', text: '다른 의견', appearance: avatar('long'),
+    replyToId: original.id, replyTo: original };
+  try {
+    state.actorAppearance = avatar('curly');
+    state.avatarPools = { a: [avatar('parted')], b: [avatar('flowing')] };
+    state.posts = [{ ...original, appearance: avatar('curly') }, reply];
+    store.subscribe.mock.calls[0][0]([reply.id], [reply]);
+    expect(arena.launch).toHaveBeenCalledWith(expect.objectContaining({
+      side: 'b', appearance: reply.appearance, replyTo: expect.objectContaining({ side: 'a', appearance: original.appearance }),
+    }));
+    expect(document.querySelector('[data-composer-side="a"]').avatarAppearance).toBe(state.actorAppearance);
+  } finally { cleanup(); }
+});
 
 it.each([['brawl', 'setBrawl'], ['speech-overlap', 'setSpeechOverlap']])('%s 임시 모드는 같은 출처 부모의 boolean 메시지만 받아 전환한다', async (kind, setter) => {
   const { arena, receive, cleanup } = await setupVoting();

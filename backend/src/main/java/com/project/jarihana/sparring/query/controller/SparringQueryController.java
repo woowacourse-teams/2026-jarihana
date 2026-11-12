@@ -2,6 +2,7 @@ package com.project.jarihana.sparring.query.controller;
 
 import com.project.jarihana.common.auth.LoginMemberReader;
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.sparring.query.controller.dto.SparringAvatarPoolsResponse;
 import com.project.jarihana.sparring.query.controller.dto.SparringListRequest;
 import com.project.jarihana.sparring.query.controller.dto.SparringPageResponse;
 import com.project.jarihana.sparring.query.controller.dto.SparringPostResponse;
@@ -49,6 +50,13 @@ public class SparringQueryController {
                         SparringTopicResponse.from(
                                 service.topic(
                                         topicId, memberReader.currentMemberId().orElse(null)))));
+    }
+
+    @GetMapping("/{topicId}/avatar-pools")
+    public ResponseEntity<ApiResponse<SparringAvatarPoolsResponse>> findAvatarPools(
+            @PathVariable long topicId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(SparringAvatarPoolsResponse.from(service.avatarPools(topicId))));
     }
 
     @GetMapping("/{topicId}/posts")

@@ -43,7 +43,7 @@
   모자의 윗머리 덮기, 긴 머리의 가방 위치, 소지품 받침 자세는 ID 분기 대신 특성으로 결정한다.
   `avatar-instance-batch.js`는 선택된 파츠만 연속된 인스턴스 구간에 넣고 비어 있는 메시를 숨긴다.
   외형이 같은 프레임은 선택 목록을 재사용하고 미선택 파츠의 행렬·그리기를 생략한다. 제거로 이동한 인스턴스의 색·관절도 함께 옮긴다.
-- 공용 편집·기록·아이콘 모듈은 `avatar-studio`에 둔다. `avatar-lab`은 개발에서만 제공하고 production 빌드에서 제외한다. 토론 연결과 프로필 사진 교체는 범위 밖이다.
+- 공용 편집·기록·아이콘 모듈은 `avatar-studio`에 둔다. `avatar-lab`은 개발에서만 제공하고 production 빌드에서 제외한다. 저장한 외형은 토론 캐릭터와 아지트 3인칭 캐릭터에 적용한다. 프로필 사진과 아바타는 별도다.
 - [회원 아바타 API 계약](../../backend/docs/context/api/endpoints/member-avatar.md)
 - 검증: `avatar-frame.test.jsx`, `api/avatar.test.js`, `e2e/avatar.spec.js`.
 
