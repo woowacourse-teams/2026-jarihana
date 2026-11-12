@@ -48,15 +48,15 @@ test("반띵 게임은 공통 헤더 대신 게임방에서 들어간다", async
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/events/pepero-day");
-  await expect(page.getByRole("button", { name: "연습 시작" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "GitHub로 로그인하고 도전하기" })).toBeVisible();
   const desktopMenu = page.getByRole("navigation", { name: "주요 메뉴" });
-  await expect(desktopMenu.getByRole("link", { name: "반띵 게임" })).toHaveCount(0);
+  await expect(desktopMenu.getByRole("link", { name: /반띵/ })).toHaveCount(0);
   await expect(desktopMenu.getByRole("link", { name: "게임하나?" })).toHaveAttribute("href", "/games");
 
   await page.setViewportSize({ width: 390, height: 900 });
   await page.getByRole("button", { name: "메뉴 열기" }).click();
   const mobileMenu = page.getByRole("navigation", { name: "모바일 메뉴" });
-  await expect(mobileMenu.getByRole("link", { name: "반띵 게임" })).toHaveCount(0);
+  await expect(mobileMenu.getByRole("link", { name: /반띵/ })).toHaveCount(0);
 
   gameRoomOpen = true;
   await page.goto("/groups");
