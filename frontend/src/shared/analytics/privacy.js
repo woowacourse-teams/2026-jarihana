@@ -1,5 +1,10 @@
 const pathSegments = new Set([
   "games",
+  "chair-stack",
+  "runs",
+  "current",
+  "drops",
+  "rankings",
   "gomoku",
   "rooms",
   "invite",

@@ -34,6 +34,7 @@ import { Stone } from "../../features/gomoku/Stone";
 import { ReadinessControls } from "../../features/gomoku/ReadinessControls";
 import { RuleInfoTooltip } from "../../features/gomoku/RuleInfoTooltip";
 import { GameArtwork } from "./GameArtwork";
+import { ChairStackArt } from "../../features/chair-stack/ChairStackArt";
 import { GomokuHistory } from "./GomokuHistory";
 import { GomokuRanking } from "./GomokuRanking";
 import { InvitationLink } from "./InvitationLink";
@@ -97,6 +98,22 @@ export function GamesPage() {
       <div className="games-page games-page--catalog">
         <GameHeading title="게임방">잠깐 쉬었다, 한 판 어때요?</GameHeading>
         <div className="games-catalog">
+          <article className="games-card games-card--playable">
+            <div className="games-artwork games-card__visual games-card__visual--chair">
+              <ChairStackArt catalog />
+            </div>
+            <div className="games-card__body">
+              <h2>의자 쌓기</h2>
+              <p>의자를 얼마나 높이 쌓을 수 있을까요?</p>
+              <Link
+                className="ui-button ui-button--primary ui-button--md ui-button--block games-card__cta"
+                data-ph-capture-attribute-action="chair_stack_open"
+                to="/games/chair-stack"
+              >
+                <Gamepad2 size={20} aria-hidden="true" /> 게임 시작
+              </Link>
+            </div>
+          </article>
           <article className="games-card games-card--playable">
             <GameArtwork game="gomoku" priority className="games-card__visual" />
             <div className="games-card__body">
