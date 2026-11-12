@@ -64,11 +64,11 @@ export function LandingClubhouseHero({ active }) {
           </div>
           <div className="landing-clubhouse__copy">
             <h1 id="clubhouse-title">
-              <span>모임마다 하나씩,</span>
-              <span>함께 꾸미는 아지트</span>
+              <span>우리만의 아지트를 꾸미고</span>
+              <span>함께 어울리는 놀이터</span>
             </h1>
             <p className="landing-clubhouse__lead">
-              우리만의 아지트를 꾸미고 함께 어울리는 놀이터
+              동아리와 스터디마다 3D 아지트가 생겨요. 함께 꾸미고 놀러 오세요.
             </p>
             <div className="landing-clubhouse__actions">
               <button

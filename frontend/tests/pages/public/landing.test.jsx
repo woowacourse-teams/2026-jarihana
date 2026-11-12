@@ -42,7 +42,7 @@ test("reads as the clubhouse, the sparring and games cards, the core feature car
     "clubhouse", "features", "core",
     "tech-intro", "tech-time", "tech-size", "tech-runs"
   ]);
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임마다 하나씩,함께 꾸미는 아지트");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("우리만의 아지트를 꾸미고함께 어울리는 놀이터");
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
   for (const id of ["core", "features", "tech-time", "clubhouse"]) {

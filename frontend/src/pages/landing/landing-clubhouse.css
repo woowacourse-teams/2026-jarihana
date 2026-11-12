@@ -219,6 +219,10 @@
   .landing-clubhouse__copy {
     padding-inline: var(--space-4);
   }
+  /* 제목 두 줄이 좁은 화면에서도 각각 한 줄에 들어가도록 화면 너비에 맞춰 줄인다. */
+  .landing-clubhouse__copy h1 {
+    font-size: clamp(1.75rem, 8vw, var(--landing-hero-size));
+  }
   .landing-clubhouse__caption {
     bottom: var(--space-5);
     border-radius: var(--radius-lg);
