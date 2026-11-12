@@ -1010,7 +1010,6 @@
   gap: var(--space-3);
 }
 
-.group-leader__label,
 .group-leader__identity span {
   margin: 0;
   color: var(--color-muted-ink);

@@ -876,7 +876,7 @@
   --level: #5ea6ff;
 }
 .rhythm-game .difficulty button[data-level="hard"] {
-  --level: #b892ff;
+  --level: var(--color-brand);
 }
 .rhythm-game .difficulty button[data-level="hardest"] {
   --level: #ff6b6b;
