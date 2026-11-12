@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { climbingPanelBacking, createFurniture, createRoomShell, disposeObject } from "./roomModels";
-import { BUILDING, boundsForBox, contains, getRoomLayout } from "./roomLayout";
+import { boundsForBox, contains, getRoomLayout } from "./roomLayout";
 import { CATALOG, ROOM_TEMPLATES, canPlace, createInitialRoom, footprint, validateRoom, placedItemElevation } from "./roomState";
 
 test("band ceiling absorbers use their own editable model and survive a room round trip", () => {
@@ -44,7 +44,8 @@ test("the taller hall is enclosed above the lower side-room roofs, including abo
   const shell = createRoomShell({ floorColor: "#cda17b", wallColor: "#eee3d3" });
   shell.updateMatrixWorld(true);
   const ray = new THREE.Raycaster();
-  const height = (BUILDING.height + BUILDING.wingHeight) / 2;
+  const { building } = getRoomLayout("lounge");
+  const height = (building.height + building.wingHeight) / 2;
   try {
     for (const z of [-6.75, -4.5, -1.25, 2, 4]) {
       ray.set(new THREE.Vector3(1, height, z), new THREE.Vector3(1, 0, 0));
@@ -53,6 +54,28 @@ test("the taller hall is enclosed above the lower side-room roofs, including abo
       expect(hit).toBeDefined();
       expect(hit.point.x).toBeCloseTo(3.9);
     }
+  } finally {
+    disposeObject(shell);
+  }
+});
+
+test("the default shell matches the widened walkable gallery and stair plan", () => {
+  const room = createInitialRoom("lounge", { loungeLoft: true });
+  const { building, mezzanine, stairs } = getRoomLayout(room);
+  const shell = createRoomShell(room);
+  shell.updateMatrixWorld(true);
+  try {
+    expect([building.maxX - building.minX, building.maxZ - building.minZ]).toEqual([25, 13]);
+    const entry = new THREE.Box3().setFromObject(shell.getObjectByName("entry-deck"));
+    expect(entry.min.x).toBeCloseTo(building.minX);
+    expect(entry.max.x).toBeCloseTo(building.maxX);
+    const deck = new THREE.Box3().setFromObject(shell.getObjectByName("lounge-gallery-deck"));
+    expect(deck.min.x).toBeCloseTo(mezzanine.minX);
+    expect(deck.max.z).toBeCloseTo(mezzanine.maxZ);
+    expect(deck.max.y).toBeCloseTo(mezzanine.height);
+    const treads = shell.getObjectByName("lounge-staircase").children.filter((piece) => piece.name === "stair-tread");
+    expect(treads).toHaveLength(stairs.steps);
+    expect(new THREE.Box3().setFromObject(treads.at(-1)).max.y).toBeCloseTo(mezzanine.height);
   } finally {
     disposeObject(shell);
   }

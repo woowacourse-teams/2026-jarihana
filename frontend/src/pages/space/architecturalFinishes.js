@@ -32,7 +32,7 @@ export function finishArchitecture(root, template, layout, atmosphere = {}, onRe
     for (const value of Object.values(material)) if (value?.isTexture && !liveTextures.has(value)) value.dispose();
     material.dispose();
   }
-  if (!m) return root;
+  if (!m || template === "lounge") return root;
   const detailing = new THREE.Group();
   detailing.name = `${template}-architectural-detail`;
   root.add(detailing);
