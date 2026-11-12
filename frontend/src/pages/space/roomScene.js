@@ -1281,6 +1281,10 @@ export function createRoomScene(container, callbacks) {
       if (room) updateRoomLighting(true);
       render();
     },
+    setPlayerAppearance(appearance) {
+      renderer.shadowMap.needsUpdate = true;
+      walkthrough.setPlayerAppearance(appearance);
+    },
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,
     setWalkInputBlocked: walkthrough.setInputBlocked,
     chooseWalkInteraction: walkthrough.chooseInteraction,

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { AVATAR_BASIC_APPEARANCE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkthrough } from "./roomWalkthrough";
 import { createInitialRoom } from "./roomState";
 import { getRoomLayout, PLAYER } from "./roomLayout";
@@ -42,6 +43,46 @@ test("first and third person share position; first person hides the avatar; exit
   expect(scene.getObjectByName("mascot").position.z).toBeCloseTo(before.z);
   expect(onPosition).toHaveBeenCalledWith(expect.objectContaining({ zone: "현관 앞 마당" }));
   walk.dispose();
+});
+
+test("a saved avatar joins the current walk, moves with it and hides in first person", () => {
+  const { scene, walk, container } = setup();
+  const color = "#536bd6";
+  try {
+    walk.update("thirdPerson", color);
+    walk.command("forward");
+    const before = scene.getObjectByName("mascot").position.clone();
+    walk.setPlayerAppearance({ ...AVATAR_BASIC_APPEARANCE, hair: "curly", outfit: "navy" });
+    const avatar = scene.getObjectByName("player-avatar");
+    expect(scene.getObjectByName("mascot")).toBeUndefined();
+    expect(avatar.position.toArray()).toEqual(before.toArray());
+    expect(avatar.visible).toBe(true);
+
+    const part = avatar.children.find((mesh) => mesh.isInstancedMesh && mesh.count > 0);
+    const idle = new THREE.Matrix4();
+    part.getMatrixAt(0, idle);
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW" }));
+    advance(100); advance(150);
+    expect(avatar.position.z).toBeLessThan(before.z);
+    const walking = new THREE.Matrix4();
+    part.getMatrixAt(0, walking);
+    expect(walking.equals(idle)).toBe(false);
+    container.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW" }));
+
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+    advance(200);
+    expect(avatar.position.y).toBeGreaterThan(before.y);
+    walk.update("firstPerson", color);
+    expect(avatar.visible).toBe(false);
+    walk.update("thirdPerson", color);
+    expect(avatar.visible).toBe(true);
+    const after = avatar.position.clone();
+    walk.setPlayerAppearance(undefined);
+    expect(scene.getObjectByName("player-avatar")).toBeUndefined();
+    expect(scene.getObjectByName("mascot").position.toArray()).toEqual(after.toArray());
+  } finally {
+    walk.dispose();
+  }
 });
 
 test("applying a new architecture revision in the same theme returns the walker to the entrance", () => {

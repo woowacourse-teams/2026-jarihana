@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { captureEvent } from "../../shared/analytics";
 import { storeReturnTarget } from "../auth";
 import { arenaMessageSchema, arenaPost } from "./arenaBridge";
-import { getSparring, getSparringPosts, postSparring, streamSchema, voteSparring } from "./api";
+import { getSparring, getSparringAvatarCandidates, getSparringPosts, postSparring, streamSchema, voteSparring } from "./api";
 
 const REPLAY_SIZE = 30;
+const AVATAR_REFRESH_MS = 30000;
 
-export function useArenaBridge({ topicId, member, login, retry }) {
+export function useArenaBridge({ topicId, member, login, retry, actorAppearance = null }) {
   const frame = useRef(null);
   const entryVote = useRef(null);
+  const appearance = useRef(null);
+  const publishAppearance = useRef(null);
   const selectSide = useCallback(side => entryVote.current?.(side) ?? Promise.resolve(false), []);
   const [view, setView] = useState({
     error: null,
@@ -19,6 +22,10 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     sceneReady: false,
     sceneError: null
   });
+  useEffect(() => {
+    appearance.current = actorAppearance;
+    publishAppearance.current?.();
+  }, [actorAppearance]);
   useEffect(() => {
     let disposed = false,
       ready = false,
@@ -41,6 +48,8 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     }));
     let historyDemand = false, historyRequest = false, historyBlocked = false;
     let historyTimer = null, historyRetryDelay = 1000;
+    let avatarCandidates = [], avatarCandidatesKey = "[]", publishedAvatarCandidatesKey;
+    let avatarTimer = null, avatarRequest = null, nextAvatarRefreshAt = 0;
     let mutationQueue = Promise.resolve();
     const posts = new Map(),
       seen = new Set();
@@ -75,6 +84,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
           mySide: topic.mySide === "MINT" ? "a" : topic.mySide === "CORAL" ? "b" : null,
           actorId: member ? String(member.id) : "guest",
           actorMemberType: member?.memberType ?? "CREW",
+          actorAppearance: member ? appearance.current : null,
           postCount: topic.postCount,
           posts: [...posts.values()].sort((a, b) => Number(a.id) - Number(b.id)),
           history,
@@ -83,6 +93,37 @@ export function useArenaBridge({ topicId, member, login, retry }) {
         fresh,
         livePosts
       });
+    }
+    publishAppearance.current = snapshot;
+    function publishAvatarCandidates() {
+      if (!ready || document.hidden || publishedAvatarCandidatesKey === avatarCandidatesKey) return;
+      send({ kind: "avatarCandidates", candidates: avatarCandidates });
+      publishedAvatarCandidatesKey = avatarCandidatesKey;
+    }
+    function scheduleAvatarCandidates() {
+      if (disposed || document.hidden || avatarTimer !== null || avatarRequest) return;
+      const delay = Math.max(0, nextAvatarRefreshAt - Date.now());
+      avatarTimer = setTimeout(() => {
+        avatarTimer = null;
+        if (!document.hidden) void loadAvatarCandidates();
+      }, delay);
+    }
+    async function loadAvatarCandidates() {
+      const request = new AbortController();
+      avatarRequest = request;
+      try {
+        const { appearances } = await getSparringAvatarCandidates(topicId, { signal: request.signal });
+        avatarCandidates = appearances;
+        avatarCandidatesKey = JSON.stringify(appearances);
+      } catch {
+        // Keep the last successful list when refresh fails.
+      } finally {
+        avatarRequest = null;
+        nextAvatarRefreshAt = Date.now() + AVATAR_REFRESH_MS;
+      }
+      if (disposed) return;
+      publishAvatarCandidates();
+      scheduleAvatarCandidates();
     }
     function trimReplay() {
       const ids = [...posts.keys()].sort((a, b) => Number(b) - Number(a));
@@ -252,6 +293,7 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (ready) return;
       ready = true;
       snapshot();
+      publishAvatarCandidates();
       scheduleHistory();
     }
     function updateViewport() {
@@ -388,9 +430,13 @@ export function useArenaBridge({ topicId, member, login, retry }) {
       if (document.hidden) {
         clearTimeout(historyTimer);
         historyTimer = null;
+        clearTimeout(avatarTimer);
+        avatarTimer = null;
       } else {
         snapshot();
+        publishAvatarCandidates();
         scheduleHistory();
+        scheduleAvatarCandidates();
       }
     };
     document.addEventListener("visibilitychange", visibilityChanged);
@@ -400,12 +446,16 @@ export function useArenaBridge({ topicId, member, login, retry }) {
     window.addEventListener("resize", updateViewport);
     void loadTopic();
     connect();
+    scheduleAvatarCandidates();
     send({ kind: "hello" });
     return () => {
       disposed = true;
       entryVote.current = null;
+      publishAppearance.current = null;
       clearTimeout(loadingTimeout);
       clearTimeout(historyTimer);
+      clearTimeout(avatarTimer);
+      avatarRequest?.abort();
       source?.close();
       document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("message", receive);

@@ -29,6 +29,7 @@ public class SecurityConfig {
             "/sparrings",
             "/sparrings/*",
             "/sparrings/*/posts",
+            "/sparrings/*/avatar-pools",
             "/sparrings/*/events",
             "/groups",
             "/groups/*",

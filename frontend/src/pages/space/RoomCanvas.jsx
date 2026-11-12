@@ -7,12 +7,13 @@ const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 �
 
 export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
-  playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange }) {
+  avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange }) {
   const host = useRef(null);
   const scene = useRef(null);
   const interactionMenu = useRef(null);
   const callbacks = useRef({ onSelect, onMove, onInvalid, onExitWalk, onWalkPosition, onZoomChange, onTemplateTransition, editable, focusBuilding, interactive, previewExterior, signName, playMode, walkInputBlocked, preserveWalkPose });
   const current = useRef({ room, selectedId, view, zoom, floorView, cameraReset, activityExhibit });
+  const currentAvatarAppearance = useRef(avatarAppearance);
   const currentOutdoorLight = useRef(outdoorLight);
   const currentGeneralLighting = useRef(generalLighting);
   const currentWideAngle = useRef(previewWideAngle);
@@ -46,6 +47,11 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
     scene.current?.setActivityExhibit?.(activityExhibit);
     scene.current?.update(room, selectedId, view, zoom, floorView, cameraReset, ...(cameraFlight ? [cameraFlight] : []));
   }, [room, selectedId, view, zoom, floorView, cameraReset, focusBuilding, interactive, cameraFlight, activityExhibit, previewExterior, signName, playMode, preserveWalkPose]);
+
+  useLayoutEffect(() => {
+    currentAvatarAppearance.current = avatarAppearance;
+    scene.current?.setPlayerAppearance?.(avatarAppearance);
+  }, [avatarAppearance]);
 
   useLayoutEffect(() => {
     currentOutdoorLight.current = outdoorLight;
@@ -168,6 +174,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
       scene.current = runtime;
       const state = current.current;
       runtime.setActivityExhibit?.(state.activityExhibit);
+      runtime.setPlayerAppearance?.(currentAvatarAppearance.current);
       runtime.setOutdoorLight?.(currentOutdoorLight.current);
       runtime.setGeneralLighting?.(currentGeneralLighting.current);
       runtime.setPreviewWideAngle?.(currentWideAngle.current);

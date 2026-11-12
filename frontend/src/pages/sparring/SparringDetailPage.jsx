@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../../features/auth";
+import { useMyAvatar } from "../../features/avatar/hooks";
 import { useArenaBridge } from "../../features/sparring/useArenaBridge";
 import { Button } from "../../shared/ui";
 import { ArenaSettings } from "./ArenaSettings";
@@ -23,7 +24,11 @@ const characterLimitsPreference = "jarihana.sparring.character-limits";
 const entryGuidePreference = "jarihana.sparring.entry-guide-seen";
 const validCharacterLimit = value => Number.isInteger(value) && value >= 1 && value <= 8;
 function Room({ topicId, member, login, retry, onRetry }) {
-  const { frame, error, status, title, topic, loaded, sceneReady, sceneError, selectSide } = useArenaBridge({ topicId, member, login, retry });
+  const { data: avatar } = useMyAvatar({ enabled: Boolean(member) });
+  const actorAppearance = avatar?.customized ? avatar.appearance : null;
+  const { frame, error, status, title, topic, loaded, sceneReady, sceneError, selectSide } = useArenaBridge({
+    topicId, member, login, retry, actorAppearance
+  });
   const visible = loaded && sceneReady;
   const [entry, setEntry] = useState("select");
   const [saving, setSaving] = useState(false);
