@@ -51,9 +51,11 @@
   height: 100%;
   color: inherit;
 }
+/* 같은 줄의 카드는 미리보기 판 높이가 달라도 그림 칸이 늘어나 높이를 맞춘다. */
 .landing-feature-card__visual {
   position: relative;
   display: flex;
+  flex: 1 0 auto;
   align-items: center;
   justify-content: center;
   min-height: 32rem;
@@ -192,6 +194,13 @@
   height: 6rem;
   border-radius: var(--radius-md);
   object-fit: cover;
+}
+/* 리듬 작살 데모 플레이는 네 방향 판이 모두 보이도록 녹화한 4:3 비율 그대로, 판과 같은 배경색으로 둔다. */
+.landing-feature-card__art--demo {
+  display: block;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  background: #eaf1e9;
 }
 .landing-feature-card__cta {
   display: flex;

@@ -3,7 +3,8 @@ import { Link } from "react-router";
 
 import faceoffVideo from "../../shared/assets/landing/landing-sparring-faceoff.mp4";
 import faceoffPoster from "../../shared/assets/landing/landing-sparring-faceoff.webp";
-import { gameArtwork } from "../games/artworkAssets";
+import rhythmDemoVideo from "../../shared/assets/landing/landing-rhythm-demo.mp4";
+import rhythmDemoPoster from "../../shared/assets/landing/landing-rhythm-demo.webp";
 import { LandingLoopVideo } from "./LandingLoopVideo";
 import "./landing-features.css";
 
@@ -43,8 +44,8 @@ export function JoinPreview() {
   );
 }
 
-// 토론하나? 카드는 실제 경기장 녹화에서 받아치기가 들어온 뒤 두 캐릭터가 의자에 앉아 VS로 맞서고
-// 의자를 들고 맞붙는 장면만 잘라 반복한다.
+// 토론하나? 카드는 실제 경기장 녹화에서 캡슐과 경기장 배경을 빼고, 흰 바탕에 두 캐릭터가 의자에 앉아 VS로 맞서다
+// 의자를 들고 맞붙는 장면만 반복한다.
 function SparringPreview() {
   return (
     <span aria-hidden="true" className="landing-feature-card__screen">
@@ -53,12 +54,13 @@ function SparringPreview() {
   );
 }
 
+// 게임하나? 카드는 아케이드의 데모 플레이처럼, 게임방 리듬 작살 입구에서 실제 엔진이 자동으로 치는 판을 녹화해 반복한다.
 function GamesPreview() {
   return (
     <span aria-hidden="true" className="landing-feature-card__panel landing-feature-card__panel--list">
       <span className="landing-feature-card__hint">게임하나?</span>
       <strong className="landing-feature-card__title">행성이의 리듬 작살</strong>
-      <img alt="" className="landing-feature-card__art" height="600" loading="lazy" src={gameArtwork.rhythm} width="900" />
+      <LandingLoopVideo className="landing-feature-card__art landing-feature-card__art--demo" poster={rhythmDemoPoster} src={rhythmDemoVideo} />
       <span className="landing-feature-card__row"><span>오목</span><strong>대국 기록과 랭킹</strong></span>
       <span className="landing-feature-card__row"><span>공평하게 반띵</span><strong>최고 기록 랭킹</strong></span>
       <span className="landing-feature-card__row"><span>리듬 작살</span><strong>난이도별 랭킹</strong></span>
