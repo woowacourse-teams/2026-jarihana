@@ -191,10 +191,11 @@ export function createBuildingContext(building, template, terracePlan) {
   kit.group.add(facade);
   const terrace = buildingKit("dollhouse-entrance-deck");
   const width = building.maxX - building.minX;
-  terrace.box("entry-deck", width, 0.18, 3.2, "#aa9984", 0, -0.12, 6.6);
+  const centerX = (building.minX + building.maxX) / 2;
+  terrace.box("entry-deck", width, 0.18, 3.2, "#aa9984", centerX, -0.12, 6.6);
   for (let z = 5.18; z < 8.2; z += 0.28)
-    terrace.box("entry-plank", width, 0.022, 0.26, "#bdab91", 0, -0.019, z);
-  terrace.box("cutaway-front-plinth", width, 0.28, 0.18, "#766251", 0, -0.05, 8.2);
+    terrace.box("entry-plank", width, 0.022, 0.26, "#bdab91", centerX, -0.019, z);
+  terrace.box("cutaway-front-plinth", width, 0.28, 0.18, "#766251", centerX, -0.05, 8.2);
   kit.group.add(terrace.group);
   return kit.group;
 }

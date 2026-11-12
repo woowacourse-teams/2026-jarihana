@@ -55,6 +55,27 @@ describe("walkable clubhouse", () => {
     expect(moveWalker({ x: 0, z: 7 }, { x: 100, z: 0 }, room).x).toBeLessThanOrEqual(getRoomLayout(room).island.walkable.maxX - PLAYER.radius);
   });
 
+  test("the default staircase connects the furnished 2nd floor and lets walkers return to the hall", () => {
+    const room = createInitialRoom("lounge", { loungeLoft: true });
+    const { stairs, mezzanine } = getRoomLayout(room);
+    const x = (stairs.minX + stairs.maxX) / 2;
+    const hallEntrance = moveWalker(PLAYER.spawn, { x: 0, z: -2.4 }, room);
+    const start = moveWalker(hallEntrance, { x: x - hallEntrance.x, z: 0 }, room);
+    expect(start.x).toBeCloseTo(x);
+    expect(start.z).toBeCloseTo(4.4);
+    const landing = moveWalker(start, { x: 0, z: stairs.minZ - start.z - 0.85 }, room);
+    expect(landing.y).toBeCloseTo(mezzanine.height);
+    expect(landing.z).toBeLessThan(stairs.minZ - 0.7);
+    const across = moveWalker(landing, { x: 14, z: 0 }, room);
+    expect(across.x).toBeCloseTo(x + 14);
+    const edge = moveWalker(across, { x: 0, z: 3 }, room);
+    expect(edge.z).toBeLessThan(mezzanine.maxZ - PLAYER.radius);
+    const backAtStairs = moveWalker(across, { x: -14, z: 0 }, room);
+    const returned = moveWalker(backAtStairs, { x: 0, z: start.z - backAtStairs.z }, room);
+    expect(returned.y).toBe(0);
+    expect(returned.z).toBeCloseTo(start.z);
+  });
+
   test("diagonal movement slides along a wall without cutting its corner", () => {
     const room = { ...createInitialRoom(), items: [] };
     const position = moveWalker({ x: 3.2, z: 0 }, { x: 1, z: 0.6 }, room);

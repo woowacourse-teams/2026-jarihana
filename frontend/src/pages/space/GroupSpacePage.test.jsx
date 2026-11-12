@@ -90,6 +90,14 @@ test("member sees the server room read-only", async () => {
   expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
 });
 
+test("the compatibility release opens a saved loft without allowing the leader to submit it", async () => {
+  const room = { ...createInitialRoom("lounge", { loungeLoft: true }), name: "저장된 복층 아지트" };
+  fetchGroupSpace.mockResolvedValue(snapshot(room));
+  setup();
+  expect(await screen.findByDisplayValue(room.name)).toHaveAttribute("readonly");
+  expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
+});
+
 test.each([[403, "모임원만 들어갈 수 있어요"], [404, "모임을 찾을 수 없어요"], [500, "공간을 불러오지 못했어요"]])(
   "failed GET %s never opens a default editor", async (status, title) => {
     fetchGroupSpace.mockRejectedValue({ status });

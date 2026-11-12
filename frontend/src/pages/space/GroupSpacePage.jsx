@@ -5,7 +5,8 @@ import { useGroup } from "../../features/group/index.js";
 import { useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
-import { createInitialRoom, readSavedRoom, validateRoom } from "./roomState.js";
+import { LOUNGE_LOFT_VERSION } from "./roomLayout.js";
+import { LOUNGE_LOFT_WRITES_ENABLED, createInitialRoom, readSavedRoom, validateRoom } from "./roomState.js";
 
 function SpaceError({ error, groupId, onRetry, clubhouse }) {
   const denied = error?.status === 403;
@@ -23,7 +24,7 @@ function SpaceError({ error, groupId, onRetry, clubhouse }) {
 
 function LoadedGroupSpace({ groupId, group, snapshot, initialRoom, clubhouse }) {
   const [initial] = useState(initialRoom);
-  const [canEdit, setCanEdit] = useState(snapshot.canEdit);
+  const [canEdit, setCanEdit] = useState(snapshot.canEdit && (LOUNGE_LOFT_WRITES_ENABLED || initialRoom.version !== LOUNGE_LOFT_VERSION));
   const [savedAt, setSavedAt] = useState(snapshot.updatedAt);
   const revision = useRef(snapshot.revision);
   const saving = useRef(false);

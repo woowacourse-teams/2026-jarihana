@@ -72,7 +72,7 @@ describe("space placement", () => {
 describe("hobby clubhouse templates", () => {
   test.each(ROOM_TEMPLATES.map(({ id }) => [id]))("%s starts furnished, valid and without invented memories", (id) => {
     const room = createInitialRoom(id);
-    expect(room.items.filter((entry) => !canPlace(entry, room.items, id))).toEqual([]);
+    expect(room.items.filter((entry) => !canPlace(entry, room.items, room))).toEqual([]);
     expect(validateRoom(room)).toEqual(room);
     expect(room.items.length).toBeGreaterThan(8);
     expect(room.items.some((item) => item.kind === "memory")).toBe(false);
@@ -358,7 +358,9 @@ describe("climbing-specific floors and migration", () => {
       expect(canPlace({ kind, x: 8.6, z: 0, rotation: 0 }, [], "climbing")).toBe(false);
     }
     expect(canPlace({ kind: "stool", x: 8.6, z: -3.6, rotation: 0, level: 1 }, [], "climbing")).toBe(false);
-    expect(findOpenPosition("stool", [], "lounge", "mezzanine")).toBeNull();
+    const loft = createInitialRoom("lounge", { loungeLoft: true });
+    expect(findOpenPosition("stool", [], loft, "mezzanine")).toMatchObject({ level: 1 });
+    expect(findOpenPosition("stool", [], { ...loft, version: 11 }, "mezzanine")).toBeNull();
     expect(findOpenPosition("stool", [], "band", "mezzanine")).toMatchObject({ level: 1 });
   });
 
@@ -741,4 +743,16 @@ test("v9 saved lawn furniture and weather survive migration and reload without a
   expect(loaded.room.version).toBe(10);
   expect(validateRoom(loaded.room)).toEqual(loaded.room);
   expect(storage.setItem).not.toHaveBeenCalled();
+});
+
+test("the saved lounge version controls the layout, even when all upper-floor furniture has been removed", () => {
+  const legacy = createInitialRoom("lounge", { loungeLoft: false });
+  const loft = createInitialRoom("lounge", { loungeLoft: true });
+  const emptyLoft = { ...loft, items: loft.items.filter(({ level }) => level !== 1) };
+  expect(validateRoom(legacy)).toEqual(legacy);
+  expect(getRoomLayout(legacy).mezzanine).toBeUndefined();
+  expect(validateRoom(loft)).toEqual(loft);
+  expect(validateRoom(emptyLoft)).toEqual(emptyLoft);
+  expect(getRoomLayout(emptyLoft).mezzanine).toBeDefined();
+  expect(validateRoom({ ...loft, version: legacy.version })).toBeNull();
 });

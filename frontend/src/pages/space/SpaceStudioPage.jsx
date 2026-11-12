@@ -261,6 +261,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
   const climbing = room.template === "climbing";
   const layout = getRoomLayout(room);
   const hasMezzanine = Boolean(layout.mezzanine);
+  const upperFloorName = layout.upperName || "중층 라운지";
   const activeFloorView = hasMezzanine ? floorView : "all";
   const activePlacementArea = !hasMezzanine && placementArea === "mezzanine" ? "building" : placementArea;
   const template = ROOM_TEMPLATES.find((entry) => entry.id === room.template) || ROOM_TEMPLATES[0];
@@ -782,7 +783,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           <div className="space-studio__floor-info">
             <strong>{layout.displayName}</strong>
             <span>층고 {layout.building.height}m · {(layout.building.maxX - layout.building.minX) * (layout.building.maxZ - layout.building.minZ)}m²</span>
-            <small>{layout.groundName} + 중층 라운지</small>
+            <small>{layout.groundName || "1층 메인홀"} + {upperFloorName}</small>
           </div>
           <nav aria-label="꾸밀 층 보기">
             <button type="button" aria-pressed={activeFloorView === "all"} data-ph-capture-attribute-action="space_floor_all"
@@ -790,7 +791,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
             <button type="button" aria-pressed={activeFloorView === "ground"} data-ph-capture-attribute-action="space_floor_ground"
               onClick={() => changeFloorView("ground")}>1층 메인 공간</button>
             <button type="button" aria-pressed={activeFloorView === "mezzanine"} data-ph-capture-attribute-action="space_floor_mezzanine"
-              onClick={() => changeFloorView("mezzanine")}>중층 라운지</button>
+              onClick={() => changeFloorView("mezzanine")}>{upperFloorName}</button>
           </nav>
         </section>;
   const cameraControls = <div className="space-studio__camera" id="space-hud-camera" role="toolbar" aria-label="시점 조절">
@@ -1245,7 +1246,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
             <button type="button" aria-pressed={activePlacementArea === "building"} data-ph-capture-attribute-action="space_place_building"
               onClick={() => changePlacementArea("building")}>{hasMezzanine ? "1층에 놓기" : "실내에 놓기"}</button>
             {hasMezzanine && <button type="button" aria-pressed={activePlacementArea === "mezzanine"} data-ph-capture-attribute-action="space_place_mezzanine"
-              onClick={() => changePlacementArea("mezzanine")}>중층에 놓기</button>}
+              onClick={() => changePlacementArea("mezzanine")}>{layout.upperName ? "2층에 놓기" : "중층에 놓기"}</button>}
             <button type="button" aria-pressed={activePlacementArea === "yard"} data-ph-capture-attribute-action="space_place_yard"
               onClick={() => changePlacementArea("yard")}>마당에 놓기</button>
           </div>}

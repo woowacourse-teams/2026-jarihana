@@ -9,7 +9,7 @@ import { createCommonFunctionAsset } from "./commonFunctionModels";
 import { createClubhouseArchitecture } from "./clubhouseArchitecture";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { BUILDING, BUILDING_WALLS, CLIMBING, BOARDGAME, getRoomLayout } from "./roomLayout";
+import { CLIMBING, BOARDGAME, getRoomLayout } from "./roomLayout";
 import { createBoardgameFurniture, createBoardgameShell, createBoardgameFacility } from "./boardgameModels";
 import { createBuildingContext } from "./roomBuilding";
 import { CLIMBING_WALL_INNER_FACE } from "./themeArchitecture";
@@ -445,81 +445,149 @@ function addRoomSurface(kit, width, height, depth, color, x, y, z, surface, shad
   return mesh;
 }
 
-function addWindow(kit, x, y, z, width, height, side = false) {
+const LOUNGE_TIMBER = "#996341";
+const LOUNGE_TRIM = "#31504a";
+const LOUNGE_PANEL = "#6d8d80";
+const LOUNGE_WINDOW_SILL = 4.65;
+
+function addWindow(kit, x, y, z, width, height, bays, side = false) {
   const frame = new THREE.Group();
-  frame.name = "high-window";
+  frame.name = "lounge-clerestory";
   frame.position.set(x, y, z);
   if (side) frame.rotation.y = Math.PI / 2;
   kit.group.add(frame);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.018),
-    new THREE.MeshStandardMaterial({ color: "#c7dfdb", roughness: 0.32, emissive: "#b5d6dc", emissiveIntensity: 0.12 }));
-  glass.userData.roomWindow = true;
-  frame.add(glass);
-  for (const dx of [-width / 2, 0, width / 2]) kit.box(0.07, height + 0.12, 0.08, PALETTE.darkWood, dx, 0, 0.025, 0.012, frame);
-  for (const dy of [-height / 2, height / 2]) kit.box(width + 0.12, 0.07, 0.08, PALETTE.darkWood, 0, dy, 0.025, 0.012, frame);
-  kit.box(width + 0.22, 0.09, 0.22, PALETTE.lightWood, 0, -height / 2 - 0.06, 0.06, 0.018, frame);
+  const span = width / bays;
+  for (let bay = 0; bay < bays; bay += 1) {
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(span, height, 0.035),
+      new THREE.MeshStandardMaterial({
+        color: bay % 2 ? "#b1d0d0" : "#c1dcdb", roughness: 0.26, emissive: "#b5d6dc", emissiveIntensity: 0.15
+      }));
+    glass.position.x = -width / 2 + (bay + 0.5) * span;
+    glass.userData.roomWindow = true;
+    frame.add(glass);
+  }
+  for (let bay = 0; bay <= bays; bay += 1) {
+    kit.box(bay % 2 ? 0.08 : 0.17, height + 0.16, 0.3, LOUNGE_TRIM, -width / 2 + bay * span, 0, 0, 0.012, frame);
+  }
+  for (const dy of [-height / 2, height * 0.22, height / 2]) {
+    kit.box(width + 0.16, 0.085, 0.29, LOUNGE_TRIM, 0, dy, 0, 0.012, frame);
+  }
+  kit.box(width + 0.35, 0.15, 0.48, LOUNGE_TIMBER, 0, -height / 2 - 0.06, 0, 0.025, frame);
 }
 
-function addBuildingWall(room, wall, wallColor) {
+function addBuildingWall(room, wall, wallColor, building) {
   const kit = modelKit("building-wall");
   kit.group.userData.walkthroughOnly = Boolean(wall.cutaway);
   kit.group.userData.buildingWall = true;
   room.group.add(kit.group);
   const { width, depth, height, x, z } = wall;
-  const front = z === BUILDING.maxZ;
+  const front = z === building.maxZ;
   const bottom = front ? 2.5 : 0;
-  addRoomSurface(kit, width, height - bottom, depth, wallColor, x, (height + bottom) / 2, z, "wall");
   const alongX = width > depth;
-  kit.box(width + 0.035, 0.13, depth + 0.035, PALETTE.darkWood, x, height - 0.04, z, 0.018);
-  if (front) {
-    if (height > 5) addWindow(kit, x, 4.55, z + 0.13, Math.min(3.4, width - 0.8), 1.15);
-    return kit.group;
-  }
-  kit.box(width + 0.025, 0.14, depth + 0.025, PALETTE.wood, x, 0.07, z, 0.015);
-  kit.box(width + 0.018, 0.7, depth + 0.018, "#b58d68", x, 0.49, z, 0.012);
-  kit.box(width + 0.04, 0.065, depth + 0.04, PALETTE.darkWood, x, 0.87, z, 0.012);
   const length = alongX ? width : depth;
-  for (let offset = -length / 2 + 0.28; offset < length / 2; offset += 0.5) {
-    kit.box(alongX ? 0.014 : width + 0.023, 0.61, alongX ? depth + 0.023 : 0.014,
-      "#9b7455", x + (alongX ? offset : 0), 0.48, z + (alongX ? 0 : offset), 0.002);
-  }
-  if (x === 10) {
-    for (const wz of [-5.2, 1.6]) {
-      addWindow(kit, 9.86, 2.25, wz, 2.8, 1.65, true);
-      addWindow(kit, 10.14, 2.25, wz, 2.8, 1.65, true);
+  const hall = height === building.height;
+  const exterior = front || z === building.minZ || x === building.minX || x === building.maxX;
+  const glazing = exterior ? (hall ? [LOUNGE_WINDOW_SILL, height - 0.48, Math.max(2, Math.round(length / 1.6))] : [2.83, 3.86, 4]) : null;
+  if (glazing) {
+    const [sill, head, bays] = glazing;
+    const pier = hall ? 0.43 : 0.32;
+    addRoomSurface(kit, width, sill - bottom, depth, wallColor, x, (sill + bottom) / 2, z, "wall");
+    addRoomSurface(kit, width, height - head, depth, wallColor, x, (height + head) / 2, z, "wall");
+    for (const side of [-1, 1]) {
+      const offset = side * (length - pier) / 2;
+      addRoomSurface(kit, alongX ? pier : width, head - sill, alongX ? depth : pier, wallColor,
+        x + (alongX ? offset : 0), (head + sill) / 2, z + (alongX ? 0 : offset), "wall");
     }
+    addWindow(kit, x, (head + sill) / 2, z, length - 2 * pier, head - sill, bays, !alongX);
+  } else {
+    addRoomSurface(kit, width, height - bottom, depth, wallColor, x, (height + bottom) / 2, z, "wall");
   }
-  if (x === -10) {
-    for (const wz of [-4.2, 0.8]) addWindow(kit, -9.86, 3.9, wz, 3.1, 2.35, true);
+  kit.box(width + 0.09, 0.22, depth + 0.13, LOUNGE_TRIM, x, height - 0.1, z, 0.018);
+  if (front) {
+    kit.box(width + 0.04, 0.18, depth + 0.1, LOUNGE_TIMBER, x, 2.59, z, 0.02);
+    return;
   }
-  return kit.group;
+  kit.box(width + 0.035, 0.96, depth + 0.035, LOUNGE_PANEL, x, 0.49, z, 0.012);
+  for (const y of [0.09, 1]) {
+    kit.box(width + 0.085, 0.12, depth + 0.085, LOUNGE_TIMBER, x, y, z, 0.015);
+  }
+  const panels = Math.max(1, Math.round(length / 0.52));
+  for (let panel = 1; panel < panels; panel += 1) {
+    const offset = -length / 2 + panel * length / panels;
+    kit.box(alongX ? 0.025 : width + 0.055, 0.82, alongX ? depth + 0.055 : 0.025,
+      LOUNGE_TRIM, x + (alongX ? offset : 0), 0.54, z + (alongX ? 0 : offset), 0.004);
+  }
 }
 
-function addDoorFrames(kit, wallColor) {
+function addDoorFrames(kit, wallColor, { height }) {
   const front = modelKit("entrance-facade");
-  front.group.userData.exteriorDetail = true;
+  front.group.userData.walkthroughOnly = true;
   kit.group.add(front.group);
-  addRoomSurface(front, 3, BUILDING.height - 2.8, 0.24, wallColor, -2, (BUILDING.height + 2.8) / 2, 5, "wall");
-  for (const x of [-3.6, -0.4]) front.box(0.08, 2.8, 0.3, PALETTE.darkWood, x, 1.4, 5, 0.01);
-  front.box(3.12, 0.11, 0.3, PALETTE.darkWood, -2, 2.8, 5, 0.01);
-  front.box(3.4, 0.18, 0.95, "#71634e", -2, 3.07, 5.35, 0.025);
-  addWindow(front, -2, 4.6, 5.13, 2.3, 1.1);
+  const windowHead = height - 0.48;
+  const canopyTop = 3.01;
+  addRoomSurface(front, 3, LOUNGE_WINDOW_SILL - canopyTop, 0.24, wallColor,
+    -2, (LOUNGE_WINDOW_SILL + canopyTop) / 2, 5, "wall");
+  addRoomSurface(front, 3, 0.48, 0.24, wallColor, -2, height - 0.24, 5, "wall");
+  front.box(3.1, 0.22, 0.37, LOUNGE_TRIM, -2, height - 0.1, 5, 0.02);
+  addWindow(front, -2, (LOUNGE_WINDOW_SILL + windowHead) / 2, 5, 3, windowHead - LOUNGE_WINDOW_SILL, 2);
   for (const z of [-4.5, 2]) {
-    addRoomSurface(kit, 0.2, BUILDING.wingHeight - 2.8, 2, wallColor, 4, 3.5, z, "wall");
-    for (const dz of [-1, 1]) kit.box(0.25, 2.8, 0.07, PALETTE.darkWood, 4, 1.4, z + dz, 0.01);
-    kit.box(0.25, 0.1, 2.12, PALETTE.darkWood, 4, 2.8, z, 0.01);
+    addRoomSurface(kit, 0.2, 0.57, 2, wallColor, 4, 3.915, z, "wall");
+    addWindow(kit, 4, 3.2, z, 2, 0.86, 2, true);
+    for (const dz of [-1, 1]) kit.box(0.34, 2.77, 0.14, LOUNGE_TIMBER, 4, 1.385, z + dz, 0.016);
+    kit.box(0.37, 0.14, 2.2, LOUNGE_TIMBER, 4, 2.78, z, 0.018);
   }
 }
 
-function addBuildingFloor(kit, floorColor) {
-  kit.box(20.3, 0.24, 13.3, "#a89782", 0, -0.18, -1.5, 0.04);
-  addRoomSurface(kit, 20, 0.1, 13, floorColor, 0, -0.055, -1.5, "floor");
+function addLoungeTimberwork(room, { minX, height }) {
+  const kit = modelKit("lounge-timberwork");
+  room.group.add(kit.group);
+  const beamY = height - 0.35;
+  kit.box(4.25 - minX, 0.27, 0.46, LOUNGE_TIMBER, (4 + minX) / 2, beamY, -7.81, 0.032);
+  kit.box(0.46, 0.27, 13.25, LOUNGE_TIMBER, minX + 0.19, beamY, -1.5, 0.032);
+  for (const x of [minX + 0.25, -11.1, -7.4, -3.7, 0, 3.76].filter((x) => x > minX)) {
+    kit.box(0.24, beamY, 0.42, LOUNGE_TIMBER, x, beamY / 2, -7.81, 0.026);
+    kit.box(0.28, 0.21, 0.45, LOUNGE_TRIM, x, beamY - 0.06, -7.8, 0.016);
+  }
+  for (const z of [-4.5, -0.9, 2.7]) {
+    kit.box(0.4, beamY, 0.24, LOUNGE_TIMBER, minX + 0.19, beamY / 2, z, 0.026);
+  }
+}
+
+function addLoungeGallery(room, floorColor, { mezzanine, stairs, railings }) {
+  const kit = modelKit("lounge-gallery");
+  kit.group.userData.mezzanine = true;
+  room.group.add(kit.group);
+  const { minX: left, maxX: right, minZ: back, maxZ: edge, height: y } = mezzanine;
+  const width = right - left;
+  const depth = edge - back;
+  const centerX = (left + right) / 2;
+  const centerZ = (back + edge) / 2;
+  const deck = addRoomSurface(kit, width, 0.25, depth, floorColor, centerX, y - 0.125, centerZ, "floor");
+  deck.name = "lounge-gallery-deck";
+  kit.box(width + 0.08, 0.37, 0.18, LOUNGE_TIMBER, centerX, y - 0.17, edge, 0.025);
+  kit.box(width + 0.12, 0.065, 0.2, LOUNGE_TRIM, centerX, y - 0.33, edge, 0.012);
+  for (const x of [-14.63, -11.1, -7.4, -3.7, 0, 3.63]) {
+    kit.box(0.2, 0.18, depth + 0.05, LOUNGE_TIMBER, x, y - 0.3, centerZ, 0.018);
+  }
+  railings.forEach((rail) => addMezzanineRail(kit, rail, y, LOUNGE_TRIM));
+  for (const x of [-13.1, -8, -3.5, 2.6]) {
+    kit.cylinder(0.15, 0.15, 0.08, LOUNGE_TRIM, x, y - 0.26, -5.2);
+    addWarmBulb(kit, x, y - 0.34, -5.2, 0.095);
+  }
+  addStraightStaircase(room, stairs, "lounge-staircase", { treadColor: LOUNGE_TIMBER, frameColor: LOUNGE_TRIM, handrailColor: "#bd9b76" });
+}
+
+function addBuildingFloor(kit, floorColor, { minX, maxX }) {
+  const width = maxX - minX;
+  const centerX = (minX + maxX) / 2;
+  kit.box(width + 0.3, 0.24, 13.3, "#a89782", centerX, -0.18, -1.5, 0.04);
+  addRoomSurface(kit, width, 0.1, 13, floorColor, centerX, -0.055, -1.5, "floor");
   const seams = [];
   for (let row = 0; row < 30; row += 1) {
     const z = -8 + row * 13 / 30;
-    addRoomSurface(kit, 20, 0.01, 13 / 30 - 0.008, floorColor, 0, -0.005, z + 13 / 60, "floor", [1.02, 0.98, 1, 0.95][row % 4]);
-    seams.push(new THREE.Vector3(-10, 0.002, z), new THREE.Vector3(10, 0.002, z));
-    for (let x = -9.7 + (row % 3) * 0.8; x < 10; x += 2.4) {
+    addRoomSurface(kit, width, 0.01, 13 / 30 - 0.008, floorColor, centerX, -0.005, z + 13 / 60, "floor", [1.02, 0.98, 1, 0.95][row % 4]);
+    seams.push(new THREE.Vector3(minX, 0.002, z), new THREE.Vector3(maxX, 0.002, z));
+    for (let x = minX + 0.3 + (row % 3) * 0.8; x < maxX; x += 2.4) {
       seams.push(new THREE.Vector3(x, 0.003, z), new THREE.Vector3(x, 0.003, z + 13 / 30));
     }
   }
@@ -527,36 +595,49 @@ function addBuildingFloor(kit, floorColor) {
     new THREE.LineBasicMaterial({ color: "#8b694c", transparent: true, opacity: 0.24 })));
 }
 
-function addRoomLamps(kit) {
-  for (const [x, z, height, reach] of [[-6.5, -2.5, 4.9, 13], [0.5, 0.5, 4.9, 12], [7, -4.8, 3.45, 9], [7, 2, 3.45, 9]]) {
-    const ceiling = x < 4 ? BUILDING.height : BUILDING.wingHeight;
-    kit.cylinder(0.018, 0.018, ceiling - height, PALETTE.ink, x, (height + ceiling) / 2, z);
-    kit.cylinder(0.1, 0.4, 0.23, "#a17a50", x, height + 0.06, z);
-    addWarmBulb(kit, x, height - 0.1, z, 0.16);
-    const lamp = new THREE.PointLight("#ffd39a", 5, reach, 1);
-    lamp.position.set(x, height - 0.22, z);
-    lamp.userData.roomLamp = true;
-    kit.group.add(lamp);
+function addRoomLamps(kit, { minX, height: hallHeight, wingHeight }) {
+  const lights = modelKit("lounge-pendants");
+  kit.group.add(lights.group);
+  for (const [x, z, height, radius, color] of [
+    [-12.6, -1.75, 4.75, 0.62, LOUNGE_PANEL],
+    [-7.1, -0.65, 4.45, 0.51, "#b9754a"], [-6.0, -1.4, 4.92, 0.62, LOUNGE_PANEL],
+    [-4.9, -0.45, 4.64, 0.43, "#c79551"], [0.9, -1.8, 4.86, 0.48, LOUNGE_PANEL],
+    [7.2, -5.25, 3.38, 0.47, "#c79551"], [7, 1.2, 3.35, 0.52, LOUNGE_PANEL]
+  ]) {
+    if (x <= minX) continue;
+    const ceiling = (x < 4 ? hallHeight : wingHeight) - 0.04;
+    lights.cylinder(0.032, 0.032, ceiling - height, LOUNGE_TRIM, x, (height + ceiling) / 2, z);
+    lights.cylinder(radius * 0.25, radius, 0.34, color, x, height + 0.05, z);
+    lights.cylinder(radius, radius, 0.055, LOUNGE_TIMBER, x, height - 0.12, z);
+    lights.cylinder(radius * 0.83, radius * 0.83, 0.04, "#ffedca", x, height - 0.15, z);
+    addWarmBulb(lights, x, height - 0.17, z, radius * 0.36);
   }
-  const cablePoints = [];
-  for (let index = 0; index <= 28; index += 1) cablePoints.push(new THREE.Vector3(-9.4 + index * 0.46, 5.98 - Math.sin(index / 28 * Math.PI) * 0.16, -7.82));
-  kit.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cablePoints), new THREE.LineBasicMaterial({ color: "#7e6850" })));
-  for (let index = 0; index < 10; index += 1) addWarmBulb(kit, -9.2 + index * 1.32, 5.81, -7.8, 0.085);
+  for (const [x, y, z, reach] of [[-6, 4.2, -0.8, 13], [0.9, 4.55, -1.8, 12], [7.2, 3.08, -5.25, 9], [7, 3.05, 1.2, 9]]) {
+    const lamp = new THREE.PointLight("#ffd39a", 5, reach, 1);
+    lamp.position.set(x, y, z);
+    lamp.userData.roomLamp = true;
+    lights.group.add(lamp);
+  }
 }
 
-function addBuildingCeilings(kit, wallColor) {
+function addBuildingCeilings(kit, wallColor, { minX, height: hallHeight, wingHeight }) {
   const upperWall = modelKit("hall-upper-wall");
   upperWall.group.userData.walkthroughOnly = true;
   kit.group.add(upperWall.group);
-  addRoomSurface(upperWall, 0.2, BUILDING.height - BUILDING.wingHeight, 13, wallColor,
-    4, (BUILDING.height + BUILDING.wingHeight) / 2, -1.5, "wall");
-  for (const [x, width, height] of [[-3, 14, BUILDING.height], [7, 6, BUILDING.wingHeight]]) {
+  addRoomSurface(upperWall, 0.2, hallHeight - wingHeight, 13, wallColor,
+    4, (hallHeight + wingHeight) / 2, -1.5, "wall");
+  for (const [x, width, height] of [[(minX + 4) / 2, 4 - minX, hallHeight], [7, 6, wingHeight]]) {
     const roof = modelKit("building-ceiling");
-    roof.group.userData.exteriorDetail = true;
+    roof.group.userData.walkthroughOnly = true;
     kit.group.add(roof.group);
     addRoomSurface(roof, width + 0.25, 0.2, 13.3, wallColor, x, height + 0.1, -1.5, "wall");
-    roof.box(width + 0.45, 0.07, 13.55, "#776958", x, height + 0.24, -1.5, 0.018);
-    for (const z of [-6, -2, 2]) roof.box(width, 0.16, 0.18, PALETTE.darkWood, x, height - 0.08, z, 0.015);
+    roof.box(width + 0.56, 0.1, 13.65, LOUNGE_TRIM, x, height + 0.24, -1.5, 0.018);
+    for (let rib = -width / 2; rib <= width / 2; rib += 0.7) {
+      roof.box(0.045, 0.055, 13.63, "#59776c", x + rib, height + 0.3, -1.5, 0.006);
+    }
+    for (const z of [-7.6, -4.5, -0.9, 2.7, 4.9]) {
+      roof.box(width + 0.12, 0.27, 0.29, LOUNGE_TIMBER, x, height - 0.09, z, 0.025);
+    }
   }
 }
 
@@ -705,15 +786,15 @@ function addCrashMat(kit, width, depth, color) {
   connector.name = "mat-connector";
 }
 
-function addMezzanineRail(kit, rail, base) {
+function addMezzanineRail(kit, rail, base, color) {
   const alongX = rail.width > rail.depth;
   const length = alongX ? rail.width : rail.depth;
   const point = (offset, y) => [rail.x + (alongX ? offset : 0), y, rail.z + (alongX ? 0 : offset)];
-  for (const y of [base + 0.1, base + 1.08]) addSteelBeam(kit, point(-length / 2, y), point(length / 2, y), 0.065);
+  for (const y of [base + 0.1, base + 1.08]) addSteelBeam(kit, point(-length / 2, y), point(length / 2, y), 0.065, color);
   const posts = Math.max(1, Math.ceil(length / 1.1));
   for (let i = 0; i <= posts; i += 1) {
     const offset = -length / 2 + length * i / posts;
-    addSteelBeam(kit, point(offset, base), point(offset, base + 1.12), 0.075);
+    addSteelBeam(kit, point(offset, base), point(offset, base + 1.12), 0.075, color);
   }
   const vertices = [];
   for (let offset = -length / 2 + 0.12; offset < length / 2; offset += 0.13) vertices.push(...point(offset, base + 0.12), ...point(offset, base + 1.03));
@@ -747,7 +828,11 @@ function addClimbingMezzanine(kit, floorColor) {
     const column = kit.mesh(new THREE.BoxGeometry(pillar.width, mezzanine.height, pillar.depth), "#62616a", pillar.x, mezzanine.height / 2, pillar.z);
     column.name = "mezzanine-column";
   });
-  const stairKit = modelKit("climbing-staircase");
+  addStraightStaircase(kit, stairs, "climbing-staircase");
+}
+
+function addStraightStaircase(kit, stairs, name, { treadColor = "#77717a", frameColor, handrailColor = "#bd9b76" } = {}) {
+  const stairKit = modelKit(name);
   stairKit.group.userData.mezzanine = true;
   kit.group.add(stairKit.group);
   const run = stairs.maxZ - stairs.minZ;
@@ -756,18 +841,18 @@ function addClimbingMezzanine(kit, floorColor) {
   for (let i = 0; i < stairs.steps; i += 1) {
     const rise = stairs.height * (i + 1) / stairs.steps;
     const z = stairs.maxZ - run * (i + 0.5) / stairs.steps;
-    const tread = stairKit.mesh(new THREE.BoxGeometry(stairWidth, 0.1, run / stairs.steps + 0.015), "#77717a", sx, rise - 0.05, z);
+    const tread = stairKit.mesh(new THREE.BoxGeometry(stairWidth, 0.1, run / stairs.steps + 0.015), treadColor, sx, rise - 0.05, z);
     tread.name = "stair-tread";
     stairKit.box(stairWidth - 0.08, 0.012, 0.04, "#c5b3a1", sx, rise + 0.005, z + run / stairs.steps / 2 - 0.02, 0.002);
   }
   for (const x of [stairs.minX, stairs.maxX]) {
-    addSteelBeam(stairKit, [x, 0.08, stairs.maxZ], [x, stairs.height - 0.1, stairs.minZ], 0.18);
-    addSteelBeam(stairKit, [x, 1.1, stairs.maxZ], [x, stairs.height + 1.1, stairs.minZ], 0.08, "#bd9b76");
-    addSteelBeam(stairKit, [x, 0.6, stairs.maxZ], [x, stairs.height + 0.6, stairs.minZ], 0.045);
+    addSteelBeam(stairKit, [x, 0.08, stairs.maxZ], [x, stairs.height - 0.1, stairs.minZ], 0.18, frameColor);
+    addSteelBeam(stairKit, [x, 1.1, stairs.maxZ], [x, stairs.height + 1.1, stairs.minZ], 0.08, handrailColor);
+    addSteelBeam(stairKit, [x, 0.6, stairs.maxZ], [x, stairs.height + 0.6, stairs.minZ], 0.045, frameColor);
     for (let step = 0; step <= stairs.steps; step += 2) {
       const z = stairs.maxZ - run * step / stairs.steps;
       const y = stairs.height * step / stairs.steps;
-      addSteelBeam(stairKit, [x, y, z], [x, y + 1.1, z], 0.045);
+      addSteelBeam(stairKit, [x, y, z], [x, y + 1.1, z], 0.045, frameColor);
     }
   }
 }
@@ -1181,7 +1266,7 @@ function createLegacyFacility(kind, { color, panelBacking } = {}) {
 
 export function createRoomShell(options = {}) {
   const shell = createRoomShellBase(options);
-  return finishArchitecture(shell, options.template, getRoomLayout(options), options.atmosphere, options.onSurfaceReady);
+  return finishArchitecture(shell, options.template ?? "lounge", getRoomLayout(options), options.atmosphere, options.onSurfaceReady);
 }
 
 function createRoomShellBase({
@@ -1196,12 +1281,16 @@ function createRoomShellBase({
     kit.group.add(createBuildingContext(BOARDGAME.building));
     return kit.group;
   }
-  addBuildingFloor(kit, floorColor);
-  kit.group.add(createBuildingContext(BUILDING));
-  BUILDING_WALLS.forEach((wall) => addBuildingWall(kit, wall, wallColor));
-  addDoorFrames(kit, wallColor);
-  addBuildingCeilings(kit, wallColor);
-  addRoomLamps(kit);
+  const layout = getRoomLayout(template, version);
+  const { building } = layout;
+  addBuildingFloor(kit, floorColor, building);
+  kit.group.add(createBuildingContext(building, "lounge"));
+  layout.walls.forEach((wall) => addBuildingWall(kit, wall, wallColor, building));
+  addDoorFrames(kit, wallColor, building);
+  addLoungeTimberwork(kit, building);
+  if (layout.mezzanine) addLoungeGallery(kit, floorColor, layout);
+  addBuildingCeilings(kit, wallColor, building);
+  addRoomLamps(kit, building);
   return kit.group;
 }
 
