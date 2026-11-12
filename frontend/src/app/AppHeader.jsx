@@ -282,7 +282,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
 
           <nav
             aria-label="주요 메뉴"
-            className={`app-header__primary-nav${weightedNav ? " app-header__primary-nav--weighted" : ""}`}
+            className="app-header__primary-nav"
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
