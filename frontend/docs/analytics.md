@@ -467,6 +467,8 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 
 고정 action은 gomoku_observation_open, gomoku_observation_retry, gomoku_observation_leave, gomoku_observation_lobby_open이다. 관전 식별자와 메시지 내용은 분석에 보내지 않으며 기존 채팅 마스킹을 유지한다.
 
+관전자 수의 프로필 목록 열기/닫기는 `gomoku_spectators_toggle` 고정 action을 사용한다. 관전자 수, 닉네임, 프로필 URL과 회원 ID는 분석 속성에 포함하지 않고 드롭다운까지 `data-ph-private`로 마스킹한다.
+
 ## 아바타 시제품
 
 독립 시제품의 홈 이동, 스타일 선택, 동작 선택, 회전, 얼굴 이미지 받기, 받아치기 체험은 각각

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth";
 import { getMe } from "../auth/api";
-import { gomokuApi, newerSnapshot, roomSchema } from "./api";
+import { gomokuApi, newerSnapshot, roomSchema, spectatorsSignalSchema } from "./api";
 import { chatSignalSchema } from "./chatApi";
 
 function retryDelay(failures) {
@@ -16,6 +16,7 @@ export function useGomokuRoom(roomId, participationId = null) {
   const [error, setError] = useState(null);
   const [pending, setPending] = useState(false);
   const [chatSignal, setChatSignal] = useState(null);
+  const [spectatorsSignal, setSpectatorsSignal] = useState(null);
   const actionLock = useRef(false);
   const generation = useRef(0);
   const refreshTimer = useRef(null);
@@ -58,6 +59,7 @@ export function useGomokuRoom(roomId, participationId = null) {
         setError(null);
         setPending(false);
       }
+      setSpectatorsSignal(null);
       try {
         await getMe(undefined, { signal: controller.signal });
         if (!active()) return;
@@ -87,6 +89,16 @@ export function useGomokuRoom(roomId, participationId = null) {
         snapshotTimer = setTimeout(() => disconnect(
           "게임 정보를 계속 확인하지 못하고 있어요. 자동으로 다시 시도해요.", false
         ), 10_000);
+        source.addEventListener("spectators_changed", (event) => {
+          if (cancelled || terminal || generation.current !== version || stream !== source) return;
+          try {
+            const next = spectatorsSignalSchema.parse(JSON.parse(event.data));
+            if (next.roomId !== Number(roomId)) return;
+            setSpectatorsSignal(next);
+          } catch {
+            // A malformed presence event must not interrupt the game connection.
+          }
+        });
         source.addEventListener("chat_changed", (event) => {
           if (cancelled || generation.current !== version || stream !== source) return;
           try {
@@ -197,6 +209,7 @@ export function useGomokuRoom(roomId, participationId = null) {
     pending,
     error,
     chatSignal,
+    spectatorsSignal: spectatorsSignal?.roomId === Number(roomId) ? spectatorsSignal : null,
     act,
     offset
   };

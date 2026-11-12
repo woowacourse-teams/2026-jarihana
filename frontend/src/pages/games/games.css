@@ -649,6 +649,104 @@
 .gomoku-arena--waiting {
   padding-bottom: var(--space-3);
 }
+.gomoku-spectators {
+  flex-shrink: 0;
+  min-width: 0;
+  height: var(--touch-target);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+.gomoku-spectators__anchor {
+  position: relative;
+  width: fit-content;
+}
+.gomoku-spectators__trigger.ui-button {
+  min-height: var(--touch-target);
+  padding-inline: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.gomoku-spectators .gomoku-spectators__trigger.ui-button,
+.gomoku-spectators .gomoku-spectators__trigger.ui-button:hover,
+.gomoku-spectators .gomoku-spectators__trigger.ui-button:active {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+  transition: none;
+}
+.gomoku-spectators__label {
+  text-decoration: underline dotted var(--color-line-strong);
+  text-decoration-thickness: var(--border-thin);
+  text-underline-offset: var(--space-1);
+}
+.gomoku-spectators__trigger.ui-button > span,
+.gomoku-spectators__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.gomoku-spectators__loading {
+  height: var(--touch-target);
+  padding-inline: var(--space-2);
+}
+.gomoku-spectators .gomoku-spectators__trigger:is(:hover, :focus-visible, [aria-expanded="true"]) {
+  color: var(--color-ink);
+}
+.gomoku-spectators__dropdown {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  width: min(18rem, calc(100vw - var(--space-16)));
+  padding-top: var(--space-1);
+}
+.gomoku-spectators__panel {
+  max-height: min(20rem, 50dvh);
+  padding: var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+.gomoku-spectators__panel h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+}
+.gomoku-spectators__panel ul {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gomoku-spectators__panel li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: var(--text-label);
+}
+.gomoku-spectators__panel li > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gomoku-spectators__panel .ui-avatar {
+  flex-shrink: 0;
+}
+.gomoku-spectators__panel p {
+  margin: 0;
+  font-size: var(--text-label);
+}
 .gomoku-status-row {
   display: flex;
   align-items: center;

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.timeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.project.jarihana.gomoku.domain.RoomStatus;
+import com.project.jarihana.gomoku.domain.RoomVisibility;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
 import com.project.jarihana.gomoku.command.service.GomokuObservationService;
@@ -29,9 +31,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -169,6 +175,49 @@ class GomokuStreamsTest {
         Set<?> clients = (Set<?>) ReflectionTestUtils.getField(streams, "clients");
         assertEquals(2, clients.size());
         verify(queries, after(100).never()).loadSnapshot(anyLong());
+    }
+
+    @Test
+    @DisplayName("관전자 명단 조회 중 연결된 관전자는 연결을 유지하고 다음 주기에 권한을 확인한다")
+    void keepsObserverConnectedDuringSpectatorLookup() {
+        // Given
+        var observations = (GomokuObservationService) ReflectionTestUtils.getField(streams, "observations");
+        var originalDeliveries = (ExecutorService) ReflectionTestUtils.getField(streams, "deliveries");
+        originalDeliveries.shutdownNow();
+        ExecutorService inlineDeliveries = mock(ExecutorService.class);
+        when(inlineDeliveries.submit(any(Runnable.class))).thenAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return CompletableFuture.completedFuture(null);
+        });
+        ReflectionTestUtils.setField(streams, "deliveries", inlineDeliveries);
+        UUID firstObservation = UUID.randomUUID();
+        UUID newObservation = UUID.randomUUID();
+        UUID newConnection = UUID.randomUUID();
+        when(initial.visibility()).thenReturn(RoomVisibility.PUBLIC);
+        when(queries.getRoom(1L, 10L, firstObservation)).thenReturn(initial);
+        when(queries.getRoom(1L, 20L, newObservation)).thenReturn(initial);
+        when(observations.connect(1L, 10L, firstObservation)).thenReturn(UUID.randomUUID());
+        when(observations.connect(1L, 20L, newObservation)).thenReturn(newConnection);
+        when(queries.activeObservations(anyLong(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        streams.subscribe(1L, 10L, 120000L, firstObservation);
+        when(queries.connectedSpectators(1L)).thenAnswer(invocation -> {
+            streams.subscribe(1L, 20L, 120000L, newObservation);
+            return List.of();
+        }).thenReturn(List.of());
+
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+
+        // Then
+        verify(queries).activeObservations(1L, Set.of(firstObservation));
+        verify(observations, never()).disconnect(newConnection);
+
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+
+        // Then
+        verify(queries).activeObservations(1L, Set.of(firstObservation, newObservation));
+        verify(observations, never()).disconnect(newConnection);
     }
 
 }

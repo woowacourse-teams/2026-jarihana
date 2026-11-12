@@ -27,6 +27,7 @@ import { useGomokuSounds } from "../../features/gomoku/useGomokuSounds";
 import { useGomokuRoom } from "../../features/gomoku/useGomokuRoom";
 import { useGomokuChat } from "../../features/gomoku/useGomokuChat";
 import { GomokuChat } from "../../features/gomoku/GomokuChat";
+import { GomokuSpectators } from "../../features/gomoku/GomokuSpectators";
 import { findForbiddenMoves } from "../../features/gomoku/forbiddenMoves";
 import { Board } from "../../features/gomoku/Board";
 import { Stone } from "../../features/gomoku/Stone";
@@ -738,7 +739,7 @@ function GomokuRoom({ roomId, observation = null }) {
   const { member } = useAuth();
   const navigate = useNavigate();
   const spectator = observation != null;
-  const { room, connected, pending, error, act, offset, chatSignal } = useGomokuRoom(
+  const { room, connected, pending, error, act, offset, chatSignal, spectatorsSignal } = useGomokuRoom(
     roomId,
     observation?.participationId
   );
@@ -967,6 +968,9 @@ function GomokuRoom({ roomId, observation = null }) {
         )}
         <div className={`gomoku-room-layout${chat.enabled ? " gomoku-room-layout--chat" : ""}`}>
         <section className={`gomoku-arena${waiting ? " gomoku-arena--waiting" : ""}`} aria-label="오목 대국">
+          {room.visibility === "PUBLIC" && !closed && (
+            <GomokuSpectators signal={spectatorsSignal} connected={connected} />
+          )}
           <ul className="gomoku-players">
             {[
               {
