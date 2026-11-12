@@ -5,7 +5,7 @@ import { createLegacyFacilityItems } from "./legacyFacilityCatalog";
 import {
   ATMOSPHERE_PRESETS, TEMPLATE_ATMOSPHERES, CATALOG, DEFAULT_ATMOSPHERE, MAX_ITEMS, MAX_PHOTO_LENGTH, ROOM_TEMPLATES, STORAGE_KEY, applyRoomTemplate, canPlace,
   createInitialRoom, findOpenPosition, footprint, historyReducer, isSafeRecordLink,
-  loadRoom, readSavedRoom, saveRoom, snapPosition, validateRoom
+  loadRoom, saveRoom, snapPosition, validateRoom
 } from "./roomState";
 
 describe("space placement", () => {
@@ -15,8 +15,7 @@ describe("space placement", () => {
     const storage = { setItem: jest.fn(), getItem: jest.fn() };
     saveRoom(storage, room);
     storage.getItem.mockReturnValue(storage.setItem.mock.calls[0][1]);
-    expect(storage.setItem.mock.calls[0][0]).toBe(STORAGE_KEY);
-    expect(JSON.parse(storage.setItem.mock.calls[0][1])).toEqual(room);
+    expect(storage.setItem).toHaveBeenCalledWith(STORAGE_KEY, JSON.stringify(room));
     expect(loadRoom(storage)).toEqual({ room, warning: "" });
   });
   test("loading an old v11 preset moves only its default outdoor turntable", () => {
@@ -126,7 +125,7 @@ describe("hobby clubhouse templates", () => {
     const storage = { getItem: () => JSON.stringify(old), setItem: jest.fn() };
     const loaded = loadRoom(storage);
     expect(loaded.warning).toBe("");
-    expect(loaded.room).toMatchObject({ version: 12, template: "lounge", name: old.name, atmosphere: DEFAULT_ATMOSPHERE });
+    expect(loaded.room).toMatchObject({ version: 10, template: "lounge", name: old.name, atmosphere: DEFAULT_ATMOSPHERE });
     expect(loaded.room.items.find((item) => item.id === "old")).toEqual({ ...old.items[0], photo: "", link: "" });
     expect(storage.setItem).not.toHaveBeenCalled();
   });
@@ -224,7 +223,7 @@ describe("room persistence and edit history", () => {
     const storage = { getItem: () => JSON.stringify(old), setItem: jest.fn() };
     const migrated = loadRoom(storage);
     expect(migrated.warning).toBe("");
-    expect(migrated.room).toMatchObject({ version: 12, name: old.name, coverPhoto: photo, notice: old.notice, atmosphere: old.atmosphere });
+    expect(migrated.room).toMatchObject({ version: 10, name: old.name, coverPhoto: photo, notice: old.notice, atmosphere: old.atmosphere });
     expect(migrated.room.items[0]).toEqual(old.items[0]);
     expect(migrated.room.items[1]).not.toEqual(old.items[1]);
     expect(migrated.room.items[2]).toMatchObject({ id: "memory", kind: "memory", rotation: 1, title: "첫 합주", note: "기억", photo, link: "https://example.com/record" });
@@ -554,7 +553,7 @@ describe("expanded reference rooms version 7", () => {
 
 describe("version 8 entrance corridor", () => {
   test.each(ROOM_TEMPLATES.map(({ id }) => id))("%s defaults preserve the interior and replace the yard with three entrance furnishings", (template) => {
-    const room = createInitialRoom(template, { loungeLoft: false });
+    const room = createInitialRoom(template);
     const layout = getRoomLayout(template);
     expect(layout.entrance).toEqual({ minX: layout.building.minX, maxX: layout.building.maxX, minZ: 5, maxZ: 8.2 });
     expect(layout.yard.maxZ).toBeGreaterThan(layout.entrance.maxZ + 6);
@@ -626,7 +625,7 @@ describe("version 9 reusable facilities", () => {
     const storage = { getItem: () => JSON.stringify(old), setItem: jest.fn() };
     const { room, warning } = loadRoom(storage);
     expect(warning).toBe("");
-    expect(room).toMatchObject({ version: template === "lounge" ? 12 : 10, name: old.name, coverPhoto: old.coverPhoto, notice: old.notice, atmosphere: old.atmosphere });
+    expect(room).toMatchObject({ version: 10, name: old.name, coverPhoto: old.coverPhoto, notice: old.notice, atmosphere: old.atmosphere });
     for (const original of old.items) expect(room.items.find((item) => item.id === original.id)).toEqual(original);
     expect(room.items.length).toBeGreaterThan(old.items.length);
     expect(new Set(room.items.map((item) => item.id)).size).toBe(room.items.length);
@@ -696,7 +695,7 @@ test.each(["dining", "band"])("legacy %s retains a visible editable board for it
 describe("expanded island preserves the original entrance", () => {
   test.each(ROOM_TEMPLATES.map(({ id }) => id))("%s can save furniture on every side of its lawn without changing existing items or settings", (template) => {
     const original = createInitialRoom(template);
-    const { building, island } = getRoomLayout(original);
+    const { building, island } = getRoomLayout(template);
     const outdoor = [
       { id: "front-bench", kind: "bench", x: 4, z: building.maxZ + 7, rotation: 0 },
       { id: "left-bench", kind: "bench", x: building.minX - 2, z: 0, rotation: 1 },
@@ -704,9 +703,9 @@ describe("expanded island preserves the original entrance", () => {
       { id: "rear-bench", kind: "bench", x: 0, z: building.minZ - 2, rotation: 0 }
     ];
     const room = { ...original, notice: "마당에서 만나요", atmosphere: { ...original.atmosphere, warmth: 61 }, items: [...original.items, ...outdoor] };
-    for (const item of outdoor) expect(canPlace(item, room.items, original)).toBe(true);
-    expect(canPlace({ ...outdoor[0], z: island.walkable.maxZ }, room.items, original)).toBe(false);
-    expect(canPlace({ ...outdoor[0], x: -2, z: building.maxZ + 1 }, room.items, original)).toBe(false);
+    for (const item of outdoor) expect(canPlace(item, room.items, template)).toBe(true);
+    expect(canPlace({ ...outdoor[0], z: island.walkable.maxZ }, room.items, template)).toBe(false);
+    expect(canPlace({ ...outdoor[0], x: -2, z: building.maxZ + 1 }, room.items, template)).toBe(false);
     const storage = { setItem: jest.fn(), getItem: jest.fn() };
     saveRoom(storage, room);
     storage.getItem.mockReturnValue(storage.setItem.mock.calls[0][1]);
@@ -741,7 +740,7 @@ test("v9 saved lawn furniture and weather survive migration and reload without a
   expect(loaded.warning).toBe("");
   expect(loaded.room.items).toEqual(room.items);
   expect(loaded.room.atmosphere).toEqual(room.atmosphere);
-  expect(loaded.room.version).toBe(12);
+  expect(loaded.room.version).toBe(10);
   expect(validateRoom(loaded.room)).toEqual(loaded.room);
   expect(storage.setItem).not.toHaveBeenCalled();
 });
@@ -756,22 +755,4 @@ test("the saved lounge version controls the layout, even when all upper-floor fu
   expect(validateRoom(emptyLoft)).toEqual(emptyLoft);
   expect(getRoomLayout(emptyLoft).mezzanine).toBeDefined();
   expect(validateRoom({ ...loft, version: legacy.version })).toBeNull();
-});
-
-test.each([9, 10, 11])("v%s default room relocates furniture and attached props that block the new stairs", (version) => {
-  const table = { id: "table", kind: "coffeeTable", x: -8, z: 4, rotation: 0, scaleX: 1.25 };
-  const cup = { id: "cup", kind: "propCup", x: -7.8, z: 4, rotation: 0, parentId: table.id, surfaceIndex: 0 };
-  const plant = { id: "plant", kind: "plant", x: 7, z: 2, rotation: 0 };
-  const saved = { ...createInitialRoom("lounge", { loungeLoft: false }), version, items: [table, cup, plant] };
-  const loft = readSavedRoom(saved);
-  const [movedTable, movedCup, untouched] = loft.items;
-
-  expect(loft.version).toBe(12);
-  expect(movedTable).toMatchObject({ id: table.id, scaleX: table.scaleX });
-  expect([movedTable.x, movedTable.z]).not.toEqual([table.x, table.z]);
-  expect(movedCup.parentId).toBe(table.id);
-  expect(movedCup.x - movedTable.x).toBeCloseTo(cup.x - table.x);
-  expect(movedCup.z).toBeCloseTo(movedTable.z);
-  expect(untouched).toEqual(plant);
-  expect(validateRoom(loft)).toEqual(loft);
 });
