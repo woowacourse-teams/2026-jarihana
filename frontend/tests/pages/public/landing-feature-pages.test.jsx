@@ -118,12 +118,17 @@ test("the sparring page explains the three steps and plays the arena recording",
   }
 });
 
-test("the games page introduces both games and links to the game room", () => {
+test("the games page introduces the three playable games in game room order and links to the game room", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
-  render(<LandingGamesPage />);
+  const { container } = render(<LandingGamesPage />);
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("모임 사람들과 한 판 하고랭킹에 이름도 올려 봐요");
-  expect(screen.getByRole("heading", { level: 3, name: "오목" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { level: 3, name: "행성이의 리듬 작살" })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
+    "오목",
+    "공평하게 반띵",
+    "행성이의 리듬 작살"
+  ]);
+  expect(screen.getByText("막대과자를 정확히 같은 무게로 자르는 퍼즐")).toBeInTheDocument();
+  expect(container.querySelector(".landing-feature-page__game-art svg.stick-artwork")).toBeInTheDocument();
   const links = screen.getAllByRole("link", { name: "게임방 가기" });
   expect(links).toHaveLength(2);
   for (const link of links) {

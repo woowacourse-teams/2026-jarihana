@@ -6,6 +6,7 @@ import studyImage from "../../shared/assets/landing/default-group-study.webp";
 import clubImage from "../../shared/assets/landing/default-group-club.webp";
 import sessionImage from "../../shared/assets/landing/default-group-session.webp";
 import arenaImage from "../../shared/assets/landing/sparring-arena-demo-end.webp";
+import { StickHalvingArtwork } from "../../features/stick-halving/StickHalvingArtwork";
 import { gameArtwork } from "../games/artworkAssets";
 import { LandingShell, LandingStartButton } from "./LandingChrome";
 import { CreatePreview, JoinPreview } from "./LandingFeatureCards";
@@ -354,6 +355,7 @@ export function LandingSparringPage() {
   );
 }
 
+// 게임방 목록과 같은 순서로 지금 할 수 있는 게임을 소개한다. 공평하게 반띵은 게임방 카드처럼 그림 대신 실제 막대 그림을 그린다.
 const games = [
   {
     id: "gomoku",
@@ -363,13 +365,32 @@ const games = [
     points: ["초대 링크로 친구를 불러 바로 대국해요.", "다른 사람의 대국을 관전할 수 있어요.", "대국 기록이 쌓이고 랭킹에도 올라가요."]
   },
   {
+    id: "stick-halving",
+    title: "공평하게 반띵",
+    summary: "막대과자를 정확히 같은 무게로 자르는 퍼즐",
+    points: [
+      "초코와 아몬드가 붙은 쪽이 더 무거워요. 칼을 옮겨 막대 다섯 개를 반으로 잘라요.",
+      "연습은 로그인 없이 바로 해 봐요.",
+      "순위 도전은 몇 번이든 하고, 가장 좋은 판으로 게임방 순위를 매겨요."
+    ]
+  },
+  {
     id: "rhythm",
     title: "행성이의 리듬 작살",
     summary: "비트에 맞춰 세균을 잡는 1인 리듬게임",
     image: gameArtwork.rhythm,
-    points: ["따라 하기로 조작을 익혀요.", "연습에서 난이도와 배속을 골라요.", "공식 도전 기록이 난이도별 랭킹에 올라가요."]
+    points: ["1분짜리 튜토리얼로 조작을 익혀요.", "난이도를 골라 바로 랭킹 도전에 나서요.", "도전 점수가 난이도별 랭킹에 올라가요."]
   }
 ];
+
+function GameArt({ game }) {
+  if (game.image) return <img alt="" height="1024" loading="lazy" src={game.image} width="1536" />;
+  return (
+    <span aria-hidden="true" className="landing-feature-page__game-art">
+      <StickHalvingArtwork />
+    </span>
+  );
+}
 
 export function LandingGamesPage() {
   const rootRef = useRef(null);
@@ -388,8 +409,8 @@ export function LandingGamesPage() {
       <FeatureHero
         action={gamesAction}
         eyebrow="게임하나?"
-        lead="잠깐 쉬었다, 한 판 어때요? 친구를 불러 오목을 두고, 리듬게임 공식 도전에서 서로의 기록을 겨뤄요."
-        note="연습은 로그인 없이, 대국과 공식 도전은 가입한 뒤에 할 수 있어요."
+        lead="잠깐 쉬었다, 한 판 어때요? 친구를 불러 오목을 두고, 공평하게 반띵과 리듬 작살에서 서로의 기록을 겨뤄요."
+        note="반띵 연습과 리듬 작살 튜토리얼은 로그인 없이, 대국과 순위에 오르는 도전은 가입한 뒤에 할 수 있어요."
         title={["모임 사람들과 한 판 하고", "랭킹에 이름도 올려 봐요"]}
         tone="lavender"
         visual={<img alt="행성이가 네 방향에서 오는 세균을 작살로 잡는 리듬 작살 그림" height="1024" src={gameArtwork.rhythm} width="1536" />}
@@ -399,7 +420,7 @@ export function LandingGamesPage() {
         <ul className="landing-feature-page__grid landing-feature-page__games">
           {games.map((game) => (
             <li key={game.id}>
-              <img alt="" height="1024" loading="lazy" src={game.image} width="1536" />
+              <GameArt game={game} />
               <h3>{game.title}</h3>
               <p>{game.summary}</p>
               <ul>

@@ -379,6 +379,21 @@
   mix-blend-mode: normal;
   background: var(--color-surface);
 }
+/* 공평하게 반띵은 게임방 카드처럼 막대 그림을 그려, 다른 게임 그림과 같은 높이의 칸에 게임방 카드와 같은 배경으로 둔다. */
+.landing-feature-page__game-art {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  height: 14rem;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, var(--color-brand-soft), var(--color-surface));
+}
+.landing-feature-page__game-art .stick-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .landing-feature-page__games > li > ul {
   display: flex;
   flex-direction: column;
