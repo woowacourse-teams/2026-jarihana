@@ -41,7 +41,8 @@ export function JoinPreview() {
   );
 }
 
-// 토론하나? 카드는 실제 경기장 녹화에서 두 캐릭터가 VS로 맞서는 장면만 잘라 반복한다.
+// 토론하나? 카드는 실제 경기장 녹화에서 받아치기가 들어온 뒤 두 캐릭터가 의자에 앉아 VS로 맞서고
+// 의자를 들고 맞붙는 장면만 잘라 반복한다.
 function SparringPreview() {
   return (
     <span aria-hidden="true" className="landing-feature-card__screen">

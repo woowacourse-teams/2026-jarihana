@@ -118,7 +118,7 @@ export const sparringChapters = [{
   icon: Swords,
   title: "내 편 고르고 한마디 건네기",
   checks: ["두 입장 중 내 생각 고르기", "한마디로 받아치고 주고받기"],
-  alt: "토론 주제에서 강의부터 편을 고르고 상대 편의 지난 한마디에 받아치기를 보내면 두 캐릭터가 VS로 마주 서는 토론해요 이용 예시"
+  alt: "토론 주제에서 강의부터 편을 고르고 상대 편의 지난 한마디에 받아치기를 보내면, 캡슐이 관을 지나 부딪힌 뒤 두 캐릭터가 의자에 앉아 VS로 마주하는 토론하나? 이용 예시"
 }];
 
 function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {

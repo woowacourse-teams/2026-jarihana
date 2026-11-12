@@ -285,7 +285,7 @@ export function LandingCreatePage() {
 const sparringSteps = [
   { id: "pick", title: "편 고르기", description: "두 입장 중 내 생각에 가까운 쪽을 골라요. 투표 비율이 바로 막대로 보여요." },
   { id: "send", title: "한마디 보내기", description: "한마디를 캡슐에 담아 보내면 내 편 쪽에 쌓여요." },
-  { id: "reply", title: "받아치기", description: "상대 편 한마디에 받아치면 두 캐릭터가 VS로 마주 서요." }
+  { id: "reply", title: "받아치기", description: "상대 편 한마디에 받아치면 두 캐릭터가 의자에 앉아 VS로 맞붙어요." }
 ];
 
 export function LandingSparringPage() {
@@ -313,7 +313,7 @@ export function LandingSparringPage() {
         tone="coral"
         visual={
           <img
-            alt="토론 경기장에서 두 편의 캐릭터가 VS로 마주 선 장면"
+            alt="토론 경기장에서 받아친 말과 먼저 한 말을 띄운 두 캐릭터가 의자에 앉아 VS로 마주한 장면"
             height="1090"
             src={arenaImage}
             width="1146"
