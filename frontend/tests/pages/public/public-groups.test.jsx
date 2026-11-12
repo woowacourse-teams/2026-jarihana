@@ -447,7 +447,7 @@ it("Given no active recruitment, when group detail renders, then its recruitment
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  const rail = screen.getByRole("complementary", { name: "모집 정보와 일정" });
+  const rail = screen.getByRole("complementary", { name: "운영자, 모집 정보와 일정" });
   expect(within(rail).getByText("모집 준비 중")).toBeInTheDocument();
   expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
 });
