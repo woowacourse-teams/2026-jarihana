@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
+import { GroupMusicProvider } from "../features/group-music/index.js";
 import { GroupTransitionProvider } from "../pages/groups/GroupTransition.jsx";
 import { Skeleton } from "../shared/ui";
 import { AnalyticsBridge } from "./AnalyticsBridge";
@@ -44,6 +45,8 @@ export const lazyPageRegistry = Object.freeze({
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
   GomokuObservationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuObservationPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
+
+  AvatarPage: lazyNamed(loadAccountPages, "AvatarPage"),
   StickHalvingRoomPage: lazyNamed(() => import("../pages/games/StickHalvingRoomPage.jsx"), "StickHalvingRoomPage"),
   RhythmHarpoonEntryPage: lazyNamed(
     () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
@@ -99,7 +102,8 @@ export const lazyPageRegistry = Object.freeze({
   ShowcasePage: lazyNamed(() => import("../pages/ShowcasePage.jsx"), "ShowcasePage"),
   SparringDetailPage: lazyNamed(() => import("../pages/sparring/SparringDetailPage.jsx"), "SparringDetailPage"),
   SparringPage: lazy(() => import("../pages/sparring/SparringPage.jsx")),
-  SignupPage: lazyNamed(loadAccountPages, "SignupPage")
+  SignupPage: lazyNamed(loadAccountPages, "SignupPage"),
+  SpaceStudioPage: lazyNamed(() => import("../pages/space/SpaceStudioPage.jsx"), "SpaceStudioPage")
 });
 
 function PageLoading() {
@@ -170,7 +174,7 @@ export function createAppRouteElements(pageRegistry, loaders = {}) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppShell />}>{createAppRouteElements(lazyPageRegistry)}</Route>
+      <Route element={<GroupMusicProvider><AppShell /></GroupMusicProvider>}>{createAppRouteElements(lazyPageRegistry)}</Route>
     </Routes>
   );
 }
@@ -180,7 +184,7 @@ function RouterLayout() {
     <>
       <AnalyticsBridge />
       <GroupTransitionProvider>
-        <AppShell />
+        <GroupMusicProvider><AppShell /></GroupMusicProvider>
       </GroupTransitionProvider>
       <ScrollRestoration />
     </>

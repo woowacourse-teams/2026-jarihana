@@ -1,0 +1,134 @@
+.space-studio.space-studio--overlay,
+.group-clubhouse,
+.ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+body:has(.space-studio--overlay, .group-clubhouse:not(.group-clubhouse--photo)) .group-music {
+  --studio-ink: #233633;
+  --studio-muted: #394b47;
+  --studio-accent: #35675f;
+  --studio-accent-hover: #28534c;
+  --studio-accent-soft: #d7e7e1c7;
+  --studio-coral: #ebd9d6;
+  --studio-panel: rgb(246 249 250 / 74%);
+  --studio-panel-inset: rgb(255 255 255 / 38%);
+  --studio-line: rgb(94 119 111 / 24%);
+  --studio-shadow: inset 0 1px 0 #ffffffcc, 0 8px 28px #1529231a, 0 1px 4px #15292312;
+  --studio-glass-filter: blur(18px) saturate(135%);
+}
+
+.space-studio.space-studio--overlay {
+  --studio-accent-soft: #d7e7e1;
+  --studio-panel: #f6f9fa;
+  --studio-panel-inset: #ffffff;
+  --studio-glass-filter: none;
+}
+
+/* Blur each outer surface once; nested controls keep the shared glass backdrop. */
+.space-studio--overlay :is(
+  .space-studio__brand,
+  .space-studio__context,
+  .space-studio__hud-toggle,
+  .space-studio__menu-toggle,
+  .space-studio__editor-menu-toggle,
+  .space-studio__camera-toggle,
+  .space-studio__view-toggle,
+  .space-studio__view-content,
+  .space-studio__panel,
+  .space-studio__memory,
+  .space-studio__dock,
+  .space-studio__selection,
+  .space-studio__inventory,
+  .space-studio__inventory-list,
+  .space-studio__notice,
+  .space-studio__clubhouse-toolbar-row,
+  .space-studio__interaction-prompt,
+  .space-studio__interaction-feedback
+),
+.space-studio--overlay .space-studio__interaction-choices > button,
+.space-studio--overlay :is(
+  .space-studio__rail > button,
+  .space-studio__rail-link
+),
+.space-studio--overlay:not(.space-studio--clubhouse) :is(
+  .space-studio__mode-bar,
+  .space-studio__floors,
+  .space-studio__studio-lens,
+  .space-studio__camera .space-icon-button,
+  .space-studio__history .space-icon-button,
+  .space-studio__walk-dock,
+  .space-studio__walk-zone
+),
+.space-studio--clubhouse[data-mode="decorate"] .space-studio__history,
+.space-studio__clubhouse-toolbar > .group-detail-web__navigation,
+.space-studio--clubhouse .space-studio__walk-dock > div,
+.clubhouse-play-hud__group,
+.clubhouse-play-hud__intro-card,
+.group-clubhouse__expand,
+.group-clubhouse__collapse,
+.group-clubhouse__lens,
+.ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+body:has(.space-studio--overlay, .group-clubhouse:not(.group-clubhouse--photo)) .group-music {
+  -webkit-backdrop-filter: var(--studio-glass-filter);
+  backdrop-filter: var(--studio-glass-filter);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .space-studio.space-studio--overlay,
+  .group-clubhouse,
+  .ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+  body:has(.space-studio--overlay, .group-clubhouse:not(.group-clubhouse--photo)) .group-music {
+    --studio-panel: #eef1f0;
+    --studio-panel-inset: #e4e9e7;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .space-studio.space-studio--overlay,
+  .group-clubhouse,
+  .ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+  body:has(.space-studio--overlay, .group-clubhouse:not(.group-clubhouse--photo)) .group-music {
+    --studio-panel: #eef1f0;
+    --studio-panel-inset: #e4e9e7;
+    --studio-glass-filter: none;
+  }
+}
+
+.ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog) {
+  background: var(--studio-panel);
+  border: 1px solid var(--studio-line);
+  box-shadow: var(--studio-shadow), 0 16px 42px #15292330;
+  color: var(--studio-ink);
+}
+
+body:has(.space-studio--overlay, .group-clubhouse:not(.group-clubhouse--photo)) .group-music {
+  --music-surface: var(--studio-panel);
+  --music-raised: var(--studio-panel-inset);
+  --music-ink: var(--studio-ink);
+  --music-muted: var(--studio-muted);
+  --music-line: var(--studio-line);
+  --music-accent: var(--studio-accent-soft);
+  --music-accent-ink: var(--studio-ink);
+  color-scheme: light;
+  box-shadow: var(--studio-shadow);
+}
+
+.space-studio--overlay :is(
+  .space-studio__panel, .space-studio__memory, .space-studio__dock, .space-studio__inventory-list,
+  .space-studio__asset-inspector, .space-studio__asset-properties, .space-studio__catalog,
+  .space-studio__asset-collections, .space-studio__mode-bar, .space-studio__camera, .space-studio__view-content
+),
+.ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+.chat-modal--clubhouse .chat-history,
+body:has(.group-clubhouse--expanded) .group-music :is(.group-music__body, .group-music__queue) {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--studio-muted, var(--color-muted-ink)) 42%, transparent) transparent;
+}
+
+.space-studio--overlay :is(
+  .space-studio__panel, .space-studio__memory, .space-studio__dock, .space-studio__inventory-list,
+  .space-studio__asset-inspector, .space-studio__asset-properties
+),
+.ui-dialog:is(.clubhouse-content-dialog, .clubhouse-play-help-dialog),
+.chat-modal--clubhouse .chat-history,
+body:has(.group-clubhouse--expanded) .group-music--expanded :is(.group-music__body, .group-music__queue) {
+  scrollbar-gutter: stable;
+}

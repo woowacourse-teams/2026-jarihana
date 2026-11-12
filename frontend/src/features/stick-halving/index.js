@@ -1,9 +1,11 @@
-export { CutResult, formatGrams, formatPercent } from "./CutResult";
+export { CutFacts, CutResult, formatPercent } from "./CutResult";
 export { StickBoard } from "./StickBoard";
+export { CutStickArtwork } from "./StickHalvingArtwork";
 export { StickHalvingGame } from "./StickHalvingGame";
-export { WeightTable } from "./WeightTable";
 export {
   ROUND_COUNT,
+  ROUND_TIME_LIMIT_SECONDS,
+  formatPoints,
   ROUNDS,
   STICK_LENGTH_CM,
   generatePracticeStick,

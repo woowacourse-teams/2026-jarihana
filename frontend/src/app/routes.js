@@ -34,6 +34,8 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "SparringDetailPage", path: "/sparring/:topicId" },
   { access: "public", page: "PeperoDayEventPage", path: "/events/pepero-day" },
   { access: "public", page: "GroupDetailPage", path: "/groups/:groupId" },
+  { access: "public", page: "GroupDetailPage", path: "/groups/:groupId/space" },
+  { access: "public", page: "SpaceStudioPage", path: "/space/studio" },
   {
     access: "public",
     page: "AnnouncementDetailPage",
@@ -50,6 +52,7 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "InvitationPage", path: "/invitations/link/:token" },
   { access: "member", page: "NotificationOpenPage", path: "/notifications/open/:id" },
   { access: "member", page: "MyPage", path: "/my" },
+  { access: "member", page: "AvatarPage", path: "/my/avatar" },
   { access: "member", page: "MyPointsPage", path: "/my/points" },
   { access: "member", page: "MyGroupsPage", path: "/my/groups" },
   { access: "member", page: "MyRegistrationsPage", path: "/my/registrations" },

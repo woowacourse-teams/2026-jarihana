@@ -329,7 +329,7 @@ case_prepare_single_rds() {
     rm -f "$APP_DIR/docker-calls"
     if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
     grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
-    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *' config --quiet' ]]
+    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *'-f '*'/controller/app-music-compose.yml config --quiet' ]]
     [[ $(sed -n '2p' "$APP_DIR/docker-calls") == "ps -aq --no-trunc --filter name=^/$CONTAINER$" ]]
   done
 }

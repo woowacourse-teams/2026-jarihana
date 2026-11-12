@@ -13,6 +13,7 @@ export function ChatModal() {
   const navigate = useNavigate();
   const search = new URLSearchParams(location.search);
   const selected = search.get("chat");
+  const clubhouseChat = selected !== "inbox" && location.state?.clubhouseChat;
   const open = Boolean(selected) && auth.status === "authenticated" && !auth.logoutPending;
   const selectRoom = useChatSession()?.selectRoom;
   const activeRoomId = open && selected !== "inbox" ? selected : undefined;
@@ -132,12 +133,14 @@ export function ChatModal() {
 
   function close() {
     search.delete("chat");
+    const state = { ...location.state };
+    delete state.clubhouseChat;
     navigate({ pathname: location.pathname, search: search.size ? `?${search}` : "", hash: location.hash },
-      { replace: true, preventScrollReset: true, state: location.state });
+      { replace: true, preventScrollReset: true, state: clubhouseChat ? state : location.state });
   }
 
   return <Modal open={open} onClose={close} title="모임 채팅" closeLabel="채팅 닫기"
-    closeAction="chat_dismiss" panelClassName={`chat-modal${selected !== "inbox" ? " chat-modal--room" : ""}`}>
+    closeAction="chat_dismiss" panelClassName={`chat-modal${selected !== "inbox" ? " chat-modal--room" : ""}${clubhouseChat ? " chat-modal--clubhouse" : ""}`}>
     <Suspense fallback={<p className="chat-modal__loading" role="status">대화를 불러오는 중이에요</p>}>
       <ChatContent roomId={selected === "inbox" ? undefined : selected} />
     </Suspense>

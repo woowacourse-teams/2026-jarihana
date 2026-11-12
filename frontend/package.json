@@ -38,6 +38,7 @@
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "three": "0.186.1",
     "wheel-gestures": "2.3.0",
     "zod": "4.4.3"
   },
@@ -101,7 +102,7 @@
       "\\.(avif|gif|jpe?g|mp4|png|svg|webp)$": "<rootDir>/scripts/styleMock.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(ky|react-router|cookie-es|react-markdown|remark-[^/]+|rehype-[^/]+|unified|vfile[^/]*|micromark[^/]*|mdast-[^/]+|hast-[^/]+|hastscript|html-void-elements|parse5|entities|unist-[^/]+|bail|ccount|character-[^/]+|comma-separated-tokens|decode-[^/]+|dequal|devlop|escape-string-regexp|estree-util-[^/]+|extend|html-url-attributes|inline-style-parser|is-[^/]+|longest-streak|markdown-table|parse-entities|property-information|space-separated-tokens|stringify-entities|style-[^/]+|trim-lines|trough|web-namespaces|zwitch)/)"
+      "/node_modules/(?!(three|ky|react-router|cookie-es|react-markdown|remark-[^/]+|rehype-[^/]+|unified|vfile[^/]*|micromark[^/]*|mdast-[^/]+|hast-[^/]+|hastscript|html-void-elements|parse5|entities|unist-[^/]+|bail|ccount|character-[^/]+|comma-separated-tokens|decode-[^/]+|dequal|devlop|escape-string-regexp|estree-util-[^/]+|extend|html-url-attributes|inline-style-parser|is-[^/]+|longest-streak|markdown-table|parse-entities|property-information|space-separated-tokens|stringify-entities|style-[^/]+|trim-lines|trough|web-namespaces|zwitch)/)"
     ],
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",

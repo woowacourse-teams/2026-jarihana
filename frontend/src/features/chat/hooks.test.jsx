@@ -112,10 +112,10 @@ test("failed send retries the exact original body and idempotency key", async ()
   postMessage.mockRejectedValueOnce(new Error("lost response")).mockImplementation(async (_room, payload) => saved("11", payload));
   const hook = setup();
   await waitFor(() => expect(hook.result.current.history.data).toBeDefined());
-  await act(async () => { await hook.result.current.send(" 원문\n"); });
+  await act(async () => { expect(await hook.result.current.send(" 원문\n")).toBe(false); });
   const failed = queryClient.getQueryData(key).items.find((item) => item.failed);
   expect(failed.content).toBe(" 원문\n");
-  await act(async () => { await hook.result.current.send(failed.content, failed); });
+  await act(async () => { expect(await hook.result.current.send(failed.content, failed)).toMatchObject({ sequence: "11" }); });
   expect(postMessage.mock.calls[0].slice(0, 2)).toEqual(postMessage.mock.calls[1].slice(0, 2));
   expect(queryClient.getQueryData(key).items.filter((item) => item.clientMessageId === failed.clientMessageId)).toHaveLength(1);
   hook.unmount();

@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 
-export function Tabs({ animated = false, defaultValue, items, onValueChange, value }) {
+export function Tabs({ actions, animated = false, defaultValue, items, onValueChange, value }) {
   const generatedId = useId();
   const [internalValue, setInternalValue] = useState(defaultValue || items[0]?.value);
   const indicatorReference = useRef(null);
@@ -95,6 +95,7 @@ export function Tabs({ animated = false, defaultValue, items, onValueChange, val
           />
         ) : null}
       </div>
+      {actions}
       {items.map((item) => {
         const selected = item.value === selectedValue;
         return (

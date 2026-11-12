@@ -9,6 +9,12 @@ export function ChatSessionProvider({ children }) {
   const sessionKey = auth.status === "authenticated" && !auth.logoutPending && auth.member?.id != null
     ? `${auth.member.id}:${auth.sessionVersion}` : null;
   const [roomId, selectRoom] = useState(undefined);
+  const [backgroundRoom, setBackgroundRoom] = useState(null);
+  const selectBackgroundRoom = useCallback((id) => {
+    setBackgroundRoom(id ? { sessionKey, id: String(id) } : null);
+  }, [sessionKey]);
+  const backgroundRoomId = backgroundRoom?.sessionKey === sessionKey ? backgroundRoom.id : undefined;
+  const activeRoomId = roomId ?? backgroundRoomId;
   const [chatState, setChatState] = useState(null);
   const [viewing, setViewing] = useState(null);
   const onViewingLatestChange = useCallback((id, latest) => {
@@ -20,18 +26,19 @@ export function ChatSessionProvider({ children }) {
     setViewing(null);
   }
   const value = sessionKey ? {
-    chat: chatState?.sessionKey === sessionKey ? chatState.chat : null,
-    roomId, selectRoom, viewing: viewing?.sessionKey === sessionKey ? viewing : null, onViewingLatestChange
+    chat: chatState?.sessionKey === sessionKey && chatState.roomId === activeRoomId ? chatState.chat : null,
+    roomId, selectRoom, activeRoomId, backgroundRoomId, selectBackgroundRoom,
+    viewing: viewing?.sessionKey === sessionKey ? viewing : null, onViewingLatestChange
   } : null;
   return <ChatSessionContext.Provider value={value}>
-    {sessionKey && <AuthenticatedChatSession key={sessionKey} sessionKey={sessionKey} roomId={roomId} setChatState={setChatState} />}
+    {sessionKey && <AuthenticatedChatSession key={sessionKey} sessionKey={sessionKey} roomId={activeRoomId} setChatState={setChatState} />}
     {children}
   </ChatSessionContext.Provider>;
 }
 
 const AuthenticatedChatSession = memo(function AuthenticatedChatSession({ sessionKey, roomId, setChatState }) {
   const chat = useChat(roomId);
-  useLayoutEffect(() => { setChatState({ sessionKey, chat }); });
+  useLayoutEffect(() => { setChatState({ sessionKey, roomId, chat }); });
   return null;
 });
 

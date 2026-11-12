@@ -1,0 +1,4 @@
+services:
+  backend:
+    environment:
+      YOUTUBE_DATA_API_KEY: "${YOUTUBE_DATA_API_KEY:-}"

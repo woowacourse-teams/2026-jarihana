@@ -254,7 +254,9 @@ app_prepare() {
   export DEPLOY_HOST_ID="$HOST_ID" APP_BIND_ADDRESS="$(jq -r '.upstream|split(":")[0]' <<<"$HOST")"
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"
   app_push_settings
-  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory" --env-file /dev/null -f "$compose")
+  # Use the pinned control checkout for this mapping so older releases can still validate app-compose.yml.
+  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory"
+    --env-file /dev/null -f "$compose" -f "$SCRIPT_ROOT/../../controller/app-music-compose.yml")
   app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check
   existing=$(docker ps -aq --no-trunc --filter "name=^/$CONTAINER$") || bg_die 'Cannot enumerate application containers'

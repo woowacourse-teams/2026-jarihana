@@ -101,6 +101,7 @@ jobs:
         id: operation
         env:
           BG_RELEASE_COMPOSE_CHECKOUT: ${{ inputs.environment == 'prod' && inputs.operation == 'prepare' && format('{0}/app-release-source', github.workspace) || '' }}
+          YOUTUBE_DATA_API_KEY: ${{ inputs.operation == 'prepare' && secrets.YOUTUBE_DATA_API_KEY || '' }}
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/app.sh

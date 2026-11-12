@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { mountRankedGame } from "./mount-ranked-game.mjs";
 import { keyLabel } from "./preferences.mjs";
 import { rhythmRankedApi } from "./rankedApi.js";
+import { STAGES, stageOf } from "./stages.mjs";
 import "./rhythm-game.css";
 
 const LANE_BUTTONS = [
@@ -91,7 +92,7 @@ export function RhythmRankedBoard({ session, settings, onFinished, onInvalid, on
             </div>
             <div id="overlay" className="overlay">
               <div className="overlay-card">
-                <span className="eyebrow">RECORD / 128 BPM</span>
+                <span className="eyebrow">RECORD / {STAGES[stageOf(session.level)].bpmLabel}</span>
                 <h2>준비되면 시작해요</h2>
                 <p>
                   시작하면 멈출 수 없어요.

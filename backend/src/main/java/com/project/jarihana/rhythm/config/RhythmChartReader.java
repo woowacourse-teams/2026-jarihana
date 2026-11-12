@@ -43,18 +43,28 @@ public final class RhythmChartReader {
             for (JsonNode key : event.get(2)) {
                 keys.add(RhythmLane.from(key.asString()));
             }
-            events.add(new RhythmChart.Event(event.get(0).asInt(), event.get(1).asDouble(), keys));
+            events.add(new RhythmChart.Event(event.get(0).asDouble(), event.get(1).asDouble(), keys));
         }
         Map<String, List<RhythmChart.Staircase>> staircases = new HashMap<>();
         for (Map.Entry<String, JsonNode> entry : node.required("staircases").properties()) {
             List<RhythmChart.Staircase> rotations = new ArrayList<>();
             for (JsonNode rotation : entry.getValue()) {
                 rotations.add(new RhythmChart.Staircase(
-                        rotation.get(0).asInt(), rotation.get(1).asInt(), rotation.get(2).asInt()));
+                        rotation.get(0).asDouble(), rotation.get(1).asDouble(), rotation.get(2).asInt()));
             }
             staircases.put(entry.getKey(), rotations);
         }
         return new RhythmChart.Level(node.required("lives").asInt(), node.required("loopHeal").asInt(),
-                node.required("speedUpFromLoop").asInt(), events, staircases);
+                node.required("speedUpFromLoop").asInt(), events, staircases, song(node.get("song")),
+                node.has("loopSeamGuard") && node.get("loopSeamGuard").asBoolean());
+    }
+
+    // 원곡과 다른 곡을 치는 난이도만 곡 정보를 따로 갖는다.
+    private static RhythmChart.Song song(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return new RhythmChart.Song(node.required("chartVersion").asString(), node.required("bpm").asDouble(),
+                node.required("sampleRateHz").asDouble(), node.required("durationSeconds").asDouble());
     }
 }

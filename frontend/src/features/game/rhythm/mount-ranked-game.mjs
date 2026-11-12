@@ -6,16 +6,13 @@ import { NOTE_SYLLABLES } from "./lesson.mjs";
 import { laneForKey } from "./preferences.mjs";
 import {
   RANKED_BATCH_SECONDS,
-  RANKED_CHART_VERSION,
   RankedBatchSender,
   RankedInputLog,
   applyRankedInput,
   assertRankedVersions,
   createRankedEngine
 } from "./ranked-run.mjs";
-
-const CHART_URL = "/game-assets/rhythm-harpoon/assets/chart.json?v=" + RANKED_CHART_VERSION;
-const MUSIC_URL = "/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=spiral-melody-5";
+import { STAGES, stageOf } from "./stages.mjs";
 
 // 공식 도전 한 판을 실행한다. 멈출 수 없고, Esc나 화면 이탈은 그 판을 무효로 만든다.
 // 점수와 판정은 화면 표시용이며 기록은 서버가 입력 묶음으로 다시 계산한 결과만 쓴다.
@@ -61,7 +58,7 @@ export function mountRankedGame({
     send: (batch) => api.submit(session.challengeId, batch),
     onResponse: (serverState, batch) => {
       if (serverState.status === "INVALID") {
-        stopPlay();
+        end("invalid");
         onInvalid(serverState.invalidReason ?? "ABANDONED");
       } else if (serverState.status === "FINISHED" || batch.finished) {
         stopPlay();
@@ -70,7 +67,10 @@ export function mountRankedGame({
       }
     },
     onFailure: (error) => {
-      stopPlay();
+      // 기록되지 않는 판이므로 진행 중이었다면 서버에도 끝났다고 알린다. 화면에는 이탈이 아니라 이 오류를 보여 준다.
+      const running = state === "running";
+      end("error");
+      if (running) void api.abandon(session.challengeId).catch(() => {});
       onError(error);
     }
   });
@@ -119,6 +119,14 @@ export function mountRankedGame({
     transport?.stop();
   }
 
+  // 서버 무효나 전송 실패로 판이 끝났다. 화면이 판을 내릴 때(dispose) 이탈로 다시 알려
+  // 앞서 보여 준 사유를 덮지 않도록, 화면에 알리기 전에 상태부터 바꾼다.
+  function end(nextState) {
+    state = nextState;
+    sender.stop();
+    stopPlay();
+  }
+
   // 일시정지가 없으므로 판을 떠나면 바로 무효로 알린다.
   function leave() {
     if (state !== "running" && state !== "starting") return;
@@ -142,6 +150,7 @@ export function mountRankedGame({
       const started = await api.start(session.challengeId);
       if (disposed || state !== "starting") return;
       if (started.status !== "PLAYING") {
+        state = "invalid";
         onInvalid(started.invalidReason ?? "EXPIRED");
         return;
       }
@@ -266,18 +275,22 @@ export function mountRankedGame({
         image.onerror = () => reject(new Error("스프라이트를 불러올 수 없어요."));
         image.src = SPRITE_ATLAS.url;
       });
+      const stage = STAGES[stageOf(session.level)];
       const [loadedChart, bytes, sprites] = await Promise.all([
-        fetch(CHART_URL, { signal: lifetime.signal }).then((response) => {
+        fetch(stage.chart, { signal: lifetime.signal }).then((response) => {
           if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
           return response.json();
         }),
-        fetch(MUSIC_URL, { signal: lifetime.signal }).then((response) => {
+        fetch(stage.music, { signal: lifetime.signal }).then((response) => {
           if (!response.ok) throw new Error("음악을 불러올 수 없어요.");
           return response.arrayBuffer();
         }),
         spritePromise
       ]);
       if (disposed) return;
+      // 서버가 정한 채보 판본과 받은 채보가 다르면(배포 직후 캐시 등) 점수가 어긋나므로 시작하지 않는다.
+      if (loadedChart.chartVersion !== stage.chartVersion)
+        throw new Error("게임이 새로 바뀌었어요. 새로고침한 뒤 다시 도전해 주세요.");
       chart = loadedChart;
       audioContext = new AudioContext({ latencyHint: "interactive" });
       const buffer = await audioContext.decodeAudioData(bytes);
