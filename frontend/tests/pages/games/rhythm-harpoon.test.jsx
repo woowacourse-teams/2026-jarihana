@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { GamesPage } from "../../../src/pages/games/index.jsx";
 import { RhythmHarpoonPage } from "../../../src/pages/games/RhythmHarpoonPage.jsx";
@@ -8,6 +8,7 @@ import { RhythmHarpoonSinglePage } from "../../../src/pages/games/RhythmHarpoonS
 import { RhythmHarpoonLessonPage } from "../../../src/pages/games/RhythmHarpoonLessonPage.jsx";
 import { mountPracticeGame } from "../../../src/features/game/rhythm/mount-practice-game.mjs";
 import { mountLessonGame } from "../../../src/features/game/rhythm/mount-lesson-game.mjs";
+import { mountDemoBoard } from "../../../src/features/game/rhythm/mount-demo-board.mjs";
 import { storeReturnTarget } from "../../../src/features/auth";
 
 const mockNavigate = jest.fn();
@@ -35,12 +36,20 @@ jest.mock("../../../src/features/game/rhythm/mount-practice-game.mjs", () => ({
 jest.mock("../../../src/features/game/rhythm/mount-lesson-game.mjs", () => ({
   mountLessonGame: jest.fn()
 }));
+// 첫 화면 카드의 실제 판 재생(Canvas, 채보 요청)은 여기서 돌리지 않는다.
+jest.mock("../../../src/features/game/rhythm/mount-demo-board.mjs", () => ({
+  mountDemoBoard: jest.fn(() => () => {})
+}));
 
 beforeEach(() => {
   mockNavigate.mockClear();
+  mockLogin.mockClear();
+  storeReturnTarget.mockClear();
   mountPracticeGame.mockReset();
   mountLessonGame.mockReset();
   localStorage.clear();
+  // 처음 화면의 튜토리얼 권유 창은 따로 시험하고, 다른 시험에서는 이미 물어본 것으로 둔다.
+  document.cookie = "rhythm_tutorial_offered=1; Path=/";
   window.AudioContext = jest.fn(() => ({ state: "running", close: jest.fn(() => Promise.resolve()) }));
 });
 
@@ -57,19 +66,35 @@ it("opens the rhythm game from the game catalog without loading it in the catalo
   expect(mountPracticeGame).not.toHaveBeenCalled();
 });
 
-it("starts from two game room cards and only opens single play until online matching exists", () => {
+it("starts from the official challenge card while practice is closed and plays real boards on both cards", () => {
   render(<RhythmHarpoonEntryPage />);
   const back = screen.getByRole("link", { name: "게임방" });
   expect(back).toHaveAttribute("href", "/games");
   expect(back).toHaveAttribute("data-ph-capture-attribute-action", "games_back");
   expect(screen.getByRole("heading", { level: 1, name: "행성이의 리듬 작살" })).toBeInTheDocument();
+  expect(screen.queryByText("싱글 플레이")).not.toBeInTheDocument();
   const [singleCard, onlineCard] = screen.getAllByRole("article");
   expect(singleCard).toHaveClass("games-card", "games-card--playable");
-  expect(singleCard).toHaveAccessibleName("싱글 플레이");
-  const single = screen.getByRole("link", { name: "싱글 플레이 시작" });
+  expect(singleCard).toHaveAccessibleName("랭킹 도전");
+  expect(document.body).not.toHaveTextContent("공식 도전");
+  // 카드 그림 자리에서 실제 판이 소리 없이 자동으로 돈다. 온라인 매칭 카드는 내 판과 상대 판 두 개다.
+  expect(mountDemoBoard).toHaveBeenCalledTimes(2);
+  expect(singleCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(1);
+  expect(onlineCard.querySelectorAll("canvas.rhythm-demo__board")).toHaveLength(2);
+  const [singleDemo, onlineDemo] = mountDemoBoard.mock.calls.map(([options]) => options);
+  expect(singleCard).toContainElement(singleDemo.canvas);
+  expect(singleDemo.rivalCanvas).toBeNull();
+  expect(onlineCard).toContainElement(onlineDemo.canvas);
+  expect(onlineCard).toContainElement(onlineDemo.rivalCanvas);
+  const single = screen.getByRole("link", { name: "랭킹 도전 시작" });
   expect(singleCard).toContainElement(single);
-  expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/single");
-  expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_single_open");
+  expect(single).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
+  expect(single).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
+  expect(singleCard).toHaveTextContent("점수가 랭킹에 올라가요.");
+  expect(singleCard).not.toHaveTextContent("로그인");
+  fireEvent.click(single);
+  expect(mockLogin).toHaveBeenCalledTimes(1);
+  expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
   expect(onlineCard).toHaveClass("games-card", "games-card--soon");
   expect(onlineCard).toHaveAccessibleName("온라인 매칭, 준비 중");
   const online = screen.getByRole("button", { name: "준비 중" });
@@ -78,25 +103,83 @@ it("starts from two game room cards and only opens single play until online matc
   expect(online).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_online_open");
 });
 
-it("shows practice and challenge first and the lesson as a full-width card below, marked for first-timers", () => {
-  const first = render(<RhythmHarpoonSinglePage />);
-  expect(screen.queryByRole("button")).not.toBeInTheDocument();
-  expect(screen.queryByRole("img", { name: /패턴 악보/ })).not.toBeInTheDocument();
-  const lesson = screen.getByRole("link", { name: /따라 하기/ });
+describe("tutorial prompt for first-time visitors", () => {
+  beforeEach(() => {
+    document.cookie = "rhythm_tutorial_offered=; Path=/; Max-Age=0";
+    // 권유 쿠키는 리듬 작살 경로에만 남으므로 그 경로에서 읽는다.
+    window.history.pushState({}, "", "/games/rhythm-harpoon");
+  });
+  afterEach(() => {
+    document.cookie = "rhythm_tutorial_offered=; Path=/games/rhythm-harpoon; Max-Age=0";
+    window.history.pushState({}, "", "/");
+  });
+
+  it("asks once, closes with Esc without leaving and remembers the answer in a cookie", () => {
+    const first = render(<RhythmHarpoonEntryPage />);
+    const dialog = screen.getByRole("dialog", { name: "튜토리얼을 보시겠어요?" });
+    const accept = within(dialog).getByRole("link", { name: "튜토리얼 보기" });
+    expect(accept).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
+    expect(accept).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_tutorial_prompt_accept");
+    expect(within(dialog).getByRole("button", { name: "괜찮아요" })).toHaveAttribute(
+      "data-ph-capture-attribute-action",
+      "rhythm_tutorial_prompt_dismiss"
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(document.cookie).toContain("rhythm_tutorial_offered=1");
+    first.unmount();
+
+    render(<RhythmHarpoonEntryPage />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("remembers a visitor who declines or opens the tutorial", () => {
+    const declined = render(<RhythmHarpoonEntryPage />);
+    fireEvent.click(screen.getByRole("button", { name: "괜찮아요" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.cookie).toContain("rhythm_tutorial_offered=1");
+    declined.unmount();
+
+    document.cookie = "rhythm_tutorial_offered=; Path=/games/rhythm-harpoon; Max-Age=0";
+    render(<RhythmHarpoonEntryPage />);
+    fireEvent.click(screen.getByRole("link", { name: "튜토리얼 보기" }));
+    expect(document.cookie).toContain("rhythm_tutorial_offered=1");
+  });
+
+  it("does not ask visitors who already finished or skipped the tutorial", () => {
+    localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [], skipped: true }));
+    render(<RhythmHarpoonEntryPage />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+it("offers the tutorial below the play mode cards", () => {
+  render(<RhythmHarpoonEntryPage />);
+  const lesson = screen.getByRole("link", { name: /TUTORIAL/ });
+  expect(lesson).toHaveClass("rhythm-entry-lesson");
   expect(lesson).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
   expect(lesson).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_lesson_open");
-  expect(lesson).toHaveTextContent("처음이라면");
+  expect(lesson).not.toHaveTextContent("따라 하기");
+  expect(lesson).not.toHaveTextContent("처음이라면");
+  const art = lesson.querySelector(".rhythm-mode__art");
+  expect(art).toHaveAttribute("aria-hidden", "true");
+  expect(art.querySelector("svg")).toBeInTheDocument();
+  const [, onlineCard] = screen.getAllByRole("article");
+  expect(onlineCard.nextElementSibling).toBe(lesson);
+});
+
+it("keeps practice and challenge on the single play screen for when practice reopens, without the lesson", () => {
+  render(<RhythmHarpoonSinglePage />);
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /따라 하기/ })).not.toBeInTheDocument();
   const practice = screen.getByRole("link", { name: /혼자 연습/ });
   expect(practice).toHaveAttribute("href", "/games/rhythm-harpoon/practice");
-  const challenge = screen.getByRole("link", { name: /공식 도전/ });
+  const challenge = screen.getByRole("link", { name: /랭킹 도전/ });
   expect(challenge).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   expect(challenge).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_ranked_open");
-  expect(lesson.parentElement).toBe(practice.parentElement);
-  expect(Array.from(lesson.parentElement.children)).toEqual([practice, challenge, lesson]);
-  expect(practice).toHaveClass("rhythm-mode--practice");
-  expect(challenge).toHaveClass("rhythm-mode--record");
-  expect(lesson).toHaveClass("rhythm-mode--lesson");
-  for (const card of [practice, challenge, lesson]) {
+  expect(Array.from(practice.parentElement.children)).toEqual([practice, challenge]);
+  for (const card of [practice, challenge]) {
     const art = card.querySelector(".rhythm-mode__art");
     expect(art).toHaveAttribute("aria-hidden", "true");
     expect(art.querySelector("svg")).toBeInTheDocument();
@@ -104,13 +187,6 @@ it("shows practice and challenge first and the lesson as a full-width card below
   fireEvent.click(challenge);
   expect(mockLogin).toHaveBeenCalledTimes(1);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
-  first.unmount();
-
-  localStorage.setItem("haengseong-lesson-v1", JSON.stringify({ done: [true, true, true] }));
-  render(<RhythmHarpoonSinglePage />);
-  const done = screen.getByRole("link", { name: /따라 하기/ });
-  expect(done).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
-  expect(done).not.toHaveTextContent("처음이라면");
 });
 
 it("runs the lesson with a slower default tempo and records passed steps", () => {
@@ -155,7 +231,8 @@ it("offers the extra 따 step after the three core sounds without counting it to
     settings.onFinish({ stepIndex: 2, auto: false, total: 32, caught: 30, missed: 2, poor: 0, passed: true })
   );
   expect(screen.getByText(/세 소리를 다 익혔어요/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "싱글 플레이로" })).toBeInTheDocument();
+  const finish = screen.getByRole("link", { name: "랭킹 도전으로" });
+  expect(finish).toHaveAttribute("href", "/games/rhythm-harpoon/challenge");
   fireEvent.click(screen.getByRole("button", { name: "번외: 따 익히기" }));
   expect(screen.getByRole("heading", { name: "따 = 초록, 스윙 엇박" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "스윙 144" })).toBeInTheDocument();
@@ -183,7 +260,7 @@ it("sets the shared input offset in the lesson drawer and applies it to the next
   fireEvent.change(slider, { target: { value: "20" } });
   expect(player.setOffset).toHaveBeenLastCalledWith(20);
   expect(localStorage.getItem("haengseong-input-offset-v1")).toBe("20");
-  expect(screen.getByText(/연습과 공식 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
+  expect(screen.getByText(/연습과 랭킹 도전에도 같은 값이 쓰여요/)).toBeInTheDocument();
 });
 
 it("keeps difficulty above the board and hides the other practice settings while playing", () => {
@@ -273,7 +350,7 @@ it("returns from practice to single play", () => {
 it.each([
   ["entry", RhythmHarpoonEntryPage, "/games"],
   ["single play", RhythmHarpoonSinglePage, "/games/rhythm-harpoon"],
-  ["lesson", RhythmHarpoonLessonPage, "/games/rhythm-harpoon/single"],
+  ["lesson", RhythmHarpoonLessonPage, "/games/rhythm-harpoon"],
   ["practice", RhythmHarpoonPage, "/games/rhythm-harpoon/single"]
 ])("goes back one step from the %s screen with Esc", (_name, Page, previous) => {
   mountLessonGame.mockReturnValue({ play: jest.fn(), dispose: jest.fn() });

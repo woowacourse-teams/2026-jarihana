@@ -37,6 +37,154 @@
   max-inline-size: calc(50% - 5px);
   max-block-size: 190px;
 }
+/* 첫 화면 랭킹 도전 버튼: 싱글 플레이 화면의 랭킹 도전 카드와 같은 노랑을 쓴다. */
+.games-card__cta.rhythm-entry__ranked-cta {
+  border-color: #d9a91a;
+  background: #f5c533;
+  color: #3d2a00;
+}
+.games-card__cta.rhythm-entry__ranked-cta:hover {
+  border-color: #c2950f;
+  background: #e9b721;
+  color: #3d2a00;
+}
+/* 첫 화면 카드 그림 자리의 실제 판 재생(RhythmDemoBoard). 불러오는 동안은 그림을 두고, 준비되면 판으로 바꾼다. */
+.rhythm-entry__visual .rhythm-demo {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+}
+.rhythm-entry__visual .rhythm-demo__boards {
+  position: absolute;
+  inset: 0;
+}
+.rhythm-entry__visual .rhythm-demo__board {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  inline-size: auto;
+  block-size: min(250px, calc(100% - 2 * var(--space-4)));
+  aspect-ratio: 1;
+  border-radius: 18px;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 200ms;
+}
+.rhythm-entry__visual .rhythm-demo.is-ready .rhythm-demo__board {
+  opacity: 1;
+}
+/* 온라인 매칭 카드: 판 두 개를 그림(.rhythm-board-art--duo)과 같은 크기로 나란히 둔다.
+   판은 정사각형이어야 하므로 그림 칸의 너비 절반과 높이 중 작은 쪽에 맞춘다. */
+.rhythm-entry__visual .rhythm-demo--duo .rhythm-demo__boards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.rhythm-entry__visual .rhythm-demo--duo .rhythm-demo__board {
+  position: static;
+  inline-size: min(190px, calc(50cqi - 5px - var(--space-4)), calc(100cqb - 2 * var(--space-4)));
+  block-size: auto;
+  border-radius: 14px;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-entry__visual .rhythm-demo__board {
+    transition: none;
+  }
+}
+/* 첫 화면의 따라 하기: 싱글 플레이와 온라인 매칭 카드 아래 전체 너비의 낮은 초록 카드.
+   그림을 글 왼쪽에 두고, 싱글 플레이 화면에 있던 따라 하기 카드와 같은 색을 쓴다. */
+.rhythm-entry-lesson {
+  --mode-ink: #276a35;
+  --mode-art-bg: #c9e6c0;
+  --mode-art-fill: #6fbf72;
+  --mode-art-skin: #f6fbf3;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, max-content);
+  justify-content: center;
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 4px;
+  padding: 16px 24px;
+  border: 1px solid #a8c9a0;
+  border-bottom: 3px solid #8fb486;
+  border-radius: var(--radius-lg);
+  background: #e4f2df;
+  color: var(--color-ink);
+  text-decoration: none;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.rhythm-entry-lesson:hover {
+  border-color: #4f8a4a;
+  background: #eef8ea;
+}
+.rhythm-entry-lesson:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+.rhythm-entry-lesson .rhythm-mode__art {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  place-items: center;
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 50%;
+  background: var(--mode-art-bg);
+  color: var(--mode-ink);
+}
+.rhythm-entry-lesson .rhythm-mode__art svg {
+  inline-size: 34px;
+  block-size: 34px;
+}
+.rhythm-entry-lesson .rhythm-mode__fill {
+  fill: var(--mode-art-fill);
+}
+.rhythm-entry-lesson .rhythm-mode__skin {
+  fill: var(--mode-art-skin);
+}
+.rhythm-entry-lesson strong {
+  color: var(--mode-ink);
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+.rhythm-entry-lesson > span:last-child {
+  color: #4a5b62;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+/* 처음 온 사람에게 튜토리얼을 권하는 창의 버튼 줄 */
+.rhythm-tutorial-prompt p {
+  margin: 0;
+  color: var(--color-text-muted);
+  word-break: keep-all;
+}
+.rhythm-tutorial-prompt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.rhythm-tutorial-prompt__actions a {
+  text-decoration: none;
+}
+@media (max-width: 600px) {
+  .rhythm-entry-lesson {
+    justify-content: start;
+    padding: 14px 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-entry-lesson {
+    transition: none;
+  }
+}
 
 .rhythm-board-art {
   display: flex;
@@ -72,8 +220,8 @@
   stroke-linecap: round;
 }
 
-/* 싱글 플레이: 위 줄에 혼자 연습과 공식 도전을 크게, 아래 줄에 따라 하기를 전체 너비로 둔다.
-   카드는 밝은 색이며 혼자 연습은 파랑, 공식 도전은 노랑, 따라 하기는 초록 계열로 구분한다.
+/* 싱글 플레이: 위 줄에 혼자 연습과 랭킹 도전을 크게, 아래 줄에 따라 하기를 전체 너비로 둔다.
+   카드는 밝은 색이며 혼자 연습은 파랑, 랭킹 도전은 노랑, 따라 하기는 초록 계열로 구분한다.
    어두운 바탕은 도구 막대 아래 화면 높이를 채워 바닥글 앞에 흰 빈칸이 생기지 않게 한다. */
 .rhythm-game--hub {
   min-block-size: calc(100dvh - var(--header-height) - var(--game-toolbar-height));

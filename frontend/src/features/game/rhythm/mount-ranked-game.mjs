@@ -14,7 +14,7 @@ import {
 } from "./ranked-run.mjs";
 import { STAGES, stageOf } from "./stages.mjs";
 
-// 공식 도전 한 판을 실행한다. 멈출 수 없고, Esc나 화면 이탈은 그 판을 무효로 만든다.
+// 랭킹 도전 한 판을 실행한다. 멈출 수 없고, Esc나 화면 이탈은 그 판을 무효로 만든다.
 // 점수와 판정은 화면 표시용이며 기록은 서버가 입력 묶음으로 다시 계산한 결과만 쓴다.
 export function mountRankedGame({
   root,

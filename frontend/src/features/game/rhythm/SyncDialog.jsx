@@ -1,4 +1,4 @@
-// 클릭음에 맞춰 눌러 입력 지연 보정값을 추천하는 진단 창이다. 연습과 공식 도전이 같이 쓰고 동작은 sync-ui.mjs가 붙인다.
+// 클릭음에 맞춰 눌러 입력 지연 보정값을 추천하는 진단 창이다. 연습과 랭킹 도전이 같이 쓰고 동작은 sync-ui.mjs가 붙인다.
 export function SyncDialog() {
   return (
     <dialog
