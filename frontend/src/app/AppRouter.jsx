@@ -83,6 +83,7 @@ export const lazyPageRegistry = Object.freeze({
   GroupsPage: lazyNamed(loadGroupPages, "GroupsPage"),
   HomePage: lazyNamed(() => import("../pages/HomePage.jsx"), "HomePage"),
   LandingPage: lazyNamed(() => import("../pages/landing/LandingPage.jsx"), "LandingPage"),
+  DemodayLandingPage: lazyNamed(() => import("../pages/landing/DemodayLandingPage.jsx"), "DemodayLandingPage"),
   LandingJoinPage: lazyNamed(loadLandingFeaturePages, "LandingJoinPage"),
   LandingCreatePage: lazyNamed(loadLandingFeaturePages, "LandingCreatePage"),
   LandingSparringPage: lazyNamed(loadLandingFeaturePages, "LandingSparringPage"),
