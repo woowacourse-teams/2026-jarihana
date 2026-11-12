@@ -93,8 +93,8 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
   }
 
   for (const [name, href, action] of [
-    [/바로 참여를 신청해요/, "/land/join", "landing_feature_join"],
-    [/오늘 바로 모임을 열 수 있어요/, "/land/create", "landing_feature_create"],
+    ["나에게 맞는 자리 찾기", "/land/join", "landing_feature_join"],
+    ["새로운 자리 만들기", "/land/create", "landing_feature_create"],
     [/내 캐릭터가 대신 맞붙어요/, "/land/sparring", "landing_feature_sparring"],
     [/랭킹 1위도 노려 봐요/, "/land/games", "landing_feature_games"]
   ]) {
@@ -103,8 +103,11 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
     expect(card).toHaveAttribute("data-ph-capture-attribute-action", action);
   }
   expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(
-    expect.arrayContaining(["말로 한 판 붙고,게임으로도 겨뤄봐요", "함께할 모임을 찾거나,직접 열어 보세요"])
+    expect.arrayContaining(["말로 한 판 붙고,게임으로도 겨뤄봐요", "당신을 위한 자리,하나쯤은 있어요."])
   );
+  expect(screen.getByRole("heading", { name: /여기,\s*자리해도 될까요\?/ })).toBeInTheDocument();
+  expect(screen.queryByText("참여할 모임 찾는 중...")).not.toBeInTheDocument();
+  expect(screen.queryByText("새 모임 만드는 중...")).not.toBeInTheDocument();
 
   const footer = screen.getByRole("navigation", { name: "하단 메뉴" });
   expect(within(footer).getByRole("link", { name: "자리하나?를 만드는 방식" })).toHaveAttribute("href", "/land#tech");

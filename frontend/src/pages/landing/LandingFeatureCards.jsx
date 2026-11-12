@@ -7,6 +7,8 @@ import { gameArtwork } from "../games/artworkAssets";
 import { LandingLoopVideo } from "./LandingLoopVideo";
 import "./landing-features.css";
 
+export { LandingCoreCards } from "./LandingCoreCards";
+
 export function CreatePreview() {
   return (
     <span aria-hidden="true" className="landing-feature-card__panel">
@@ -63,28 +65,6 @@ function GamesPreview() {
     </span>
   );
 }
-
-// 핵심 기능: 모임 신청과 모임 만들기. 세부 기능은 카드가 여는 소개 페이지에서 설명한다.
-const coreFeatures = [
-  {
-    id: "join",
-    to: "/land/join",
-    action: "landing_feature_join",
-    tone: "sky",
-    title: ["관심 가는 모임을 찾아", "바로 참여를 신청해요"],
-    link: "모임 신청 자세히 보기",
-    Preview: JoinPreview
-  },
-  {
-    id: "create",
-    to: "/land/create",
-    action: "landing_feature_create",
-    tone: "mint",
-    title: ["주제와 일정만 정하면", "오늘 바로 모임을 열 수 있어요"],
-    link: "모임 만들기 자세히 보기",
-    Preview: CreatePreview
-  }
-];
 
 const extraFeatures = [
   {
@@ -153,18 +133,6 @@ function FeatureCardSection({ active, chapter, eyebrow, features, title }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-export function LandingCoreCards({ active }) {
-  return (
-    <FeatureCardSection
-      active={active}
-      chapter="core"
-      eyebrow="자리하나?에서 할 수 있는 일"
-      features={coreFeatures}
-      title={["함께할 모임을 찾거나,", "직접 열어 보세요"]}
-    />
   );
 }
 
