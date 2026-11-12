@@ -3,7 +3,6 @@ package com.project.jarihana.sparring.query.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.image.query.service.ImageAccessService;
-import com.project.jarihana.sparring.domain.SparringSide;
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
 import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
@@ -28,7 +27,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class SparringQueryService {
-    private static final int AVATAR_POOL_SIZE = 8;
+    private static final int AVATAR_POOL_SIZE = 240;
 
     private final SparringQueryRepository repository;
     private final SparringPostAppearances postAppearances;
@@ -76,9 +75,7 @@ public class SparringQueryService {
             throw new BusinessException(ErrorCode.SPARRING_NOT_FOUND, "스파링을 찾을 수 없어요.");
         }
         PageRequest limit = PageRequest.ofSize(AVATAR_POOL_SIZE);
-        return new SparringAvatarPoolsResult(
-                repository.findVoterAppearances(topicId, SparringSide.MINT, limit),
-                repository.findVoterAppearances(topicId, SparringSide.CORAL, limit));
+        return new SparringAvatarPoolsResult(repository.findVoterAppearances(topicId, limit));
     }
 
     public SparringPageResult<SparringPostResult> posts(

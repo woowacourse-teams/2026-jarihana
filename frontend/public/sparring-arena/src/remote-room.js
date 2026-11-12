@@ -3,7 +3,7 @@ const CHANNEL = 'jarihana-sparring';
 
 export async function connectRoom() {
   if (window.parent === window) throw new Error('토론 목록에서 경기장에 들어와 주세요.');
-  let state, resolveInitial;
+  let state, resolveInitial, avatarCandidates = [];
   const initial = new Promise(resolve => { resolveInitial = resolve; });
   const requests = new Map(), listeners = new Set();
   const send = value => window.parent.postMessage({ channel: CHANNEL, ...value }, location.origin);
@@ -18,8 +18,15 @@ export async function connectRoom() {
       document.documentElement.style.setProperty('--detail-content-width', `${message.contentWidth}px`);
     }
     if (message.kind === 'snapshot') {
-      state = message.state; resolveInitial();
+      state = { ...message.state, avatarCandidates }; resolveInitial();
       for (const listener of listeners) listener(message.fresh ?? [], message.livePosts ?? []);
+    }
+    if (message.kind === 'avatarCandidates' && Array.isArray(message.candidates) && message.candidates.length <= 240) {
+      avatarCandidates = message.candidates;
+      if (state) {
+        state = { ...state, avatarCandidates };
+        for (const listener of listeners) listener([], []);
+      }
     }
     if (message.kind === 'connection') {
       document.body.dataset.connection = message.value;

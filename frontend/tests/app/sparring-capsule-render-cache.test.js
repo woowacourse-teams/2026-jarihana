@@ -143,54 +143,43 @@ it('편별 파이프 공급 목록은 메시지 갱신 때 바뀌고 대화 없�
   expect(mockPhysics.launch.mock.lastCall[0]).toMatchObject({ id: 'vote-b', side: 'b' });
 });
 
-it('늦게 받은 투표자 외형을 같은 편 캡슐에 고르게 넣고 파이프에서도 순환한다', () => {
+it('양쪽 파이프가 한 후보 목록을 순환하고 통과 파이프를 합쳐 최대 24개만 그린다', () => {
   const capsules = populated();
-  const mint = ['curly', 'bob'].map(hair => ({ ...AVATAR_BASIC_APPEARANCE, hair }));
-  const coral = ['long', 'flowing'].map(hair => ({ ...AVATAR_BASIC_APPEARANCE, hair }));
-  capsules.updateState(posts, votes, undefined, { a: mint, b: coral });
-  const decorated = mockBatch.draw.mock.calls.filter(([, , , , , appearance]) => appearance);
-  expect(decorated).toHaveLength(24);
-  for (const [side, pool] of [['a', mint], ['b', coral]]) {
-    const avatars = decorated.filter(([, entry]) => entry.visualSide === side).map(call => call[5]);
-    expect(avatars).toEqual(Array.from({ length: 12 }, (_, i) => pool[i % 2]));
-  }
-  mockBatch.draw.mockClear();
-  capsules.updateState(posts, votes, undefined, { a: mint.map(item => ({ ...item })), b: coral });
-  expect(mockBatch.draw).not.toHaveBeenCalled();
+  const candidates = Array.from({ length: CAPACITY }, () => ({ ...AVATAR_BASIC_APPEARANCE }));
+  const displayed = new Map();
+  mockBatch.draw.mockImplementation((index, _entry, _size, _opening, _burst, appearance) => {
+    displayed.set(index, appearance);
+  });
+  const activeAvatars = () => [...displayed.values()].filter(Boolean);
+  capsules.updateState(posts, votes, undefined, candidates);
+  expect(activeAvatars()).toEqual(candidates.slice(0, 24));
 
-  for (const [side, appearance] of [['a', mint[0]], ['b', coral[0]], ['a', mint[1]], ['b', coral[1]]]) {
+  let recycled = 0;
+  mockPhysics.launch.mockImplementation(post => Object.assign(mockPhysics.entries[recycled++ % CAPACITY], {
+    post, visualSide: post.side,
+  }));
+  for (let i = 0; i < CAPACITY; i++) {
+    expect(capsules.replayPipe()).toBe(i % 2 === 0 ? 'a' : 'b');
+    capsules.step(0);
+    expect(displayed.get(i)).toBe(candidates[(24 + i) % CAPACITY]);
+    expect(activeAvatars()).toHaveLength(24);
+  }
+});
+
+it('새 투표자 후보는 기존 캡슐의 색과 외형을 바꾸지 않고 다음 순환에 합류한다', () => {
+  const capsules = populated();
+  const existing = { ...AVATAR_BASIC_APPEARANCE, hair: 'curly' };
+  const newcomer = { ...AVATAR_BASIC_APPEARANCE, hair: 'long' };
+  const candidates = [existing];
+  capsules.updateState(posts, votes, undefined, candidates);
+  mockBatch.draw.mockClear();
+  capsules.updateState(posts, votes, undefined, [existing, newcomer]);
+  expect(mockBatch.draw).not.toHaveBeenCalled();
+  for (const [side, appearance] of [['a', existing], ['b', newcomer]]) {
     expect(capsules.replayPipe()).toBe(side);
     capsules.step(0);
     expect(mockBatch.draw.mock.calls.findLast(([index]) => index === 0)[5]).toBe(appearance);
   }
-});
-
-it('기존 통에 없던 편의 캡슐이 파이프에서 들어오면 통의 아바타 배치를 갱신한다', () => {
-  const capsules = createCapsules({}, jest.fn(), jest.fn());
-  const mint = { ...AVATAR_BASIC_APPEARANCE, hair: 'curly' };
-  const coral = { ...AVATAR_BASIC_APPEARANCE, hair: 'long' };
-  const displayed = new Map();
-  mockBatch.draw.mockImplementation((index, entry, _size, _opening, _burst, appearance) => {
-    displayed.set(index, { side: entry.visualSide, appearance });
-  });
-  capsules.updateState(posts, { total: 1, a: 1, b: 0, ratio: 1 }, undefined, { a: [mint], b: [] });
-  capsules.updateState(posts, { total: 4, a: 1, b: 3, ratio: 0.25 }, undefined, { a: [mint], b: [coral] });
-  expect([...displayed.values()].some(item => item.side === 'b')).toBe(false);
-
-  let recycled = 0;
-  mockPhysics.launch.mockImplementation(post => Object.assign(mockPhysics.entries[recycled++], {
-    post, visualSide: post.side,
-  }));
-  for (let i = 0; i < 80; i++) capsules.replayPipe();
-  capsules.step(0);
-  const decorated = [...displayed.values()].filter(item => item.appearance);
-  // Four are allowed to have pipe appearances. The remaining coral avatars must be in tank slots.
-  expect(decorated.filter(item => item.appearance === coral).length).toBeGreaterThan(4);
-  expect(decorated.length).toBeLessThanOrEqual(28);
-  expect(decorated.every(item => item.appearance === (item.side === 'a' ? mint : coral))).toBe(true);
-  mockBatch.draw.mockClear();
-  capsules.step(0);
-  expect(mockBatch.draw).not.toHaveBeenCalled();
 });
 
 it('장식 외형이 있어도 보낸 캡슐과 미끄럼틀에 넘길 글은 실제 작성자 외형을 사용한다', () => {
@@ -198,7 +187,7 @@ it('장식 외형이 있어도 보낸 캡슐과 미끄럼틀에 넘길 글은 �
   const appearance = { ...AVATAR_BASIC_APPEARANCE, hair: 'parted' };
   const voter = { ...AVATAR_BASIC_APPEARANCE, hair: 'bob' };
   const actual = { ...posts[0], appearance };
-  capsules.updateState([actual], votes, undefined, { a: [voter], b: [] });
+  capsules.updateState([actual], votes, undefined, [voter]);
   mockPhysics.launch.mockImplementationOnce(post => Object.assign(mockPhysics.entries[0], {
     post, visualSide: post.side, fresh: true, revealed: false, landedAt: null,
   }));

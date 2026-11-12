@@ -2,7 +2,6 @@ package com.project.jarihana.sparring.query.repository;
 
 import com.project.jarihana.member.domain.AvatarAppearance;
 import com.project.jarihana.member.domain.MemberAvatar;
-import com.project.jarihana.sparring.domain.SparringSide;
 import com.project.jarihana.sparring.domain.SparringTopic;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
 import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
@@ -64,10 +63,10 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
             """
             select a.appearance
             from SparringVote v join MemberAvatar a on a.id = v.member.id
-            where v.topic.id = :topicId and v.side = :side
+            where v.topic.id = :topicId
             order by v.member.id
             """)
-    List<AvatarAppearance> findVoterAppearances(long topicId, SparringSide side, Pageable pageable);
+    List<AvatarAppearance> findVoterAppearances(long topicId, Pageable pageable);
 
     String POST_SELECT =
             """

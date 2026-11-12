@@ -33,11 +33,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @SpringJUnitConfig(SparringAvatarPoolsCacheTest.Config.class)
 class SparringAvatarPoolsCacheTest {
-    private static final AvatarAppearance AVATAR = AvatarAppearance.basic();
-    private static final SparringAvatarPoolsResult MINT =
-            new SparringAvatarPoolsResult(List.of(AVATAR), List.of());
-    private static final SparringAvatarPoolsResult CORAL =
-            new SparringAvatarPoolsResult(List.of(), List.of(AVATAR));
+    private static final SparringAvatarPoolsResult EMPTY_POOL =
+            new SparringAvatarPoolsResult(List.of());
+    private static final SparringAvatarPoolsResult POPULATED_POOL =
+            new SparringAvatarPoolsResult(List.of(AvatarAppearance.basic()));
 
     @Autowired SparringAvatarPoolsCache cache;
     @Autowired SparringQueryService queryService;
@@ -49,23 +48,23 @@ class SparringAvatarPoolsCacheTest {
     void servesCachedListWhileRefreshingOnce() {
         // Given
         long topicId = 1L;
-        when(queryService.avatarPools(topicId)).thenReturn(MINT, CORAL);
-        assertThat(cache.get(topicId)).isEqualTo(MINT);
+        when(queryService.avatarPools(topicId)).thenReturn(EMPTY_POOL, POPULATED_POOL);
+        assertThat(cache.get(topicId)).isEqualTo(EMPTY_POOL);
 
         // When / Then
         ticker.addAndGet(Duration.ofSeconds(29).toNanos());
-        assertThat(cache.get(topicId)).isEqualTo(MINT);
+        assertThat(cache.get(topicId)).isEqualTo(EMPTY_POOL);
         refreshExecutor.runQueuedTasks();
         verify(queryService).avatarPools(topicId);
 
         ticker.addAndGet(Duration.ofSeconds(1).toNanos() + 1);
         for (int request = 0; request < 100; request++) {
-            assertThat(cache.get(topicId)).isEqualTo(MINT);
+            assertThat(cache.get(topicId)).isEqualTo(EMPTY_POOL);
         }
         verify(queryService).avatarPools(topicId);
 
         refreshExecutor.runQueuedTasks();
-        assertThat(cache.get(topicId)).isEqualTo(CORAL);
+        assertThat(cache.get(topicId)).isEqualTo(POPULATED_POOL);
         verify(queryService, times(2)).avatarPools(topicId);
     }
 
@@ -80,7 +79,7 @@ class SparringAvatarPoolsCacheTest {
         when(queryService.avatarPools(topicId)).thenAnswer(call -> {
             loadStarted.countDown();
             assertThat(releaseLoad.await(5, TimeUnit.SECONDS)).isTrue();
-            return MINT;
+            return POPULATED_POOL;
         });
 
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -97,8 +96,8 @@ class SparringAvatarPoolsCacheTest {
                 // Then
                 assertThrows(TimeoutException.class, () -> second.get(100, TimeUnit.MILLISECONDS));
                 releaseLoad.countDown();
-                assertThat(first.get(2, TimeUnit.SECONDS)).isEqualTo(MINT);
-                assertThat(second.get(2, TimeUnit.SECONDS)).isEqualTo(MINT);
+                assertThat(first.get(2, TimeUnit.SECONDS)).isEqualTo(POPULATED_POOL);
+                assertThat(second.get(2, TimeUnit.SECONDS)).isEqualTo(POPULATED_POOL);
                 verify(queryService).avatarPools(topicId);
             } finally {
                 releaseLoad.countDown();

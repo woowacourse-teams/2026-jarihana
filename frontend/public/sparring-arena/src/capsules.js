@@ -3,7 +3,8 @@ import { createCapsulePhysics, CAPACITY, RADIUS, FRESH_CAPSULE_SCALE } from './p
 import { voteColors } from './vote-colors.js';
 import { createReplayQueue } from './replay-queue.js';
 
-const TANK_AVATAR_LIMIT = 24, PIPE_AVATAR_LIMIT = 4;
+const DECORATIVE_AVATAR_LIMIT = 24;
+const NO_CANDIDATES = [];
 
 export function createCapsules(scene, onSelect, onReady, requestHistory) {
   const batch = createCapsuleBatch(scene, CAPACITY), physics = createCapsulePhysics();
@@ -14,14 +15,13 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
   const replayCounts = { a: 0, b: 0 };
   const pipeCursors = { a: 0, b: 0 };
   let postsBySide = { a: [], b: [] };
-  let avatarPools = { a: [], b: [] }, poolKey, tankDecorationsDirty = false;
-  const tankAvatars = new Map(), pipeAvatars = new Map();
+  let avatarCandidates = NO_CANDIDATES, avatarCursor = 0;
+  const decorativeAvatars = new Map();
   const rendered = Array.from({ length: CAPACITY }, () => ({ visible: null }));
   const replay = createReplayQueue(requestHistory);
   const pendingLaunches = [];
   const queueReplay = (post, readyAt = performance.now() + 4500, fresh = false) => replay.enqueue(post, readyAt, fresh);
   function draw() {
-    if (populated && tankDecorationsDirty) rebalanceTankAvatars();
     physics.entries.forEach((entry, index) => {
       const last = rendered[index];
       if (!populated) {
@@ -30,9 +30,8 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
         return;
       }
       const { post, body } = entry, { position: p, quaternion: q } = body;
-      const decoration = pipeAvatars.get(entry) ?? tankAvatars.get(entry);
       const appearance = entry.fresh && !entry.revealed ? post?.appearance ?? null
-        : decoration?.side === entry.visualSide ? decoration?.appearance ?? null : null;
+        : decorativeAvatars.get(entry) ?? null;
       const size = RADIUS / 0.48 * (entry.fresh && !entry.revealed ? FRESH_CAPSULE_SCALE : 1);
       // Only the tank's packed pose is static; animated/open capsules must keep updating.
       const cacheable = entry.phase === undefined && entry.characterPose === undefined && !entry.parts;
@@ -54,37 +53,23 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       last.qx = q.x; last.qy = q.y; last.qz = q.z; last.qw = q.w;
     });
   }
-  function refreshDecorations(nextPools, seedTank) {
-    const key = JSON.stringify(nextPools ?? null);
-    if (!seedTank && key === poolKey) return;
-    poolKey = key;
-    avatarPools = { a: nextPools?.a ?? [], b: nextPools?.b ?? [] };
-    tankAvatars.clear();
-    pipeAvatars.clear();
-    tankDecorationsDirty = true;
+  function decorate(entry) {
+    decorativeAvatars.delete(entry);
+    if (!avatarCandidates.length) return;
+    if (decorativeAvatars.size === DECORATIVE_AVATAR_LIMIT) {
+      decorativeAvatars.delete(decorativeAvatars.keys().next().value);
+    }
+    decorativeAvatars.set(entry, avatarCandidates[avatarCursor]);
+    avatarCursor = (avatarCursor + 1) % avatarCandidates.length;
   }
-  function rebalanceTankAvatars() {
-    tankDecorationsDirty = false;
-    if (!avatarPools.a.length && !avatarPools.b.length) return;
-    const slots = { a: [], b: [] };
-    for (const entry of physics.entries) slots[entry.visualSide]?.push(entry);
-    const quotas = voteColors(TANK_AVATAR_LIMIT, {
-      total: CAPACITY, a: slots.a.length, b: slots.b.length, ratio: slots.a.length / CAPACITY,
-    });
-    for (const side of ['a', 'b']) {
-      const entries = slots[side], pool = avatarPools[side];
-      if (!pool.length) continue;
-      const limit = Math.min(entries.length, quotas.filter(color => color === side).length);
-      const assigned = [...tankAvatars].filter(([, avatar]) => avatar.side === side);
-      if (assigned.length === limit && assigned.every(([entry]) => entry.visualSide === side)) continue;
-      for (const [entry] of assigned) tankAvatars.delete(entry);
-      for (let i = 0; i < limit; i++) {
-        const entry = entries[Math.floor((i + 0.5) * entries.length / limit)];
-        tankAvatars.set(entry, { side, appearance: pool[i % pool.length] });
-      }
+  function seedDecorations() {
+    const slots = physics.entries.filter(entry => !entry.fresh || entry.revealed);
+    const count = Math.min(slots.length, DECORATIVE_AVATAR_LIMIT);
+    for (let i = 0; i < count; i++) {
+      decorate(slots[Math.floor((i + 0.5) * slots.length / count)]);
     }
   }
-  function updateState(nextPosts, votes, history, nextPools) {
+  function updateState(nextPosts, votes, history, candidates = NO_CANDIDATES) {
     const seedTank = !populated && votes.total > 0;
     posts = nextPosts; ratio = votes.ratio; populated = votes.total > 0;
     postsBySide = { a: [], b: [] };
@@ -99,7 +84,12 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       });
       pipeCredit = 0.5;
     }
-    if (populated) refreshDecorations(nextPools, seedTank);
+    if (candidates !== avatarCandidates) {
+      avatarCandidates = candidates;
+      avatarCursor %= Math.max(1, candidates.length);
+    }
+    if (!populated || !candidates.length) decorativeAvatars.clear();
+    else if (!decorativeAvatars.size) seedDecorations();
     initialized = true; draw();
   }
   function launch(post, { reduced = false } = {}) {
@@ -115,8 +105,7 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       const { post, reduced } = pendingLaunches[index];
       const entry = physics.launch(post, { mode, fresh: true, skipProtected: !(reduced || reduceMotion || paused), speed: speedFor(post.side) });
       if (!entry) return;
-      // A recycled capsule can change sides even when the voter pools stay the same.
-      tankDecorationsDirty = true;
+      decorativeAvatars.delete(entry);
       pendingLaunches.splice(index, 1);
       entry.flightUntil = performance.now() + 4500;
       queueReplay(post, entry.flightUntil);
@@ -134,13 +123,7 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       : { id: 'vote-' + side, side, name: '', text: '' };
     const entry = physics.launch(post, { mode, skipProtected: true, speed: speedFor(side) });
     if (!entry) return null;
-    tankDecorationsDirty = true;
-    const pool = avatarPools[side];
-    pipeAvatars.delete(entry);
-    if (pool.length) {
-      pipeAvatars.set(entry, { side, appearance: pool[pipeCursors[side] % pool.length] });
-      if (pipeAvatars.size > PIPE_AVATAR_LIMIT) pipeAvatars.delete(pipeAvatars.keys().next().value);
-    }
+    decorate(entry);
     pipeCredit = nextCredit - (side === 'a' ? 1 : 0);
     pipeCursors[side]++;
     pipeReplays++;

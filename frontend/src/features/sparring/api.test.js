@@ -1,5 +1,5 @@
 import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appearance.js";
-import { avatarPoolsSchema, postSchema, streamSchema } from "./api.js";
+import { avatarCandidatesSchema, postSchema, streamSchema } from "./api.js";
 import { arenaMessageSchema } from "./arenaBridge.js";
 
 const post = {
@@ -25,10 +25,11 @@ it("keeps both author appearances and tolerates a missing or unsupported avatar 
   expect(postSchema.parse({ ...post, appearance: { version: 2 } }).appearance).toBeNull();
 });
 
-it("bounds the decorative pools independently and omits unsupported avatars", () => {
+it("accepts up to 240 decorative candidates and omits unsupported avatars", () => {
   const appearance = AVATAR_PRESETS[0].appearance;
-  expect(avatarPoolsSchema.parse({ mint: [appearance, { version: 2 }], coral: [] })).toEqual({ mint: [appearance], coral: [] });
-  expect(avatarPoolsSchema.safeParse({ mint: Array(9).fill(appearance), coral: [] }).success).toBe(false);
+  const appearances = Array(239).fill(appearance);
+  expect(avatarCandidatesSchema.parse({ appearances: [...appearances, { version: 2 }] })).toEqual({ appearances });
+  expect(avatarCandidatesSchema.safeParse({ appearances: Array(241).fill(appearance) }).success).toBe(false);
 });
 
 it.each(["sparring_composer_toggle", "sparring_clash_replay"])("forwards %s as a stable interaction", (action) => {

@@ -9,7 +9,7 @@
 | POST | `/sparrings` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}` | PUBLIC | 주장·표수·내 편·글 수·revision |
 | POST | `/sparrings/{topicId}/votes` | MEMBER + CSRF | 204, 본문 없음 |
-| GET | `/sparrings/{topicId}/avatar-pools` | PUBLIC | 장식 캡슐용 진영별 외형 목록 |
+| GET | `/sparrings/{topicId}/avatar-pools` | PUBLIC | 장식 캡슐용 투표자 외형 목록 |
 | GET | `/sparrings/{topicId}/posts` | PUBLIC | 저장된 의견과 받아치기 원문 |
 | POST | `/sparrings/{topicId}/posts` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}/events` | PUBLIC | `text/event-stream`, 메시지 스냅샷·추가분 및 공개 집계 |
@@ -34,8 +34,8 @@ mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open
 [저장된 아바타 외형](member-avatar.md)이다. 저장한 외형이 없으면 `null`을 반환한다.
 작성 당시 진영은 글에 저장한 값을 반환한다.
 
-장식 캡슐용 응답의 `data`는 `{mint: Appearance[], coral: Appearance[]}`다.
-해당 토론의 현재 투표자 중 저장 외형이 있는 회원을 회원 ID 오름차순으로 진영별 최대 8명씩 고른다.
+장식 캡슐용 응답의 `data`는 `{appearances: Appearance[]}`다.
+해당 토론의 현재 투표자 중 저장 외형이 있는 회원을 편 구분 없이 회원 ID 오름차순으로 최대 240명 고른다.
 각 원소는 외형 파츠만 포함한다. 목록은 비어 있을 수 있으며 없는 주제는 `SPARRING_NOT_FOUND`(404)다.
 토론별 목록은 서버에 캐시한다. 저장 후 30초가 지난 목록을 요청하면 기존 목록을 반환하고
 백그라운드에서 갱신한다. 투표 시 캐시를 비우지 않는다.

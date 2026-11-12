@@ -90,7 +90,7 @@ paths:
       operationId: getSparringAvatarPools
       responses:
         '200':
-          description: Appearance-only samples ordered by member ID and capped at eight per side. Cached samples are served during background refresh after 30 seconds.
+          description: A shared list of up to 240 saved voter appearances, ordered by member ID. Cached appearances are served during background refresh after 30 seconds.
           content:
             application/json:
               schema:
@@ -99,10 +99,9 @@ paths:
                   - properties:
                       data:
                         type: object
-                        required: [mint, coral]
+                        required: [appearances]
                         properties:
-                          mint: {type: array, maxItems: 8, items: {$ref: '#/components/schemas/Appearance'}}
-                          coral: {type: array, maxItems: 8, items: {$ref: '#/components/schemas/Appearance'}}
+                          appearances: {type: array, maxItems: 240, items: {$ref: '#/components/schemas/Appearance'}}
         '404': {$ref: '#/components/responses/NotFound'}
   /sparrings/{topicId}/posts:
     parameters: [{$ref: '#/components/parameters/TopicId'}]

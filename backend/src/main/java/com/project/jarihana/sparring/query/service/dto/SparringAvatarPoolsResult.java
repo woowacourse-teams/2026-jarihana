@@ -4,9 +4,8 @@ import com.project.jarihana.member.domain.AvatarAppearance;
 
 import java.util.List;
 
-public record SparringAvatarPoolsResult(List<AvatarAppearance> mint, List<AvatarAppearance> coral) {
+public record SparringAvatarPoolsResult(List<AvatarAppearance> appearances) {
     public SparringAvatarPoolsResult {
-        mint = List.copyOf(mint);
-        coral = List.copyOf(coral);
+        appearances = List.copyOf(appearances);
     }
 }

@@ -144,9 +144,10 @@ it('실시간 받아치기는 관람자의 아바타나 장식 목록과 무관�
     replyToId: original.id, replyTo: original };
   try {
     state.actorAppearance = avatar('curly');
-    state.avatarPools = { a: [avatar('parted')], b: [avatar('flowing')] };
+    state.avatarCandidates = [avatar('parted'), avatar('flowing')];
     state.posts = [{ ...original, appearance: avatar('curly') }, reply];
     store.subscribe.mock.calls[0][0]([reply.id], [reply]);
+    expect(arena.updateState.mock.lastCall[3]).toBe(state.avatarCandidates);
     expect(arena.launch).toHaveBeenCalledWith(expect.objectContaining({
       side: 'b', appearance: reply.appearance, replyTo: expect.objectContaining({ side: 'a', appearance: original.appearance }),
     }));

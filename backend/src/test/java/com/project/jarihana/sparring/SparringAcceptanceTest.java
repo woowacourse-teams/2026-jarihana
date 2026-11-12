@@ -4,7 +4,9 @@ import static io.restassured.RestAssured.given;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
@@ -114,7 +116,7 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("장식 아바타는 현재 토론의 진영별 투표자 중 최대 여덟 명의 외형만 공개한다")
+    @DisplayName("장식 아바타는 현재 토론의 투표자 중 최대 240명의 외형을 편 구분 없이 공개한다")
     void exposesBoundedAvatarPoolsForCurrentVotes() {
         // Given
         String first = memberWithAvatar("첫투표", "pool-first", "curly");
@@ -129,25 +131,38 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         vote(member("기본외형", "pool-default"), topic, "CORAL");
         String anotherTopicVoter = memberWithAvatar("다른주제", "pool-other-topic", "long");
         vote(anotherTopicVoter, createTopic(anotherTopicVoter), "CORAL");
+        for (int index = 0; index < 230; index++) {
+            memberWithAvatar("추가" + (char) ('가' + index), "pool-extra-" + index, "curly");
+        }
+        new JdbcTemplate(dataSource).update("""
+                insert into sparring_vote (created_at, updated_at, topic_id, member_id, side)
+                select current_timestamp, current_timestamp, ?, id, 'MINT' from member
+                where github_id like 'pool-extra-%'
+                """, topic);
+        String lastVoter = memberWithAvatar("마지막", "pool-last", "long");
+        vote(lastVoter, topic, "CORAL");
 
         // When / Then
         String path = "/sparrings/" + topic + "/avatar-pools";
         given().get(path).then().statusCode(200)
-                .body("data.mint", hasSize(8))
-                .body("data.mint.hair", everyItem(equalTo("curly")))
-                .body("data.coral", hasSize(1))
-                .body("data.coral[0].hair", equalTo("bob"))
-                .body("data.coral[0].version", equalTo(1))
-                .body("data.coral[0].memberId", nullValue());
+                .body("data", not(hasKey("mint")))
+                .body("data", not(hasKey("coral")))
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0..7].hair", everyItem(equalTo("curly")))
+                .body("data.appearances[8].hair", equalTo("parted"))
+                .body("data.appearances[9].hair", equalTo("bob"))
+                .body("data.appearances.hair", everyItem(not(equalTo("long"))))
+                .body("data.appearances.version", everyItem(equalTo(1)))
+                .body("data.appearances", everyItem(not(hasKey("memberId"))))
+                .body("data.appearances", everyItem(not(hasKey("side"))));
 
         vote(first, topic, "CORAL");
         given().get("/sparrings/" + topic).then().statusCode(200)
-                .body("data.votesA", equalTo(8))
-                .body("data.votesB", equalTo(3));
+                .body("data.votesA", equalTo(238))
+                .body("data.votesB", equalTo(4));
         given().get(path).then().statusCode(200)
-                .body("data.mint", hasSize(8))
-                .body("data.mint.hair", everyItem(equalTo("curly")))
-                .body("data.coral.hair", equalTo(List.of("bob")));
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0].hair", equalTo("curly"));
         given().get("/sparrings/999999/avatar-pools").then().statusCode(404)
                 .body("error.code", equalTo("SPARRING_NOT_FOUND"));
     }

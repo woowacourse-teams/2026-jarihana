@@ -42,8 +42,9 @@ export const postSchema = z.object({
   appearance: avatar.optional(),
   replyTo: replySchema.nullable()
 });
-const avatarPool = z.array(avatar).max(8).transform(appearances => appearances.filter(Boolean));
-export const avatarPoolsSchema = z.object({ mint: avatarPool, coral: avatarPool });
+export const avatarCandidatesSchema = z.object({
+  appearances: z.array(avatar).max(240).transform(appearances => appearances.filter(Boolean))
+});
 const page = (item) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable(), hasNext: z.boolean() });
 const created = z.object({ id });
@@ -53,8 +54,8 @@ export const getSparring = (topicId) =>
   apiClient.request(`sparrings/${topicId}`, { schema: topicSchema });
 export const getSparringPosts = (topicId, searchParams) =>
   apiClient.request(`sparrings/${topicId}/posts`, { searchParams, schema: page(postSchema) });
-export const getSparringAvatarPools = (topicId, { signal } = {}) =>
-  apiClient.request(`sparrings/${topicId}/avatar-pools`, { signal, authRetry: false, schema: avatarPoolsSchema });
+export const getSparringAvatarCandidates = (topicId, { signal } = {}) =>
+  apiClient.request(`sparrings/${topicId}/avatar-pools`, { signal, authRetry: false, schema: avatarCandidatesSchema });
 export async function createSparring(json) {
   const result = await apiClient.request("sparrings", { method: "POST", json, schema: created });
   captureEvent("sparring_created");

@@ -5,10 +5,9 @@ import com.project.jarihana.sparring.query.service.dto.SparringAvatarPoolsResult
 
 import java.util.List;
 
-public record SparringAvatarPoolsResponse(List<AppearanceResponse> mint, List<AppearanceResponse> coral) {
+public record SparringAvatarPoolsResponse(List<AppearanceResponse> appearances) {
     public static SparringAvatarPoolsResponse from(SparringAvatarPoolsResult result) {
         return new SparringAvatarPoolsResponse(
-                result.mint().stream().map(AppearanceResponse::from).toList(),
-                result.coral().stream().map(AppearanceResponse::from).toList());
+                result.appearances().stream().map(AppearanceResponse::from).toList());
     }
 }

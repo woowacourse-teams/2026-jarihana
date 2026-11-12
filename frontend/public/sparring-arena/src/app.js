@@ -235,7 +235,7 @@ function renderCounts() {
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) }, state.avatarPools);
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) }, state.avatarCandidates);
   renderInput(); storageStatus();
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }
