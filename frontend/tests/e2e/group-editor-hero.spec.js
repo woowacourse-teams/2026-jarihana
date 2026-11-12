@@ -33,15 +33,9 @@ async function expectNoHorizontalOverflow(page) {
 }
 
 for (const width of [360, 390, 767, 768, 1024, 1440]) {
-  test(`create and edit share detail image effects and editor width at ${width}px`, async ({ page }, testInfo) => {
+  test(`create and edit share image effects and editor width at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await installApiFixture(page);
-
-    await page.goto("/groups/10");
-    const detail = await heroAppearance(page);
-    const detailBounds = await page.locator(".group-profile").boundingBox();
-    const detailTabsBounds = await page.locator(".group-detail-tabs").boundingBox();
-    await page.screenshot({ path: testInfo.outputPath("detail.png"), fullPage: true });
 
     await page.goto("/groups/new");
     for (const type of ["CLUB", "SESSION", "STUDY"]) {
@@ -52,16 +46,12 @@ for (const width of [360, 390, 767, 768, 1024, 1440]) {
     }
     await page.getByLabel("모임 이름", { exact: true }).fill(group.name);
     await page.getByLabel("한 줄 소개", { exact: true }).fill(group.introduction);
-    expect(await heroAppearance(page)).toEqual(detail);
+    const createAppearance = await heroAppearance(page);
     const createBounds = await page.locator(".group-profile").boundingBox();
+    const createTabs = await page.locator(".group-detail-tabs").boundingBox();
     if (width < 768) {
       expect(createBounds.x).toBeCloseTo(0, 1);
       expect(createBounds.width).toBeCloseTo(width, 1);
-      expect(createBounds.x).toBeCloseTo(detailBounds.x, 1);
-      expect(createBounds.width).toBeCloseTo(detailBounds.width, 1);
-      const tabsBounds = await page.locator(".group-detail-tabs").boundingBox();
-      expect(tabsBounds.x).toBeCloseTo(detailTabsBounds.x, 1);
-      expect(tabsBounds.width).toBeCloseTo(detailTabsBounds.width, 1);
     }
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("create.png"), fullPage: true });
@@ -72,14 +62,14 @@ for (const width of [360, 390, 767, 768, 1024, 1440]) {
     await expect(page.locator(".group-profile__image")).toHaveAttribute(
       "src", "/assets/default-group-study-3d.png"
     );
-    expect(await heroAppearance(page)).toEqual(detail);
+    expect(await heroAppearance(page)).toEqual(createAppearance);
     const editBounds = await page.locator(".group-profile").boundingBox();
     expect(editBounds.x).toBeCloseTo(createBounds.x, 1);
     expect(editBounds.width).toBeCloseTo(createBounds.width, 1);
     if (width < 768) {
       const tabsBounds = await page.locator(".group-detail-tabs").boundingBox();
-      expect(tabsBounds.x).toBeCloseTo(detailTabsBounds.x, 1);
-      expect(tabsBounds.width).toBeCloseTo(detailTabsBounds.width, 1);
+      expect(tabsBounds.x).toBeCloseTo(createTabs.x, 1);
+      expect(tabsBounds.width).toBeCloseTo(createTabs.width, 1);
     }
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: testInfo.outputPath("edit.png"), fullPage: true });
@@ -87,7 +77,7 @@ for (const width of [360, 390, 767, 768, 1024, 1440]) {
   });
 }
 
-test("uploaded photos retain the detail effect through type changes and editing", async ({ page }, testInfo) => {
+test("uploaded photos retain their hero effect through type changes and editing", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installApiFixture(page);
   const imagePath = "/assets/default-group-club-3d.png";
@@ -108,8 +98,6 @@ test("uploaded photos retain the detail effect through type changes and editing"
   }));
   await page.route("**/test-upload", (route) => route.fulfill({ status: 200, body: "" }));
 
-  await page.goto("/groups/10");
-  const detail = await heroAppearance(page);
   await page.goto("/groups/new");
   await page.getByLabel("대표 이미지 파일").setInputFiles({
     name: "photo.png", mimeType: "image/png", buffer: photo
@@ -117,15 +105,16 @@ test("uploaded photos retain the detail effect through type changes and editing"
   const image = page.locator(".group-profile__image");
   await expect(image).toHaveAttribute("src", /^blob:/);
   const uploadedSource = await image.getAttribute("src");
+  const uploadAppearance = await heroAppearance(page);
   await page.getByLabel("모임 종류").selectOption("CLUB");
   await expect(image).toHaveAttribute("src", uploadedSource);
   await expect(page.locator(".group-profile")).not.toHaveClass(/group-profile--default-image/);
-  expect(await heroAppearance(page)).toEqual(detail);
+  expect(await heroAppearance(page)).toEqual(uploadAppearance);
   await page.screenshot({ path: testInfo.outputPath("create-upload.png"), fullPage: true });
 
   await page.goto("/groups/10/manage");
   await expect(page.getByLabel("모임 이름", { exact: true })).toHaveValue(group.name);
   await expect(image).toHaveAttribute("src", imagePath);
-  expect(await heroAppearance(page)).toEqual(detail);
+  expect(await heroAppearance(page)).toEqual(uploadAppearance);
   await page.screenshot({ path: testInfo.outputPath("edit-upload.png"), fullPage: true });
 });

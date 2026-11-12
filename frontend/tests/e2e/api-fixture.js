@@ -365,7 +365,6 @@ export async function installApiFixture(pageInstance, options = {}) {
     if (path === "/notifications/unread-count") return json(route, success({ unreadCount: 0 }));
     if (path === "/chats" && method === "GET") return json(route, success(page([])));
     if (path === "/push-config") return json(route, success({ enabled: false, vapidPublicKey: null, payloadVersions: [1] }));
-    // 헤더가 모든 화면에서 빼빼로데이 이벤트 진행 상태를 묻는다. 끝난 상태로 두어 헤더 메뉴를 평소 모양으로 유지한다.
     if (path === "/events/pepero-day" && method === "GET") {
       return json(route, success({
         closesAt: "2026-11-12T10:00:00",
@@ -470,6 +469,28 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(route, success({ id: group.id, status: "ACTIVE" }), 201);
     }
     if (match(path, "/groups/:groupId") && method === "GET") return json(route, success(group));
+    if (match(path, "/groups/:groupId/space") && method === "GET") {
+      return json(route, success({ room: null, revision: 0, canEdit: state.auth === "authenticated", updatedAt: null }));
+    }
+    if (path === "/group-spaces/weather" && method === "GET") {
+      return json(route, success({ weatherCode: 0, sunrise: "2026-08-21T06:00:00", sunset: now }));
+    }
+    if (match(path, "/groups/:groupId/music/events") && method === "GET") {
+      return route.fulfill({ status: 204 });
+    }
+    if (match(path, "/groups/:groupId/music") && method === "GET") {
+      return json(route, success({
+        music: { enabled: false, autoplay: false, title: "모임 음악", url: "" },
+        revision: 0,
+        canEdit: false,
+        updatedAt: null,
+        serverTime: `${now}Z`,
+        playback: { state: "PAUSED", playlistIndex: 0, positionSeconds: 0, anchorTime: `${now}Z`, revision: 0 }
+      }));
+    }
+    if (method === "GET" && (match(path, "/groups/:groupId/activity-posts") || match(path, "/groups/:groupId/announcements"))) {
+      return json(route, success(page([])));
+    }
     if (match(path, "/groups/:groupId") && method === "PUT") return json(route, success(group));
     if (match(path, "/groups/:groupId") && method === "DELETE")
       return route.fulfill({ status: 204 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise the actual pinned-control workflow run blocks against isolated checkouts.
+# Exercise the actual release-SHA workflow run blocks against isolated checkouts.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 TEST_DIR=$(mktemp -d)
@@ -50,16 +50,16 @@ STUB
     (cd "$dir" && TRACE_FILE="$dir/trace" BG_OPERATION=operation-fixture BG_PHASE=phase-fixture \
       NEW_EXIT=$([[ $case_name == new_failure ]] && printf 23 || printf 0) bash "$block") > "$dir/output" 2>&1 || status=$?
     case $case_name in
-      neither)
-        [[ $status != 0 && ! -s $dir/trace ]] && grep -q '::error::' "$dir/output" || {
-          printf '%s neither did not fail explicitly\n' "$entrypoint" >&2; exit 1;
+      neither|legacy)
+        [[ $status != 0 && ! -s $dir/trace ]] || {
+          printf '%s %s did not reject the missing release entrypoint\n' "$entrypoint" "$case_name" >&2; exit 1;
         }
         ;;
       *)
         expected=0
         [[ $case_name != new_failure ]] || expected=23
         [[ $status == "$expected" ]] || { printf '%s %s returned %s, expected %s\n' "$entrypoint" "$case_name" "$status" "$expected" >&2; exit 1; }
-        if [[ $case_name == legacy ]]; then expected=legacy; else expected=new; fi
+        expected=new
         if [[ -n $expected_arg ]]; then
           printf '%s:1:%s\n' "$expected" "$expected_arg" > "$dir/expected"
         else

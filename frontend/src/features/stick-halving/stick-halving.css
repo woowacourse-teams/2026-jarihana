@@ -250,6 +250,21 @@
   visibility: hidden;
 }
 
+/* 분석하기와 처음부터 다시 하기를 자르기 버튼 아래 한 줄에 둔다. */
+.stick-game__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stick-game__restart {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  font-weight: var(--font-weight-semibold);
+  gap: var(--space-2);
+}
+
 /* 자른 뒤: 저울만 두고 자르는 화면 높이 안에서 위아래 가운데에 둔다.
    숨긴 자르는 화면이 칸 높이를 잡고 있어 버튼 자리는 그대로다. */
 .stick-game__result {
@@ -725,4 +740,12 @@
   .stick-game--result .stick-game__balance {
     animation: none;
   }
+}
+
+/* 반으로 잘린 막대 그림의 효과선이다. 이벤트 시작 카드와 게임방 화면에서 함께 쓴다. */
+.cut-stick-artwork__sparks path {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-linecap: round;
+  stroke-width: 5;
 }

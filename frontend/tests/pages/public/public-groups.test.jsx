@@ -12,20 +12,28 @@ import { captureEvent, getPromotionAttribution } from "../../../src/shared/analy
 import { ToastProvider } from "../../../src/shared/ui/Toast.jsx";
 
 let mockRouteParams = {};
+let mockLocation;
 let mockSearchParams = new URLSearchParams();
 const mockSetSearchParams = jest.fn((next) => {
   mockSearchParams = new URLSearchParams(next);
 });
 
+jest.mock("../../../src/pages/groups/GroupClubhouse.jsx", () => ({
+  ...jest.requireActual("../../../src/pages/groups/GroupClubhouse.jsx"),
+  __esModule: true,
+  default: ({ children, group }) => <><h1 id="group-title" tabIndex={-1}>{group.name}</h1>{children}</>
+}));
+
 jest.mock(
   "react-router",
   () => ({
-    Link: ({ children, to, ...props }) => (
+    Link: ({ children, to, viewTransition: _viewTransition, preventScrollReset: _preventScrollReset, ...props }) => (
       <a href={typeof to === "string" ? to : "/"} {...props}>
         {children}
       </a>
     ),
-    useLocation: () => ({ pathname: "/groups/41", search: "", state: null }),
+    Navigate: ({ to }) => <span>{to.pathname}{to.search}{to.hash}</span>,
+    useLocation: () => mockLocation,
     useNavigate: () => jest.fn(),
     useParams: () => mockRouteParams,
     useSearchParams: () => [mockSearchParams, mockSetSearchParams]
@@ -48,6 +56,7 @@ jest.mock("../../../src/features/registration/index.js", () => ({
   useWithdrawRegistration: jest.fn()
 }));
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/features/activity-post/hooks.js", () => ({ useInfiniteActivityPosts: () => ({ data: { pages: [] } }) }));
 jest.mock("../../../src/shared/analytics/index.js", () => ({
   captureEvent: jest.fn(),
   getPromotionAttribution: jest.fn()
@@ -108,6 +117,7 @@ const idleInfinite = {
 
 function renderAt(path, page) {
   const url = new URL(path, "https://jarihana.test");
+  mockLocation = { pathname: url.pathname, search: url.search, hash: url.hash, state: null };
   mockSearchParams = url.searchParams;
   const segments = url.pathname.split("/").filter(Boolean);
   mockRouteParams = {
@@ -201,7 +211,7 @@ it("Given an active recruitment, when the detail page opens, then its entry open
 
   renderAt("/groups/41", <GroupDetailPage />);
 
-  const entryElement = document.querySelector(".group-profile .group-recruitment-entry");
+  const entryElement = document.querySelector(".group-detail-web__actions .group-recruitment-entry");
   expect(entryElement).toBeInTheDocument();
   const entry = within(entryElement);
   const button = entry.getByRole("button", { name: "모집 정보" });
@@ -240,6 +250,27 @@ it("Given no active recruitment, when the detail page opens, then the entry open
   expect(within(recruitmentDialog).getByRole("heading", { name: "자리없음" })).toBeVisible();
 });
 
+it("shows the session's representative photo and keeps the group detail tabs", () => {
+  groupHooks.useGroup.mockReturnValue({
+    data: { ...group, type: "SESSION", representativeImageUrl: "/images/session-cover.webp" }
+  });
+
+  renderAt("/groups/41", <GroupDetailPage />);
+
+  const hero = screen.getByRole("region", { name: group.name });
+  expect(hero.querySelector("img")).toHaveAttribute("src", "/images/session-cover.webp");
+  expect(screen.getByRole("tab", { name: "활동 기록" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "놀러가기" })).not.toBeInTheDocument();
+});
+
+it("redirects a session's legacy space URL to its detail and preserves the tab", () => {
+  groupHooks.useGroup.mockReturnValue({ data: { ...group, type: "SESSION" } });
+
+  renderAt("/groups/41/space?tab=calendar#schedule", <GroupDetailPage />);
+
+  expect(screen.getByText("/groups/41?tab=calendar#schedule")).toBeVisible();
+});
+
 it.each([
   ["STUDY", "자리하기"],
   ["CLUB", "자리하기"],
@@ -273,26 +304,6 @@ it.each([
       "registration_started",
       expect.objectContaining({ group_id: 41, recruitment_id: 91 })
     );
-  }
-);
-
-it.each([
-  ["STUDY", "스터디", "ui-badge--group-type-study"],
-  ["CLUB", "동아리", "ui-badge--group-type-club"],
-  ["SESSION", "같이해요", "ui-badge--group-type-session"]
-])(
-  "Given a %s group, when the detail page renders, then its type uses the shared badge treatment",
-  (type, label, toneClass) => {
-    groupHooks.useGroup.mockReturnValue({
-      data: { ...group, type },
-      isLoading: false,
-      isError: false
-    });
-
-    renderAt("/groups/41", <GroupDetailPage />);
-
-    const typeBadge = screen.getByText(label, { exact: true });
-    expect(typeBadge).toHaveClass("ui-badge", toneClass);
   }
 );
 
@@ -427,18 +438,18 @@ it.each(["APPROVED", "REJECTED"])(
   }
 );
 
-it("Given no active recruitment, when group detail renders, then the fallen-chair empty state is concise", () => {
+it("Given no active recruitment, when group detail renders, then its recruitment card shows the empty state", () => {
   groupHooks.useGroup.mockReturnValue({
     data: { ...group, activeRecruitment: null },
     isLoading: false,
     isError: false
   });
 
-  const { container } = renderAt("/groups/41", <GroupDetailPage />);
+  renderAt("/groups/41", <GroupDetailPage />);
 
-  expect(screen.getByRole("heading", { name: "자리없음" })).toBeInTheDocument();
+  const rail = screen.getByRole("complementary", { name: "운영자, 모집 정보와 일정" });
+  expect(within(rail).getByText("모집 준비 중")).toBeInTheDocument();
   expect(screen.queryByText("현재 진행 중인 모집이 없어요")).not.toBeInTheDocument();
-  expect(container.querySelector(".group-recruitment-hero--empty img")).toBeInTheDocument();
 });
 
 it("Given a closed recruitment, when opened, then no application control is exposed", () => {

@@ -1,7 +1,7 @@
 import { LEVELS } from "./engine.mjs";
 
 // 난이도마다 치는 곡이다. ANOTHER는 스윙 편곡과 전용 채보를, 나머지는 원곡 채보를 단순화해 쓴다.
-// chartVersion은 서버 공식 도전 채보의 판본과 같아야 한다(ranked-run.mjs의 assertRankedVersions).
+// chartVersion은 서버 랭킹 도전 채보의 판본과 같아야 한다(ranked-run.mjs의 assertRankedVersions).
 export const STAGES = Object.freeze({
   original: Object.freeze({
     chartVersion: "bars-13-16-1",
@@ -12,8 +12,8 @@ export const STAGES = Object.freeze({
     meta: "128 BPM / 90초 루프"
   }),
   swing: Object.freeze({
-    chartVersion: "swing-another-2",
-    chart: "/game-assets/rhythm-harpoon/assets/swing-chart.json?v=swing-another-2",
+    chartVersion: "swing-another-3",
+    chart: "/game-assets/rhythm-harpoon/assets/swing-chart.json?v=swing-another-3",
     music: "/game-assets/rhythm-harpoon/assets/pixel-circuit-swing.ogg?v=another-1",
     bpmLabel: "144 BPM SWING",
     title: "Pixel Circuit (Swing)",

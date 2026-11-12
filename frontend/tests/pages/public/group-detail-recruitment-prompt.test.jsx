@@ -8,17 +8,13 @@ import * as memberHooks from "../../../src/features/member/index.js";
 import * as recruitmentHooks from "../../../src/features/recruitment/index.js";
 import * as registrationHooks from "../../../src/features/registration/index.js";
 
-/* jsdom에는 ResizeObserver가 없고, 상세 화면의 사이드 레일이 렌더 중에 그것을 만든다. */
-if (typeof globalThis.ResizeObserver === "undefined") {
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-}
-
 const mockNavigate = jest.fn();
 let mockLocation = { pathname: "/groups/41", search: "", state: null };
+
+jest.mock("../../../src/pages/groups/GroupClubhouse.jsx", () => ({
+  __esModule: true,
+  default: ({ children, group }) => <><h1 id="group-title" tabIndex={-1}>{group.name}</h1>{children}</>
+}));
 
 jest.mock(
   "react-router",
@@ -36,6 +32,7 @@ jest.mock(
 );
 
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: jest.fn() }));
+jest.mock("../../../src/features/activity-post/hooks.js", () => ({ useInfiniteActivityPosts: () => ({ data: { pages: [] } }) }));
 jest.mock("../../../src/features/group/index.js", () => ({ useGroup: jest.fn() }));
 jest.mock("../../../src/features/member/index.js", () => ({ useInfiniteGroupMembers: jest.fn() }));
 jest.mock("../../../src/features/recruitment/index.js", () => ({

@@ -39,13 +39,9 @@ jobs:
       BG_MODE: ${{ inputs.mode }}
       BG_OPERATION: ${{ inputs.operation }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
       GH_TOKEN: ${{ github.token }}
       RDS_URL: ${{ vars.RDS_URL }}
-      # Older immutable control releases still require this process environment alias.
-      # Both names use RDS_URL; no separate GitHub variable or DB override is read.
-      BLUE_GREEN_RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
@@ -76,16 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
-          persist-credentials: false
-      - name: 운영 릴리스의 앱 Compose checkout
-        if: inputs.environment == 'prod' && inputs.operation == 'prepare'
-        uses: actions/checkout@v4
-        with:
           ref: ${{ github.sha }}
-          path: app-release-source
-          sparse-checkout: infra/blue-green-deploy/controller/app-compose.yml
-          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: 임시 Docker 인증 디렉터리
         if: inputs.operation == 'prepare'
@@ -100,15 +87,10 @@ jobs:
       - name: 로컬 앱의 허가·신원을 확인하고 작업 실행
         id: operation
         env:
-          BG_RELEASE_COMPOSE_CHECKOUT: ${{ inputs.environment == 'prod' && inputs.operation == 'prepare' && format('{0}/app-release-source', github.workspace) || '' }}
+          YOUTUBE_DATA_API_KEY: ${{ inputs.operation == 'prepare' && secrets.YOUTUBE_DATA_API_KEY || '' }}
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/app.sh
-          # The immutable control checkout may predate the package move.
-          if [[ ! -f "$script" ]]; then
-            script=infra/scripts/deploy/actions/app.sh
-          fi
-          [[ -f "$script" ]] || { echo '::error::Control release app entrypoint is missing'; exit 1; }
           exec bash "$script" "$BG_OPERATION"
       - name: 임시 Docker 인증 정리
         if: always() && env.DOCKER_CONFIG != ''

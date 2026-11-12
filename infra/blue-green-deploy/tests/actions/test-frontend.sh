@@ -119,10 +119,10 @@ setup() {
   echo 1000 >"$CASE_DIR/clock"
   BG_LIVE_CACHED_AT=0
   ENVIRONMENT=prod; BG_MODE=deploy; BG_FRONTEND_ONLY=false
-  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2); CONTROL_SHA=$(printf '%040d' 3)
+  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2)
   BG_IMAGE_DIGEST="sha256:$(printf '%064d' 2)"; OLD_DIGEST="sha256:$(printf '%064d' 1)"
   CONFIG=$(cat "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
-  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
+  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
@@ -314,8 +314,8 @@ independent_worker_recovery() {
 }
 frontend_only_full_observation() {
   local status
-  status=$(jq -cn --arg image "$OLD_DIGEST" '{slot:"A",image:$image,running:true,healthy:true,identity:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},authority:{status:"ACTIVE",phase:"COMPLETE",owner:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}}')
-  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  status=$(jq -cn --arg image "$OLD_DIGEST" --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '{slot:"A",image:$image,compose_source:{commit:$commit,sha256:$hash},running:true,healthy:true,identity:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},authority:{status:"ACTIVE",phase:"COMPLETE",owner:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}}')
+  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .sealed=true | .pending=null | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   BG_FRONTEND_ONLY=true
   bg_ec2_state() { exit 95; }
   bg_plan
@@ -327,7 +327,20 @@ frontend_only_full_observation() {
   jq -e '.http_observed_started_at>=.frontend.published_at and .http_observed_finished_at-.http_observed_started_at==300' "$STATE_FILE" >/dev/null
   main frontend-seal
   jq -e '.phase=="COMPLETE" and .frontend.finalized==true and .old_status.slot=="A"' "$STATE_FILE" >/dev/null
+  jq -e --argjson status "$status" '.old_status.compose_source==$status.compose_source' "$STATE_FILE" >/dev/null
   jq -e --arg release "$GITHUB_SHA-$RUN_ID" '.current==$release and .previous=="baseline-123" and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+frontend_only_repeated_compose_source() {
+  frontend_only_full_observation
+  STATE=$(cat "$STATE_FILE")
+  local source; source=$(jq -c '.old_status.compose_source' <<<"$STATE")
+  RUN_ID=124; GITHUB_SHA=$(printf '%040d' 3)
+  bg_plan
+  jq -e --argjson source "$source" '.previous_backend_status.compose_source==$source' "$STATE_FILE" >/dev/null
+  main frontend-publish
+  STATE=$(cat "$STATE_FILE"); main observe
+  STATE=$(cat "$STATE_FILE"); main frontend-seal
+  jq -e --arg sha "$GITHUB_SHA" --argjson source "$source" '.phase=="COMPLETE" and .sha==$sha and .old_status.compose_source==$source' "$STATE_FILE" >/dev/null
 }
 frontend_only_short_observation_rejected() {
   fe_stage; fe_publish
@@ -437,7 +450,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

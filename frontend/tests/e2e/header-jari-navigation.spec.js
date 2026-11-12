@@ -23,6 +23,53 @@ async function installNavigationFixture(page) {
   return state;
 }
 
+test("반띵 게임은 공통 헤더 대신 게임방에서 들어간다", async ({ page }) => {
+  await installApiFixture(page, { auth: "anonymous" });
+  let gameRoomOpen = false;
+  await page.route("**/api/events/pepero-day", (route) => route.fulfill({
+    json: {
+      success: true,
+      data: {
+        closesAt: "2026-11-12T10:00:00",
+        gameRoomOpen,
+        gameRoomOpensAt: "2026-11-12T13:00:00",
+        opensAt: "2026-11-11T00:00:00",
+        serverTime: gameRoomOpen ? "2026-11-12T13:05:00" : "2026-11-12T09:00:00",
+        status: gameRoomOpen ? "CLOSED" : "OPEN"
+      },
+      error: null
+    }
+  }));
+  for (const path of ["events/pepero-day", "games/stick-halving"]) {
+    await page.route(`**/api/${path}/rankings`, (route) => route.fulfill({
+      json: { success: true, data: { items: [], me: null }, error: null }
+    }));
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/events/pepero-day");
+  await expect(page.getByRole("button", { name: "GitHub로 로그인하고 도전하기" })).toBeVisible();
+  const desktopMenu = page.getByRole("navigation", { name: "주요 메뉴" });
+  await expect(desktopMenu.getByRole("link", { name: /반띵/ })).toHaveCount(0);
+  await expect(desktopMenu.getByRole("link", { name: "게임하나?" })).toHaveAttribute("href", "/games");
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  const mobileMenu = page.getByRole("navigation", { name: "모바일 메뉴" });
+  await expect(mobileMenu.getByRole("link", { name: /반띵/ })).toHaveCount(0);
+
+  gameRoomOpen = true;
+  await page.goto("/groups");
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  await mobileMenu.getByRole("link", { name: "게임하나?" }).click();
+  const gameCard = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "공평하게 반띵" })
+  });
+  await gameCard.getByRole("link", { name: "게임 시작" }).click();
+  await expect(page).toHaveURL(/\/games\/stick-halving$/);
+  await expect(page.getByRole("button", { name: "연습 시작" })).toBeVisible();
+});
+
 for (const width of [768, 1440]) {
   test(`자리 dropdown supports hover, keyboard and dismissal at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

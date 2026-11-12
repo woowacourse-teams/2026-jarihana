@@ -52,7 +52,7 @@ export const LEVELS = {
     lives: 10,
     loopHeal: 5,
     speedUpFromLoop: 6,
-    description: "라이프 10개, 자신 있게 드립니다!"
+    description: "...괜찮겠어요?"
   },
   // ANOTHER는 스윙 곡(stages.mjs의 swing)의 번외 채보다. 채보를 단순화하지 않고 swing-chart.json의 난이도별 채보를 그대로 친다.
   // 충전과 가속은 원곡의 같은 이름 난이도를 따르고, 라이프는 둘 다 10개다.

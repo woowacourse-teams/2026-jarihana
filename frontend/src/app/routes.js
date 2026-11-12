@@ -1,3 +1,11 @@
+import {
+  RHYTHM_CHALLENGE_PATH,
+  RHYTHM_ENTRY_PATH,
+  RHYTHM_PRACTICE_ENABLED,
+  RHYTHM_PRACTICE_PATH,
+  RHYTHM_SINGLE_PATH
+} from "../features/game/rhythm/availability.js";
+
 export const routeRegistry = Object.freeze([
   { access: "public", page: "ShopPage", path: "/shop" },
   { access: "public", page: "GamesPage", path: "/games" },
@@ -7,19 +15,35 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "GomokuInvitationPage", path: "/games/gomoku/invite/:token" },
   { access: "public", page: "StickHalvingRoomPage", path: "/games/stick-halving" },
   { access: "public", page: "RhythmHarpoonEntryPage", path: "/games/rhythm-harpoon" },
-  { access: "public", page: "RhythmHarpoonSinglePage", path: "/games/rhythm-harpoon/single" },
+  // 혼자 연습을 닫아 둔 동안에는 싱글 플레이가 곧 랭킹 도전이라 옵션 화면으로 바로 보내고,
+  // 연습 주소는 누구나 볼 수 있는 처음 화면으로 보낸다.
+  {
+    access: "public",
+    page: "RhythmHarpoonSinglePage",
+    path: RHYTHM_SINGLE_PATH,
+    ...(RHYTHM_PRACTICE_ENABLED ? {} : { redirectTo: RHYTHM_CHALLENGE_PATH })
+  },
   { access: "public", page: "RhythmHarpoonLessonPage", path: "/games/rhythm-harpoon/learn" },
-  { access: "public", page: "RhythmHarpoonPage", path: "/games/rhythm-harpoon/practice" },
+  {
+    access: "public",
+    page: "RhythmHarpoonPage",
+    path: RHYTHM_PRACTICE_PATH,
+    ...(RHYTHM_PRACTICE_ENABLED ? {} : { redirectTo: RHYTHM_ENTRY_PATH })
+  },
   {
     access: "member",
     page: "RhythmHarpoonChallengePage",
-    path: "/games/rhythm-harpoon/challenge"
+    path: RHYTHM_CHALLENGE_PATH
   },
   { access: "member", page: "ChatPage", path: "/chat" },
   { access: "member", page: "ChatPage", path: "/chat/:roomId" },
   { access: "public", page: "HomePage", path: "/" },
   { access: "public", page: "GroupsPage", path: "/home" },
   { access: "public", page: "LandingPage", path: "/land" },
+  { access: "public", page: "LandingJoinPage", path: "/land/join" },
+  { access: "public", page: "LandingCreatePage", path: "/land/create" },
+  { access: "public", page: "LandingSparringPage", path: "/land/sparring" },
+  { access: "public", page: "LandingGamesPage", path: "/land/games" },
   { access: "public", page: "GroupBrowsePage", path: "/groups" },
   { access: "public", page: "GroupBrowsePage", path: "/groups/explore", redirectTo: "/groups" },
   { access: "public", page: "ActivityPostsPage", path: "/activities" },
@@ -30,6 +54,8 @@ export const routeRegistry = Object.freeze([
   { access: "public", page: "SparringDetailPage", path: "/sparring/:topicId" },
   { access: "public", page: "PeperoDayEventPage", path: "/events/pepero-day" },
   { access: "public", page: "GroupDetailPage", path: "/groups/:groupId" },
+  { access: "public", page: "GroupDetailPage", path: "/groups/:groupId/space" },
+  { access: "public", page: "SpaceStudioPage", path: "/space/studio" },
   {
     access: "public",
     page: "AnnouncementDetailPage",

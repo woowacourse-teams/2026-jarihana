@@ -44,6 +44,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-6);
 }
+@media (min-width: 768px) {
+  .games-page--catalog > .games-catalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 .games-card {
   display: grid;
   grid-template-rows: auto 1fr;

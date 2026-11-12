@@ -31,7 +31,7 @@ async function installHome(page, options = {}) {
   await page.clock.install({ time: new Date("2026-09-27T00:00:00Z") });
   await installApiFixture(page);
   await page.route("**/images/default-group*.png", (route) => route.continue());
-  const state = { todayError: options.todayError ?? false, requests: [] };
+  const state = { emptyToday: options.emptyToday ?? false, todayError: options.todayError ?? false, requests: [] };
   await page.route("**/api/groups?*", async (route) => {
     const params = new URL(route.request().url()).searchParams;
     state.requests.push(Object.fromEntries(params));
@@ -42,7 +42,7 @@ async function installHome(page, options = {}) {
       });
     }
     const rows = (
-      options.emptyToday && params.has("sessionDate") ? [] : (options.groups ?? groups)
+      state.emptyToday && params.has("sessionDate") ? [] : (options.groups ?? groups)
     ).filter(
       (row) =>
         (!params.get("status") || row.status === params.get("status")) &&
@@ -279,13 +279,22 @@ test("automatic rotation resumes ten seconds after the last manual control", asy
   await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
 });
 
-test("today empty state retains recruiting preview and archive", async ({ page }, testInfo) => {
-  await installHome(page, { emptyToday: true });
+test("an empty today section stays hidden until a session becomes available", async ({ page }, testInfo) => {
+  const state = await installHome(page, { emptyToday: true });
+  const todayResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/groups" && url.searchParams.get("sessionDate") === today;
+  });
   await page.goto("/");
-  await expect(hero(page)).toContainText("오늘 예정된 같이해요가 아직 없어요.");
+  await todayResponse;
   await expect(previewCards(page)).toHaveCount(4);
   await expect(archiveCards(page)).toHaveCount(1);
+  await expect(hero(page)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("home-empty.png"), fullPage: true });
+
+  state.emptyToday = false;
+  await page.clock.fastForward(61_000);
+  await expect(activePlan(page)).toContainText("점심 한 끼 같이해요");
 });
 
 test("today errors are isolated and can be retried", async ({ page }, testInfo) => {

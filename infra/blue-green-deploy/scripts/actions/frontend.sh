@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Sourced by the coordinator: every mutation requires its live journal lease.
 set -euo pipefail
-FE_RELEASE_CAPABILITY=3
 FE_BUCKET=techcourse-project-2026
 FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
@@ -53,8 +52,8 @@ fe_manifest() {
     jq -cn --arg path "$path" --arg sha "$(sha256sum "$directory/$path" | cut -d ' ' -f1)" --argjson size "$size" '{path:$path,sha256:$sha,size:$size}' >> "$FE_TEMP/files.jsonl"
   done < <(find "$directory" -type f -print0)
   jq -s --arg release "$release" --arg backend "$backend" --arg source "$source" --argjson run "$RUN_ID" \
-    --arg dep "$(jq -r .deployment_id <<<"$STATE")" --arg control "$CONTROL_SHA" \
-    '{schema_version:1,release_id:$release,source_commit:(if $source=="" then null else $source end),backend_image:$backend,run_id:$run,deployment_id:$dep,control_sha:$control,files:sort_by(.path)}' \
+    --arg dep "$(jq -r .deployment_id <<<"$STATE")" \
+    '{schema_version:1,release_id:$release,source_commit:(if $source=="" then null else $source end),backend_image:$backend,run_id:$run,deployment_id:$dep,files:sort_by(.path)}' \
     "$FE_TEMP/files.jsonl" > "$FE_TEMP/release.json"
   fe_validate_manifest "$FE_TEMP/release.json"
   local reference references=0
@@ -206,7 +205,7 @@ fe_stage() {
     fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
     fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/release.json"
   fi
-  fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,control_sha:$state.control_sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
+  fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" --argjson changed "$changed" '.frontend={release_id:$release,previous_release_id:$previous,changed:$changed,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
 }
@@ -215,7 +214,7 @@ fe_owned_pointer() {
   jq -e --argjson state "$STATE" '.current==$state.frontend.previous_release_id and
     .pending.release_id==$state.frontend.release_id and .pending.previous_release_id==$state.frontend.previous_release_id and
     .pending.run_id==$state.run_id and .pending.source_commit==$state.sha and
-    .pending.control_sha==$state.control_sha and .pending.deployment_id==$state.deployment_id and
+    .pending.deployment_id==$state.deployment_id and
     .pending.backend_image==$state.image and .pending.previous_backend_image==$state.previous_backend_image and
     .pending.frontend_changed==$state.frontend.changed' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend pointer belongs to another release'
   [[ $FE_ETAG == "$(jq -r .frontend.etag <<<"$STATE")" ]] || bg_die 'Frontend pointer ETag changed'
@@ -235,7 +234,7 @@ fe_publish() {
     return
   fi
   fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/candidate"
-  jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Candidate frontend manifest context differs'
+  jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Candidate frontend manifest context differs'
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.publication_started=true' <<<"$STATE")"
   fe_publish_files "$FE_TEMP/candidate" "$FE_TEMP/download-manifest.json"
@@ -247,7 +246,7 @@ fe_observe_prepare() {
   fe_temp; fe_owned_pointer
   fe_get "$FE_ARCHIVE/$(jq -r .frontend.release_id <<<"$STATE")/release.json" "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation manifest missing'
   fe_validate_manifest "$FE_TEMP/observe-manifest.json"
-  jq -e --argjson state "$STATE" '.release_id==$state.frontend.release_id and .backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation context differs'
+  jq -e --argjson state "$STATE" '.release_id==$state.frontend.release_id and .backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation context differs'
   jq '.files |= map(select(.path=="index.html" or .path=="sw.js" or .path=="manifest.webmanifest"))' "$FE_TEMP/observe-manifest.json" > "$FE_TEMP/critical-manifest.json"
 }
 fe_observe_check() {
@@ -261,7 +260,7 @@ fe_finalize() {
     # S3 verified each archived upload's SHA-256; downloaded bytes were checked before publication.
     # Finalization compares every public byte with that manifest without downloading the archive again.
     fe_read_release_manifest "$(jq -r .frontend.release_id <<<"$STATE")"
-    jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Final frontend manifest context differs'
+    jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Final frontend manifest context differs'
     fe_public_check "$FE_TEMP/download-manifest.json"
   fi
   fe_pointer_write "$(jq -c 'if .pending.frontend_changed then .previous=.current | .current=.pending.release_id else . end | .backend_image=.pending.backend_image | .pending=null' <<<"$FE_POINTER")"

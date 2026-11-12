@@ -1,5 +1,7 @@
 package com.project.jarihana.sparring.query.repository;
 
+import com.project.jarihana.member.domain.AvatarAppearance;
+import com.project.jarihana.member.domain.MemberAvatar;
 import com.project.jarihana.sparring.domain.SparringTopic;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
 import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
@@ -53,6 +55,18 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
 
     @Query("select t.revision from SparringTopic t where t.id=:id")
     Optional<Long> revision(long id);
+
+    @Query("select a from MemberAvatar a where a.id in :memberIds")
+    List<MemberAvatar> findAuthorAvatars(List<Long> memberIds);
+
+    @Query(
+            """
+            select a.appearance
+            from SparringVote v join MemberAvatar a on a.id = v.member.id
+            where v.topic.id = :topicId
+            order by v.member.id
+            """)
+    List<AvatarAppearance> findVoterAppearances(long topicId, Pageable pageable);
 
     String POST_SELECT =
             """

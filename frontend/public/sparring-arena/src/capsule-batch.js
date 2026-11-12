@@ -22,7 +22,7 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
   const offset = new THREE.Vector3(), origin = new THREE.Vector3(), closedLid = new THREE.Vector3();
   const shellColors = { a: new THREE.Color(COURT_COLORS.mint), b: new THREE.Color(COURT_COLORS.coral) };
   const postIds = Array(capacity).fill(null), sides = Array(capacity).fill(null);
-  function draw(index, entry, size, opening = 0, burst = false) {
+  function draw(index, entry, size, opening = 0, burst = false, displayAppearance = entry.post?.appearance) {
     const { post, body } = entry;
     postIds[index] = post?.id ?? null;
     meshes[0].boundingSphere = null; meshes[1].boundingSphere = null;
@@ -39,7 +39,8 @@ export function createCapsuleBatch(scene, capacity, characterFactory = createCha
     if (entry.phase === 'open') characters.hide(index);
     else {
       characterRotation.copy(body.quaternion).slerp(identity, opening);
-      characters.draw(index, post, origin, size, pose, entry.characterYaw ?? 0, characterRotation);
+      const character = displayAppearance === post?.appearance ? post : { ...post, appearance: displayAppearance };
+      characters.draw(index, character, origin, size, pose, entry.characterYaw ?? 0, characterRotation);
     }
     for (let part = 0; part < meshes.length; part++) {
       if (entry.parts) {

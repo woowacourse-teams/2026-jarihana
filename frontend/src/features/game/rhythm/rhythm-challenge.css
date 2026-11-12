@@ -1,4 +1,4 @@
-/* 공식 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
+/* 랭킹 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
 .rhythm-challenge-steps {
   display: flex;
   gap: var(--space-2);

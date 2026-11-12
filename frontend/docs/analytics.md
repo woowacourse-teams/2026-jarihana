@@ -31,6 +31,14 @@ hover 개폐는 별도 성공 이벤트로 수집하지 않는다.
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
 
+## 아지트 놀러가기 HUD
+
+시점 전환은 기존 `space_mode_first_person`, `space_mode_third_person`을 유지한다.
+왼쪽 메뉴는 `group_playbar_toggle`, 시점 설정은 `space_play_settings_toggle`, 조작 도움말 열기·닫기는 `space_play_help_open`, `space_play_help_close`를 사용한다.
+공지·활동·음악 바로가기와 채팅, 꾸미기는 기존 동작 식별자를 유지한다.
+꾸미기 카메라 회전과 광각 조절은 `space_camera_turn_left`, `space_camera_turn_right`, `space_camera_wide_angle`을 사용한다.
+음소거는 방문자 개인 재생 설정의 조작이며 대기열이나 공유 재생 상태 변경과 구분한다.
+
 ## 모임 공지 UI의 고정 식별자
 
 | 동작 | action |
@@ -83,6 +91,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | 동작 | action |
 | --- | --- |
 | 헤더 게시판 메뉴, 분야 필터, 제안 열기, 더 보기, 다시 불러오기 | `browse_proposals`, `proposal_category_filter`, `proposal_open`, `proposal_list_load_more`, `proposal_list_retry` |
+| 목록의 이용 안내 열고 닫기 | `proposal_guide_toggle` |
 | 목록의 함께하고 싶어요 켜고 끄기 | `proposal_interest_toggle` |
 | 상세의 조건 칩, 모인 조건 요약 칩 열기, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_condition_summary_open`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
 | 비로그인 로그인 안내 | `proposal_login_to_interest`, `proposal_login_to_comment` |
@@ -384,16 +393,16 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 
 리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
 준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
-따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 공식 도전은 `rhythm_ranked_open`이다.
+따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 랭킹 도전은 `rhythm_ranked_open`이다.
 예전 싱글 플레이 화면의 소리 미리 듣기(`rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`)와
 접힌 튜토리얼 펼치기(`rhythm_tutorial_toggle`)는 화면에서 빠져 더 이상 기록되지 않는다.
-공식 도전 화면의 난이도 선택은 `rhythm_challenge_level_select`, 배속 선택은 `rhythm_challenge_speed_change`,
+랭킹 도전 화면의 난이도 선택은 `rhythm_challenge_level_select`, 배속 선택은 `rhythm_challenge_speed_change`,
 입력 지연 보정 슬라이더는 `rhythm_challenge_offset_change`이며 싱크 진단 창은 연습과 같은 `rhythm_sync_*` 식별자를 쓴다.
 다음 단계는 `rhythm_challenge_next`, 도전 만들기는 `rhythm_challenge_start`, 판의 시작 버튼은 `rhythm_challenge_play`,
 옵션으로 돌아가기는 `rhythm_challenge_options`, 다시 도전은 `rhythm_challenge_retry`이다. 판의 Canvas 포커스는
 `rhythm_challenge_arena_focus`, 터치 방향 버튼은 `rhythm_challenge_input_left`, `rhythm_challenge_input_down`,
 `rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 옵션과 결과 옆 랭킹의 더 보기와 다시 불러오기는
-`rhythm_ranking_more`, `rhythm_ranking_retry`이다. 공식 도전의 점수와 입력은 분석 이벤트로 보내지 않는다.
+`rhythm_ranking_more`, `rhythm_ranking_retry`이다. 랭킹 도전의 점수와 입력은 분석 이벤트로 보내지 않는다.
 따라 하기와 연습 화면의 싱글 플레이 복귀는 `rhythm_single_back`이다. 따라 하기의 단계 선택은
 `rhythm_lesson_step_kung`, `rhythm_lesson_step_chak`, `rhythm_lesson_step_chi`, 빠르기는
 `rhythm_lesson_tempo_slow`, `rhythm_lesson_tempo_normal`, `rhythm_lesson_tempo_original`,

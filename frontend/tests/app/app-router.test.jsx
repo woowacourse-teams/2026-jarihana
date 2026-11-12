@@ -51,13 +51,15 @@ it.each([
   ["/home", "GroupsPage"],
   ["/land", "LandingPage"],
   ["/land/", "LandingPage"],
+  ["/land/join", "LandingJoinPage"],
+  ["/land/create", "LandingCreatePage"],
+  ["/land/sparring", "LandingSparringPage"],
+  ["/land/games", "LandingGamesPage"],
   ["/groups", "GroupBrowsePage"],
   ["/activities", "ActivityPostsPage"],
   ["/games", "GamesPage"],
   ["/games/rhythm-harpoon", "RhythmHarpoonEntryPage"],
-  ["/games/rhythm-harpoon/single", "RhythmHarpoonSinglePage"],
   ["/games/rhythm-harpoon/learn", "RhythmHarpoonLessonPage"],
-  ["/games/rhythm-harpoon/practice", "RhythmHarpoonPage"],
   ["/invitations/501", "InvitationPage"],
   ["/invitations/link/token", "InvitationPage"],
   ["/groups/42", "GroupDetailPage"]
@@ -65,6 +67,15 @@ it.each([
   renderRoutes([path]);
   expect(screen.getByRole("heading", { name: page })).toBeInTheDocument();
   expect(screen.getByLabelText("현재 경로")).toHaveTextContent(path);
+});
+
+it.each([
+  ["/games/rhythm-harpoon/single", "RhythmHarpoonChallengePage", "/games/rhythm-harpoon/challenge"],
+  ["/games/rhythm-harpoon/practice", "RhythmHarpoonEntryPage", "/games/rhythm-harpoon"]
+])("sends %s to %s while rhythm practice is closed", (path, page, target) => {
+  renderRoutes([path + "?from=old#top"]);
+  expect(screen.getByRole("heading", { name: page })).toBeInTheDocument();
+  expect(screen.getByLabelText("현재 경로")).toHaveTextContent(target + "?from=old#top");
 });
 
 it("replaces the legacy browse URL while preserving query, hash and back navigation", () => {
