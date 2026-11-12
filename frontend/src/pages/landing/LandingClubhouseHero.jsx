@@ -1,15 +1,13 @@
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { Link } from "react-router";
 
 import { useToast } from "../../shared/ui";
-import orbitVideo from "../../shared/assets/landing/landing-clubhouse-orbit.mp4";
 import orbitPoster from "../../shared/assets/landing/landing-clubhouse-orbit-poster.webp";
-import walkVideo from "../../shared/assets/landing/landing-clubhouse-walk.mp4";
-import walkPoster from "../../shared/assets/landing/landing-clubhouse-walk-poster.webp";
 import decorateImage from "../../shared/assets/landing/landing-clubhouse-decorate.webp";
 import insideImage from "../../shared/assets/landing/landing-clubhouse-inside.webp";
 import musicImage from "../../shared/assets/landing/landing-clubhouse-music.webp";
-import { LandingLoopVideo } from "./LandingLoopVideo";
+import { LandingClubhouseScene } from "./LandingClubhouseScene";
 import "./landing-clubhouse.css";
 
 // 아지트(모임 3D 공간)는 아직 서비스에 열리지 않아, 체험 버튼은 준비 중이라는 안내만 띄운다.
@@ -42,8 +40,32 @@ const highlights = [
   }
 ];
 
+// 장막이 이만큼 아래로 걷히기 전까지는 아지트를 둘러보고, 더 걷히면 3인칭 걷기로 넘어간다.
+const CURTAIN_WALK_RATIO = 0.45;
+
+// 장막이 화면에 남은 비율로 3D 장면이 둘러보기와 걷기 중 무엇을 보여 줄지 정한다.
+function useCurtainMode(curtainRef) {
+  const [mode, setMode] = useState("orbit");
+  useEffect(() => {
+    const curtain = curtainRef.current;
+    if (!curtain || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const ratio = entry.intersectionRatio ?? (entry.isIntersecting ? 1 : 0);
+        setMode(entry.isIntersecting && ratio > CURTAIN_WALK_RATIO ? "orbit" : "walk");
+      },
+      { threshold: [0, CURTAIN_WALK_RATIO, 1] }
+    );
+    observer.observe(curtain);
+    return () => observer.disconnect();
+  }, [curtainRef]);
+  return mode;
+}
+
 export function LandingClubhouseHero({ active }) {
   const toast = useToast();
+  const curtainRef = useRef(null);
+  const sceneMode = useCurtainMode(curtainRef);
 
   function announce() {
     toast.show(CLUBHOUSE_NOTICE);
@@ -57,11 +79,9 @@ export function LandingClubhouseHero({ active }) {
       data-guide-chapter="clubhouse"
       id="clubhouse"
     >
-      <div className="landing-clubhouse__track">
-        <div className="landing-clubhouse__curtain">
-          <div aria-hidden="true" className="landing-clubhouse__backdrop">
-            <LandingLoopVideo poster={orbitPoster} src={orbitVideo} />
-          </div>
+      <div className="landing-clubhouse__track" data-scene-mode={sceneMode}>
+        <div className="landing-clubhouse__curtain" ref={curtainRef}>
+          <div aria-hidden="true" className="landing-clubhouse__backdrop" />
           <div className="landing-clubhouse__copy">
             <h1 id="clubhouse-title">
               <span>우리만의 아지트를 꾸미고</span>
@@ -94,10 +114,10 @@ export function LandingClubhouseHero({ active }) {
           </span>
         </div>
         <div className="landing-clubhouse__stage">
-          <LandingLoopVideo
-            label="아지트를 둘러본 뒤 캐릭터가 현관을 지나 거실로 걸어 들어가는 화면"
-            poster={walkPoster}
-            src={walkVideo}
+          <LandingClubhouseScene
+            label="아지트를 천천히 둘러보다가, 장막이 걷히면 캐릭터가 현관을 지나 거실로 걸어 들어가는 3D 화면"
+            mode={sceneMode}
+            poster={orbitPoster}
           />
           <p className="landing-clubhouse__caption">
             <strong>주말 아지트에 놀러 가는 중이에요</strong>
