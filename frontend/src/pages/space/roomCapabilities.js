@@ -43,7 +43,7 @@ export function sharedInteractionTarget(target, state) {
     surfaces.forEach((_, slot) => {
       const placed = placedItems.find((item) => item.slot === slot);
       const location = target.item.kind === "bookshelf" ? BOOKSHELF_PLACES[slot]
-        : surfaces.length > 1 ? `${slot + 1}번째 선반` : "";
+        : surfaces.length > 1 ? `${slot + 1}번째 자리` : "";
       if (held && !placed) {
         add(`place-${slot}`, location ? `${location}에 놓기` : "위에 놓기",
           { action: "PLACE", slot, itemId: held.id }, "space_item_place");
@@ -57,5 +57,6 @@ export function sharedInteractionTarget(target, state) {
   if (caps.includes("careable")) add("water", "물 주기", { action: "WATER" }, "space_plant_water");
   if (caps.includes("switchable")) add("toggle", asset.on === false ? "조명 켜기" : "조명 끄기", { action: "TOGGLE" }, "space_general_lighting_toggle");
   if (caps.includes("camera")) add("capture", "사진 찍기", { action: "CAPTURE" }, "space_camera_capture");
+  if (caps.length === 1 && caps[0] === "surface" && !choices.length) return null;
   return { ...target, choices, carry: false, hint: definition.producer && !cup ? "빈 컵을 들거나 기계 위에 놓고 사용해 주세요." : "지금 사용할 수 있는 물건이 없어요.", label: target.seat ? "앉기" : choices.length ? "사용하기" : target.label };
 }

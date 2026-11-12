@@ -40,6 +40,8 @@ export function isWalkablePosition(position, room, radius = PLAYER.radius) {
   return walkablePosition(position, collisionContext(room), radius);
 }
 
+export function walkFloorHeight(position, room) { return floorHeight(position, collisionContext(room)); }
+
 function walkablePosition(position, context, radius = PLAYER.radius) {
   const { layout, obstacles, facilities } = context;
   const y = position.y ?? 0;
@@ -66,11 +68,12 @@ function walkablePosition(position, context, radius = PLAYER.radius) {
     overlaps(bounds, obstacle.bounds));
 }
 
-export function moveWalker(position, delta, room) {
+export function moveWalker(position, delta, room, path) {
   if (![position.x, position.z, position.y ?? 0, delta.x, delta.z].every(Number.isFinite)) return { ...position };
   const context = collisionContext(room);
   const next = { ...position };
   next.y ??= 0;
+  if (path && path.length === 0) path.push({ ...next });
   const steps = Math.max(1, Math.ceil(Math.hypot(delta.x, delta.z) / 0.15));
   const dx = delta.x / steps;
   const dz = delta.z / steps;
@@ -84,8 +87,10 @@ export function moveWalker(position, delta, room) {
     if (walkablePosition(candidate, context)) Object.assign(next, candidate);
   }
   for (let index = 0; index < steps; index += 1) {
+    const before = { ...next };
     tryStep(next.x + dx, next.z);
     tryStep(next.x, next.z + dz);
+    if (path && (next.x !== before.x || next.z !== before.z)) path.push({ ...next });
   }
   return next;
 }

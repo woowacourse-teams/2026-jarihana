@@ -14,6 +14,7 @@ import { CLIMBING, BOARDGAME, getRoomLayout } from "./roomLayout";
 import { createBoardgameFurniture, createBoardgameShell, createBoardgameFacility } from "./boardgameModels";
 import { createBuildingContext } from "./roomBuilding";
 import { CLIMBING_WALL_INNER_FACE } from "./themeArchitecture";
+import { AVATAR_PALETTE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 
 const CLIMBING_PANEL_REAR = -0.98;
 
@@ -1326,12 +1327,29 @@ export function createWalkProp(kind, avatarColor) {
   const book = kind === "book";
   for (const side of book ? [-1, 1] : [1]) {
     const x = side * (book ? 0.17 : 0.11);
-    grip.sphere(0.05, 0.042, 0.069, MASCOT_SKIN, x, -0.012, book ? 0.085 : 0.035);
+    const hand = grip.sphere(0.05, 0.042, 0.069, MASCOT_SKIN, x, -0.012, book ? 0.085 : 0.035);
+    hand.name = "first-person-hand";
     const sleeve = grip.sphere(0.057, 0.052, 0.105, avatarColor, x + side * 0.025, -0.049, book ? 0.166 : 0.114);
+    sleeve.name = "first-person-sleeve";
+    if (sleeve.material === hand.material) sleeve.material = hand.material.clone();
     sleeve.rotation.y = side * 0.28;
   }
   kit.group.add(grip.group);
   return kit.group;
+}
+
+export function updateWalkPropAppearance(prop, appearance, avatarColor = "#5369dc") {
+  const grip = prop?.getObjectByName("first-person-grip");
+  if (!grip) return;
+  const skin = AVATAR_PALETTE.skin[appearance?.skin] ?? MASCOT_SKIN;
+  const outfit = AVATAR_PALETTE.outfit[appearance?.outfit] ?? avatarColor;
+  const palette = `${skin}:${outfit}`;
+  if (grip.userData.palette === palette) return;
+  for (const part of grip.children) {
+    if (part.name === "first-person-hand") part.material.color.set(skin);
+    if (part.name === "first-person-sleeve") part.material.color.set(outfit);
+  }
+  grip.userData.palette = palette;
 }
 
 // Held models keep their grip origin. For floor and shelf placement, use their bottom.
@@ -1446,13 +1464,16 @@ const gripShoulder = new THREE.Vector3(0.24, 0.59, 0.1);
 const gripDirection = new THREE.Vector3();
 const up = new THREE.Vector3(0, 1, 0);
 
-export function poseMascotGrip(model, held, seated, amount) {
+export function poseMascotGrip(model, held, seated, amount, consume = 0) {
   const anchor = model.getObjectByName("mascot-held-anchor");
   if (!anchor) return null;
   const hand = model.getObjectByName("mascot-grip-hand");
   const sleeve = model.getObjectByName("mascot-grip-sleeve");
-  if (seated && held !== "book" && hand && sleeve) {
-    hand.position.set(0.28 - 0.12 * amount, 0.46 + 0.32 * amount, 0.32 + 0.025 * amount);
+  if (held !== "book" && hand && sleeve) {
+    const height = seated ? 0 : 0.22;
+    const consumeRise = held === "cookie" ? 0.08 : -0.025;
+    hand.position.set(0.28 - 0.12 * amount - 0.09 * consume, 0.46 + height + 0.32 * amount + consumeRise * consume, 0.32 + 0.025 * amount);
+    gripShoulder.y = 0.59 + height;
     gripDirection.subVectors(hand.position, gripShoulder);
     sleeve.position.copy(gripShoulder).addScaledVector(gripDirection, 0.5);
     sleeve.scale.set(0.115, gripDirection.length() / 2 + 0.065, 0.106);

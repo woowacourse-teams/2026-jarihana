@@ -5,6 +5,7 @@ import { getRoomLayout } from "./roomLayout.js";
 import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip, walkPropBaseOffset } from "./roomModels.js";
 import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
 import { fitSeatedAvatar } from "./seatedAvatar.js";
+import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
 
 export function thrownItemPosition(item, now) {
   if (item.location !== "THROWN" || !item.velocity || item.startedAt === null) return item.position;
@@ -20,10 +21,10 @@ function nameLabel(name) {
   const context = canvas.getContext("2d");
   if (!context) return null;
   context.font = "500 36px sans-serif"; context.textAlign = "center";
-  context.lineWidth = 7; context.strokeStyle = "rgba(255,255,255,0.9)"; context.fillStyle = "#343440";
+  context.lineWidth = 7; context.lineJoin = "round"; context.strokeStyle = "rgba(20,25,32,0.9)"; context.fillStyle = "#ffffff";
   context.strokeText(name, 256, 50, 490); context.fillText(name, 256, 50, 490);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
-  sprite.position.y = 1.85; sprite.scale.set(2.1, 0.33, 1);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false, toneMapped: false }));
+  sprite.position.y = 2.12; sprite.scale.set(2.1, 0.33, 1);
   return sprite;
 }
 
@@ -33,6 +34,8 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
   scene.add(layer);
   const players = new Map();
   const objects = new Map();
+  const consumptions = new Map();
+  let previousState;
   let characters;
   let avatarCapacity = 0;
   let drawnAvatars = 0;
@@ -50,9 +53,20 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
     const visiblePlayers = state.participants.filter((actor) => actor.memberId !== state.selfId);
     const ids = new Set(visiblePlayers.map((actor) => actor.memberId));
     for (const id of players.keys()) if (!ids.has(id)) remove(players, id);
+    if (state.type === "ROOM_SNAPSHOT" || previousState?.roomEpoch !== state.roomEpoch ||
+      previousState?.layoutRevision !== state.layoutRevision) consumptions.clear();
+    for (const id of consumptions.keys()) if (!ids.has(id)) consumptions.delete(id);
     const itemMap = new Map(state.items.map((item) => [item.id, item]));
     for (const actor of visiblePlayers) {
-      const held = itemMap.get(actor.heldItemId)?.kind ?? null;
+      const nextConsumption = detectHeldConsumption(previousState, state, actor.memberId);
+      if (nextConsumption) consumptions.set(actor.memberId, nextConsumption);
+      let consumption = consumptions.get(actor.memberId);
+      if (consumption && (actor.heldItemId !== consumption.item.id && !(consumption.lastBite && !actor.heldItemId) ||
+        !consumptionFrame(consumption, store.serverNow(), reduceMotion?.matches).active)) {
+        consumptions.delete(actor.memberId);
+        consumption = null;
+      }
+      const held = consumption?.item.kind ?? itemMap.get(actor.heldItemId)?.kind ?? null;
       const greeting = actor.emote?.expiresAt > store.serverNow();
       const heldRemaining = itemMap.get(actor.heldItemId)?.remaining ?? 1;
       const speech = speechMessages.find((message) => String(message.memberId) === actor.memberId);
@@ -72,6 +86,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       if (speech && makeSpeech) model.add(makeSpeech(speech));
       const prop = held ? createWalkProp(held, actor.avatarColor) : null;
       if (prop) {
+        prop.traverse((object) => prepareAvatarMaterial(object.material));
         const grip = prop.getObjectByName("first-person-grip");
         if (grip) grip.visible = false;
         prop.name = "shared-held-prop";
@@ -82,6 +97,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       }
       layer.add(model); players.set(actor.memberId, { model, appearance, prop, held, seated: Boolean(actor.seat), cupLift });
     }
+    previousState = state;
     const avatarCount = visiblePlayers.filter((actor) => actor.avatarAppearance).length;
     if (avatarCount > avatarCapacity) {
       characters?.dispose();
@@ -97,6 +113,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       if (objects.get(item.id)?.kind === item.kind) continue;
       remove(objects, item.id);
       const model = createWalkProp(item.kind, "#536bd6");
+      model.traverse((object) => prepareAvatarMaterial(object.material));
       model.name = `shared-item-${item.id}`;
       const grip = model.getObjectByName("first-person-grip");
       if (grip) grip.visible = false;
@@ -110,6 +127,13 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
     if (disposed || !store) return;
     const state = store.getState();
     const serverNow = store.serverNow();
+    let expiredConsumption = false;
+    for (const [id, consumption] of consumptions) {
+      if (!consumptionFrame(consumption, serverNow, reduceMotion?.matches).active) {
+        consumptions.delete(id); expiredConsumption = true;
+      }
+    }
+    if (expiredConsumption) refresh();
     const room = getRoom();
     const itemById = new Map(state.items.map((item) => [item.id, item]));
     let active = time < animateUntil;
@@ -127,22 +151,26 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       const locomotion = actor.seat ? "idle" : sampled.locomotion;
       const greeting = actor.emote?.expiresAt > serverNow;
       const raised = Boolean(actor.seat && actor.pose === "drinking" && isCup(entry.held));
-      const amount = cupLiftAmount(entry.cupLift, raised, time, reduceMotion?.matches);
+      const consumption = consumptions.get(actor.memberId);
+      const eating = consumptionFrame(consumption, serverNow, reduceMotion?.matches);
+      const amount = Math.max(eating.lift, cupLiftAmount(entry.cupLift, raised, time, reduceMotion?.matches));
+      active ||= eating.active;
       if (actor.avatarAppearance) {
         const moving = locomotion === "walking" || locomotion === "running";
         const phase = serverNow * (locomotion === "running" ? 0.009 : 0.006);
         const hands = drawClubhouseAvatar(characters, avatarIndex++, actor.avatarAppearance,
           entry.model.position, entry.model.scale.x, entry.model.rotation.y, {
             seated: Boolean(actor.seat), locomotion, stride: moving ? Math.sin(phase) : 0,
-            held: entry.held, lift: amount, greeting, time: serverNow,
+            held: entry.held, lift: amount, consume: eating.lift, greeting, time: serverNow,
           });
         if (entry.prop) placeAvatarProp(entry.prop, hands, entry.held, entry.model.scale.x);
       } else {
         animateMascot(entry.model, locomotion, serverNow);
-        if (entry.prop) poseMascotGrip(entry.model, entry.held, Boolean(actor.seat), amount);
+        if (entry.prop) poseMascotGrip(entry.model, entry.held, Boolean(actor.seat), amount, eating.lift);
       }
       if (entry.prop) {
-        const remaining = itemById.get(actor.heldItemId)?.remaining ?? 1;
+        entry.prop.visible = !eating.active || eating.visible;
+        const remaining = eating.active ? eating.remaining : itemById.get(actor.heldItemId)?.remaining ?? 1;
         if (entry.held === "cookie") entry.prop.scale.setScalar(Math.max(0.2, Math.sqrt(remaining)));
         const liquid = entry.prop.getObjectByName("cup-liquid");
         if (liquid) liquid.position.y = 0.04 + remaining * 0.112;
@@ -178,6 +206,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
     setSpeech(messages, factory) { speechMessages = messages; makeSpeech = factory; refresh(); },
     setVisible(value) { layer.visible = value; },
     setStore(next) {
+      if (store !== next) { previousState = undefined; consumptions.clear(); }
       store = next;
       if (!store) {
         for (const id of players.keys()) remove(players, id);

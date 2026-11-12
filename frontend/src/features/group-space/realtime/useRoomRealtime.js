@@ -16,7 +16,10 @@ export function useRoomRealtime({ groupId, memberId, enabled, layoutRevision, on
   }, [runtime, enabled, memberId]);
   useEffect(() => { runtime.connection.setLayoutRevision(layoutRevision); }, [runtime, layoutRevision]);
   useEffect(() => {
-    if (status.layoutRevision !== null && status.layoutRevision > layoutRevision) onLayoutChange?.(status.layoutRevision);
+    if (status.layoutRevision === null || status.layoutRevision <= layoutRevision || !onLayoutChange) return undefined;
+    onLayoutChange(status.layoutRevision);
+    const retry = setInterval(() => onLayoutChange(status.layoutRevision), 3000);
+    return () => clearInterval(retry);
   }, [status.layoutRevision, layoutRevision, onLayoutChange]);
   return { runtime, status };
 }

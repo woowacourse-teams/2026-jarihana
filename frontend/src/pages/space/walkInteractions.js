@@ -39,7 +39,7 @@ export function itemInteraction(item, elevation, occupied, room) {
   return {
     id: item.id, item, name, x: item.x, z: item.z, width, depth, floor: seat ? elevation : item.level === 1 ? getRoomLayout(room).mezzanine?.height || 0 : 0,
     minY: elevation, maxY: elevation + height * (item.scaleY || 1),
-    label: seat ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : "간식 고르기",
+    label: seat ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : snacks ? "간식 고르기" : "사용하기",
     action: seat ? "space_seat_sit" : undefined,
     sharedOnly: !seat && !feature && !plant && !coffee && !snacks,
     feature, seat, carry: coffee || snacks,

@@ -2,6 +2,8 @@ import { requestRoomAdmission } from "./api.js";
 import { parseRoomMessage, RoomConnectionError } from "./protocol.js";
 
 const TERMINAL_CLOSES = new Set([4001, 4002, 4003, 4400, 4401, 4403, 4409]);
+const RECOVERABLE = new Set(["INVALID_MOVEMENT", "LAYOUT_MISMATCH"]);
+const RETRYABLE = new Set(["ACCESS_EXPIRED", "STALE_CONNECTION", "OVERLOADED", "ROOM_CLOSED", "ROOM_FAILURE", "SERVER_RESTART", "REALTIME_UNAVAILABLE"]);
 
 export function createRoomConnection({ groupId, store, admission = requestRoomAdmission, Socket = WebSocket,
   now = Date.now, random = Math.random }) {
@@ -12,6 +14,7 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
   let retryTimer;
   let authTimer;
   let heartbeat;
+  let resyncTimer;
   let abort;
   let lastReceived = 0;
   let lastMove = 0;
@@ -30,8 +33,9 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
     pending.clear();
   }
   function clearConnection() {
-    clearTimeout(authTimer); clearInterval(heartbeat);
-    rejectPending(new RoomConnectionError("DISCONNECTED", "연결이 끊겼어요. 다시 연결한 뒤 시도해 주세요."));
+    clearTimeout(authTimer); clearTimeout(resyncTimer); clearInterval(heartbeat);
+    resyncPending = false;
+    rejectPending(new RoomConnectionError("DISCONNECTED", "연결을 복구하고 있어요. 이 동작은 처리 여부를 확인하지 못했어요."));
   }
   function send(value) {
     if (socket?.readyState !== 1) return false;
@@ -50,6 +54,14 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
     abort?.abort(); clearTimeout(retryTimer); clearConnection();
     socket?.close();
     store.clear("error"); store.setStatus("error", error);
+  }
+  function resync() {
+    if (stopped || socket?.readyState !== 1 || resyncPending) return;
+    resyncPending = true;
+    store.setStatus("syncing");
+    send({ type: "RESYNC", ...context() });
+    const activeSocket = socket;
+    resyncTimer = setTimeout(() => activeSocket.close(), 2500);
   }
   async function connect() {
     const current = ++generation;
@@ -81,11 +93,12 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
         try { message = parseRoomMessage(data); } catch (error) { finish(error); return; }
         if (["ROOM_SNAPSHOT", "ROOM_STATE", "MOVEMENT_FRAME"].includes(message.type)) {
           if (message.roomId !== String(groupId)) { finish(new RoomConnectionError("ROOM_MISMATCH", "공간 연결을 다시 확인해 주세요.")); return; }
-          const result = store.apply(message);
-          if (result === "resync" && !resyncPending) { resyncPending = true; send({ type: "RESYNC", ...context() }); }
+          if (resyncPending && message.type !== "ROOM_SNAPSHOT") return;
           if (message.type === "ROOM_SNAPSHOT") {
-            clearTimeout(authTimer); attempts = 0; resyncPending = false;
+            clearTimeout(authTimer); clearTimeout(resyncTimer); attempts = 0; resyncPending = false;
           }
+          const result = store.apply(message);
+          if (result === "resync") resync();
         } else if (message.type === "COMMAND_RESULT") {
           const request = pending.get(message.commandId);
           if (!request) return;
@@ -93,11 +106,9 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
           if (message.success) request.resolve(message);
           else request.reject(new RoomConnectionError(message.code || "REJECTED", message.message || "지금은 할 수 없는 행동이에요."));
         } else if (message.type === "ERROR") {
-          // Realtime sends an authoritative snapshot right after rejecting this update.
-          if (store.getStatus().status === "connected" &&
-            (message.code === "INVALID_MOVEMENT" || message.code === "LAYOUT_MISMATCH")) return;
+          if (RECOVERABLE.has(message.code)) { resync(); return; }
           const error = new RoomConnectionError(message.code, message.message);
-          if (message.retryable) { store.setStatus("reconnecting", error); activeSocket.close(); }
+          if (message.retryable || RETRYABLE.has(message.code)) { store.setStatus("reconnecting", error); activeSocket.close(); }
           else finish(error);
         } else if (message.type === "ROOM_CLOSED") {
           finish(new RoomConnectionError(message.code || "ROOM_CLOSED", message.message || "공간이 종료됐어요."));
@@ -105,8 +116,9 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
       };
       activeSocket.onclose = ({ code, reason }) => {
         if (!active()) return;
+        generation += 1;
         clearConnection();
-        if (TERMINAL_CLOSES.has(code)) {
+        if (TERMINAL_CLOSES.has(code) && !RECOVERABLE.has(reason) && !RETRYABLE.has(reason)) {
           const failure = /^[A-Z_]{1,80}$/.test(reason ?? "") ? reason : code === 4002 ? "CONNECTION_REPLACED" : "ACCESS_DENIED";
           finish(new RoomConnectionError(failure, "연결이 종료됐어요. 입장 상태를 확인해 주세요."));
         }
@@ -115,11 +127,11 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
       activeSocket.onerror = () => { if (active()) activeSocket.close(); };
     } catch (error) {
       if (stopped || current !== generation || error?.name === "AbortError") return;
-      if ([400, 401, 403, 404, 409, 503].includes(error?.status)) finish(error);
+      if ([400, 401, 403, 404, 409].includes(error?.status) || error?.code === "REALTIME_DISABLED") finish(error);
       else schedule();
     }
   }
-  function ready() { return store.getStatus().status === "connected" && layoutRevision === store.getState().layoutRevision && socket?.readyState === 1; }
+  function ready() { return !resyncPending && store.getStatus().status === "connected" && layoutRevision === store.getState().layoutRevision && socket?.readyState === 1; }
   return {
     start() { if (!stopped) return; stopped = false; attempts = 0; void connect(); },
     stop() { stopped = true; generation += 1; abort?.abort(); clearTimeout(retryTimer); clearConnection(); socket?.close(1000, "LEAVE"); store.clear(); },
@@ -127,19 +139,19 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
     layoutMatches: () => layoutRevision === store.getState().layoutRevision,
     setLayoutRevision(value) { if (value === layoutRevision) return; layoutRevision = value; store.refresh(); },
     move(payload, force = false) {
-      if (!ready() || socket.bufferedAmount > 65536 || (!force && now() - lastMove < 100)) return;
-      lastMove = now(); send({ type: "MOVE", ...context(), moveSeq: ++moveSeq, payload });
+      if (!ready() || socket.bufferedAmount > 65536 || (!force && now() - lastMove < 100)) return false;
+      lastMove = now(); return send({ type: "MOVE", ...context(), moveSeq: ++moveSeq, payload });
     },
     command(payload) {
       if (!ready()) return Promise.reject(new RoomConnectionError(store.getStatus().status === "connected" ? "LAYOUT_MISMATCH" : "NOT_READY", "공간에 연결하고 있어요. 잠시 뒤 다시 시도해 주세요."));
       if (pending.size >= 16 || socket.bufferedAmount > 131072) return Promise.reject(new RoomConnectionError("BUSY", "앞선 동작을 처리하고 있어요."));
       const commandId = `${prefix}-${++commandSeq}`;
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => { pending.delete(commandId); reject(new RoomConnectionError("TIMEOUT", "동작 결과를 확인하지 못했어요. 현재 상태를 다시 확인해 주세요.")); send({ type: "RESYNC", ...context() }); }, 5000);
+        const timer = setTimeout(() => { pending.delete(commandId); reject(new RoomConnectionError("TIMEOUT", "동작 결과를 확인하지 못했어요. 현재 상태를 다시 확인해 주세요.")); resync(); }, 5000);
         pending.set(commandId, { resolve, reject, timer });
         send({ type: "COMMAND", ...context(), commandId, payload });
       });
     },
-    resync() { if (socket?.readyState === 1) send({ type: "RESYNC", ...context() }); }
+    resync
   };
 }

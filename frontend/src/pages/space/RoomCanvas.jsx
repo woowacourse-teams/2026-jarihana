@@ -7,7 +7,7 @@ const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 �
 
 export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
-  avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange, realtime, realtimeStatus, onCapture, onSharedLighting }) {
+  avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange, realtime, onCapture, onSharedLighting }) {
   const host = useRef(null);
   const scene = useRef(null);
   const interactionMenu = useRef(null);
@@ -210,7 +210,7 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
         role={interactive ? "application" : "img"} tabIndex={interactive ? 0 : cameraFlight && view === "firstPerson" ? -1 : undefined}
         aria-roledescription={!interactive ? "3D 공간 미리보기" : walking || !editable ? "3D 공간 둘러보기" : "3D 공간 편집기"}
         title={preview && interactive ? PREVIEW_CONTROLS : undefined}
-        aria-label={!interactive ? "모임 아지트 미리보기." : preview ? `모임 아지트 미리보기. ${PREVIEW_CONTROLS}` : walking ? "모임 공간 둘러보기. WASD로 이동, Shift와 함께 누르면 달리기, Space로 점프하세요. E로 앉기, 일어서기 또는 가까운 물건 사용, 숫자키로 자세나 행동 선택, R로 소품 내려놓기. Esc로 포인터를 풀고, 화면을 클릭하거나 Enter를 누르면 시선 조작을 시작해요. 터치 화면에서는 드래그하세요." :
+        aria-label={!interactive ? "모임 아지트 미리보기." : preview ? `모임 아지트 미리보기. ${PREVIEW_CONTROLS}` : walking ? "모임 공간 둘러보기. WASD로 이동, Shift와 함께 누르면 달리기, Space로 점프하세요. E로 앉기, 일어서기 또는 가까운 물건 사용, 숫자키로 자세나 행동 선택, R로 소품 내려놓기. 손에 든 음식이나 음료는 마우스 왼쪽 클릭으로 먹거나 마시고, 카메라는 사진을 찍어요. Esc로 포인터를 풀고 Enter로 시선 조작을 시작해요. 터치 화면에서는 드래그하고 행동 버튼을 누르세요." :
           editable ? "모임 공간. 빈 공간 드래그로 회전, 우클릭 또는 Shift와 드래그로 화면 이동, 휠로 확대·축소하세요. 가구는 드래그하거나 목록에서 선택한 뒤 방향키로 이동하세요. Escape는 선택 해제입니다." : "모임 공간 둘러보기. 드래그로 회전, 우클릭 또는 Shift와 드래그로 화면 이동, 휠로 확대·축소하세요. 추억 액자를 눌러 읽거나 1인칭과 3인칭으로 걸어 보세요."}
         data-ph-capture-attribute-action={interactive ? walking ? "space_walk_look" : "space_object_select" : undefined}
         onKeyDown={interactive && !preview ? (event) => {
@@ -248,6 +248,19 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
               <kbd>E</kbd>{(playMode && PLAY_FEATURE_LABELS[interaction.target.feature]) || interaction.target.label}
             </button>
           )}
+          {!menu && (interaction.consumable || interaction.camera) && (
+            <button type="button" className="space-studio__interaction-prompt space-studio__held-action"
+              disabled={interaction.pending}
+              data-ph-capture-attribute-action={interaction.camera ? "space_camera_capture" : "space_item_consume"}
+              onKeyDown={interactionKey} onClick={() => interactionCommand(interaction.camera ? "capture" : "consume")}>
+              <svg viewBox="0 0 20 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <rect x="3" y="1" width="14" height="22" rx="7" />
+                <path d="M10 2v9H4V8a6 6 0 0 1 6-6Z" fill="currentColor" stroke="none" />
+                <path d="M3 11h14M10 1v10" />
+              </svg>
+              <small>좌클릭</small> · {interaction.camera ? "사진 찍기" : interaction.held === "cookie" ? "쿠키 먹기" : "마시기"}
+            </button>
+          )}
           {choices && (
             <div className={menu ? "space-studio__interaction-menu" : "space-studio__interaction-poses"} role="group"
               aria-label={menu?.target.label || "앉은 자세"} ref={menu ? interactionMenu : undefined}>
@@ -275,11 +288,9 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
         </div>
       )}
       {walkingReady && realtime && <div className="room-canvas__shared-tools">
-        <span role="status">{realtimeStatus?.status === "connected" ? "함께 있는 아지트" : realtimeStatus?.error?.message || "아지트에 연결하는 중…"}</span>
+        <span>함께 있는 아지트</span>
         <button type="button" data-ph-capture-attribute-action="space_member_greet" onClick={() => interactionCommand("greet")}>인사 H</button>
         {interaction?.throwable && <button type="button" data-ph-capture-attribute-action="space_item_throw" onClick={() => interactionCommand("throw")}>던지기 G</button>}
-        {interaction?.consumable && <button type="button" data-ph-capture-attribute-action="space_item_consume" onClick={() => interactionCommand("consume")}>먹기 · 마시기</button>}
-        {interaction?.camera && <button type="button" data-ph-capture-attribute-action="space_camera_capture" onClick={() => interactionCommand("capture")}>사진 찍기</button>}
       </div>}
       {status === "loading" && <div className="space-studio__scene-state" role="status">우리 공간을 펼치는 중…</div>}
       {status === "error" && (

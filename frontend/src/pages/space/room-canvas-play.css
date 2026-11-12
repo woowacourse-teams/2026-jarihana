@@ -17,7 +17,12 @@
   box-shadow: 0 0 0 3px rgba(255, 244, 207, 0.35), 0 0 0 4px rgba(20, 30, 34, 0.4);
 }
 
-.space-studio__interaction.room-canvas__play-interaction { top: calc(50% + 52px); }
+.space-studio__interaction.room-canvas__play-interaction {
+  top: calc(50% + 52px);
+  bottom: auto;
+  height: max-content;
+  align-content: start;
+}
 
 .room-canvas__shared-tools {
   position: absolute;

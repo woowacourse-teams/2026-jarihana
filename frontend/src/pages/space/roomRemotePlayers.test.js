@@ -15,6 +15,25 @@ const actor = (memberId, x) => ({ memberId, displayName: memberId, avatarColor: 
 const state = (extra = {}) => ({ type: "ROOM_SNAPSHOT", roomEpoch: "e", connectionGeneration: "g", layoutRevision: 1,
   controlSeq: 1, frameSeq: 1, serverTime: 1000, selfId: "1", participants: [actor("1", 0), actor("2", 3)], items: [], assets: {}, ...extra });
 
+test("remote handheld, placed, dropped and thrown props all receive the room lighting", () => {
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => 1000 });
+  const prepare = jest.fn();
+  const items = ["HELD", "SURFACE", "WORLD", "THROWN"].map((location, index) => ({
+    id: `item-${index}`, kind: index === 0 ? "cookie" : "cup", location, remaining: 1,
+    holderId: index === 0 ? "2" : null, position: { x: 0, y: 0, z: 0 },
+  }));
+  store.apply(state({ participants: [{ ...actor("2", 0), heldItemId: items[0].id }], items }));
+  const players = createRemotePlayers(scene, jest.fn(), () => null, prepare);
+  players.setStore(store);
+  for (const name of ["shared-held-prop", "shared-item-item-1", "shared-item-item-2", "shared-item-item-3"]) {
+    const prop = scene.getObjectByName(name);
+    expect(prop).toBeDefined();
+    prop.traverse((object) => { if (object.material) expect(prepare).toHaveBeenCalledWith(object.material); });
+  }
+  players.dispose();
+});
+
 test("remote actors render server positions and disappear on leave or runtime cleanup", () => {
   const scene = new THREE.Scene(); const store = createRoomStore({ now: () => 1000 });
   store.apply(state()); const players = createRemotePlayers(scene, jest.fn()); players.setStore(store); frame(1000);
@@ -146,5 +165,30 @@ test("personalized remote avatars share the rig and keep a raised cup attached",
   expect(cupY()).toBeCloseTo(start);
   update("relaxed", 1800, []);
   expect(layer.children.filter((child) => child.isInstancedMesh).every((mesh) => mesh.count === 0)).toBe(true);
+  players.dispose();
+});
+
+test.each([false, true])("remote last bite reaches the mouth before disappearing (personal avatar: %s)", (personalized) => {
+  let now = 1000;
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => now });
+  const member = { ...actor("2", 3), locomotion: "idle", heldItemId: "cookie",
+    ...(personalized && { avatarAppearance: AVATAR_PRESETS[0].appearance }) };
+  store.apply(state({ participants: [member], items: [{ id: "cookie", kind: "cookie", location: "HELD", holderId: "2", remaining: .32 }] }));
+  const players = createRemotePlayers(scene, jest.fn());
+  players.setStore(store); frame(now);
+  const prop = scene.getObjectByName("shared-held-prop");
+  const start = prop.getWorldPosition(new THREE.Vector3()).y;
+  now = 1100;
+  store.apply(state({ type: "ROOM_STATE", controlSeq: 2, serverTime: now, participants: [{ ...member, heldItemId: null }], items: [] }));
+  players.refresh(); frame(now);
+  expect(scene.getObjectByName("shared-held-prop")).toBe(prop);
+  now = 1450; frame(now);
+  expect(prop.visible).toBe(true);
+  expect(prop.getWorldPosition(new THREE.Vector3()).y).toBeGreaterThan(start + .2);
+  now = 1550; frame(now);
+  expect(prop.visible).toBe(false);
+  now = 2050; frame(now);
+  expect(scene.getObjectByName("shared-held-prop")).toBeUndefined();
   players.dispose();
 });

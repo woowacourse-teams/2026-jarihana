@@ -97,3 +97,53 @@ test("explicit leave is distinguished from recoverable transport loss", async ()
   expect(admission).toHaveBeenCalledTimes(1);
   expect(store.getStatus().status).toBe("idle");
 });
+
+test("missing recovery snapshot automatically reconnects and stale frames cannot resume input", async () => {
+  const { socket, store, admission } = await setup();
+  socket.receive({ type: "ERROR", code: "INVALID_MOVEMENT", message: "INVALID_MOVEMENT" });
+  expect(socket.sent.at(-1).type).toBe("RESYNC");
+  socket.receive(snapshot({ type: "ROOM_STATE", frameSeq: 2 }));
+  expect(store.getStatus().status).toBe("syncing");
+  expect(connection.move({ x: 1 }, true)).toBe(false);
+  jest.advanceTimersByTime(3000); await flush();
+  expect(admission).toHaveBeenCalledTimes(2);
+  const next = Socket.instances[1]; next.open(); next.receive(snapshot({ connectionGeneration: "new" }));
+  expect(connection.ready()).toBe(true);
+});
+
+test.each(["INVALID_MOVEMENT", "ACCESS_EXPIRED"])("%s close automatically requests fresh admission", async (reason) => {
+  const { socket, admission } = await setup();
+  socket.close(4001, reason);
+  jest.advanceTimersByTime(500); await flush();
+  expect(admission).toHaveBeenCalledTimes(2);
+});
+
+test("temporary 503 during recovery retries but permission loss stops", async () => {
+  const { socket, admission, store } = await setup();
+  admission.mockRejectedValueOnce({ status: 503, code: "REALTIME_UNAVAILABLE" });
+  socket.close(); jest.advanceTimersByTime(500); await flush();
+  expect(store.getStatus().status).toBe("reconnecting");
+  jest.advanceTimersByTime(1000); await flush();
+  expect(admission).toHaveBeenCalledTimes(3);
+  admission.mockRejectedValue({ status: 403, code: "ACCESS_DENIED" });
+  Socket.instances[1].close(); jest.advanceTimersByTime(2000); await flush();
+  expect(store.getStatus().status).toBe("error");
+  jest.advanceTimersByTime(60000); await flush();
+  expect(admission).toHaveBeenCalledTimes(4);
+});
+
+test("disabled realtime does not retry a 503 indefinitely", async () => {
+  const { socket, admission, store } = await setup();
+  admission.mockRejectedValue({ status: 503, code: "REALTIME_DISABLED" });
+  socket.close(); jest.advanceTimersByTime(500); await flush();
+  jest.advanceTimersByTime(60000); await flush();
+  expect(admission).toHaveBeenCalledTimes(2);
+  expect(store.getStatus().error.code).toBe("REALTIME_DISABLED");
+});
+
+test("a closed socket cannot apply late state while waiting for retry", async () => {
+  const { socket, store } = await setup();
+  socket.close(); socket.receive(snapshot({ frameSeq: 100 }));
+  expect(store.getStatus().status).toBe("reconnecting");
+  expect(store.getState().frameSeq).toBe(1);
+});

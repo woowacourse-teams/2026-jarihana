@@ -42,7 +42,7 @@ const MESSAGES = {
   BUSY: "앞선 동작을 처리하고 있어요.", STALE_ITEM: "물건 상태가 바뀌었어요. 다시 선택해 주세요.",
   LAYOUT_MISMATCH: "새 가구 배치를 불러오고 있어요.", ROOM_FULL: "아지트에 들어갈 수 있는 인원이 가득 찼어요.",
   LAYOUT_UPGRADE_REQUIRED: "모임장이 현재 배치를 한 번 저장하면 함께 이용할 수 있어요.",
-  REALTIME_UNAVAILABLE: "아지트 연결을 준비하지 못했어요. 잠시 뒤 다시 연결해 주세요.",
+  REALTIME_UNAVAILABLE: "아지트에 자동으로 다시 연결하고 있어요.",
   ACCESS_DENIED: "현재 모임에 들어갈 권한이 없어요.", ACCESS_EXPIRED: "입장 권한이 만료됐어요. 다시 연결해 주세요.",
   CONNECTION_REPLACED: "다른 창에서 아지트에 접속했어요.", RATE_LIMITED: "동작이 너무 빨라요. 잠시 뒤 시도해 주세요."
 };

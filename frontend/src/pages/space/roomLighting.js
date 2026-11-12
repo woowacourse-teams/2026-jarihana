@@ -94,6 +94,7 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
   }
 
   function applyMaterial(material) {
+    if (Array.isArray(material)) { material.forEach(applyMaterial); return; }
     if (!(material?.isMeshStandardMaterial || material?.isMeshLambertMaterial) || fillMaterials.has(material)) return;
     const prepare = material.onBeforeCompile;
     const cacheKey = material.customProgramCacheKey();

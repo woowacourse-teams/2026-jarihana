@@ -1,5 +1,6 @@
 import { useRoomRealtime } from "../../features/group-space/realtime/useRoomRealtime.js";
 import { RoomPhotoDialog } from "./RoomPhotoDialog.jsx";
+import { RoomConnectionToast } from "./RoomConnectionToast.jsx";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
@@ -917,12 +918,9 @@ export function SpaceStudioPage({ initialRoom, layoutRevision = 0, memberId, onL
 
       <section className={`space-studio__stage${!walking && canEdit && category === "atmosphere" ? " space-studio__stage--atmosphere" : ""}`}
         aria-label="공간 배치" aria-busy={templateSwitching || undefined} data-background-style={backgroundStyle}>
-        {shared && realtimeStatus.status === "connected" && realtimeStatus.layoutRevision !== layoutRevision && <p className="room-canvas__connection-notice" role="status">새 가구 배치를 불러오고 있어요…</p>}
+        {shared && <RoomConnectionToast status={realtimeStatus} layoutError={layoutError}
+          layoutPending={realtimeStatus.status === "connected" && realtimeStatus.layoutRevision !== layoutRevision} />}
         {pendingLayout && <p className="room-canvas__connection-notice" role="status">다른 곳에서 배치가 저장됐어요. 편집 내용은 유지했어요. 취소하면 새 배치를 불러와요.</p>}
-        {shared && (layoutError || realtimeStatus.status === "error") && <div className="room-canvas__connection-notice" role="alert">
-          <p>{layoutError || (realtimeStatus.error?.code === "LAYOUT_UPGRADE_REQUIRED" ? "모임장이 현재 배치를 한 번 저장하면 함께 이용할 수 있어요." : realtimeStatus.error?.message || "공간에 연결하지 못했어요.")}</p>
-          <button type="button" data-ph-capture-attribute-action="space_connection_retry" onClick={() => { onLayoutChange?.(); roomRealtime.connection.stop(); roomRealtime.connection.start(); }}>다시 연결</button>
-        </div>}
         {capturedPhoto && <RoomPhotoDialog file={capturedPhoto} group={groupContext} onClose={() => setCapturedPhoto(null)} />}
         {!clubhouse && <RoomSky outdoors={outdoorLight} />}
         <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
