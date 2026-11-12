@@ -120,6 +120,14 @@ export function LandingFooter() {
   return (
     <footer className="landing-footer">
       <div className="landing-container landing-footer__inner">
+        <div className="landing-footer__about">
+          <p className="landing-footer__brand">
+            <img alt="" height="28" src={logo} width="28" />
+            자리하나?
+          </p>
+          <p>자리하나?는 우아한테크코스 크루들이 만들고 운영하는 모임 서비스예요.</p>
+          <small>© {new Date().getFullYear()} 자리하나?</small>
+        </div>
         <nav aria-label="하단 메뉴" className="landing-footer__menus">
           <div className="landing-footer__menu">
             <p className="landing-footer__menu-title">서비스</p>
@@ -141,14 +149,6 @@ export function LandingFooter() {
             </a>
           </div>
         </nav>
-        <div className="landing-footer__about">
-          <p className="landing-footer__brand">
-            <img alt="" height="28" src={logo} width="28" />
-            자리하나?
-          </p>
-          <p>자리하나?는 우아한테크코스 크루들이 만들고 운영하는 모임 서비스예요.</p>
-          <small>© {new Date().getFullYear()} 자리하나?</small>
-        </div>
       </div>
     </footer>
   );
