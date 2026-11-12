@@ -107,6 +107,14 @@
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
+.landing-button.landing-clubhouse__shortcut {
+  border: var(--border-thin) solid var(--color-line);
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+.landing-button.landing-clubhouse__shortcut:hover {
+  background: var(--color-surface-sunken);
+}
 .landing-clubhouse__pull {
   position: absolute;
   left: 50%;
