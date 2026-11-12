@@ -15,7 +15,7 @@ import "./landing-clubhouse.css";
 // 아지트(모임 3D 공간)는 아직 서비스에 열리지 않아, 체험 버튼은 준비 중이라는 안내만 띄운다.
 export const CLUBHOUSE_NOTICE = {
   title: "아지트 꾸미기는 곧 열려요",
-  description: "동아리와 스터디마다 생기는 3D 아지트를 준비하고 있어요."
+  description: "동아리와 스터디마다 생기는 아지트를 준비하고 있어요."
 };
 
 const highlights = [
@@ -68,7 +68,7 @@ export function LandingClubhouseHero({ active }) {
               <span>함께 어울리는 놀이터</span>
             </h1>
             <p className="landing-clubhouse__lead">
-              동아리와 스터디마다 3D 아지트가 생겨요. 함께 꾸미고 놀러 오세요.
+              동아리와 스터디마다 아지트가 생겨요. 함께 꾸미고 놀러 오세요.
             </p>
             <div className="landing-clubhouse__actions">
               <button

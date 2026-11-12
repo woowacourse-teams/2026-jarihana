@@ -64,7 +64,7 @@ test("announces the clubhouse as coming soon instead of opening an unreleased sp
   }
   fireEvent.click(tries[0]);
   expect(screen.getByText("아지트 꾸미기는 곧 열려요")).toBeInTheDocument();
-  expect(screen.getByText("동아리와 스터디마다 생기는 3D 아지트를 준비하고 있어요.")).toBeInTheDocument();
+  expect(screen.getByText("동아리와 스터디마다 생기는 아지트를 준비하고 있어요.")).toBeInTheDocument();
 });
 
 test("links the menu, the recruiting list, the feature pages and the footer", () => {
