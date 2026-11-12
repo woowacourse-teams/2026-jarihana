@@ -901,7 +901,7 @@ export function SpaceStudioPage({ initialRoom, onSave, canEdit: editPermission =
           playMode={playMode} walkInputBlocked={walkInputBlocked} preserveWalkPose={Boolean(clubhouse && !webPreview)}
           studioWideAngle={canEdit && clubhouse ? studioWideAngle : 0} studioCameraTurn={studioCameraTurn}
           onStatusChange={updateSceneStatus}
-          activityExhibit={clubhouse?.activityExhibit} speechMessages={clubhouse?.speechMessages} greetingMembers={clubhouse?.greetingMembers} cameraFlight={clubhouse?.cameraFlight}
+          avatarAppearance={clubhouse?.avatarAppearance} activityExhibit={clubhouse?.activityExhibit} speechMessages={clubhouse?.speechMessages} greetingMembers={clubhouse?.greetingMembers} cameraFlight={clubhouse?.cameraFlight}
           generalLighting={generalLighting} onTemplateTransition={setTemplateSwitching} />
 
         {playMode && !clubhouse.cameraFlight && <ClubhousePlayHud

@@ -23,6 +23,21 @@ test("read-only permission blocks keyboard and drag editing and updates without 
   expect(createRoomScene).toHaveBeenCalledTimes(1);
 });
 
+test("late avatar data and account clearing update the walker without resetting the room", async () => {
+  const runtime = { update: jest.fn(), setPlayerAppearance: jest.fn(), dispose: jest.fn() };
+  createRoomScene.mockReturnValue(runtime);
+  const initial = props();
+  const { rerender } = render(<RoomCanvas {...initial} />);
+  await waitFor(() => expect(runtime.update).toHaveBeenCalledTimes(1));
+
+  const appearance = { version: 1, hair: "curly" };
+  rerender(<RoomCanvas {...initial} avatarAppearance={appearance} />);
+  expect(runtime.setPlayerAppearance).toHaveBeenLastCalledWith(appearance);
+  rerender(<RoomCanvas {...initial} />);
+  expect(runtime.setPlayerAppearance).toHaveBeenLastCalledWith(undefined);
+  expect(runtime.update).toHaveBeenCalledTimes(1);
+});
+
 test("furniture thumbnails are generated only when the catalog requests them", async () => {
   createRoomScene.mockReturnValue({ update: jest.fn(), dispose: jest.fn() });
   const { onThumbnails, ...previewProps } = props();

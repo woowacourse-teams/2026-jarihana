@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-appearance.js";
+import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
 import { getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
 import { isWalkablePosition, moveWalker } from "./roomNavigation";
 import { createMascot, createWalkProp, disposeObject } from "./roomModels";
@@ -8,6 +10,9 @@ const WALK_VIEWS = new Set(["firstPerson", "thirdPerson"]);
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 const JUMP_SPEED = 4.5;
 const GRAVITY = 18;
+const WALK_AVATAR_SCALE = 0.82;
+const CARRY_POSE = { rightArm: -0.18, rightElbow: -1.10, rightSpread: -0.18 };
+const BOOK_POSE = { ...CARRY_POSE, leftArm: -0.18, leftElbow: -1.10, leftSpread: 0.18 };
 const WALK_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
 const MOVEMENT_KEYS = new Set([...WALK_KEYS, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
@@ -24,7 +29,12 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let view = "perspective";
   let avatar;
   let avatarColor;
-  let avatarAppearance;
+  let mascotKey;
+  let customAvatar;
+  let playerAppearance;
+  const avatarOrigin = new THREE.Vector3();
+  let walkPhase = 0;
+  let stride = 0;
   let prop;
   let firstPersonGrip;
   let held = null;
@@ -75,7 +85,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     sprintKeys.clear();
     const wasApproaching = Boolean(approaching);
     approaching = null;
-    if (airborne || wasApproaching) syncCamera();
+    const wasStriding = Boolean(stride);
+    stride = 0;
+    if (airborne || wasApproaching || wasStriding) syncCamera();
   }
 
   function releasePointerLock() {
@@ -318,16 +330,24 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     targetOutline.visible = true;
   }
 
+  function disposeAvatar() {
+    customAvatar?.dispose();
+    customAvatar = undefined;
+    if (avatar) disposeObject(avatar);
+    avatar = undefined;
+  }
+
   function syncCamera(moving = false) {
     if (!active() || disposed) return;
     const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
     const floorHeight = position.y || 0;
     const location = seated?.position || position;
-    const appearance = [avatarColor, Boolean(seated), held].join(":");
-    if (!avatar || avatarAppearance !== appearance) {
-      if (avatar) disposeObject(avatar);
-      avatar = createMascot({ color: avatarColor, pose: seated ? "seated" : "standing", held });
-      avatarAppearance = appearance;
+    const nextMascotKey = playerAppearance ? null : [avatarColor, Boolean(seated), held].join(":");
+    if (!avatar || mascotKey !== nextMascotKey) {
+      disposeAvatar();
+      avatar = playerAppearance ? new THREE.Group() : createMascot({ color: avatarColor, pose: seated ? "seated" : "standing", held });
+      if (playerAppearance) avatar.name = "player-avatar";
+      mascotKey = nextMascotKey;
       scene.add(avatar);
     }
     avatar.position.set(location.x, (location.y || 0) + jumpHeight, location.z);
@@ -366,6 +386,16 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       avatar.visible = distance > 0.8;
     }
     camera.updateMatrixWorld();
+    let hands;
+    if (playerAppearance && avatar.visible) {
+      customAvatar ??= createWalkingCharacters(avatar, 1);
+      // A prop picked up in the room takes the place of the avatar's equipped hand item.
+      const appearance = held && playerAppearance.handheld !== "none" ? { ...playerAppearance, handheld: "none" } : playerAppearance;
+      hands = customAvatar.draw(0, { appearance }, avatarOrigin, WALK_AVATAR_SCALE, {
+        seated: Number(Boolean(seated)), stride: jumpHeight ? 0 : stride,
+        ...(held === "book" ? BOOK_POSE : held ? CARRY_POSE : {})
+      });
+    }
     if (prop) {
       firstPersonGrip.visible = view === "firstPerson";
       prop.visible = true;
@@ -376,8 +406,14 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
         if (book) prop.rotateX(0.42);
       } else {
         prop.visible = avatar.visible;
-        prop.position.set(held === "book" ? 0 : 0.24, seated ? 0.44 : 0.66, held === "book" ? 0.37 : 0.35)
-          .applyQuaternion(avatar.quaternion).add(avatar.position);
+        if (hands) {
+          prop.position.copy(hands.rightHand);
+          if (held === "book") prop.position.lerp(hands.leftHand, 0.5);
+          prop.position.y += 0.04;
+        } else {
+          prop.position.set(held === "book" ? 0 : 0.24, seated ? 0.44 : 0.66, held === "book" ? 0.37 : 0.35)
+            .applyQuaternion(avatar.quaternion).add(avatar.position);
+        }
         prop.quaternion.copy(avatar.quaternion);
       }
     }
@@ -408,6 +444,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     if (!acceptsInput() || !hasMotion() || disposed) return;
     const elapsed = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
     lastTime = time;
+    const { x: beforeX, z: beforeZ } = position;
     const has = (code) => Number(keys.has(code));
     if (approaching) {
       const { approach } = approaching;
@@ -435,8 +472,14 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       jumpHeight = Math.max(0, jumpHeight + jumpVelocity * elapsed - GRAVITY * elapsed ** 2 / 2);
       jumpVelocity = jumpHeight ? jumpVelocity - GRAVITY * elapsed : 0;
     }
+    const moving = hasMotion();
+    if (playerAppearance) {
+      const distance = Math.hypot(position.x - beforeX, position.z - beforeZ);
+      walkPhase += distance * 5 / PLAYER.speed;
+      stride = moving && distance > 0.001 ? Math.sin(walkPhase) : 0;
+    }
     syncCamera(true);
-    if (hasMotion()) frame = requestAnimationFrame(tick);
+    if (moving) frame = requestAnimationFrame(tick);
     else lastTime = 0;
   }
 
@@ -508,7 +551,10 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     keys.delete(event.code);
     if (!hasMotion()) {
       cancelAnimationFrame(frame); frame = 0; lastTime = 0;
-      if (wasMoving) render(false);
+      if (stride) {
+        stride = 0;
+        syncCamera();
+      } else if (wasMoving) render(false);
     }
   }
   function look(dx, dy) {
@@ -547,6 +593,11 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     isMoving: hasMotion,
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
+    },
+    setPlayerAppearance(value) {
+      playerAppearance = readAvatarAppearance(value);
+      if (!playerAppearance && customAvatar) disposeAvatar();
+      if (active()) syncCamera();
     },
     setInputBlocked(blocked) {
       if (inputBlocked === blocked) return;
@@ -674,7 +725,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       document.removeEventListener("pointerlockerror", handlePointerLockError);
       document.removeEventListener("mousemove", onMouseLook);
       document.removeEventListener("visibilitychange", visibility);
-      if (avatar) disposeObject(avatar);
+      disposeAvatar();
       if (targetOutline) disposeObject(targetOutline);
     }
   };
