@@ -34,8 +34,7 @@ import {
 } from "../../shared/ui";
 import "./pepero-day.css";
 
-// 서버가 순위를 한 번에 내려주는 인원과, 끝난 뒤 창에 보여 줄 인원이다.
-const RANKING_PAGE = 50;
+// 끝난 뒤 창에 보여 줄 인원이다.
 const DIALOG_RANKING_LIMIT = 10;
 
 const RANKED_ERRORS = {
@@ -82,7 +81,7 @@ function resultText(summary) {
 // 끝난 이벤트 안내다. 하던 판이 있으면 마저 하게 하고, 아니면 게임방으로 옮겨 가는 때를 알려 준다.
 function closedMessage(event, game) {
   if (game) return "하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요.";
-  if (event.gameRoomOpen) return "참여해 주셔서 고마워요. 이제 게임방에서 연습으로 계속 할 수 있어요.";
+  if (event.gameRoomOpen) return "참여해 주셔서 고마워요. 이제 게임방에서 계속 할 수 있어요.";
   return `참여해 주셔서 고마워요. ${formatServiceDateTime(event.gameRoomOpensAt)}부터 게임방에서 다시 할 수 있어요.`;
 }
 
@@ -173,21 +172,13 @@ export function Ranking({
   );
 }
 
-// 연습 점수가 순위표의 어디쯤인지 센다. 점수가 같으면 걸린 시간을 알 수 없어 같은 점수의 맨 앞에 둔다.
-function practiceRank(items, totalScore) {
-  return items.filter((item) => item.totalScore > totalScore).length + 1;
-}
-
-// 5판을 끝내면 띄우는 순위 창이다. 순위 도전은 방금 끝낸 판이 들어간 순위를 다시 받아 보여 주고,
-// 연습은 순위에 들어가지 않으므로 이 점수였다면 몇 위인지 알려 준다.
-export function RankingDialog({ board = "event", onChallenge, onClose, result }) {
+// 순위 도전 5판을 끝내면 띄우는 순위 창이다. 방금 끝낸 판이 들어간 순위를 다시 받아 보여 준다.
+export function RankingDialog({ board = "event", onClose, result }) {
   const rankings = usePeperoDayRankings({ board });
-  const ranked = result.mode === "ranked";
-  const refreshing = ranked && rankings.isFetching;
   const data = rankings.data;
 
   let body;
-  if (rankings.isPending || refreshing) {
+  if (rankings.isPending || rankings.isFetching) {
     body = <Skeleton aria-label="순위를 불러오는 중" className="pepero-day__dialog-loading" />;
   } else if (rankings.isError) {
     body = (
@@ -197,23 +188,14 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
       />
     );
   } else {
-    const position = ranked ? data.me?.rank : practiceRank(data.items, result.totalScore);
-    const fullList = data.items.length >= RANKING_PAGE && position > data.items.length;
     body = (
       <>
-        <p className="pepero-day__dialog-standing">
-          {ranked && data.me ? (
-            <>
-              내 순위 <strong>{data.me.rank}위</strong>
-              {data.me.totalScore > result.totalScore ? `, 최고 기록 ${formatPoints(data.me.totalScore)}점` : null}
-            </>
-          ) : null}
-          {ranked ? null : (
-            <>
-              순위 도전이었다면 <strong>{fullList ? `${RANKING_PAGE}위 밖` : `${position}위`}</strong>예요.
-            </>
-          )}
-        </p>
+        {data.me ? (
+          <p className="pepero-day__dialog-standing">
+            내 순위 <strong>{data.me.rank}위</strong>
+            {data.me.totalScore > result.totalScore ? `, 최고 기록 ${formatPoints(data.me.totalScore)}점` : null}
+          </p>
+        ) : null}
         {data.items.length ? (
           <RankingList items={data.items} limit={DIALOG_RANKING_LIMIT} me={data.me} />
         ) : (
@@ -232,15 +214,10 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
       }}
       open
       panelClassName="pepero-day__dialog"
-      title={ranked ? "순위 도전 결과" : "연습 결과"}
+      title="순위 도전 결과"
     >
       {body}
       <div className="ui-dialog__actions">
-        {onChallenge ? (
-          <Button data-ph-capture-attribute-action="pepero_ranking_challenge" onClick={onChallenge}>
-            순위 도전하러 가기
-          </Button>
-        ) : null}
         <Button data-ph-capture-attribute-action="pepero_ranking_close" onClick={onClose} variant="secondary">
           닫기
         </Button>
@@ -250,8 +227,13 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
 }
 
 // 판을 시작하기 전의 카드다. 회원은 시작하기를 누르면 막대를 받고, 순위 도전은 회원만 할 수 있어서
-// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다.
-function StartPrompt({ onStart }) {
+// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다. 게임방 페이지도 돌아올 주소와 동작 식별자만 바꿔 쓴다.
+export function StartPrompt({
+  loginAction = "pepero_ranked_login",
+  onStart,
+  returnTarget = PEPERO_DAY_PATH,
+  startAction = "pepero_ranked_start"
+}) {
   const auth = useAuth();
 
   if (auth.status === "loading") return <Skeleton aria-label="로그인 상태를 확인하는 중" className="pepero-day__loading" />;
@@ -259,7 +241,7 @@ function StartPrompt({ onStart }) {
   let action;
   if (auth.status === "authenticated") {
     action = (
-      <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={onStart} size="lg">
+      <Button data-ph-capture-attribute-action={startAction} onClick={onStart} size="lg">
         시작하기
       </Button>
     );
@@ -272,9 +254,9 @@ function StartPrompt({ onStart }) {
   } else {
     action = (
       <Button
-        data-ph-capture-attribute-action="pepero_ranked_login"
+        data-ph-capture-attribute-action={loginAction}
         onClick={() => {
-          storeReturnTarget(PEPERO_DAY_PATH);
+          storeReturnTarget(returnTarget);
           auth.login();
         }}
       >
