@@ -741,7 +741,7 @@ class FlywayBaselineTest extends IntegrationTestSupport {
                 """, String.class)).isEqualTo("SQL");
         assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname = current_schema()", String.class))
                 .contains("spring_session", "spring_session_attributes", "group_event", "group_recurring_series",
-                        "invitation", "invitation_acceptance");
+                        "invitation", "invitation_acceptance", "group_space", "group_music");
         assertThat(jdbc.queryForList("select indexname from pg_indexes where schemaname = current_schema()", String.class))
                 .contains("uk_member_coach_name", "idx_notifications_inbox", "uk_group_recurring_current_group",
                         "uk_group_event_recurring_occurrence", "idx_activity_post_date_id",
