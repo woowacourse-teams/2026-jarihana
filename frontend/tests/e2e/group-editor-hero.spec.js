@@ -32,14 +32,19 @@ async function expectNoHorizontalOverflow(page) {
   )).toBe(true);
 }
 
+async function chooseType(page, label) {
+  await page.getByRole("button", { name: /^모임 종류:/ }).click();
+  await page.getByRole("group", { name: "모임 종류 선택" }).getByRole("button", { name: label, exact: true }).click();
+}
+
 for (const width of [360, 390, 767, 768, 1024, 1440]) {
   test(`create and edit share image effects and editor width at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await installApiFixture(page);
 
     await page.goto("/groups/new");
-    for (const type of ["CLUB", "SESSION", "STUDY"]) {
-      await page.getByLabel("모임 종류").selectOption(type);
+    for (const [type, label] of [["CLUB", "동아리"], ["SESSION", "같이해요"], ["STUDY", "스터디"]]) {
+      await chooseType(page, label);
       await expect(page.locator(".group-profile__image")).toHaveAttribute(
         "src", `/assets/default-group-${type.toLowerCase()}-3d.png`
       );
@@ -106,7 +111,7 @@ test("uploaded photos retain their hero effect through type changes and editing"
   await expect(image).toHaveAttribute("src", /^blob:/);
   const uploadedSource = await image.getAttribute("src");
   const uploadAppearance = await heroAppearance(page);
-  await page.getByLabel("모임 종류").selectOption("CLUB");
+  await chooseType(page, "동아리");
   await expect(image).toHaveAttribute("src", uploadedSource);
   await expect(page.locator(".group-profile")).not.toHaveClass(/group-profile--default-image/);
   expect(await heroAppearance(page)).toEqual(uploadAppearance);
@@ -118,3 +123,31 @@ test("uploaded photos retain their hero effect through type changes and editing"
   expect(await heroAppearance(page)).toEqual(uploadAppearance);
   await page.screenshot({ path: testInfo.outputPath("edit-upload.png"), fullPage: true });
 });
+
+for (const width of [390, 1440]) {
+  test(`type menu explains each choice at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await installApiFixture(page);
+    await page.goto("/groups/new");
+    const toggle = page.getByRole("button", { name: "모임 종류: 스터디" });
+    await toggle.click();
+    const menu = page.getByRole("group", { name: "모임 종류 선택" });
+    await expect(menu.locator(".group-type-picker__option")).toHaveText(["동아리", "스터디", "같이해요"]);
+    for (const [label, description] of [
+      ["동아리", "동아리는 비학술적 모임으로 추천해요."],
+      ["스터디", "스터디는 학술적 모임으로 추천해요."],
+      ["같이해요", "같이해요는 일회성 모임으로 추천해요."]
+    ]) {
+      const info = menu.getByRole("button", { name: `${label} 안내` });
+      await info.hover();
+      await expect(page.getByRole("tooltip")).toHaveText(description);
+      await expect(toggle).toHaveText("스터디");
+    }
+    await page.screenshot({ path: testInfo.outputPath("group-type-tooltip.png") });
+    expect((await new AxeBuilder({ page }).include(".group-profile").analyze()).violations).toEqual([]);
+    await expectNoHorizontalOverflow(page);
+    await menu.getByRole("button", { name: "동아리", exact: true }).click();
+    await expect(page.getByRole("button", { name: "모임 종류: 동아리" })).toBeFocused();
+    await expect(page.locator(".group-profile__image")).toHaveAttribute("src", "/assets/default-group-club-3d.png");
+  });
+}
