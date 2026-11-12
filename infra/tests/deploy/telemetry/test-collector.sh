@@ -52,7 +52,6 @@ journal=$(
   BG_MODE=bootstrap; RUN_ID=123
   BG_FRONTEND_ONLY=false; BG_BACKEND_ONLY=false
   GITHUB_SHA=$(printf 'a%.0s' {1..40})
-  CONTROL_SHA=$(jq -r '.topology.control.sha' <<< "$CONFIG")
   BG_IMAGE_DIGEST="sha256:$(printf 'b%.0s' {1..64})"
   bg_route() { echo A; }
   bg_ec2_state() { if [[ $1 == A ]]; then echo running; else echo stopped; fi; }
