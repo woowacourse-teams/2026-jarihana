@@ -40,7 +40,7 @@ fe_aws() {
   printf '%s\t%s\n' "$service/$operation" "$key" >>"$CASE_DIR/requests"
   case "$service/$operation" in
     cloudfront/get-distribution-config)
-      jq -cn --arg edge "${EDGE_FUNCTION:-none}" '{DistributionConfig:{Enabled:true,Aliases:{Items:["jarihana.com"]},DefaultCacheBehavior:{TargetOriginId:"frontend",CachePolicyId:"disabled",FunctionAssociations:(if $edge=="none" then {Quantity:0} else {Quantity:1,Items:[{EventType:"viewer-request",FunctionARN:"arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview"}]} end)},Origins:{Items:[{Id:"frontend",OriginPath:"/jarihana/frontend",DomainName:"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"}]}}} |
+      jq -cn --arg edge "${EDGE_FUNCTION:-none}" --arg behavior "${EXTRA_BEHAVIOR:-none}" '{DistributionConfig:{Enabled:true,Aliases:{Items:["jarihana.com"]},DefaultCacheBehavior:{TargetOriginId:"frontend",CachePolicyId:"disabled",FunctionAssociations:(if $edge=="none" then {Quantity:0} else {Quantity:1,Items:[{EventType:"viewer-request",FunctionARN:"arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview"}]} end)},CacheBehaviors:{Items:(if $behavior=="realtime" then [{PathPattern:"/ws/realtime/*",TargetOriginId:"realtime"}] elif $behavior=="unexpected" then [{PathPattern:"/assets/*",TargetOriginId:"realtime"}] else [] end)},Origins:{Items:[{Id:"frontend",OriginPath:"/jarihana/frontend",DomainName:"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"},{Id:"realtime",DomainName:"realtime.example.com"}]}}} |
         if $edge=="unknown" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items[0].FunctionARN="arn:aws:cloudfront::843255971531:function/other"
         elif $edge=="event" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items[0].EventType="viewer-response"
         elif $edge=="extra" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity=2 | .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items+=.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items
@@ -126,7 +126,7 @@ setup() {
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
-  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
+  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION EXTRA_BEHAVIOR REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
 }
 rejects() {
   local status=0
@@ -240,6 +240,13 @@ missing_baseline() {
 }
 pointer_permission_not_absent() { POINTER_ERROR=true; rejects fe_stage; [[ $(write_count) == 0 ]]; }
 cache_preflight() { CACHE_TTL=1; rejects fe_stage; [[ $(write_count) == 0 ]]; }
+realtime_behavior_preflight() { EDGE_FUNCTION=known; EXTRA_BEHAVIOR=realtime; fe_stage; [[ -f $(manifest_file) ]]; }
+unexpected_behavior_preflight() {
+  EXTRA_BEHAVIOR=unexpected
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q "Frontend CDN origin or edge transformations differ" "$CASE_DIR/rejection.log"
+}
 approved_edge_function() { EDGE_FUNCTION=known; fe_stage; jq -e '.frontend.published==false' "$STATE_FILE" >/dev/null; }
 unapproved_edge_function() {
   local variant
@@ -450,7 +457,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight realtime_behavior_preflight unexpected_behavior_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

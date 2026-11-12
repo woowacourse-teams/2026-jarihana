@@ -262,7 +262,7 @@ current manifest와 live가 일치하는지 확인한다. 미완료 pending이�
 | Distribution | `E1YDHL1SDC4C1C` |
 | 기본 origin | `techcourse-project-2026` S3의 `/jarihana/frontend` |
 | cache policy | Managed-CachingDisabled, `4135ea2d-6df8-44a3-9df3-4b5a84be39ad`, 최소/기본/최대 TTL 0 |
-| 다른 경로 | API Nginx origin과 별도 이미지 origin 및 behavior 유지 |
+| 다른 경로 | API Nginx origin, 별도 이미지 origin, `/ws/realtime/*` 실시간 origin과 behavior 유지 |
 
 기본 behavior의 viewer-request 함수는 없거나, 제어 코드가 승인한 `jarihana-group-share-preview`
 하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](../../scripts/actions/frontend.sh)의 preflight와
