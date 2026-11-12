@@ -28,6 +28,7 @@ jobs:
         run: |
           bash --version
           jq --version
+          docker compose version
           if ! command -v shellcheck >/dev/null; then
             sudo apt-get update
             sudo apt-get install --yes shellcheck

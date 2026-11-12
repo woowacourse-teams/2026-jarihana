@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Execute the actual hosted preflight blocks without Docker or cloud credentials.
+# Execute hosted preflight with real Compose parsing, mocked image pulls and no cloud credentials.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 TEST_DIR=$(mktemp -d)
@@ -26,10 +26,15 @@ echo 'PASS release-workflow disabled_bootstrap_explicit_exception'
 MODE=deploy ENABLED=true; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow enabled_deploy'
 mkdir -p "$TEST_DIR/source" "$TEST_DIR/bin"
+mkdir -p "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions"
+cp "$ROOT/infra/blue-green-deploy/scripts/actions/compose-preflight.sh" "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions/"
+export REAL_DOCKER=$(command -v docker)
+export RELEASE_COMPOSE_FIXTURE="$ROOT/infra/blue-green-deploy/controller/app-compose.yml"
 cat >"$TEST_DIR/bin/docker" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$DOCKER_TRACE"
+if [[ $1 == compose ]]; then exec "$REAL_DOCKER" "$@"; fi
 if [[ $1 == image ]]; then
   tag=${!#}; number=1
   [[ $tag != *:tree-* ]] || number=2
@@ -39,6 +44,7 @@ MOCK
 cat >"$TEST_DIR/bin/git" <<'MOCK'
 #!/usr/bin/env bash
 case $1 in
+  show) cat "$RELEASE_COMPOSE_FIXTURE";;
   rev-parse) if [[ $2 == HEAD ]]; then echo "${CHECKOUT_SHA:-$GITHUB_SHA}"; else printf '%040d\n' 4; fi;;
   diff)
     case ${CHANGE_SCOPE:-both} in
@@ -81,6 +87,28 @@ for scope in backend frontend both infra; do
   esac
   echo "PASS release-workflow automatic_scope_$scope"
 done
+INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false BEFORE_SHA=''
+REAL_COMPOSE_FIXTURE=$RELEASE_COMPOSE_FIXTURE
+printf 'services: [\n' >"$TEST_DIR/invalid-compose.yml"
+export RELEASE_COMPOSE_FIXTURE="$TEST_DIR/invalid-compose.yml"
+: >"$DOCKER_TRACE"
+if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/invalid-compose.log" 2>&1; then exit 1; fi
+grep -q 'Release Compose syntax or model is invalid' "$TEST_DIR/invalid-compose.log"
+! grep -q '^pull ' "$DOCKER_TRACE"
+echo 'PASS release-workflow invalid_compose_rejected_before_image_pull_or_plan'
+export RELEASE_COMPOSE_FIXTURE=$REAL_COMPOSE_FIXTURE
+BG_ENVIRONMENT=dev GITHUB_REF=refs/heads/develop BG_PROD_AUTO_ENABLED=false INPUT_TAG=''
+: >"$DOCKER_TRACE"
+(cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
+grep -q '^compose .*config --no-interpolate' "$DOCKER_TRACE"
+echo 'PASS release-workflow development_deploy_checks_compose'
+BG_ENVIRONMENT=prod GITHUB_REF=refs/heads/main BG_PROD_AUTO_ENABLED=true
+BG_MODE=bootstrap GITHUB_EVENT_NAME=workflow_dispatch INPUT_TAG=1111111111111111111111111111111111111111
+: >"$DOCKER_TRACE"
+(cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh")
+! grep -q '^compose ' "$DOCKER_TRACE"
+echo 'PASS release-workflow bootstrap_keeps_existing_container_contract'
+BG_MODE=deploy GITHUB_EVENT_NAME=push
 BEFORE_SHA=''
 INPUT_FRONTEND_ONLY=false INPUT_TAG=1111111111111111111111111111111111111111
 if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/mismatch.log" 2>&1; then exit 1; fi

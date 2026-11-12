@@ -122,9 +122,11 @@ jobs:
             echo "digest=sha256:$(printf '%064d' 0)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
-            compose=infra/blue-green-deploy/controller/app-compose.yml
-            git cat-file -e "$GITHUB_SHA:$compose"
+          if [[ "$BG_MODE" == deploy ]]; then
+            compose=$(mktemp)
+            trap 'rm -f -- "$compose"' EXIT
+            git show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" > "$compose"
+            bash infra/blue-green-deploy/scripts/actions/compose-preflight.sh "$compose" "$BG_ENVIRONMENT"
           fi
           if [[ "$BG_MODE" == bootstrap ]]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]
