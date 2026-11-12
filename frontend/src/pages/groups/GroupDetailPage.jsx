@@ -66,53 +66,49 @@ const RECRUITMENT_PROMPT_DELAY = 500;
 
 export function GroupDetailPage() {
   const { groupId } = useParams();
-  const auth = useAuth();
-  const memberId = (auth.member ?? auth.user)?.id;
-  return <GroupDetail key={`${groupId}:${memberId ?? "guest"}`} auth={auth} groupId={groupId} memberId={memberId} />;
-}
-
-function GroupDetail({ auth, groupId, memberId }) {
   const location = useLocation();
   const navigate = useNavigate();
   const origin = groupTransitionOrigin(location.state);
   const justCreatedReference = useRef(location.state?.justCreated === true);
   const toast = useToast();
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
-  const [setupDismissed, setSetupDismissed] = useState(false);
   const [invitationOpenScope, setInvitationOpenScope] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTab = tabs.some((tab) => tab.value === searchParams.get("tab"))
     ? searchParams.get("tab")
     : "intro";
+  const auth = useAuth();
   const groupQuery = useGroup(groupId);
   const group = groupQuery.data;
   const loadedGroupId = group?.id;
   const photoDetail = group?.type === "SESSION";
   const redirectSpace = photoDetail && /\/space\/?$/i.test(location.pathname);
-  const isLeader = Boolean(memberId && memberId === group?.leader?.memberId);
+  useEffect(() => {
+    if (loadedGroupId && !redirectSpace) document.getElementById("group-title")?.focus({ preventScroll: true });
+  }, [loadedGroupId, redirectSpace]);
+  const currentMember = auth.member ?? auth.user;
+  const isLeader = currentMember?.id === group?.leader?.memberId;
   const isApprovedMember =
     group?.currentMemberRole === "MEMBER" || group?.currentMemberRole === "LEADER";
   const hasExistingRegistration = group?.currentMemberRegistrationStatus != null;
   const isArchived = group?.status === "ENDED";
   const canInvite = auth.status === "authenticated" && isApprovedMember && !isArchived;
-  const invitationScope = `${groupId}:${memberId ?? "guest"}:${auth.sessionVersion ?? 0}`;
-  const setupPending = !setupDismissed && group?.clubhouseSetupEnabled && isLeader && !isArchived && !photoDetail;
+  const invitationScope = `${groupId}:${currentMember?.id ?? "guest"}:${auth.sessionVersion ?? 0}`;
 
-  useEffect(() => {
-    if (loadedGroupId && !redirectSpace && !recruitmentPromptOpen) {
-      document.getElementById("group-title")?.focus({ preventScroll: true });
-    }
-  }, [loadedGroupId, recruitmentPromptOpen, redirectSpace]);
 
-  /* 세션은 아지트가 없어서 상세 화면이 열린 뒤 바로 모집을 안내한다. */
+  /*
+   * 모임을 만들자마자 모집도 시작된 줄 아는 오해가 있어, 방금 만든 모임장에게만 모집을
+   * 시작할지 묻는다. 만들기 버튼 바로 옆에서 물으면 급하게 느껴지므로 상세 화면이
+   * 자리를 잡은 뒤에 띄운다. state는 history에 남아 새로고침해도 살아 있어 한 번 쓰고 지운다.
+   */
   useEffect(() => {
-    if (!photoDetail || redirectSpace || !justCreatedReference.current || !memberId) return;
+    if (redirectSpace || !justCreatedReference.current || !group || !currentMember) return;
     justCreatedReference.current = false;
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    if (!isLeader || isArchived || group.activeRecruitment) return;
+    if (!isLeader || group.activeRecruitment) return;
     const timer = setTimeout(() => setRecruitmentPromptOpen(true), RECRUITMENT_PROMPT_DELAY);
     return () => clearTimeout(timer);
-  }, [group, isArchived, isLeader, location.pathname, location.search, memberId, navigate, photoDetail, redirectSpace]);
+  }, [currentMember, group, isLeader, location.pathname, location.search, navigate, redirectSpace]);
 
   if (groupQuery.isLoading) {
     return (
@@ -146,11 +142,6 @@ function GroupDetail({ auth, groupId, memberId }) {
   if (redirectSpace) {
     return <Navigate replace state={location.state}
       to={{ pathname: `/groups/${groupId}`, search: location.search, hash: location.hash }} />;
-  }
-
-  function completeSetup() {
-    setSetupDismissed(true);
-    if (!group.activeRecruitment) setRecruitmentPromptOpen(true);
   }
 
   function selectTab(value) {
@@ -233,11 +224,10 @@ function GroupDetail({ auth, groupId, memberId }) {
         title="모집을 시작할까요?"
       >
         <div className="ui-dialog__actions">
-          <Button data-ph-capture-attribute-action="recruitment_start_later" onClick={() => setRecruitmentPromptOpen(false)} variant="secondary">
+          <Button onClick={() => setRecruitmentPromptOpen(false)} variant="secondary">
             나중에 하기
           </Button>
           <Button
-            data-ph-capture-attribute-action="recruitment_start"
             onClick={() =>
               navigate(`/groups/${groupId}/manage/recruitments`, { state: { screen: "create" } })
             }
@@ -256,9 +246,8 @@ function GroupDetail({ auth, groupId, memberId }) {
       auth={auth}
       group={group}
       groupId={groupId}
-      isMember={Boolean(memberId && (isApprovedMember || isLeader))}
+      isMember={Boolean(currentMember && (isApprovedMember || isLeader))}
       key={invitationScope}
-      setup={setupPending ? { onComplete: completeSetup, onDismiss: () => setSetupDismissed(true) } : undefined}
     >
       {detail}
     </GroupClubhouse>

@@ -19,7 +19,6 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class RoomDocumentValidator {
     public static final int MAX_BYTES = 2_097_152;
-    private static final int LOUNGE_LOFT_VERSION = 12;
     private static final Pattern COLOR = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern PHOTO = Pattern.compile("data:image/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}");
     private static final Set<String> COLORS = Set.of("#536bd6", "#7b9b6d", "#d99559", "#c991ba", "#7d8b9d");
@@ -64,13 +63,12 @@ public class RoomDocumentValidator {
         }
         fields(room, Set.of("version", "name", "template", "theme", "avatarColor", "accentColor", "matColor",
                 "food", "coverPhoto", "notice", "atmosphere", "items"));
-        integer(room.get("version"), 8, LOUNGE_LOFT_VERSION);
+        integer(room.get("version"), 8, 11);
         int version = room.get("version").intValue();
         require(!text(room.get("name"), 30).isBlank());
         String template = choice(room.get("template"), version >= 9
                 ? Set.of("lounge", "climbing", "boardgame", "dining", "band", "study", "photo")
                 : Set.of("lounge", "climbing", "boardgame", "dining", "band"));
-        require(version != LOUNGE_LOFT_VERSION || template.equals("lounge"));
         choice(room.get("theme"), version >= 9
                 ? Set.of("blue", "sage", "rose", "wood", "chalk", "walnut", "rehearsal", "studio", "gallery")
                 : Set.of("blue", "sage", "rose", "wood", "chalk", "walnut"));
@@ -85,8 +83,6 @@ public class RoomDocumentValidator {
         require(items != null && items.isArray() && items.size() <= (version >= 10 ? 400 : version == 9 ? 160 : 64));
         Set<String> ids = new HashSet<>();
         Map<String, JsonNode> byId = new HashMap<>();
-        boolean mezzanine = template.equals("lounge") ? version == LOUNGE_LOFT_VERSION
-                : version >= 9 || Set.of("climbing", "boardgame").contains(template);
         for (JsonNode item : items) {
             fields(item, Set.of("id", "kind", "x", "z", "rotation", "level", "color", "title", "note", "photo", "link",
                     "scaleX", "scaleY", "scaleZ", "elevation", "finish", "variant", "parentId", "surfaceIndex"));
@@ -98,6 +94,8 @@ public class RoomDocumentValidator {
             number(item.get("z"), -64, 64);
             integer(item.get("rotation"), 0, 3);
             if (item.has("level")) {
+                boolean mezzanine = version >= 9 ? !template.equals("lounge")
+                        : Set.of("climbing", "boardgame").contains(template);
                 integer(item.get("level"), 0, mezzanine ? 1 : 0);
             }
             for (String axis : Set.of("scaleX", "scaleY", "scaleZ")) if (item.has(axis)) number(item.get(axis), 0.25, 3);

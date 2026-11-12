@@ -11,7 +11,7 @@ import { LEGACY_FACILITY_ASSETS, createLegacyFacilityItems } from "./legacyFacil
 import { COMMON_ASSET_CATALOG, commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
 import { BUILDING, BUILDING_WALLS, CLIMBING_V5, CLIMBING_V6, BOARDGAME_V6, CLEAR_PATHS, LOUNGE_LOFT_VERSION, PLAYER, ROOM_ZONES, YARD, boundsForBox, contains, facilityBounds, getRoomLayout, overlaps } from "./roomLayout";
 
-export const LOUNGE_LOFT_WRITES_ENABLED = true;
+export const LOUNGE_LOFT_WRITES_ENABLED = false;
 export const STORAGE_KEY = "jarihana.space-studio.v1";
 export const MAX_ITEMS = 400;
 export const MAX_PHOTO_LENGTH = 220000;
@@ -383,7 +383,7 @@ function canPlaceLegacy(item, items, template) {
 
 export function snapPosition(value) { return Math.round(value * 4) / 4; }
 
-export function findOpenPosition(kind, items, template = "lounge", region, rotation = 0, customization = {}, accepts = () => true) {
+export function findOpenPosition(kind, items, template = "lounge", region, rotation = 0, customization = {}) {
   const layout = getRoomLayout(template);
   const level = region === "mezzanine" ? 1 : 0;
   if (level === 1 && !layout.mezzanine) return null;
@@ -399,7 +399,7 @@ export function findOpenPosition(kind, items, template = "lounge", region, rotat
         const item = { ...customization, kind, x, z, rotation, level };
         const bounds = boundsForBox({ ...item, ...footprint(item) });
         if (commonPaths.some((path) => overlaps(bounds, path, PLAYER.radius + 0.1))) continue;
-        if (contains(area, bounds) && canPlace(item, items, template) && accepts(item)) return { x, z, level };
+        if (canPlace(item, items, template) && contains(area, bounds)) return { x, z, level };
       }
     }
   }
@@ -419,34 +419,6 @@ function migrateItems(items, template) {
     result.set(item.id, { ...item, ...position });
   }
   return items.map((item) => result.get(item.id));
-}
-
-function migrateLoungeItems(items, room) {
-  const layout = getRoomLayout(room);
-  const roots = items.filter((item) => !item.parentId);
-  const groupFor = (root) => [root, ...items.filter((item) => item.parentId === root.id)];
-  const placed = new Map();
-  const addGroup = (group) => group.forEach((item) => placed.set(item.id, item));
-
-  for (const root of roots) {
-    const group = groupFor(root);
-    if (group.every((item) => canPlaceInLayout(item, items, layout, [], room.version))) addGroup(group);
-  }
-  for (const root of roots) {
-    if (placed.has(root.id)) continue;
-    const group = groupFor(root);
-    const occupied = [...placed.values()];
-    const fits = (position) => {
-      const moved = transformAttachedItems(group, root.id, position);
-      return moved.every((item) => canPlaceInLayout(item, [...occupied, ...moved], layout, [], room.version));
-    };
-    const preferred = root.z > layout.building.maxZ ? "entrance" : "building";
-    const position = findOpenPosition(root.kind, occupied, room, preferred, root.rotation, root, fits) ||
-      findOpenPosition(root.kind, occupied, room, undefined, root.rotation, root, fits);
-    if (!position) return null;
-    addGroup(transformAttachedItems(group, root.id, position));
-  }
-  return items.map((item) => placed.get(item.id));
 }
 
 export function isSafeRecordLink(value) {
@@ -550,11 +522,6 @@ export function validateRoom(value) {
 
 export function readSavedRoom(value) {
   const room = validateRoom(value);
-  if (LOUNGE_LOFT_WRITES_ENABLED && room?.template === "lounge" && room.version < LOUNGE_LOFT_VERSION) {
-    const loft = { ...room, version: LOUNGE_LOFT_VERSION };
-    const items = migrateLoungeItems(room.items, loft);
-    return items ? { ...loft, items } : room;
-  }
   if (room?.version !== 11) return room;
   const position = PRESET_MUSIC_POSITIONS[room.template];
   if (!position) return room;

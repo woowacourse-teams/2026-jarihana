@@ -55,7 +55,7 @@ export function GroupPhotoDetail({ group, children }) {
   </div>;
 }
 
-export default function GroupClubhouse({ auth, group, groupId, isMember, setup, children }) {
+export default function GroupClubhouse({ auth, group, groupId, isMember, children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const memberId = auth.member?.id ?? auth.user?.id;
@@ -234,7 +234,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, setup, 
     <div className="group-clubhouse__frontage" ref={frontageRef} inert={orientationBlocked}>
       <div className="group-clubhouse__scene" id="group-clubhouse-scene" ref={sceneRef}>
         <Suspense fallback={<div className="route-loading"><Skeleton aria-label="우리 모임 공간 불러오는 중" /></div>}>
-          <GroupSpaceLoader groupId={groupId} memberId={memberId} clubhouse={clubhouse} setup={setup} />
+          <GroupSpaceLoader groupId={groupId} memberId={memberId} clubhouse={clubhouse} />
         </Suspense>
         <ClubhouseLoading />
       </div>
