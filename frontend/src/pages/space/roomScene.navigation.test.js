@@ -22,7 +22,7 @@ jest.mock("three", () => {
 jest.mock("./roomModels", () => {
   const { Group } = jest.requireActual("three");
   const { addClubhouseSign } = jest.requireActual("./clubhouseExterior");
-  const { createFurniture } = jest.requireActual("./roomModels");
+  const { createFurniture, updateWalkPropAppearance } = jest.requireActual("./roomModels");
   return { climbingPanelBacking: () => undefined, createFurniture: (kind) => kind === "plant" ? createFurniture(kind) : new Group(), createRoomShell: () => {
     const shell = new Group();
     const island = new Group();
@@ -44,7 +44,7 @@ jest.mock("./roomModels", () => {
     shell.add(context, ceiling, wall);
     return shell;
   },
-    createMascot: () => new Group(), animateMascot: jest.fn(),
+    createMascot: () => new Group(), animateMascot: jest.fn(), updateWalkPropAppearance,
     disposeObject: jest.fn() };
 });
 jest.mock("./roomLighting", () => ({ createRoomLighting: jest.fn((scene) => {
