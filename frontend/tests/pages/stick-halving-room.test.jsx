@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { storeReturnTarget, useAuth } from "../../src/features/auth";
-import { getPeperoDayRankings, getPeperoDayStatus, getStickHalvingRoomRankings } from "../../src/features/pepero-day/api";
+import {
+  createRankedAdapter,
+  getPeperoDayRankings,
+  getPeperoDayStatus,
+  getStickHalvingRoomRankings
+} from "../../src/features/pepero-day/api";
 import { GamesPage } from "../../src/pages/games/index.jsx";
 import { StickHalvingRoomPage } from "../../src/pages/games/StickHalvingRoomPage.jsx";
 import { ToastProvider } from "../../src/shared/ui";
@@ -19,6 +24,10 @@ jest.mock("react-router", () => ({
 jest.mock("../../src/features/auth", () => ({ storeReturnTarget: jest.fn(), useAuth: jest.fn() }));
 jest.mock("../../src/features/pepero-day/api", () => ({
   ...jest.requireActual("../../src/features/pepero-day/api"),
+  // 서버 대신 브라우저에서 같은 규칙으로 막대를 만들고 판정하는 연결부로 순위 도전을 흉내 낸다.
+  createRankedAdapter: jest.fn(() =>
+    jest.requireActual("../../src/features/stick-halving/practiceAdapter").createPracticeAdapter()
+  ),
   getPeperoDayRankings: jest.fn(),
   getPeperoDayStatus: jest.fn(),
   getStickHalvingRoomRankings: jest.fn()
@@ -87,36 +96,53 @@ it("tells when the game arrives before the move time", async () => {
   expect(screen.queryByRole("slider")).not.toBeInTheDocument();
 });
 
-it("shows the game room ranking apart from the final event ranking and plays practice sticks", async () => {
-  getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
-  const { container } = mount(<StickHalvingRoomPage />);
+const asMember = () => useAuth.mockReturnValue({ login: jest.fn(), member: { id: 7 }, status: "authenticated" });
+const openRoom = () => getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
+
+it("shows the game room ranking apart from the final event ranking", async () => {
+  openRoom();
+  mount(<StickHalvingRoomPage />);
 
   expect(await screen.findByRole("heading", { name: "공평하게 반띵" })).toBeInTheDocument();
-  expect(container.querySelector(".cut-stick-artwork")).toBeInTheDocument();
   const roomRanking = await screen.findByRole("region", { name: "게임방 순위" });
   const eventRanking = await screen.findByRole("region", { name: "이벤트 최종 순위" });
   expect(await within(roomRanking).findByText("라온")).toBeInTheDocument();
   expect(within(roomRanking).queryByText("모카")).not.toBeInTheDocument();
   expect(await within(eventRanking).findByText("모카")).toBeInTheDocument();
   expect(within(eventRanking).queryByText("라온")).not.toBeInTheDocument();
+});
 
-  fireEvent.click(screen.getByRole("button", { name: "연습 시작" }));
+it("starts a game room ranked run right from the start card, like the event, with no practice mode", async () => {
+  openRoom();
+  asMember();
+  const { container } = mount(<StickHalvingRoomPage />);
+
+  // 이벤트 시작 카드처럼 반으로 잘린 막대 그림과 시작하기만 있다.
+  const startButton = await screen.findByRole("button", { name: "시작하기" });
+  expect(startButton).toHaveAttribute("data-ph-capture-attribute-action", "stick_halving_room_ranked_start");
+  expect(container.querySelector(".cut-stick-artwork")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "10초 안에 빼빼로 5개를 같은 무게로 잘라 보세요" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /연습/ })).not.toBeInTheDocument();
+
+  fireEvent.click(startButton);
   expect(await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
-  expect(screen.getByText("연습")).toBeInTheDocument();
+  expect(createRankedAdapter).toHaveBeenCalledWith({ board: "room" });
   expect(container.querySelector(".cut-stick-artwork")).not.toBeInTheDocument();
 });
 
 it("starts over from the first stick with the restart button or the R key", async () => {
-  getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
+  openRoom();
+  asMember();
   mount(<StickHalvingRoomPage />);
-  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+  fireEvent.click(await screen.findByRole("button", { name: "시작하기" }));
 
-  // 첫 막대를 자르고 두 번째 막대를 받은 뒤 처음부터 다시 한다.
+  // 첫 막대를 자르고 두 번째 막대를 받은 뒤 처음부터 다시 한다. 다시 할 때마다 새 순위 도전 판을 받는다.
   fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
   fireEvent.click(await screen.findByRole("button", { name: "다음 막대" }));
   await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/));
   fireEvent.click(screen.getByRole("button", { name: "처음부터 다시 하기" }));
   await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5.*누적 0점/));
+  expect(createRankedAdapter).toHaveBeenCalledTimes(2);
 
   // R 키도 같다.
   fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
@@ -124,24 +150,20 @@ it("starts over from the first stick with the restart button or the R key", asyn
   await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/));
   fireEvent.keyDown(window, { code: "KeyR", key: "r" });
   await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5.*누적 0점/));
+  expect(createRankedAdapter).toHaveBeenCalledTimes(3);
 });
 
-it("offers unlimited game room ranked runs to members and a login to visitors", async () => {
-  getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
+it("asks visitors to log in and come back to the game room", async () => {
+  openRoom();
   const login = jest.fn();
   useAuth.mockReturnValue({ login, member: null, status: "anonymous" });
-  const { unmount } = mount(<StickHalvingRoomPage />);
+  mount(<StickHalvingRoomPage />);
 
-  expect(await screen.findByText("몇 번이든 도전하고, 가장 좋은 판으로 게임방 순위를 매겨요.")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "GitHub로 로그인하고 도전하기" }));
+  const loginButton = await screen.findByRole("button", { name: "GitHub로 로그인하고 도전하기" });
+  expect(loginButton).toHaveAttribute("data-ph-capture-attribute-action", "stick_halving_room_login");
+  expect(screen.queryByRole("button", { name: "시작하기" })).not.toBeInTheDocument();
+  fireEvent.click(loginButton);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/stick-halving");
   expect(login).toHaveBeenCalled();
-  unmount();
-
-  useAuth.mockReturnValue({ login, member: { id: 7 }, status: "authenticated" });
-  mount(<StickHalvingRoomPage />);
-  expect(await screen.findByRole("button", { name: "순위 도전 시작" })).toHaveAttribute(
-    "data-ph-capture-attribute-action",
-    "stick_halving_room_ranked_start"
-  );
+  expect(createRankedAdapter).not.toHaveBeenCalled();
 });

@@ -1489,12 +1489,6 @@
 .stick-room .games-heading {
   margin-block-end: 0;
 }
-.stick-room .cut-stick-artwork {
-  display: block;
-  inline-size: min(100%, 24rem);
-  justify-self: center;
-  margin-block: var(--space-4);
-}
 .stick-room__loading {
   block-size: 24rem;
 }

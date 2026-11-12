@@ -82,7 +82,7 @@ function resultText(summary) {
 // 끝난 이벤트 안내다. 하던 판이 있으면 마저 하게 하고, 아니면 게임방으로 옮겨 가는 때를 알려 준다.
 function closedMessage(event, game) {
   if (game) return "하던 판은 끝까지 할 수 있어요. 순위 도전 판은 끝내면 순위에 들어가요.";
-  if (event.gameRoomOpen) return "참여해 주셔서 고마워요. 이제 게임방에서 연습으로 계속 할 수 있어요.";
+  if (event.gameRoomOpen) return "참여해 주셔서 고마워요. 이제 게임방에서 계속 할 수 있어요.";
   return `참여해 주셔서 고마워요. ${formatServiceDateTime(event.gameRoomOpensAt)}부터 게임방에서 다시 할 수 있어요.`;
 }
 
@@ -250,8 +250,13 @@ export function RankingDialog({ board = "event", onChallenge, onClose, result })
 }
 
 // 판을 시작하기 전의 카드다. 회원은 시작하기를 누르면 막대를 받고, 순위 도전은 회원만 할 수 있어서
-// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다.
-function StartPrompt({ onStart }) {
+// 로그인하지 않았으면 로그인이나 가입 계속하기를 보여 준다. 게임방 페이지도 돌아올 주소와 동작 식별자만 바꿔 쓴다.
+export function StartPrompt({
+  loginAction = "pepero_ranked_login",
+  onStart,
+  returnTarget = PEPERO_DAY_PATH,
+  startAction = "pepero_ranked_start"
+}) {
   const auth = useAuth();
 
   if (auth.status === "loading") return <Skeleton aria-label="로그인 상태를 확인하는 중" className="pepero-day__loading" />;
@@ -259,7 +264,7 @@ function StartPrompt({ onStart }) {
   let action;
   if (auth.status === "authenticated") {
     action = (
-      <Button data-ph-capture-attribute-action="pepero_ranked_start" onClick={onStart} size="lg">
+      <Button data-ph-capture-attribute-action={startAction} onClick={onStart} size="lg">
         시작하기
       </Button>
     );
@@ -272,9 +277,9 @@ function StartPrompt({ onStart }) {
   } else {
     action = (
       <Button
-        data-ph-capture-attribute-action="pepero_ranked_login"
+        data-ph-capture-attribute-action={loginAction}
         onClick={() => {
-          storeReturnTarget(PEPERO_DAY_PATH);
+          storeReturnTarget(returnTarget);
           auth.login();
         }}
       >

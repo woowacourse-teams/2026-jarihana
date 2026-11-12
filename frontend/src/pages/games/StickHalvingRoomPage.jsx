@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
-import { storeReturnTarget, useAuth } from "../../features/auth";
 import {
   PEPERO_DAY_PATH,
   STICK_HALVING_ROOM_PATH,
@@ -11,9 +10,9 @@ import {
   peperoDayKeys,
   usePeperoDayStatus
 } from "../../features/pepero-day";
-import { CutStickArtwork, StickHalvingGame, createPracticeAdapter } from "../../features/stick-halving";
+import { StickHalvingGame } from "../../features/stick-halving";
 import { Button, EmptyState, ErrorState, PageContainer, Skeleton } from "../../shared/ui";
-import { Ranking, RankingDialog, formatServiceDateTime } from "../events/PeperoDayEventPage.jsx";
+import { Ranking, RankingDialog, StartPrompt, formatServiceDateTime } from "../events/PeperoDayEventPage.jsx";
 import "./games.css";
 
 const RANKED_ERRORS = {
@@ -34,67 +33,18 @@ function BackToGames() {
   );
 }
 
-function RoomModeChooser({ onStart }) {
-  const auth = useAuth();
-
-  let rankedAction;
-  if (auth.status === "authenticated") {
-    rankedAction = (
-      <Button data-ph-capture-attribute-action="stick_halving_room_ranked_start" onClick={() => onStart("ranked")}>
-        순위 도전 시작
-      </Button>
-    );
-  } else if (auth.status === "signup-required") {
-    rankedAction = (
-      <Link className="ui-button ui-button--primary ui-button--md" data-ph-capture-attribute-action="signup_continue" to="/signup">
-        가입 계속하기
-      </Link>
-    );
-  } else {
-    rankedAction = (
-      <Button
-        data-ph-capture-attribute-action="stick_halving_room_login"
-        disabled={auth.status === "loading"}
-        onClick={() => {
-          storeReturnTarget(STICK_HALVING_ROOM_PATH);
-          auth.login();
-        }}
-      >
-        GitHub로 로그인하고 도전하기
-      </Button>
-    );
-  }
-
-  return (
-    <div className="pepero-day__modes">
-      <section className="pepero-day__card pepero-day__mode">
-        <h2>연습하기</h2>
-        <p>로그인 없이 해 봐요. 순위에는 안 들어가요.</p>
-        <Button data-ph-capture-attribute-action="pepero_practice_start" onClick={() => onStart("practice")} variant="secondary">
-          연습 시작
-        </Button>
-      </section>
-      <section className="pepero-day__card pepero-day__mode pepero-day__mode--ranked">
-        <h2>게임방 순위 도전</h2>
-        <p>몇 번이든 도전하고, 가장 좋은 판으로 게임방 순위를 매겨요.</p>
-        {rankedAction}
-      </section>
-    </div>
-  );
-}
-
-// 빼빼로데이 이벤트가 끝난 뒤 게임방에서 하는 반띵이다. 연습은 누구나, 순위 도전은 회원이 횟수 제한 없이 하고
-// 게임방 순위는 이벤트 최종 순위와 따로 매긴다. 옮기는 시각 전에는 언제부터 할 수 있는지 알려 준다.
+// 빼빼로데이 이벤트가 끝난 뒤 게임방에서 하는 반띵이다. 이벤트 때처럼 회원이 시작하기를 누르면 바로 순위 도전 판을
+// 받고(횟수 제한 없음), 게임방 순위는 이벤트 최종 순위와 따로 매긴다. 옮기는 시각 전에는 언제부터 할 수 있는지 알려 준다.
 export function StickHalvingRoomPage() {
   const queryClient = useQueryClient();
   const status = usePeperoDayStatus();
   const [game, setGame] = useState(null);
   const [finished, setFinished] = useState(null);
 
-  function start(mode) {
-    const adapter = mode === "ranked" ? createRankedAdapter({ board: "room" }) : createPracticeAdapter();
+  function start() {
+    const adapter = createRankedAdapter({ board: "room" });
     setFinished(null);
-    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1, mode }));
+    setGame((previous) => ({ adapter, key: (previous?.key ?? 0) + 1 }));
   }
 
   if (status.isPending) {
@@ -145,7 +95,6 @@ export function StickHalvingRoomPage() {
     );
   }
 
-  const ranked = game?.mode === "ranked";
   return (
     <PageContainer>
       <div className="games-page stick-room">
@@ -157,38 +106,31 @@ export function StickHalvingRoomPage() {
           <section className="pepero-day__card pepero-day__game">
             <StickHalvingGame
               adapter={game.adapter}
-              errorMessage={(error) => (ranked ? RANKED_ERRORS[error?.code] : null) ?? "잠시 뒤 다시 시도해 주세요."}
+              errorMessage={(error) => RANKED_ERRORS[error?.code] ?? "잠시 뒤 다시 시도해 주세요."}
               finalActions={() => (
-                <>
-                  <Button data-ph-capture-attribute-action="pepero_mode_choose" onClick={() => setGame(null)} variant="secondary">
-                    모드 고르기
-                  </Button>
-                  <Button
-                    data-ph-capture-attribute-action={ranked ? "stick_halving_room_ranked_start" : "pepero_practice_start"}
-                    onClick={() => start(game.mode)}
-                  >
-                    {ranked ? "새 막대로 다시 도전" : "새 막대로 다시 하기"}
-                  </Button>
-                </>
+                <Button data-ph-capture-attribute-action="stick_halving_room_ranked_start" onClick={start}>
+                  새 막대로 다시 도전
+                </Button>
               )}
               key={game.key}
-              label={ranked ? "순위 도전" : "연습"}
               onFinish={(summary) => {
-                if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
-                setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
+                void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
+                setFinished({ key: game.key, mode: "ranked", totalScore: summary.totalScore });
               }}
-              onRestart={() => start(game.mode)}
+              onRestart={start}
             />
             {finished?.key === game.key ? (
               <RankingDialog board="room" onChallenge={null} onClose={() => setFinished(null)} result={finished} />
             ) : null}
           </section>
         ) : (
-          <>
-            {/* 이벤트 시작 카드처럼 판을 시작하기 전에만 반으로 잘린 막대 그림을 보여 준다. */}
-            <CutStickArtwork />
-            <RoomModeChooser onStart={start} />
-          </>
+          // 이벤트 시작 카드와 같은 카드다. 반으로 잘린 막대 그림 아래에서 회원은 바로 시작하고, 아니면 로그인한다.
+          <StartPrompt
+            loginAction="stick_halving_room_login"
+            onStart={start}
+            returnTarget={STICK_HALVING_ROOM_PATH}
+            startAction="stick_halving_room_ranked_start"
+          />
         )}
         <Ranking
           board="room"
