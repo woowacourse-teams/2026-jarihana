@@ -1,0 +1,166 @@
+prometheus.remote_write "monitoring" {
+	endpoint {
+		url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+
+		queue_config {
+			batch_send_deadline = "1s"
+		}
+	}
+}
+
+prometheus.scrape "realtime" {
+	job_name        = "jarihana-realtime"
+	scrape_interval = "5s"
+	scrape_timeout  = "4s"
+	metrics_path    = "/actuator/prometheus"
+
+	targets = [{
+		"__address__" = "127.0.0.1:8081",
+		"host_id"     = sys.env("HOST_ID"),
+		"instance"    = sys.env("HOST_ID") + ":realtime",
+	}]
+
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.blackbox "realtime_health" {
+	config = encoding.to_json({
+		modules = {
+			http_health = {
+				prober  = "http",
+				timeout = "5s",
+				http = {
+					method                          = "GET",
+					valid_status_codes              = [200],
+					follow_redirects                = false,
+					fail_if_body_not_matches_regexp = [`"status"\s*:\s*"UP"`],
+				},
+			},
+		},
+	})
+
+	target {
+		name    = "realtime"
+		address = "http://127.0.0.1:8080/healthz"
+		module  = "http_health"
+		labels  = {"host_id" = sys.env("HOST_ID")}
+	}
+}
+
+discovery.relabel "realtime_health" {
+	targets = prometheus.exporter.blackbox.realtime_health.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-realtime-health"
+	}
+}
+
+prometheus.scrape "realtime_health" {
+	targets         = discovery.relabel.realtime_health.output
+	scrape_interval = "10s"
+	scrape_timeout  = "9s"
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys)($|/)"
+	}
+}
+
+discovery.relabel "host" {
+	targets = prometheus.exporter.unix.host.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-realtime-node"
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("HOST_ID")
+	}
+}
+
+prometheus.scrape "host" {
+	scrape_interval = "10s"
+	targets         = discovery.relabel.host.output
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.scrape "alloy" {
+	job_name        = "jarihana-realtime-alloy"
+	scrape_interval = "10s"
+
+	targets = [{
+		"__address__" = "127.0.0.1:12345",
+		"host_id"     = sys.env("HOST_ID"),
+		"instance"    = sys.env("HOST_ID") + ":alloy",
+	}]
+
+	forward_to = [prometheus.remote_write.monitoring.receiver]
+}
+
+discovery.docker "realtime" {
+	host = "unix:///var/run/docker.sock"
+
+	filter {
+		name   = "label"
+		values = ["com.docker.compose.project=jarihana-realtime"]
+	}
+
+	filter {
+		name   = "label"
+		values = ["com.docker.compose.service=realtime"]
+	}
+}
+
+discovery.relabel "realtime_logs" {
+	targets = discovery.docker.realtime.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "jarihana-realtime"
+	}
+
+	rule {
+		target_label = "service_name"
+		replacement  = "jarihana-realtime"
+	}
+
+	rule {
+		target_label = "host_id"
+		replacement  = sys.env("HOST_ID")
+	}
+}
+
+loki.source.docker "realtime" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.realtime_logs.output
+	forward_to = [loki.relabel.realtime.receiver]
+}
+
+loki.relabel "realtime" {
+	forward_to = [loki.write.monitoring.receiver]
+
+	rule {
+		action = "labelkeep"
+		regex  = "job|service_name|host_id|stream"
+	}
+}
+
+loki.write "monitoring" {
+	endpoint {
+		url = sys.env("LOKI_PUSH_URL")
+	}
+}
