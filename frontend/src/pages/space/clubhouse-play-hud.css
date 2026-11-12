@@ -1,0 +1,107 @@
+.clubhouse-play-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+}
+
+.clubhouse-play-hud,
+.space-studio__scene-ui > .clubhouse-play-hud { pointer-events: none; }
+
+.clubhouse-play-hud__group,
+.clubhouse-play-hud__intro-card {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--studio-line);
+  border-radius: 14px;
+  background: var(--studio-panel);
+  box-shadow: var(--studio-shadow);
+  color: var(--studio-ink);
+}
+
+.clubhouse-play-hud__group { pointer-events: auto; }
+
+.clubhouse-play-hud__group button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: calc(var(--clubhouse-action-size) - 6px);
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--studio-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.clubhouse-play-hud__group button:hover { background: var(--studio-accent-soft); color: var(--studio-ink); }
+.clubhouse-play-hud__group button:focus-visible { outline: 2px solid var(--studio-ink); outline-offset: -3px; }
+.clubhouse-play-hud__group button svg { flex: 0 0 auto; }
+
+.space-studio--clubhouse-play .clubhouse-play-hud .clubhouse-play-hud__decorate {
+  position: absolute;
+  z-index: 2;
+  top: var(--clubhouse-hud-top);
+  left: calc(var(--clubhouse-hud-left) + var(--clubhouse-action-size) + var(--clubhouse-tool-gap));
+  min-height: var(--clubhouse-action-size);
+  padding: 0 11px;
+  pointer-events: auto;
+}
+
+.clubhouse-play-hud .clubhouse-play-hud__menu { bottom: calc(var(--clubhouse-hud-bottom) + var(--clubhouse-action-size) + var(--clubhouse-tool-gap)); }
+.clubhouse-play-hud__view-tools > * { pointer-events: auto; }
+.clubhouse-play-hud__view-tools .clubhouse-play-hud__settings { padding: 0; }
+.clubhouse-play-hud__view-tools button:focus-visible { outline-offset: -3px; }
+.clubhouse-play-hud__dismiss-layer { position: absolute; inset: 0; z-index: 1; pointer-events: auto; }
+
+.clubhouse-play-hud__chat {
+  position: absolute;
+  bottom: var(--clubhouse-hud-bottom);
+  left: var(--clubhouse-hud-left);
+}
+
+.clubhouse-play-hud__unread {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding-inline: 4px;
+  border-radius: 99px;
+  background: var(--studio-coral);
+  color: var(--studio-ink);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.clubhouse-play-hud__intro {
+  position: absolute;
+  top: calc(var(--clubhouse-hud-top) + 63px);
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.clubhouse-play-hud__intro-card { flex-direction: column; gap: 4px; padding: 8px 12px; font-size: 13px; }
+.clubhouse-play-hud__intro-card span { color: var(--studio-muted); }
+.clubhouse-play-hud__touch-copy { display: none; }
+
+.clubhouse-play-help { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 12px 16px; margin: 0; }
+.clubhouse-play-help dt { font-weight: 700; }
+.clubhouse-play-help dd { margin: 0; color: var(--color-muted-ink); }
+
+@media (max-width: 767px) {
+  .clubhouse-play-hud__group button { gap: 5px; padding-inline: 8px; font-size: 13px; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .clubhouse-play-hud__touch-copy { display: inline; }
+  .clubhouse-play-hud__keyboard-copy { display: none; }
+}
