@@ -381,6 +381,20 @@ test("editor turn and wide framing share the orbit camera without changing the d
   expect(camera().quaternion.angleTo(orientation)).toBeLessThan(1e-7);
 });
 
+test("a read-only preview orbits its camera a little at a time but leaves the front lens alone", () => {
+  const { room, camera } = setup(false);
+  const orientation = camera().quaternion.clone();
+
+  runtime.orbitBy(0.3);
+  expect(camera().quaternion.angleTo(orientation)).toBeGreaterThan(0.1);
+
+  runtime.update(room, null, "front", 1);
+  const front = camera().clone();
+  runtime.orbitBy(0.3);
+  expect(camera().position).toEqual(front.position);
+  expect(camera().quaternion.angleTo(front.quaternion)).toBeLessThan(1e-7);
+});
+
 test("right-drag over furniture pans while left-drag keeps the furniture editing path", () => {
   const { camera, send, callbacks } = setup(true);
   pickRoomItem.mockReturnValue("sofa");

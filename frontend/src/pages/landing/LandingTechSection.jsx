@@ -377,7 +377,7 @@ export function LandingTechSection({ activeChapter }) {
           className="landing-guide__intro landing-tech__intro"
           data-guide-chapter="tech-intro"
         >
-          <p className="landing-eyebrow">자리하나를 만드는 방식</p>
+          <p className="landing-eyebrow">자리하나?를 만드는 방식</p>
           <h2 id="tech-title">배포 시간을<br />절반 이하로 줄였어요.</h2>
           <p>
             같은 일을 두 번 하던 단계를 덜어 냈어요.

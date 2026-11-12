@@ -33,6 +33,7 @@ const loadAccountPages = () => import("../pages/account/index.js");
 const loadActivityPostPages = () => import("../pages/activity-posts/index.js");
 const loadGroupEditorPages = () => import("../pages/group-editor/index.jsx");
 const loadGroupPages = () => import("../pages/groups/index.js");
+const loadLandingFeaturePages = () => import("../pages/landing/LandingFeaturePages.jsx");
 const loadManagePages = () => import("../pages/manage/index.js");
 const loadProposalPages = () => import("../pages/proposals/index.js");
 
@@ -82,6 +83,10 @@ export const lazyPageRegistry = Object.freeze({
   GroupsPage: lazyNamed(loadGroupPages, "GroupsPage"),
   HomePage: lazyNamed(() => import("../pages/HomePage.jsx"), "HomePage"),
   LandingPage: lazyNamed(() => import("../pages/landing/LandingPage.jsx"), "LandingPage"),
+  LandingJoinPage: lazyNamed(loadLandingFeaturePages, "LandingJoinPage"),
+  LandingCreatePage: lazyNamed(loadLandingFeaturePages, "LandingCreatePage"),
+  LandingSparringPage: lazyNamed(loadLandingFeaturePages, "LandingSparringPage"),
+  LandingGamesPage: lazyNamed(loadLandingFeaturePages, "LandingGamesPage"),
   MyGroupsPage: lazyNamed(loadAccountPages, "MyGroupsPage"),
   MyPage: lazyNamed(loadAccountPages, "MyPage"),
   MyPointsPage: lazyNamed(loadAccountPages, "MyPointsPage"),
