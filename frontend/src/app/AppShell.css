@@ -210,27 +210,6 @@
     text-decoration: none;
 }
 
-.app-header__link-icon {
-    inline-size: 1.25em;
-    block-size: 1.25em;
-    flex: none;
-    margin-inline-end: var(--space-1);
-}
-
-.pepero-stick-icon__biscuit {
-    fill: var(--color-game-biscuit);
-}
-
-.pepero-stick-icon__choco {
-    fill: var(--color-game-choco-thin);
-}
-
-.pepero-stick-icon__shine {
-    stroke: var(--color-game-choco-highlight);
-    stroke-linecap: round;
-    stroke-width: 1;
-}
-
 .app-header__group-navigation {
     position: relative;
     display: flex;

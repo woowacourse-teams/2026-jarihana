@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, Home, Image, MapPin, Megaphone, MessageCircle, Plus, Settings, Share2, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, Home, Image, Megaphone, MessageCircle, Plus, Settings, Share2, Users } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import {
@@ -13,7 +13,7 @@ import { ChatLink } from "../../features/chat/ChatLink";
 import { useGroup } from "../../features/group/index.js";
 import GroupClubhouse, { GroupPhotoDetail } from "./GroupClubhouse.jsx";
 import { GroupAnnouncementTab } from "./GroupAnnouncementTab.jsx";
-import { GroupRecentActivities, GroupScheduleSummary } from "./GroupDetailOverview.jsx";
+import { GroupScheduleSummary } from "./GroupDetailOverview.jsx";
 import { useInfiniteGroupMembers } from "../../features/member/index.js";
 import { InviteMembersDialog } from "../../features/invitation/InviteMembersDialog.jsx";
 import { ShareInvitationButton } from "../../features/invitation/ShareInvitationButton.jsx";
@@ -46,10 +46,8 @@ import {
   flattenPages,
   formatCompactLocalDateTime,
   memberMetaLabel,
-  meetingTypeLabel,
   publicErrorCopy,
-  recruitmentCountdownLabel,
-  scheduleLines
+  recruitmentCountdownLabel
 } from "./pageUtils.js";
 import { groupTransitionOrigin, isPlainLinkClick } from "./GroupTransition.jsx";
 import "./groups.css";
@@ -200,8 +198,8 @@ export function GroupDetailPage() {
           label: <><Icon size={20} aria-hidden="true" />{label}</>, value, dataAction,
           content: selectedTab === value ? <div className="group-detail-web__grid" data-overview={value === "intro"}>
             <div className="group-detail-web__main">{tabContent[value]}</div>
-            {value === "intro" && <GroupRecentActivities auth={auth} groupId={groupId} onOpenActivities={() => selectTab("activities")} />}
-            <aside className="group-detail-web__rail" aria-label="모집 정보와 일정">
+            <aside className="group-detail-web__rail" aria-label={value === "intro" ? "운영자, 모집 정보와 일정" : "모집 정보와 일정"}>
+              {value === "intro" && <LeaderSummary leader={group.leader} variant="card" />}
               <RecruitmentSummary {...recruitmentProps} compact />
               <GroupScheduleSummary group={group} onOpenSchedule={() => selectTab("calendar")} />
             </aside>
@@ -260,13 +258,6 @@ function Introduction({ group }) {
   return <section className="group-introduction" aria-labelledby="group-detail-intro-title">
     <h2 id="group-detail-intro-title">모임 소개</h2>
     <MarkdownContent value={group.description || group.introduction} />
-    <dl className="group-detail-web__facts">
-      <div><dt><CalendarDays size={19} aria-hidden="true" />활동 일정</dt>
-        <dd>{scheduleLines(group).map((line) => <span key={line}>{line}</span>)}</dd></div>
-      <div><dt><MapPin size={19} aria-hidden="true" />모임 장소</dt><dd>{group.location || "아직 정해지지 않았어요"}</dd></div>
-      <div><dt><Users size={19} aria-hidden="true" />모임 방식</dt><dd>{meetingTypeLabel(group.meetingType)}</dd></div>
-    </dl>
-    <LeaderSummary leader={group.leader} variant="card" />
   </section>;
 }
 
