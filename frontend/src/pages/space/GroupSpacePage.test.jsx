@@ -13,7 +13,7 @@ let mockRouteParams = {};
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useParams: () => mockRouteParams
-}), { virtual: true });
+}));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
 jest.mock("../../features/group-space/api.js", () => ({ fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
