@@ -89,9 +89,10 @@ it("tells when the game arrives before the move time", async () => {
 
 it("shows the game room ranking apart from the final event ranking and plays practice sticks", async () => {
   getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
-  mount(<StickHalvingRoomPage />);
+  const { container } = mount(<StickHalvingRoomPage />);
 
   expect(await screen.findByRole("heading", { name: "공평하게 반띵" })).toBeInTheDocument();
+  expect(container.querySelector(".cut-stick-artwork")).toBeInTheDocument();
   const roomRanking = await screen.findByRole("region", { name: "게임방 순위" });
   const eventRanking = await screen.findByRole("region", { name: "이벤트 최종 순위" });
   expect(await within(roomRanking).findByText("라온")).toBeInTheDocument();
@@ -102,6 +103,27 @@ it("shows the game room ranking apart from the final event ranking and plays pra
   fireEvent.click(screen.getByRole("button", { name: "연습 시작" }));
   expect(await screen.findByRole("slider", { name: "칼 위치, 막대 왼쪽 끝부터 cm" })).toBeInTheDocument();
   expect(screen.getByText("연습")).toBeInTheDocument();
+  expect(container.querySelector(".cut-stick-artwork")).not.toBeInTheDocument();
+});
+
+it("starts over from the first stick with the restart button or the R key", async () => {
+  getPeperoDayStatus.mockResolvedValue(status({ gameRoomOpen: true, serverTime: "2026-11-12T13:00:00" }));
+  mount(<StickHalvingRoomPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "연습 시작" }));
+
+  // 첫 막대를 자르고 두 번째 막대를 받은 뒤 처음부터 다시 한다.
+  fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "다음 막대" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/));
+  fireEvent.click(screen.getByRole("button", { name: "처음부터 다시 하기" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5.*누적 0점/));
+
+  // R 키도 같다.
+  fireEvent.click(await screen.findByRole("button", { name: "자르기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "다음 막대" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/));
+  fireEvent.keyDown(window, { code: "KeyR", key: "r" });
+  await waitFor(() => expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^1\/5.*누적 0점/));
 });
 
 it("offers unlimited game room ranked runs to members and a login to visitors", async () => {

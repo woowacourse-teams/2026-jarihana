@@ -11,7 +11,7 @@ import {
   peperoDayKeys,
   usePeperoDayStatus
 } from "../../features/pepero-day";
-import { StickHalvingGame, createPracticeAdapter } from "../../features/stick-halving";
+import { CutStickArtwork, StickHalvingGame, createPracticeAdapter } from "../../features/stick-halving";
 import { Button, EmptyState, ErrorState, PageContainer, Skeleton } from "../../shared/ui";
 import { Ranking, RankingDialog, formatServiceDateTime } from "../events/PeperoDayEventPage.jsx";
 import "./games.css";
@@ -177,13 +177,18 @@ export function StickHalvingRoomPage() {
                 if (ranked) void queryClient.invalidateQueries({ queryKey: peperoDayKeys.all });
                 setFinished({ key: game.key, mode: game.mode, totalScore: summary.totalScore });
               }}
+              onRestart={() => start(game.mode)}
             />
             {finished?.key === game.key ? (
               <RankingDialog board="room" onChallenge={null} onClose={() => setFinished(null)} result={finished} />
             ) : null}
           </section>
         ) : (
-          <RoomModeChooser onStart={start} />
+          <>
+            {/* 이벤트 시작 카드처럼 판을 시작하기 전에만 반으로 잘린 막대 그림을 보여 준다. */}
+            <CutStickArtwork />
+            <RoomModeChooser onStart={start} />
+          </>
         )}
         <Ranking
           board="room"

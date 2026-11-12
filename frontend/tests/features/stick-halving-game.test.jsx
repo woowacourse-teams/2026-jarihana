@@ -152,3 +152,59 @@ it("cuts and asks for the next stick with the same button, ignoring the second c
   expect(secondCut).toBe(cutButton);
   expect(adapter.cut).toHaveBeenCalledTimes(1);
 });
+
+it("restarts from the first stick with the button or the R key, even in Korean input mode", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  const onRestart = jest.fn();
+  render(<StickHalvingGame adapter={adapter} onRestart={onRestart} />);
+  await timerShows("30초 남음");
+
+  // When: 한글 입력 상태라 key는 "ㄱ"이지만 같은 자리의 R 키를 누른다.
+  fireEvent.keyDown(window, { code: "KeyR", key: "ㄱ" });
+
+  // Then
+  expect(onRestart).toHaveBeenCalledTimes(1);
+
+  // When: 버튼을 누른다.
+  const restartButton = screen.getByRole("button", { name: "처음부터 다시 하기" });
+  fireEvent.click(restartButton);
+
+  // Then
+  expect(onRestart).toHaveBeenCalledTimes(2);
+  expect(restartButton).toHaveAttribute("aria-keyshortcuts", "R");
+  expect(restartButton).toHaveAttribute("data-ph-capture-attribute-action", "stick_run_restart");
+});
+
+it("leaves Ctrl+R and keys inside the analysis dialog alone", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  const onRestart = jest.fn();
+  render(<StickHalvingGame adapter={adapter} onRestart={onRestart} />);
+  await timerShows("30초 남음");
+
+  // When: 새로고침 조합을 누른다.
+  fireEvent.keyDown(window, { code: "KeyR", ctrlKey: true, key: "r" });
+  fireEvent.keyDown(window, { code: "KeyR", key: "r", metaKey: true });
+
+  // Then
+  expect(onRestart).not.toHaveBeenCalled();
+
+  // When: 자른 뒤 분석 창을 열고 그 안에서 R을 누른다.
+  fireEvent.click(screen.getByRole("button", { name: "자르기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "분석하기" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.keyDown(dialog, { code: "KeyR", key: "r" });
+
+  // Then
+  expect(onRestart).not.toHaveBeenCalled();
+});
+
+it("offers no restart when the page does not ask for it", async () => {
+  // Given
+  render(<StickHalvingGame adapter={rankedAdapter(30_000)} />);
+  await timerShows("30초 남음");
+
+  // Then
+  expect(screen.queryByRole("button", { name: "처음부터 다시 하기" })).not.toBeInTheDocument();
+});

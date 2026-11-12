@@ -147,13 +147,6 @@
   margin-block-end: var(--space-3);
 }
 
-.pepero-day__start .cut-stick-artwork__sparks path {
-  fill: none;
-  stroke: var(--color-ink);
-  stroke-linecap: round;
-  stroke-width: 5;
-}
-
 .pepero-day__start h2 {
   font-size: 1.5rem;
   font-weight: var(--font-weight-extrabold);
