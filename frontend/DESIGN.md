@@ -180,8 +180,8 @@
 | `--color-warning-soft`          | `#fff6df`        | 경고 배경                                    |
 | `--color-activity-study-ink`    | `#24457f`        | 스터디 유형 chip text                        |
 | `--color-activity-study-soft`   | `#e7eefc`        | 스터디 유형 chip surface                     |
-| `--color-activity-club-ink`     | `#453a95`        | 동아리 유형 chip text                        |
-| `--color-activity-club-soft`    | `#ece9fb`        | 동아리 유형 chip surface                     |
+| `--color-activity-club-ink`     | `--color-brand-ink` | 동아리 유형 chip text                    |
+| `--color-activity-club-soft`    | `--color-brand-soft` | 동아리 유형 chip surface                |
 | `--color-activity-session-ink`  | `#7a5405`        | 세션 유형 chip text                          |
 | `--color-activity-session-soft` | `#fdf0da`        | 세션 유형 chip surface                       |
 | `--color-cohort-1..5`           | categorical ramp | 참여자 기수 분포의 비텍스트 구간·아바타 배경 |

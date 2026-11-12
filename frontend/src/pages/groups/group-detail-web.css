@@ -2,15 +2,15 @@
 
 .group-detail-web {
   --detail-accent: var(--color-brand-ink);
-  --detail-ink: #242337;
-  --detail-muted: #595476;
-  --detail-line: #e9e6f3;
+  --detail-ink: var(--color-ink);
+  --detail-muted: var(--color-muted-ink);
+  --detail-line: var(--color-line);
   --detail-soft: var(--color-brand-soft);
   --group-member-card-height: 5rem;
   --group-member-card-min-width: 10rem;
   --group-members-donut-size: 12rem;
   color: var(--detail-ink);
-  background: #fcfbff;
+  background: var(--color-section-soft);
   border-radius: 20px;
   min-height: 420px;
 }
@@ -77,9 +77,9 @@
   padding: 0 12px;
   border: 1px solid var(--detail-line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--detail-muted);
-  box-shadow: 0 3px 7px #30276108;
+  box-shadow: var(--shadow-card);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -97,11 +97,13 @@
 .group-detail-web .group-introduction > .ui-markdown { color: var(--detail-ink); font-size: 16px; line-height: 1.8; }
 .group-detail-web__back { display: inline-flex; align-items: center; gap: 4px; margin: 0 24px 22px; min-height: 44px; color: var(--detail-muted); font-weight: 700; text-decoration: none; }
 
-.group-detail-schedule, .group-detail-web .group-recruitment-summary--compact { padding: 20px; border: 1px solid #f0edf8; border-radius: 20px; background: #faf9ff; box-shadow: 0 3px 8px #30276106; }
+.group-detail-web__rail > .group-leader--card,
+.group-detail-schedule, .group-detail-web .group-recruitment-summary--compact { padding: 20px; border: 1px solid var(--detail-line); border-radius: 20px; background: var(--color-surface); box-shadow: var(--shadow-card); }
 .group-detail-schedule__header, .group-recruitment-compact-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.group-detail-web__rail > .group-leader--card > h2,
 .group-detail-schedule__header h2, .group-recruitment-compact-heading h2 { margin: 0; font-size: 19px; letter-spacing: -.5px; }
 .group-detail-schedule__header button { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0; border: 0; color: var(--detail-muted); background: none; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.group-detail-schedule__details { display: grid; gap: 16px; margin: 0; padding: 18px; border-radius: 14px; background: #f0edf8; }
+.group-detail-schedule__details { display: grid; gap: 16px; margin: 0; }
 .group-detail-schedule__details > div { display: grid; gap: 8px; }
 .group-detail-schedule__details dt { display: flex; align-items: center; gap: 8px; color: var(--detail-muted); font-size: 13px; }
 .group-detail-schedule__details dd { display: grid; gap: 3px; margin: 0; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
@@ -115,7 +117,7 @@
 .group-detail-web .group-recruitment-summary--compact .group-recruitment-action .ui-button:hover:not(:disabled) { background: var(--color-brand-strong); }
 .group-detail-web .group-recruitment-summary--compact .group-recruitment-action .ui-button:disabled { background: var(--detail-soft); color: var(--detail-muted); }
 .group-detail-web .group-recruitment-summary--compact .group-apply-button::before { display: none; }
-.group-detail-web .group-recruitment-compact-heading .ui-badge { background: #e5f1ef; color: #337f73; }
+.group-detail-web .group-recruitment-compact-heading .ui-badge { background: var(--detail-soft); color: var(--detail-accent); }
 .group-detail-web .group-recruitment-summary--compact { min-height: 0; }
 .group-detail-web .group-recruitment-compact-heading h2 { margin: 0; font-size: 19px; }
 .group-detail-web .group-recruitment-summary--compact .group-recruitment-meta > div { grid-template-columns: minmax(65px, .7fr) minmax(0, 1fr); gap: 10px; }
@@ -142,5 +144,6 @@
   .group-detail-web__grid, .group-detail-web__rail, .group-detail-web__grid[data-overview="false"] .group-detail-web__rail { grid-template-columns: minmax(0, 1fr); }
   .group-detail-web__grid { padding-block: 20px; gap: 20px; }
   .group-detail-web .group-introduction > h2 { font-size: 23px; }
+  .group-detail-web__rail > .group-leader--card,
   .group-detail-schedule, .group-detail-web .group-recruitment-summary--compact { padding: 16px; }
 }

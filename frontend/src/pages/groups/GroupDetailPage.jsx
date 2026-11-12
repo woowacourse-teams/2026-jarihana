@@ -588,7 +588,7 @@ function LeaderSummary({ leader, variant }) {
 
   return (
     <div className={`group-leader group-leader--${variant}`}>
-      {isHero ? null : <span className="group-leader__label">운영자</span>}
+      {isHero ? null : <h2>운영자</h2>}
       <div className="group-leader__identity">
         <Avatar
           alt={`${leader.crewName} 프로필`}

@@ -20,9 +20,9 @@
   --art-dark: var(--color-cohort-5);
 }
 .shop-art--lilac {
-  --art-color: var(--color-cohort-4);
-  --art-light: var(--color-activity-club-soft);
-  --art-dark: var(--color-activity-club-ink);
+  --art-color: var(--color-shop-lilac);
+  --art-light: var(--color-shop-lilac-soft);
+  --art-dark: var(--color-shop-lilac-ink);
 }
 .shop-art--rose {
   --art-color: color-mix(in srgb, var(--color-cohort-2) 65%, var(--color-danger-soft));
