@@ -11,7 +11,8 @@ jest.mock("../../../src/pages/landing/useLandingChapters", () => ({
 
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
-  useLocation: () => ({ hash: "", pathname: "/land", search: "" })
+  useLocation: () => ({ hash: "", key: "default", pathname: "/land", search: "" }),
+  useNavigationType: () => "POP"
 }));
 
 jest.mock("../../../src/features/auth", () => ({

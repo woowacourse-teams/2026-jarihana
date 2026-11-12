@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigationType } from "react-router";
 
 import { storeReturnTarget, useAuth } from "../../features/auth";
 import logo from "../../shared/assets/brand/jarihana-favicon.png";
@@ -154,16 +154,38 @@ export function LandingFooter() {
   );
 }
 
-// 랜딩과 기능 소개 페이지가 함께 쓰는 머리글, 본문, 바닥글. 페이지를 옮기면 맨 위에서 시작한다.
+// AppRouter의 ScrollRestoration이 기본 storageKey로 sessionStorage에 남기는 페이지별 스크롤 위치.
+const SCROLL_POSITIONS_KEY = "react-router-scroll-positions";
+
+function savedScrollPosition(key) {
+  try {
+    const position = JSON.parse(window.sessionStorage.getItem(SCROLL_POSITIONS_KEY) ?? "{}")[key];
+    return typeof position === "number" ? position : null;
+  } catch {
+    return null;
+  }
+}
+
+// 랜딩과 기능 소개 페이지가 함께 쓰는 머리글, 본문, 바닥글. 링크로 페이지를 옮기면 맨 위에서 시작한다.
+// 뒤로/앞으로 가기와 새로고침은 ScrollRestoration이 저장해 둔 위치로 돌려 놓는다. 새로고침이나 다른
+// 사이트에서 돌아오면 이 페이지 코드가 늦게 불려 와 ScrollRestoration이 높이가 모자란 화면에서 위치를
+// 되돌리므로 맨 위에 머문다. 그래서 본문이 그려진 뒤 저장된 위치로 한 번 더 옮긴다.
+// 처음 들어온 주소는 key가 "default"라서 해시가 있으면 그 구역을 직접 찾아간다.
 export function LandingShell({ children, rootRef }) {
-  const { pathname, hash } = useLocation();
+  const { hash, key, pathname } = useLocation();
+  const navigationType = useNavigationType();
   useEffect(() => {
+    if (navigationType === "POP" && key !== "default") {
+      const saved = savedScrollPosition(key);
+      if (saved !== null && Math.abs(window.scrollY - saved) > 1) window.scrollTo(0, saved);
+      return;
+    }
     if (hash) {
       document.getElementById(hash.slice(1))?.scrollIntoView?.();
       return;
     }
     if (window.scrollY > 0) window.scrollTo(0, 0);
-  }, [pathname, hash]);
+  }, [hash, key, navigationType, pathname]);
 
   return (
     <div className="landing-page" id="landing-top" ref={rootRef}>
