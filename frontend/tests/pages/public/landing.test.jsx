@@ -44,6 +44,9 @@ test("reads as the clubhouse, the sparring and games cards, the core feature car
     "tech-intro", "tech-time", "tech-size", "tech-runs"
   ]);
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("우리만의 아지트를 꾸미고함께 어울리는 놀이터");
+  // 게임하나? 카드 미리보기는 게임방 순서대로 지금 할 수 있는 세 게임을 보여 준다.
+  const gameRows = [...container.querySelectorAll('[data-tone="lavender"] .landing-feature-card__row > span')];
+  expect(gameRows.map((node) => node.textContent)).toEqual(["오목", "공평하게 반띵", "리듬 작살"]);
   const ids = [...container.querySelectorAll("[id]")].map((node) => node.id);
   expect(new Set(ids).size).toBe(ids.length);
   for (const id of ["core", "features", "tech-time", "clubhouse"]) {

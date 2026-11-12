@@ -53,11 +53,12 @@ function SparringPreview() {
 
 function GamesPreview() {
   return (
-    <span aria-hidden="true" className="landing-feature-card__panel">
+    <span aria-hidden="true" className="landing-feature-card__panel landing-feature-card__panel--list">
       <span className="landing-feature-card__hint">게임하나?</span>
       <strong className="landing-feature-card__title">행성이의 리듬 작살</strong>
       <img alt="" className="landing-feature-card__art" height="600" loading="lazy" src={gameArtwork.rhythm} width="900" />
       <span className="landing-feature-card__row"><span>오목</span><strong>대국 기록과 랭킹</strong></span>
+      <span className="landing-feature-card__row"><span>공평하게 반띵</span><strong>최고 기록 랭킹</strong></span>
       <span className="landing-feature-card__row"><span>리듬 작살</span><strong>난이도별 랭킹</strong></span>
     </span>
   );

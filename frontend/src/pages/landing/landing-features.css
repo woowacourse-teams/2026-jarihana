@@ -244,6 +244,10 @@
     min-height: 26rem;
     padding: var(--space-8) var(--space-6);
   }
+  /* 좁은 화면에서는 오른쪽 아래 화살표가 판 아래쪽에 겹치므로, 줄 목록으로 끝나는 판은 마지막 줄 글자가 가리지 않게 아래를 비운다. */
+  .landing-feature-card__panel--list {
+    padding-bottom: var(--space-16);
+  }
   .landing-feature-card__text {
     padding-inline: var(--space-2);
   }
