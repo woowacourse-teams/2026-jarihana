@@ -8,6 +8,7 @@ import com.project.jarihana.sparring.query.controller.dto.SparringPageResponse;
 import com.project.jarihana.sparring.query.controller.dto.SparringPostResponse;
 import com.project.jarihana.sparring.query.controller.dto.SparringPostsRequest;
 import com.project.jarihana.sparring.query.controller.dto.SparringTopicResponse;
+import com.project.jarihana.sparring.query.service.SparringAvatarPoolsCache;
 import com.project.jarihana.sparring.query.service.SparringQueryService;
 import com.project.jarihana.sparring.query.service.dto.SparringPageResult;
 import com.project.jarihana.sparring.query.service.dto.SparringPostResult;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SparringQueryController {
     private final SparringQueryService service;
+    private final SparringAvatarPoolsCache avatarPools;
     private final LoginMemberReader memberReader;
 
     @GetMapping
@@ -56,7 +58,7 @@ public class SparringQueryController {
     public ResponseEntity<ApiResponse<SparringAvatarPoolsResponse>> findAvatarPools(
             @PathVariable long topicId) {
         return ResponseEntity.ok(
-                ApiResponse.success(SparringAvatarPoolsResponse.from(service.avatarPools(topicId))));
+                ApiResponse.success(SparringAvatarPoolsResponse.from(avatarPools.get(topicId))));
     }
 
     @GetMapping("/{topicId}/posts")

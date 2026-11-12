@@ -141,10 +141,13 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 .body("data.coral[0].memberId", nullValue());
 
         vote(first, topic, "CORAL");
+        given().get("/sparrings/" + topic).then().statusCode(200)
+                .body("data.votesA", equalTo(8))
+                .body("data.votesB", equalTo(3));
         given().get(path).then().statusCode(200)
                 .body("data.mint", hasSize(8))
-                .body("data.mint[7].hair", equalTo("parted"))
-                .body("data.coral.hair", equalTo(List.of("curly", "bob")));
+                .body("data.mint.hair", everyItem(equalTo("curly")))
+                .body("data.coral.hair", equalTo(List.of("bob")));
         given().get("/sparrings/999999/avatar-pools").then().statusCode(404)
                 .body("error.code", equalTo("SPARRING_NOT_FOUND"));
     }

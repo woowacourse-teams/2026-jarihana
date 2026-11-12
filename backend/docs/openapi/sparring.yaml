@@ -90,7 +90,7 @@ paths:
       operationId: getSparringAvatarPools
       responses:
         '200':
-          description: Appearance-only samples of current voters with saved avatars, ordered by member ID and capped at eight per side
+          description: Appearance-only samples ordered by member ID and capped at eight per side. Cached samples are served during background refresh after 30 seconds.
           content:
             application/json:
               schema:
