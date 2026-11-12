@@ -187,18 +187,27 @@ EOF
 chmod 0644 /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d/watchdog.conf
 systemctl daemon-reload
 systemctl show --no-pager jarihana-deploy-watchdog@prod.service -p User -p ExecStart -p DropInPaths
-# 신규 환경 준비 완료 또는 기존 환경의 재개 조건을 충족한 뒤 실행한다.
-systemctl enable --now jarihana-deploy-watchdog@prod.timer
-systemctl show --no-pager jarihana-deploy-watchdog@prod.timer -p ActiveState -p TimersMonotonic
 ```
 
 watchdog의 10초 주기는 배포 단계의 잠금 대기 15초와 다른 값이다.
 watchdog은 배포 허가를 새로 만들거나 앱을 중지하지 않는다. 실제 실행 경로를 `systemctl show`로 대조한다.
+기존 서버의 `control-release.conf`를 `watchdog.conf`로 교체할 때는
+[최초 전환 절차](../release-sha.md)를 따른다. 새 drop-in의 실제 적용 경로를 확인하고 옛 drop-in을
+백업한 뒤 제거한다. watchdog이 참조하는 `SETUP_DIR`은 배포가 끝나도 삭제하지 않는다.
+
+타이머 기동은 설치와 분리한다. 신규 환경의 준비가 끝났거나 기존 환경의 최초 전환 4단계 확인이
+모두 끝난 뒤에만 아래 명령을 실행한다. 최초 전환 3단계의 설치 중에는 실행하지 않는다.
+
+```bash
+systemctl enable --now jarihana-deploy-watchdog@prod.timer
+systemctl show --no-pager jarihana-deploy-watchdog@prod.timer -p ActiveState -p TimersMonotonic
+```
 
 ## 중앙 수집기와 최종 확인
 
 중앙 수집기는 독립된 설치 단위다. 수집기 원본이 포함된 검토된 checkout을
 준비한 뒤 [중앙 수집기의 설치 순서](../../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md#관리-원본과-재구성)를 따른다.
+기존 설치본의 제어태그 검사 제거는 [수집 스크립트 갱신](../../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md#기존-설치본의-제어태그-제거-대응)을 따른다.
 앱 Alloy와 서로 다른 설정, Compose 프로젝트와 WAL을 사용한다.
 
 새 서버에서 [상태 확인](../status.md)과 [완료 판정](README.md#완료-판정과-검증-범위)을

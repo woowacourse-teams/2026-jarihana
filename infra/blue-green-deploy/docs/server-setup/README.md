@@ -115,7 +115,7 @@ environment의 배포 branch 제한과 job별 승인 규칙이 허가 기한에 
 | 호스트 목록 | EC2에서 Nginx/A/B instance ID, private IP, VPC, region, architecture와 host_id 확인 |
 | 네트워크 | SG와 경로의 실제 규칙 확보. Nginx→앱 포트, 앱→Nginx 22, RDS/관측 gateway, GitHub/GHCR outbound를 각각 확인 |
 | IAM | EC2 역할 원본과 조직 정책. DescribeInstances, A/B에 한정한 Start/Stop 및 S3/CloudFront 권한은 [보호된 설정](#보호된-설정과-권한) 기준 |
-| 설치용 원본 | 검토된 main의 40자리 commit SHA. 최초 구성과 설치형 도구에만 사용하며 일반 배포 버전은 Actions가 선택 |
+| 설치용 원본 | 검토된 main의 40자리 commit SHA. 제어태그 제거의 병합 전 최초 전환만 [전환 절차](../release-sha.md)의 검토 완료 PR SHA를 사용. 일반 배포 버전은 Actions가 선택 |
 | 수집기 원본 | 중앙 수집기와 helper를 포함한 별도 승인 commit. Actions checkout과 독립적으로 설치 |
 | 앱 비밀 설정 | 운영 담당자의 보호된 DB/JWT/OAuth/초대/푸시/이미지 키 원본. 실제 키 이름은 [앱 workflow](../../../../.github/workflows/backend-app-operation.yml)의 env와 대조 |
 | DB 사전 준비 | RDS의 `jarihana_prod`와 접근 역할, TLS 및 migration 권한. 기존 스키마의 baseline을 임의로 바꾸지 않으며 [DB 변경 규칙](../../../../docs/database-changes.md)을 따름 |
@@ -184,6 +184,8 @@ GNU 구현체로 한정하지 않는다. 기존 설치본에는 uutils 구현체
 
 Nginx와 앱 A/B에서 각각 관리자 Bash로 준비한다. 아래 변수는 같은 Bash 세션에서 후속
 호스트 문서까지 유지한다. 설치용 SHA는 검토된 main 커밋으로 정한다.
+단, [제어태그 제거의 최초 전환](../release-sha.md)은 병합 전에 수행하므로 해당 절차에서 지정한
+리뷰 완료 PR 커밋을 사용한다. 이 예외를 일반 배포나 다른 미검토 브랜치 설치에 적용하지 않는다.
 이 checkout은 최초 구성과 설치형 도구의 원본이며 Actions의 배포 버전을 고정하지 않는다.
 
 ```bash

@@ -70,19 +70,25 @@ coordinator는 receipt를 저널에 저장하며, 이후 앱 단계와 frontend-
 출처가 없는 기존 앱은 `compose_source: null`로 남기고 현재 실행 SHA로 추측해서 채우지 않는다.
 렌더링된 환경 변수와 비밀값은 로그나 artifact에 올리지 않는다.
 
-임시 파일에 읽은 Compose를 `docker compose config --quiet`로 확인한 뒤 같은 파일로 pull/up을 실행한다.
-이 검사는 Compose 문법과 필수 환경 변수 등을 확인한다. 별도의 YAML 파서나 설정 허용 목록 검사는 두지 않는다.
-앱 Compose는 필요한 설정을 한 파일에 작성하며, 변경된 실행 설정은 코드 리뷰와 앱 기동 검증의 대상이다.
+`resolve`는 `docker compose config --no-interpolate --format json`으로 Compose를 읽고,
+정규화된 backend 설정에서 이미지/DB/프로필, 포트와 worker 시작 조건 등 배포에 필요한 계약을 검사한다.
+실제 비밀값을 전달하거나 컨테이너를 기동하지 않는다. 메모리 제한과 일반 환경 변수 변경을 일괄 금지하지 않는다.
+필수 항목은 현재 Compose의 변수 연결과 짧은 포트 표기를 계약으로 검사한다. 해당 변수식이나 포트 표기를
+바꾸면 사전 검사도 함께 수정해야 하며, 실제 값이 같다는 이유만으로 모든 표기 변경을 허용하지는 않는다.
+앱 runner의 `prepare`에서는 실제 환경 변수로 `docker compose config --quiet`를 다시 수행한 뒤
+같은 파일로 pull/up한다. 별도 Python/YAML 파서는 추가하지 않는다.
 
 이미지 digest, DB/프로필, 관리 포트와 worker 설정은 앱 Compose에 정의한다.
 기동 후에는 기존 앱 상태/컨테이너 검사와 readiness 확인을 거쳐야 worker 이관과 HTTP 전환을 진행한다.
 Variables와 Secrets는 앱 작업 workflow에서 전달하므로 새 입력이 필요하면 해당 전달 항목도 추가한다.
 원본 임시 파일은 권한 0600으로 만들고 종료 시 삭제한다. 렌더링된 비밀값을 별도 파일로 저장하지 않는다.
 
-운영 deploy에서 백엔드를 교체하는 경우 `resolve`는 배포 커밋에 앱 Compose가 존재하는지 확인한다.
-frontend-only에서는 이 검사와 앱 `prepare`를 건너뛰고 기존 백엔드를 유지한다. 앱 runner의 `prepare`는 같은 SHA의
-원본을 읽고 Compose 검사를 수행한다. 검사 실패 시 기존 대기 컨테이너의 중지/삭제와 후보 기동 전에 멈춘다.
-이 시점에는 대기 EC2가 시작됐을 수 있으며, 오류 시 두 EC2와 증거를 보존하는 실패 절차를 따른다.
+백엔드를 교체하는 deploy의 Compose 문법/필수 조건 오류는 `resolve`에서 차단한다.
+이 단계는 새 배포 저널 생성과 대기 EC2 시작보다 앞선다. frontend-only와 기존 컨테이너를 등록하는
+bootstrap은 이 검사를 건너뛴다. frontend-only는 앱 `prepare`도 실행하지 않는다.
+사전 검사는 실제 서버 입력과 컨테이너 상태까지 보장하지 않는다. 비밀값 누락, 이미지 pull 실패와 readiness 등은
+여전히 `prepare`에서 실패할 수 있다. 실제 값으로 수행하는 Compose 검사 실패는 기존 대기 컨테이너의
+중지/삭제 전에 멈추지만, 이 시점에는 대기 EC2가 시작됐을 수 있다.
 `prepare` 실패는 이미 만든 배포 저널을 자동 완료로 되돌리지 않는다. `NEEDS_ATTENTION`이나 pending이
 남으면 Compose 수정 후 다시 머지해도 다음 plan이 차단될 수 있으므로 [수동 조사](recovery.md#수동-조사)를 먼저 따른다.
 
@@ -102,7 +108,7 @@ watchdog/수집기 자체를 수정할 때는 관리자가 설치본을 갱신�
 ### 정상 배포 순서
 
 ```text
-이미지 선택과 필요한 프론트 빌드
+Compose 사전 검사와 이미지 선택, 필요한 프론트 빌드
   → 실제 활성 슬롯 확인, 이전 프론트 원본 검증과 새 원본 보관
   → 대기 EC2 시작, 후보 앱 PAUSED 준비와 readiness 및 관측 준비 확인
   → 이전 worker 신규 선점 중단, 발송과 finish commit 완료, DB 권한 반납

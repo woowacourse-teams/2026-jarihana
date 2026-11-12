@@ -34,7 +34,8 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 ## 앱 Compose와 제어 코드의 버전
 
 일반 운영 배포는 실행을 시작한 main 커밋 SHA의 스크립트와 앱 Compose를 함께 사용한다.
-Compose는 `docker compose config --quiet`를 거쳐 같은 파일로 후보 컨테이너를 만든다.
+`resolve`에서 Compose 문법과 배포 필수 조건을 비밀값 없이 검사한 뒤 plan으로 진행한다.
+앱 runner는 실제 값으로 `docker compose config --quiet`를 다시 수행하고 같은 파일로 후보 컨테이너를 만든다.
 배포 도중 main의 새 HEAD를 다시 읽지 않으며 서버에 배포 코드 버전을 별도로 고정하지 않는다.
 원본 선택과 실행 방식은 [Compose 선택](deployment.md#운영-백엔드의-compose-선택)을 따른다.
 

@@ -14,13 +14,18 @@
 
 ```sh
 for file in infra/blue-green-deploy/scripts/actions/*.sh \
-  infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/tests/actions/*.sh; do
+  infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/scripts/prepare-control-removal.sh \
+  infra/blue-green-deploy/tests/actions/*.sh; do
   bash -n "$file"
 done
 # Linux root 소유 보호파일 fixture를 포함한 계약 시험
 sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
 # 전체 계약 시험에 포함: 다음 SHA 배포 허용, 미완료 저널과 topology 불일치 차단
 sudo bash infra/blue-green-deploy/tests/actions/test-previous-journal.sh
+# 보호된 임시 사본만 사용하는 제어태그 제거 준비 시험
+sudo bash infra/blue-green-deploy/tests/actions/test-control-removal.sh
+# Docker Compose CLI로 수행하는 배포 전 검사, daemon/비밀값 불필요
+bash infra/blue-green-deploy/tests/actions/test-compose-preflight.sh
 bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 # Docker의 Prometheus promtool로 실제 배포 쿼리의 HTTP/SSE 분리 회귀 검사
 node infra/blue-green-deploy/tests/actions/test-http-metrics.mjs
@@ -38,6 +43,10 @@ actionlint .github/workflows/backend-bluegreen-deploy.yml \
 
 기존 `test-app.sh`와 `test-release-workflow.sh`는 main SHA의 앱 Compose 선택,
 파일 누락과 다른 SHA 거부, Compose 검사 실패 시 컨테이너 교체 전에 멈추는 동작을 확인한다.
+Compose 사전 검사는 실제 Docker Compose CLI와 jq를 사용한다. 문법과 이미지/DB/포트/worker 조건의
+위반을 거부하고, 메모리와 일반 환경 변수 변경을 허용하는지 확인한다. Docker daemon이나 비밀값은 필요하지 않다.
+제어태그 제거 시험은 원본을 유지한 채 새 설정/저널 사본을 만들고, 기존 정상 완료 기록이 새 topology로
+인정되는지 검사한다. 미완료 배포, 해시 불일치와 A/B 설정 불일치는 거부하며 실제 서버 설치는 수행하지 않는다.
 앱/coordinator/프론트 계약 시험은 receipt의 Compose 출처 생성과 단계 간 보존, 잘못된 출처 거부,
 기존 앱의 알 수 없는 출처와 연속 frontend-only 배포의 출처 보존을 확인한다.
 실제 Compose 통합 시험은 prepare receipt의 커밋과 해시가 사용한 Git 객체와 일치하는지도 확인한다.

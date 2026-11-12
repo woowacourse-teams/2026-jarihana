@@ -283,3 +283,63 @@ bootstrap 전이나 reload ticket이 없는 상태의 unknown을 service exit 0�
 활성 WAL을 새 빈 볼륨으로 바꾸거나 다른 호스트의 textfile을 읽게 만들지 않는다.
 원본과 배포 저널, 수집기 전용 상태 및 WAL을 보존한 뒤 수집기만의 갱신 범위를 검토한다.
 상태가 불확실하면 [수동 조사](../../blue-green-deploy/docs/recovery.md#수동-조사)를 따른다.
+
+### 기존 설치본의 제어태그 제거 대응
+
+이전 수집기는 설정의 `topology.control`과 저널의 `control_sha`를 요구한다.
+제어태그를 제거할 때는 [최초 전환](../../blue-green-deploy/docs/release-sha.md) 유지보수 중에
+수집 스크립트와 helper 6개를 같은 검토된 소스로 갱신한다. main 병합이나 앱 배포가 이 설치본을 갱신하지 않는다.
+이번 갱신에는 Alloy 이미지, Compose, `prod.env`, WAL, traffic cursor와 systemd 주기 변경이 필요하지 않다.
+
+아래는 최초 전환 1단계에서 배포 잠금과 수집기 잠금을 확보한 **같은 Nginx 서버 관리자 Bash**에서 실행한다.
+이 절에서는 잠금을 다시 열거나 해제하지 않는다. 앱과 Nginx 컨테이너는 계속 실행한다.
+서버 설정/저널 백업은 최초 전환 절차에서 별도로 보존한다. 진행 중인 배포나 수집 실행이 있으면 먼저 끝날 때까지 기다린다.
+
+```bash
+set -euo pipefail
+test "$(id -u)" -eq 0
+umask 077
+read -r -p '검토한 수집기 소스 checkout의 절대 경로: ' COLLECTOR_SOURCE
+[[ $COLLECTOR_SOURCE == /* ]]
+test -f "$COLLECTOR_SOURCE/infra/monitoring/deployment/journal.sh"
+DEST=/opt/jarihana-observability
+files=(infra/monitoring/deployment/{collect,journal,traffic}.sh
+       infra/scripts/deploy/actions/{common,cloud,nginx}.sh)
+for file in "${files[@]}"; do
+  test -f "$DEST/$file"
+  bash -n "$COLLECTOR_SOURCE/$file"
+done
+systemctl stop jarihana-observability@prod.timer
+if systemctl is-active --quiet jarihana-observability@prod.service; then
+  echo '수집 실행이 끝난 뒤 다시 진행하세요.' >&2
+  exit 1
+fi
+COLLECTOR_BACKUP=$(mktemp -d /root/jarihana-collector-backup.XXXXXX)
+tar -C "$DEST" -cpf "$COLLECTOR_BACKUP/scripts.tar" "${files[@]}"
+for file in "${files[@]}"; do
+  mode=0644
+  [[ $file != infra/monitoring/deployment/* ]] || mode=0755
+  install -o root -g root -m "$mode" "$COLLECTOR_SOURCE/$file" "$DEST/$file"
+  cmp -- "$COLLECTOR_SOURCE/$file" "$DEST/$file"
+done
+```
+
+중간 교체가 실패하면 타이머를 멈추고 수집기 잠금을 유지한 상태로
+`tar -C "$DEST" -xpf "$COLLECTOR_BACKUP/scripts.tar"`로 6개 파일을 함께 복원한다.
+서버 설정/저널을 구형 형식으로 복구할 때도 이 백업과 같은 세대로 맞춘다.
+새 설정/저널을 구형 수집기로 읽히는 혼합 상태에서 운영을 재개하지 않는다.
+
+설정과 배포 기록 전환, watchdog 갱신까지 끝나면 최초 전환 4단계에 따라 잠금을 해제한 뒤 다음 확인을 수행한다.
+
+```bash
+systemctl start jarihana-observability@prod.service
+systemctl show --no-pager jarihana-observability@prod.service -p ExecMainStatus
+grep -Fx 'jarihana_deployment_source_success{environment="prod",source="config"} 1' \
+  /var/lib/jarihana-observability/prod/textfile/deployment.prom
+grep -Fx 'jarihana_deployment_source_success{environment="prod",source="journal"} 1' \
+  /var/lib/jarihana-observability/prod/textfile/deployment.prom
+```
+
+종료 코드뿐 아니라 위 두 source 성공과 [관측 시각](#관측값-해석), 실제 경로와 Prometheus 수신을 확인한다.
+모든 최초 전환 확인이 끝난 뒤 기존에 실행 중이던 수집 타이머를
+`systemctl start jarihana-observability@prod.timer`로 재개한다. 그 뒤 main 머지로 새 배포를 시작한다.
