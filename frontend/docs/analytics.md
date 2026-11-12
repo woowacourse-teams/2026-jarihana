@@ -501,3 +501,8 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 회원 편집기의 전체 보기·얼굴 확대는 `avatar_lab_view_change`로 구분하며 파츠 값은 포함하지 않는다.
 편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
 부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.
+
+## 의자 쌓기
+
+게임방 진입은 `chair_stack_open`, 시작은 `chair_stack_start`, 게임판 위치 선택은 `chair_stack_position_select`, 놓기는 `chair_stack_drop`, 다시 도전은 `chair_stack_replay`, 랭킹 열기는 `chair_stack_rankings_open`을 사용한다. 닉네임 입력과 랭킹의 닉네임은 녹화에서 가린다. 좌표, 흔들림 시점, 게스트 쿠키 값은 분석 속성에 넣지 않는다.
+의자 회전, 좌우 반전, 상하 반전은 각각 `chair_stack_rotate`, `chair_stack_flip_horizontal`, `chair_stack_flip_vertical`을 사용한다.

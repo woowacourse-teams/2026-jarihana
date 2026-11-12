@@ -21,7 +21,8 @@ final class KnownRequestRoutes {
             "/members/me/points", "/members/me/points/transactions",
             "/auth/logout", "/auth/refresh", "/oauth/github/callback", "/image-uploads", "/feedbacks",
             "/shop/products", "/members/me/shop", "/members/me/shop/purchases", "/members/me/shop/equipment",
-            "/share/groups/{groupId}"
+            "/games/chair-stack/runs/current", "/games/chair-stack/runs", "/games/chair-stack/drops",
+            "/games/chair-stack/rankings", "/share/groups/{groupId}"
     ).stream().map(KnownRequestRoutes::route).toList();
 
     private KnownRequestRoutes() { }

@@ -3,6 +3,8 @@ package com.project.jarihana.common.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    CHAIR_STACK_RUN_NOT_FOUND(HttpStatus.NOT_FOUND),
+    CHAIR_STACK_START_TOO_SOON(HttpStatus.TOO_MANY_REQUESTS),
     GOMOKU_CHAT_DISABLED(HttpStatus.NOT_FOUND),
     GOMOKU_CHAT_PARTICIPATION_CHANGED(HttpStatus.CONFLICT),
     GOMOKU_CHAT_CLOSED(HttpStatus.CONFLICT),
