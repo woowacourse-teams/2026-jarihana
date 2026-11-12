@@ -86,7 +86,9 @@ public final class RoomRuntime {
 
     public void message(Peer peer, Map<String, Object> message) {
         synchronized (peer) {
-            if ("MOVE".equals(message.get("type"))) {
+            // A traced batch depends on the preceding batch; never discard its route.
+            boolean traced = message.get("payload") instanceof Map<?, ?> payload && payload.containsKey("path");
+            if ("MOVE".equals(message.get("type")) && !traced) {
                 AtomicReference<Map<String, Object>> pending = pendingMoves.get(peer.generation());
                 if (pending != null) {
                     if (Values.number(message, "moveSeq") > Values.number(pending.get(), "moveSeq")) pending.set(message);
@@ -152,7 +154,8 @@ public final class RoomRuntime {
             } else throw new RuleViolation("INVALID_MESSAGE");
         } catch (RuleViolation error) {
             if (commandId != null) result(peer, commandId, false, error.code());
-            else reject(peer, error.code(), false);
+            else peer.send(Map.of("type", "ERROR", "code", error.code(), "message", error.code(),
+                    "reason", error.reason(), "retryable", false), false, clock.millis());
             if (error.code().equals("INVALID_MOVEMENT") || error.code().equals("LAYOUT_MISMATCH")) {
                 peer.send(state.snapshot("ROOM_SNAPSHOT", memberId, peer.generation(), clock.millis()), false, clock.millis());
             }

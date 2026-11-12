@@ -91,13 +91,14 @@ public final class RoomState {
         double yaw = Values.number(payload, "yaw");
         String motion = Values.text(payload, "locomotion");
         if (!Set.of("idle", "walking", "running", "jumping").contains(motion) || Math.abs(yaw) > Math.PI * 10000) {
-            throw new RuleViolation("INVALID_MOVEMENT");
+            throw new RuleViolation("INVALID_MOVEMENT", "INVALID_POSE");
         }
         MoveBudget previous = movementBudgets.get(memberId);
-        double available = Math.min(1.5, previous.remaining() + 5.8 * Math.max(0, now - previous.updatedAt()) / 1000.0);
-        double horizontal = Math.hypot(point.x() - actor.position().x(), point.z() - actor.position().z());
-        if (horizontal > available || !layout.pathAllowed(actor.position(), point, motion.equals("jumping"))) {
-            throw new RuleViolation("INVALID_MOVEMENT");
+        // At most one second of delayed running plus the initial 25 cm tolerance.
+        double available = Math.min(6.05, previous.remaining() + 5.8 * Math.max(0, now - previous.updatedAt()) / 1000.0);
+        double horizontal = MovementPath.distance(layout, actor.position(), point, motion.equals("jumping"), payload);
+        if (horizontal > available + 0.000001) {
+            throw new RuleViolation("INVALID_MOVEMENT", "SPEED_LIMIT");
         }
         participants.put(memberId, actor.move(point, yaw, motion, seq, now));
         movementBudgets.put(memberId, new MoveBudget(available - horizontal, now));

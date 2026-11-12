@@ -187,6 +187,26 @@ class RoomRuntimeTest {
         assertThat(control.path("participants").get(0).path("yaw").asDouble()).isEqualTo(.10);
     }
 
+    @Test
+    void tracedMovementBatchesAreProcessedInOrderWithoutDroppingTheirStart() throws Exception {
+        List<Runnable> scheduled = new ArrayList<>(); List<JsonNode> messages = new ArrayList<>();
+        Peer peer = peer("trace", messages); RoomRuntime room = runtime(scheduled::add, () -> {});
+        room.join(peer, TestRooms.admission("1"), TestRooms.layout(1, 0)); scheduled.removeFirst().run();
+        var initial = messages.getFirst();
+        for (int seq = 1; seq <= 4; seq++) {
+            var move = context(initial, "MOVE"); move.put("moveSeq", seq);
+            var from = Map.of("x", (seq - 1) * .1, "y", 0, "z", 2.4);
+            var to = Map.of("x", seq * .1, "y", 0, "z", 2.4);
+            move.put("payload", Map.of("x", seq * .1, "y", 0, "z", 2.4, "yaw", 0,
+                    "locomotion", "walking", "path", List.of(from, to)));
+            room.message(peer, move);
+        }
+        clock.set(1500); scheduled.removeFirst().run();
+        room.message(peer, context(initial, "RESYNC")); scheduled.removeFirst().run();
+        assertThat(messages.stream().filter(message -> message.path("type").asString().equals("ERROR"))).isEmpty();
+        assertThat(messages.getLast().path("participants").get(0).path("position").path("x").asDouble()).isEqualTo(.4);
+    }
+
     private RoomRuntime runtime(java.util.concurrent.Executor executor, Runnable removed) {
         return new RoomRuntime("7", TestRooms.layout(1, 0), TestSettings.properties("unused", "unused"), executor, clock, removed);
     }

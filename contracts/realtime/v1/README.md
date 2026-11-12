@@ -30,6 +30,13 @@ AUTH_JOIN 이후 클라이언트 메시지는 `{type,roomEpoch,connectionGenerat
 
 locomotion은 `idle`, `walking`, `running`, `jumping`이다. MOVE는 위치 제안이며 서버가 속도·경계·층을 검증한다.
 
+`payload.path`는 직전 전송 위치부터 이번 위치까지의 바닥 좌표 배열이다(최대 64개).
+클라이언트 보행기의 0.15m 이하 X→Z 미세 이동마다 끝점을 기록한다. 서버는 시작점이 현재 위치와
+일치하는지, 각 X→Z 구간의 충돌·층, 마지막 점과 payload 위치가 일치하는지 검사한다.
+속도 검증에는 각 미세 이동의 수평 변위 길이를 합산하며, 서버 시각 기준 초당 5.8m를 충전하고
+최대 1초 지연분과 0.25m 여유만 유지한다. 경로가 있는 MOVE는 큐에서 생략하지 않으며 기존 방 큐 상한을 따른다.
+path가 없는 이전 클라이언트는 직선 경로 검증을 유지한다. 배포 시 서버를 먼저 갱신한다.
+
 ```json
 {"type":"COMMAND","roomEpoch":"...","connectionGeneration":"...","layoutRevision":1,"commandId":"unique-in-connection","payload":{"action":"SIT","assetId":"sofa","slot":0}}
 ```
@@ -74,6 +81,13 @@ participant.position은 착석 시 seat.position과 같다. seat.approach는 일
 `COMMAND_RESULT`: `{type,commandId,success,code,message,...context}`. 성공 code는 `OK`. 개별 결과가 방 controlSeq를 증가시키지 않는다.
 
 `ERROR`: `{type,code,message,retryable,...context}`. 권한 없음·교체·프로토콜 불일치는 자동 재접속하지 않는다. 일시 연결 실패에는 backoff+jitter를 사용한다. 서버의 CLOSE 상세 코드는 realtime README에서 실행 구현과 함께 기록한다.
+
+이동 거절의 `reason`은 `SPEED_LIMIT`, `BLOCKED_PATH`, `PATH_START`, `PATH_END`, `STEP_LIMIT`,
+`PATH_LIMIT`, `INVALID_POSE`로 원인을 구분한다. `INVALID_MOVEMENT`와 `LAYOUT_MISMATCH`는 연결을
+종료하지 않고 스냅샷으로 보정한다. 클라이언트는 보정 중 이동을 멈추고 RESYNC를 요청하며,
+2.5초 안에 스냅샷을 받지 못하면 새 입장 토큰으로 자동 재접속한다. 일시적인 입장 API 503과
+권한 재확인 유효 기한 만료도 새 입장 시도를 거치며, 실제 접근 거절·로그인 만료·기능 비활성화는 재시도하지 않는다.
+복구는 상단의 작은 상태 알림으로 표시하고 복구 완료 알림은 3.5초 뒤 숨긴다.
 
 ## 가구·물건과 배치 교체
 
