@@ -116,7 +116,7 @@ fe_preflight() {
       (.Quantity==1 and (.Items|length)==1 and .Items[0].EventType=="viewer-request" and
         .Items[0].FunctionARN=="arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview")) and
     ($d.DefaultCacheBehavior.LambdaFunctionAssociations.Quantity // 0)==0 and
-    ([$d.CacheBehaviors.Items[]? | .PathPattern | IN("/api/*","api/*","/images/*","images/*")]|all) and
+    ([$d.CacheBehaviors.Items[]? | .PathPattern | IN("/api/*","api/*","/images/*","images/*","/ws/realtime/*","ws/realtime/*")]|all) and
     ([$d.Origins.Items[]|select(.Id==$d.DefaultCacheBehavior.TargetOriginId and .OriginPath==$prefix and (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length==1)
   ' <<<"$distribution" >/dev/null || bg_die 'Frontend CDN origin or edge transformations differ'
   if [[ $(jq -r '.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity // 0' <<<"$distribution") == 1 ]]; then
