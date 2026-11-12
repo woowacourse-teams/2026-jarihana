@@ -33,7 +33,8 @@ public record GroupDetailResponse(
         GroupMemberRole currentMemberRole,
         Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        boolean clubhouseSetupEnabled
 ) {
 
     public static GroupDetailResponse from(GroupDetailResult result) {
@@ -56,7 +57,8 @@ public record GroupDetailResponse(
                 result.currentMemberRole(),
                 result.currentMemberRegistrationId(),
                 result.currentMemberRegistrationStatus(),
-                group.getCreatedAt()
+                group.getCreatedAt(),
+                group.isClubhouseSetupEnabled()
         );
     }
 
