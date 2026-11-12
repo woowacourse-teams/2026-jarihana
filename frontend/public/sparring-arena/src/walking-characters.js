@@ -312,6 +312,11 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     const appearanceKey = appearance ? JSON.stringify(appearance) : '';
     const variant = appearance ? 2 + AVATAR_OPTIONS.hair.indexOf(appearance.hair) : characterVariant(post);
     const rig = rigs[variant];
+    const reaction = !appearance || pose.hanging || pose.released;
+    const anger = reaction ? clamp(pose.anger ?? 0, 0, 1) : 0;
+    const surprise = reaction ? clamp(pose.surprise ?? 0, 0, 1) : 0;
+    const mouthOpen = reaction ? clamp(pose.mouthOpen ?? 0, 0, 1) : 0;
+    const reactionMouth = Boolean(appearance && mouthOpen > 0);
     if (appearance) {
       for (const [kind, group] of Object.entries(rig.items)) group.scale.setScalar(appearance.handheld === kind ? 1 : 0);
       for (const [kind, group] of Object.entries(rig.bags)) group.scale.setScalar(appearance.bag === kind ? 1 : 0);
@@ -330,7 +335,10 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       rig.nose.scale.set(...AVATAR_PARTS.nose[appearance.nose].traits.scale);
       for (const [kind, mouth] of Object.entries(rig.mouths)) {
         if (!mouth.userData.originalScale) mouth.userData.originalScale = mouth.scale.clone();
-        mouth.scale.copy(mouth.userData.originalScale).multiplyScalar(appearance.mouth === kind ? 1 : 0);
+        mouth.scale.copy(mouth.userData.originalScale).multiplyScalar((reactionMouth ? 'open' : appearance.mouth) === kind ? 1 : 0);
+        if (kind === 'open' && reactionMouth) {
+          mouth.scale.set(0.085 * (1 - surprise * 0.22) * mouthOpen, 0.09 * (1 - surprise * 0.26) * mouthOpen, 0.018 * mouthOpen);
+        }
       }
       for (const [kind, group] of Object.entries(rig.glasses)) group.scale.setScalar(appearance.glasses === kind ? 1 : 0);
     }
@@ -357,18 +365,15 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
     rig.torso.position.y = 0.78 - crouch * 0.14 - gaitSettle - seated * 0.20;
     rig.torso.rotation.set(crouch * 0.15 + (pose.forwardLean ?? 0), stride * 0.04 + (pose.torsoTwist ?? 0), pose.lean ?? 0);
     rig.head.rotation.set((pose.head ?? 0) + talk * 0.035, talk * 0.04, -stride * 0.025);
+    for (const { sign, node } of rig.eyebrows) {
+      node.rotation.z = sign * (-0.08 + anger * 0.5 - surprise * 0.12);
+      node.position.y = 0.126 - anger * 0.015 + surprise * 0.05;
+    }
+    for (const eye of rig.eyes) {
+      eye.scale.x = (appearance ? eye.scale.x : 0.026) * (1 + surprise * 0.2);
+      eye.scale.y = (appearance ? eye.scale.y : 0.041) * (1 - anger * 0.6 + surprise * 0.4);
+    }
     if (!appearance) {
-      const anger = clamp(pose.anger ?? 0, 0, 1);
-      const surprise = clamp(pose.surprise ?? 0, 0, 1);
-      for (const { sign, node } of rig.eyebrows) {
-        node.rotation.z = sign * (-0.08 + anger * 0.5 - surprise * 0.12);
-        node.position.y = 0.126 - anger * 0.015 + surprise * 0.05;
-      }
-      for (const eye of rig.eyes) {
-        eye.scale.x = 0.026 * (1 + surprise * 0.2);
-        eye.scale.y = 0.041 * (1 - anger * 0.6 + surprise * 0.4);
-      }
-      const mouthOpen = clamp(pose.mouthOpen ?? 0, 0, 1);
       rig.mouth.scale.set(1 - mouthOpen * 0.5, (1 - anger * 2) * (1 - mouthOpen), 1);
       rig.mouth.position.y = -0.105 * (1 - rig.mouth.scale.y);
       rig.mouth.visible = surprise === 0 || mouthOpen === 0;
@@ -442,7 +447,7 @@ export function createWalkingCharacters(scene, capacity, { lightweight = false }
       hands[index][sign < 0 ? 'leftHand' : 'rightHand'].set(0, -0.31, 0.02)
         .applyMatrix4(elbow.matrixWorld).applyMatrix4(scene.matrixWorld);
     }
-    const selectionKey = `${variant}:${appearanceKey}:${scale === 0}:${appearance ? '' : [pose.anger ?? 0, pose.surprise ?? 0, pose.mouthOpen ?? 0].join(':')}`;
+    const selectionKey = `${variant}:${appearanceKey}:${scale === 0}:${appearance ? reactionMouth : [anger, surprise, mouthOpen].join(':')}`;
     let selection = selections[index];
     if (selection?.key !== selectionKey) {
       const batches = new Map();

@@ -144,6 +144,10 @@
 | 오목 | `GET` | `/api/games/gomoku/history/me/summary` | `MEMBER` | 본인 총 대국, 승/패/무와 승률 |
 | 오목 | `GET` | `/api/games/gomoku/history/me` | `MEMBER` | 본인 완료 대전기록 커서 조회 |
 | 오목 | `GET` | `/api/games/gomoku/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
+| 의자 쌓기 | `GET` | `/api/games/chair-stack/runs/current` | `PUBLIC` | 현재 판, 최고 기록 조회, 게스트 쿠키 발급 |
+| 의자 쌓기 | `POST` | `/api/games/chair-stack/runs` | `PUBLIC + 플레이어 확인` | 새 판 시작 |
+| 의자 쌓기 | `POST` | `/api/games/chair-stack/drops` | `PUBLIC + 판 소유자` | 착지와 전체 균형 판정 |
+| 의자 쌓기 | `GET` | `/api/games/chair-stack/rankings` | `PUBLIC` | 전체 랭킹과 내 순위 조회 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges` | `MEMBER` | 공식 도전 생성과 시드 발급 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/start` | `MEMBER + 본인` | 실제 경과 시간 기준 시각 기록 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/batches` | `MEMBER + 본인` | 입력 묶음으로 점수 재계산, 실시간 진행 검사 |
@@ -159,6 +163,7 @@
 | 포인트 | [points.md](points.md) | 잔액, 주간 한도와 적립 내역 |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
+| 의자 쌓기 | [chair-stack.md](chair-stack.md) | 게스트와 회원의 게임 진행 및 공개 랭킹 |
 | 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
@@ -179,7 +184,7 @@
 ## 스파링
 
 [스파링 API](sparrings.md): 공개 주제/의견 조회, 회원 주제 등록·편 선택·의견 전송,
-SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
+진영별 장식 아바타, SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
 
 - [오목 게임방 채팅](gomoku-chat.md): 입장 회차와 메시지 순번, REST 복구, SSE 알림 계약
 

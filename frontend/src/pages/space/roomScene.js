@@ -1241,6 +1241,13 @@ export function createRoomScene(container, callbacks) {
     turnStudioCamera(direction) {
       if (canUseStudioCamera() && (direction === -1 || direction === 1) && cameraControls.turn(direction * Math.PI / 4)) updateCamera();
     },
+    // 랜딩 첫 화면처럼 조작 없이 보여 주는 미리보기가 매 프레임 카메라를 조금씩 돌린다.
+    orbitBy(angle) {
+      if (!room || flight || !Number.isFinite(angle) || ["front", "firstPerson", "thirdPerson"].includes(view)) return;
+      if (!cameraControls.turn(angle)) return;
+      updateCamera(false);
+      renderMoving();
+    },
     setPreviewWideAngle(value) {
       if (previewWideAngle === value) return;
       previewWideAngle = value;
@@ -1280,6 +1287,10 @@ export function createRoomScene(container, callbacks) {
       rebuildGreetings();
       if (room) updateRoomLighting(true);
       render();
+    },
+    setPlayerAppearance(appearance) {
+      renderer.shadowMap.needsUpdate = true;
+      walkthrough.setPlayerAppearance(appearance);
     },
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,
     setWalkInputBlocked: walkthrough.setInputBlocked,

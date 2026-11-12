@@ -37,7 +37,10 @@ for (const width of [360, 1440]) {
       });
       for (const type of ["STUDY", "CLUB", "SESSION"]) {
         await page.goto("/groups/new");
-        await page.getByLabel("모임 종류").selectOption(type);
+        await page.getByRole("button", { name: /^모임 종류:/ }).click();
+        await page.getByRole("group", { name: "모임 종류 선택" }).getByRole("button", {
+          name: { STUDY: "스터디", CLUB: "동아리", SESSION: "같이해요" }[type], exact: true
+        }).click();
         const submit = page.getByRole("button", { name: "모임 만들기", exact: true });
         await submit.scrollIntoViewIfNeeded();
         const before = await page.evaluate(() => window.scrollY);

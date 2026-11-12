@@ -10,9 +10,10 @@ jest.mock("react-router", () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn(), storeReturnTarget: jest.fn() }));
+jest.mock("../../src/features/avatar/hooks", () => ({ useMyAvatar: () => ({ data: null }) }));
 jest.mock("../../src/features/sparring/api", () => ({
   ...jest.requireActual("../../src/features/sparring/api"),
-  getSparring: jest.fn(), voteSparring: jest.fn()
+  getSparring: jest.fn(), voteSparring: jest.fn(), getSparringAvatarPools: jest.fn()
 }));
 const topic = { id: 1, title: "점심 토론", a: "기다려", b: "다른 곳", description: "", mySide: null, votesA: 1, votesB: 0, postCount: 0, revision: 1 };
 const matchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");

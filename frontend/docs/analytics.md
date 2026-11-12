@@ -91,6 +91,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | 동작 | action |
 | --- | --- |
 | 헤더 게시판 메뉴, 분야 필터, 제안 열기, 더 보기, 다시 불러오기 | `browse_proposals`, `proposal_category_filter`, `proposal_open`, `proposal_list_load_more`, `proposal_list_retry` |
+| 목록의 이용 안내 열고 닫기 | `proposal_guide_toggle` |
 | 목록의 함께하고 싶어요 켜고 끄기 | `proposal_interest_toggle` |
 | 상세의 조건 칩, 모인 조건 요약 칩 열기, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_condition_summary_open`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
 | 비로그인 로그인 안내 | `proposal_login_to_interest`, `proposal_login_to_comment` |
@@ -466,6 +467,8 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 
 고정 action은 gomoku_observation_open, gomoku_observation_retry, gomoku_observation_leave, gomoku_observation_lobby_open이다. 관전 식별자와 메시지 내용은 분석에 보내지 않으며 기존 채팅 마스킹을 유지한다.
 
+관전자 수의 프로필 목록 열기/닫기는 `gomoku_spectators_toggle` 고정 action을 사용한다. 관전자 수, 닉네임, 프로필 URL과 회원 ID는 분석 속성에 포함하지 않고 드롭다운까지 `data-ph-private`로 마스킹한다.
+
 ## 아바타 시제품
 
 독립 시제품의 홈 이동, 스타일 선택, 동작 선택, 회전, 얼굴 이미지 받기, 받아치기 체험은 각각
@@ -498,3 +501,8 @@ private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한�
 회원 편집기의 전체 보기·얼굴 확대는 `avatar_lab_view_change`로 구분하며 파츠 값은 포함하지 않는다.
 편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
 부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.
+
+## 의자 쌓기
+
+게임방 진입은 `chair_stack_open`, 시작은 `chair_stack_start`, 게임판 위치 선택은 `chair_stack_position_select`, 놓기는 `chair_stack_drop`, 다시 도전은 `chair_stack_replay`, 랭킹 열기는 `chair_stack_rankings_open`을 사용한다. 닉네임 입력과 랭킹의 닉네임은 녹화에서 가린다. 좌표, 흔들림 시점, 게스트 쿠키 값은 분석 속성에 넣지 않는다.
+의자 회전, 좌우 반전, 상하 반전은 각각 `chair_stack_rotate`, `chair_stack_flip_horizontal`, `chair_stack_flip_vertical`을 사용한다.

@@ -1,0 +1,105 @@
+.landing-demoday {
+  padding-block: var(--space-16);
+  text-align: center;
+}
+
+.landing-demoday-invite {
+  display: grid;
+  align-content: center;
+  min-block-size: clamp(20rem, 30vw, 24rem);
+  padding-block: var(--space-16);
+  background: color-mix(in srgb, var(--landing-mint) 60%, var(--color-surface));
+  text-align: center;
+}
+
+.landing-demoday-invite .landing-container {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-8);
+}
+
+:is(.landing-demoday, .landing-demoday-invite) h2 {
+  font-size: var(--landing-feature-size);
+  font-weight: var(--landing-heading-weight);
+  letter-spacing: var(--landing-heading-tracking);
+}
+
+.landing-demoday-invite h2 {
+  text-wrap: balance;
+}
+
+.landing-demoday__team {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-inline-size: 56rem;
+  margin: var(--space-4) auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-demoday__chair {
+  aspect-ratio: 1;
+  background: url("../../shared/assets/landing/demoday-team-chairs.jpg") var(--chair-position) center / 400% auto no-repeat;
+}
+
+.landing-demoday__team p {
+  font-weight: var(--font-weight-semibold);
+}
+
+.landing-demoday a {
+  display: inline-flex;
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+
+.landing-demoday a span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.landing-demoday a:hover {
+  color: var(--color-ink);
+}
+
+.landing-demoday__repository {
+  margin-block-start: var(--space-4);
+  font-weight: var(--font-weight-semibold);
+}
+
+.landing-demoday-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
+  display: grid;
+  align-items: center;
+  block-size: var(--landing-header);
+  background: var(--color-surface);
+}
+
+.landing-demoday-footer {
+  padding-block: var(--space-8);
+}
+
+.landing-demoday-brand-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+
+.landing-demoday-brand-row__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink);
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-extrabold);
+}

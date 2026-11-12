@@ -18,6 +18,7 @@ import {
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
+import { GroupTypePicker } from "./GroupTypePicker.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
@@ -274,17 +275,12 @@ export function NewGroupPage() {
           className={`group-profile group-editor__profile${representativeImagePreview ? "" : " group-profile--default-image"}`}
         >
           <div className="group-profile__copy">
-            <UnderlineSelect
-              className="group-editor__type-field"
+            <GroupTypePicker
               error={errors.type?.message}
-              label="모임 종류"
-              labelHidden
+              value={type}
+              onChange={(next) => setValue("type", next, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
               registration={register("type")}
-            >
-              <option value="STUDY">스터디</option>
-              <option value="CLUB">동아리</option>
-              <option value="SESSION">같이해요</option>
-            </UnderlineSelect>
+            />
 
             <UnderlineField
               className="group-editor__field--title"

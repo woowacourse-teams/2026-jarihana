@@ -78,7 +78,8 @@ export function AppShell({ children, headerAction = null, headerTitle = "" }) {
     return () => animation.cancel();
   }, [pathname]);
 
-  if (pathname.replace(/\/$/, "") === "/land" || pathname === "/") {
+  const landingPath = pathname.replace(/\/$/, "");
+  if (landingPath === "/land" || landingPath.startsWith("/land/") || pathname === "/") {
     return <>{children ?? <Outlet />}<ChatModal /></>;
   }
 

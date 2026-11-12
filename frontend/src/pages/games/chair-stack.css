@@ -1,0 +1,626 @@
+.chair-stack {
+  width: min(100%, 57rem);
+  margin-inline: auto;
+  padding-block: var(--space-3) var(--space-8);
+  color: var(--color-ink);
+}
+
+.chair-stack-back {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--color-muted-ink);
+}
+
+.chair-stack-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-4);
+}
+
+.chair-stack-heading h1 {
+  margin: 0;
+  font-size: var(--text-h1);
+  line-height: 1.2;
+}
+
+.chair-stack-heading .ui-button {
+  flex: none;
+  min-height: var(--touch-target);
+}
+
+.chair-stack-heading .ui-button span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.chair-stack-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 var(--space-3);
+  padding-block: var(--space-2);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.chair-stack-stats > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  padding-inline: var(--space-2);
+}
+
+.chair-stack-stats > div + div {
+  border-inline-start: var(--border-thin) solid var(--color-line);
+}
+
+.chair-stack-stats dt {
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+
+.chair-stack-stats dd {
+  margin: 0;
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.chair-stack-stage {
+  --sky-twilight-fade: 0;
+  --sky-night-fade: 0;
+  --sky-space-fade: 0;
+  --sky-aurora-fade: 1;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 var(--border-thin) var(--color-line);
+}
+
+.chair-stack-sky {
+  --sky-day: #b5ddf7;
+  --sky-day-haze: #e8f6fd;
+  --sky-twilight: #7892bf;
+  --sky-twilight-haze: #c2cee7;
+  --sky-night: #070d1c;
+  --sky-space: #030612;
+  --sky-nebula: #192746;
+  --sky-aurora-mint: #79f2c7;
+  --sky-aurora-blue: #48bbcc;
+  --sky-aurora-violet: #a98bed;
+  --sky-cloud: #fff;
+  --sky-star: #f5f8ff;
+  --sky-star-blue: #9cbefc;
+  position: absolute;
+  inset: var(--border-thin);
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--sky-day), var(--sky-day-haze) 59%, var(--color-surface) 95%);
+  background-size: 100% 118%;
+  background-position: 0 calc(-1 * var(--sky-rise, 0%));
+}
+
+.chair-stack-sky__twilight,
+.chair-stack-sky__night,
+.chair-stack-sky__space,
+.chair-stack-clouds,
+.chair-stack-wind {
+  position: absolute;
+  inset: 0;
+}
+
+.chair-stack-sky__twilight {
+  opacity: var(--sky-twilight-fade);
+  background: linear-gradient(180deg, var(--sky-twilight), var(--sky-twilight-haze) 64%, var(--sky-day-haze));
+  background-size: 100% 118%;
+  background-position: 0 calc(-1 * var(--sky-rise, 0%));
+}
+
+.chair-stack-sky__night {
+  opacity: var(--sky-night-fade);
+  background: radial-gradient(ellipse at 48% 5%, var(--sky-night), var(--sky-space) 70%);
+}
+
+.chair-stack-sky__space {
+  opacity: var(--sky-space-fade);
+  background:
+    radial-gradient(ellipse at 22% calc(90% - var(--sky-rise, 0%) * 0.5), var(--sky-nebula), transparent 55%),
+    radial-gradient(ellipse at 88% 8%, var(--sky-night), var(--sky-space) 77%);
+}
+
+.chair-stack-clouds {
+  transform: translateY(var(--sky-rise, 0%));
+  opacity: calc(1 - var(--sky-twilight-fade) * 0.26);
+}
+
+.chair-stack-cloud {
+  --cloud-drift: clamp(0.5rem, 2.8vw, 1.75rem);
+  position: absolute;
+  width: var(--cloud-width);
+  aspect-ratio: 5 / 1;
+  border-radius: var(--radius-pill);
+  background: var(--sky-cloud);
+  filter: drop-shadow(0 0.25rem 0.45rem color-mix(in srgb, var(--sky-twilight) 26%, transparent));
+  animation: chair-stack-cloud-drift 17s ease-in-out -6s infinite alternate paused;
+}
+
+.chair-stack-cloud::before,
+.chair-stack-cloud::after {
+  content: "";
+  position: absolute;
+  bottom: 25%;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.chair-stack-cloud::before {
+  left: 17%;
+  width: 37%;
+  aspect-ratio: 1.1;
+}
+
+.chair-stack-cloud::after {
+  right: 19%;
+  width: 33%;
+  aspect-ratio: 1.3;
+}
+
+.chair-stack-cloud--left {
+  --cloud-width: clamp(3.5rem, 17%, 8rem);
+  top: 26%;
+  left: 9%;
+}
+
+.chair-stack-cloud--high {
+  --cloud-width: clamp(2.5rem, 10%, 5rem);
+  top: 13%;
+  left: 52%;
+  animation-duration: 23s;
+  animation-delay: -11s;
+}
+
+.chair-stack-cloud--right {
+  --cloud-width: clamp(4rem, 20%, 9rem);
+  top: 34%;
+  right: 8%;
+  animation-duration: 20s;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes chair-stack-cloud-drift {
+  from { transform: translateX(calc(-1 * var(--cloud-drift))); }
+  to { transform: translateX(var(--cloud-drift)); }
+}
+
+.chair-stack-wind__gust {
+  position: absolute;
+  top: 16%;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  animation: chair-stack-wind-drift 8s linear -3s infinite paused;
+}
+
+.chair-stack-wind__gust svg {
+  display: block;
+  width: clamp(2.75rem, 16%, 8.5rem);
+  fill: var(--sky-cloud);
+  filter: drop-shadow(0 0.1rem 0.2rem color-mix(in srgb, var(--sky-twilight) 30%, transparent));
+}
+
+.chair-stack-wind__gust:nth-child(2) {
+  top: 37%;
+  animation-duration: 10s;
+  animation-delay: -6.5s;
+}
+
+.chair-stack-wind__gust:nth-child(3) {
+  top: 51%;
+  animation-duration: 12s;
+  animation-delay: -4.5s;
+}
+
+.chair-stack-wind {
+  opacity: calc((1 - var(--sky-night-fade) * 0.65) * (1 - var(--sky-space-fade)));
+}
+
+@keyframes chair-stack-wind-drift {
+  0% { opacity: 0; transform: translateX(-25%); }
+  26%, 60% { opacity: 0.72; }
+  100% { opacity: 0; transform: translateX(100%); }
+}
+
+.chair-stack-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: var(--sky-aurora-fade);
+  transform: translateY(calc(var(--sky-rise, 0%) * 0.28));
+}
+
+.chair-stack-aurora::before,
+.chair-stack-aurora::after {
+  content: "";
+  position: absolute;
+  inset: -17% -25% 26%;
+  background:
+    repeating-linear-gradient(105deg, transparent 0 3%, color-mix(in srgb, var(--sky-star) 14%, transparent) 4%, transparent 7%),
+    linear-gradient(100deg, transparent 5%, var(--sky-aurora-violet) 23%, var(--sky-aurora-blue) 43%,
+      var(--sky-aurora-mint) 61%, var(--sky-aurora-blue) 74%, transparent 95%);
+  mask-image: radial-gradient(ellipse at 52% 2%, transparent 34%, #000 48%, transparent 69%);
+  transform: translateY(-5%) rotate(-11deg);
+  animation: chair-stack-aurora-drift 11s ease-in-out infinite alternate paused;
+}
+
+.chair-stack-aurora::after {
+  inset: -23% -30% 35% -13%;
+  mask-image: radial-gradient(ellipse at 50% 5%, transparent 39%, #000 48%, transparent 70%);
+  transform: translateY(4%) rotate(12deg);
+  opacity: 0.48;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes chair-stack-aurora-drift {
+  to { transform: translate(6%, 9%) rotate(4deg); }
+}
+
+.chair-stack-stars {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 58%;
+  overflow: hidden;
+  transform: translateY(calc(var(--sky-rise, 0%) * 0.12));
+  background:
+    radial-gradient(circle at 6% 26%, var(--sky-star-blue) 0.035rem, transparent 0.08rem),
+    radial-gradient(circle at 29% 12%, var(--sky-star-blue) 0.045rem, transparent 0.09rem),
+    radial-gradient(circle at 12% 67%, var(--sky-star) 0.045rem, transparent 0.095rem),
+    radial-gradient(circle at 21% 83%, var(--sky-star-blue) 0.04rem, transparent 0.08rem),
+    radial-gradient(circle at 33% 92%, var(--sky-star) 0.045rem, transparent 0.1rem),
+    radial-gradient(circle at 43% 66%, var(--sky-star-blue) 0.04rem, transparent 0.085rem),
+    radial-gradient(circle at 55% 29%, var(--sky-star) 0.055rem, transparent 0.09rem),
+    radial-gradient(circle at 49% 83%, var(--sky-star-blue) 0.035rem, transparent 0.08rem),
+    radial-gradient(circle at 61% 73%, var(--sky-star) 0.05rem, transparent 0.1rem),
+    radial-gradient(circle at 67% 94%, var(--sky-star-blue) 0.04rem, transparent 0.085rem),
+    radial-gradient(circle at 77% 73%, var(--sky-star-blue) 0.04rem, transparent 0.08rem),
+    radial-gradient(circle at 85% 87%, var(--sky-star) 0.045rem, transparent 0.095rem),
+    radial-gradient(circle at 90% 32%, var(--sky-star-blue) 0.05rem, transparent 0.09rem),
+    radial-gradient(circle at 94% 56%, var(--sky-star-blue) 0.035rem, transparent 0.08rem);
+}
+
+.chair-stack-stars::before,
+.chair-stack-stars::after {
+  content: "";
+  position: absolute;
+  top: 13%;
+  width: min(37%, 13rem);
+  height: 32%;
+  --star-core: 0.075rem;
+  --star-edge: 0.15rem;
+}
+
+/* Big Dipper, with three handle stars leading into the four-star bowl. */
+.chair-stack-stars::before {
+  left: 8%;
+  background:
+    radial-gradient(circle at 7% 17%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 24% 26%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 39% 47%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 57% 51%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 67% 81%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 91% 68%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 94% 38%, var(--sky-star) var(--star-core), transparent var(--star-edge));
+}
+
+/* The five bright stars forming Cassiopeia's W. */
+.chair-stack-stars::after {
+  top: 17%;
+  right: 12%;
+  background:
+    radial-gradient(circle at 10% 32%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 27% 61%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 48% 43%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 70% 76%, var(--sky-star) var(--star-core), transparent var(--star-edge)),
+    radial-gradient(circle at 90% 33%, var(--sky-star) var(--star-core), transparent var(--star-edge));
+}
+
+.chair-stack-sky[data-in-view="true"]:not([data-sky="space"]) .chair-stack-wind__gust,
+[data-in-view="true"]:is([data-sky="day"], [data-sky="twilight"]) .chair-stack-cloud,
+[data-in-view="true"][data-sky="aurora"] .chair-stack-aurora::before,
+[data-in-view="true"][data-sky="aurora"] .chair-stack-aurora::after {
+  animation-play-state: running;
+}
+
+.chair-stack-altitude {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chair-stack-sky__twilight,
+  .chair-stack-sky__night,
+  .chair-stack-sky__space,
+  .chair-stack-clouds,
+  .chair-stack-wind {
+    transition: none;
+  }
+
+  .chair-stack-clouds {
+    transform: none;
+  }
+
+  .chair-stack-cloud,
+  .chair-stack-wind__gust,
+  .chair-stack-aurora::before,
+  .chair-stack-aurora::after {
+    animation: none;
+  }
+}
+
+.chair-stack-board {
+  height: clamp(19rem, 54dvh, 34rem);
+  position: relative;
+}
+
+.chair-stack-board[tabindex] {
+  touch-action: pan-y;
+  cursor: ew-resize;
+}
+
+.chair-stack-board:focus-visible {
+  outline: var(--border-strong) solid var(--color-brand-ink);
+  outline-offset: calc(-1 * var(--border-strong));
+  border-radius: inherit;
+}
+
+.chair-stack-stage:has([data-sky="aurora"], [data-sky="space"]) .chair-stack-board {
+  --chair-stack-platform-ink: var(--color-brand-soft);
+  outline-color: var(--color-brand-soft);
+}
+
+.chair-stack-board canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.chair-stack-start {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: var(--space-4);
+  text-align: center;
+  background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+}
+
+.chair-stack-start__form {
+  width: min(100%, 22rem);
+  display: grid;
+  gap: var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  text-align: start;
+}
+
+.chair-stack-start__form label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+.chair-stack-start__form input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding-inline: var(--space-3);
+  border: var(--border-thin) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.chair-stack-start__form p,
+.chair-stack-notice p {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.chair-stack-controls {
+  width: min(100%, 24rem);
+  margin: var(--space-3) auto 0;
+}
+
+.chair-stack-controls .ui-button {
+  min-height: var(--touch-target-lg);
+}
+
+.chair-stack-adjustment {
+  display: grid;
+  gap: var(--space-1);
+  width: min(100%, 24rem);
+  margin: var(--space-3) auto 0;
+}
+
+.chair-stack-rotation {
+  display: grid;
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+
+.chair-stack-rotation > span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.chair-stack-rotation output {
+  font-variant-numeric: tabular-nums;
+}
+
+.chair-stack-rotation input {
+  width: 100%;
+  min-height: var(--touch-target);
+  margin: 0;
+  accent-color: var(--color-brand);
+  color-scheme: light;
+}
+
+.chair-stack-flips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.chair-stack-flips .ui-button,
+.chair-stack--playing .chair-stack-hint .ui-button {
+  min-height: var(--touch-target);
+  white-space: nowrap;
+}
+
+.chair-stack-hint,
+.chair-stack-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-2);
+}
+
+.chair-stack-hint {
+  justify-content: center;
+}
+
+.chair-stack-notice {
+  justify-content: space-between;
+  padding-block: var(--space-3);
+}
+
+.ui-dialog.chair-stack-result {
+  max-width: 23rem;
+  text-align: center;
+}
+
+.chair-stack-result .ui-dialog__title {
+  padding-inline: var(--space-8);
+  word-break: keep-all;
+}
+
+.chair-stack-result .chair-stack-notice {
+  justify-content: center;
+}
+
+.chair-stack-rankings__me {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+
+.chair-stack-rankings {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-3);
+}
+
+.chair-stack-rankings:empty {
+  display: none;
+}
+
+.chair-stack-rankings__row {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-thin) solid var(--color-line);
+}
+
+.chair-stack-rankings__name {
+  overflow-wrap: anywhere;
+}
+
+.chair-stack-rankings__name small {
+  margin-inline-start: var(--space-2);
+  color: var(--color-muted-ink);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .chair-stack {
+    padding-block-start: var(--space-1);
+  }
+
+  .chair-stack-heading {
+    margin-block-end: var(--space-3);
+  }
+
+  .chair-stack-heading h1 {
+    font-size: var(--text-h2);
+  }
+
+  .chair-stack-stats > div {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .chair-stack-stats dt {
+    font-size: var(--text-caption);
+    white-space: nowrap;
+  }
+
+  .chair-stack-board {
+    height: clamp(16rem, 46dvh, 27rem);
+  }
+
+  .chair-stack--playing {
+    padding-block-end: max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  }
+
+  .chair-stack--playing .chair-stack-heading,
+  .chair-stack--playing .chair-stack-stats {
+    margin-block-end: var(--space-2);
+  }
+
+  .chair-stack--playing .chair-stack-stats {
+    padding-block: var(--space-1);
+  }
+
+  .chair-stack--playing .chair-stack-board {
+    height: clamp(11rem,
+      calc(100svh - var(--header-height) - 26rem - env(safe-area-inset-bottom, 0px)), 27rem);
+  }
+
+  .chair-stack-adjustment {
+    margin-block-start: var(--space-2);
+  }
+}

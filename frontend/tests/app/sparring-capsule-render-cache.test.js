@@ -1,5 +1,6 @@
 import { createCapsules } from '../../public/sparring-arena/src/capsules.js';
 import { CAPACITY } from '../../public/sparring-arena/src/physics.js';
+import { AVATAR_BASIC_APPEARANCE } from '../../public/sparring-arena/src/avatar-appearance.js';
 
 let mockPhysics, mockBatch;
 jest.mock('../../public/sparring-arena/src/capsule-batch.js', () => ({ createCapsuleBatch: () => mockBatch }));
@@ -140,4 +141,59 @@ it('편별 파이프 공급 목록은 메시지 갱신 때 바뀌고 대화 없�
   expect(mockPhysics.launch.mock.lastCall[0].id).toBe('new-mint');
   expect(capsules.replayPipe()).toBe('b');
   expect(mockPhysics.launch.mock.lastCall[0]).toMatchObject({ id: 'vote-b', side: 'b' });
+});
+
+it('양쪽 파이프가 한 후보 목록을 순환하고 통과 파이프를 합쳐 최대 24개만 그린다', () => {
+  const capsules = populated();
+  const candidates = Array.from({ length: CAPACITY }, () => ({ ...AVATAR_BASIC_APPEARANCE }));
+  const displayed = new Map();
+  mockBatch.draw.mockImplementation((index, _entry, _size, _opening, _burst, appearance) => {
+    displayed.set(index, appearance);
+  });
+  const activeAvatars = () => [...displayed.values()].filter(Boolean);
+  capsules.updateState(posts, votes, undefined, candidates);
+  expect(activeAvatars()).toEqual(candidates.slice(0, 24));
+
+  let recycled = 0;
+  mockPhysics.launch.mockImplementation(post => Object.assign(mockPhysics.entries[recycled++ % CAPACITY], {
+    post, visualSide: post.side,
+  }));
+  for (let i = 0; i < CAPACITY; i++) {
+    expect(capsules.replayPipe()).toBe(i % 2 === 0 ? 'a' : 'b');
+    capsules.step(0);
+    expect(displayed.get(i)).toBe(candidates[(24 + i) % CAPACITY]);
+    expect(activeAvatars()).toHaveLength(24);
+  }
+});
+
+it('새 투표자 후보는 기존 캡슐의 색과 외형을 바꾸지 않고 다음 순환에 합류한다', () => {
+  const capsules = populated();
+  const existing = { ...AVATAR_BASIC_APPEARANCE, hair: 'curly' };
+  const newcomer = { ...AVATAR_BASIC_APPEARANCE, hair: 'long' };
+  const candidates = [existing];
+  capsules.updateState(posts, votes, undefined, candidates);
+  mockBatch.draw.mockClear();
+  capsules.updateState(posts, votes, undefined, [existing, newcomer]);
+  expect(mockBatch.draw).not.toHaveBeenCalled();
+  for (const [side, appearance] of [['a', existing], ['b', newcomer]]) {
+    expect(capsules.replayPipe()).toBe(side);
+    capsules.step(0);
+    expect(mockBatch.draw.mock.calls.findLast(([index]) => index === 0)[5]).toBe(appearance);
+  }
+});
+
+it('장식 외형이 있어도 보낸 캡슐과 미끄럼틀에 넘길 글은 실제 작성자 외형을 사용한다', () => {
+  const capsules = populated();
+  const appearance = { ...AVATAR_BASIC_APPEARANCE, hair: 'parted' };
+  const voter = { ...AVATAR_BASIC_APPEARANCE, hair: 'bob' };
+  const actual = { ...posts[0], appearance };
+  capsules.updateState([actual], votes, undefined, [voter]);
+  mockPhysics.launch.mockImplementationOnce(post => Object.assign(mockPhysics.entries[0], {
+    post, visualSide: post.side, fresh: true, revealed: false, landedAt: null,
+  }));
+  mockBatch.draw.mockClear();
+  capsules.launch(actual);
+  expect(mockBatch.draw.mock.calls.find(([index]) => index === 0)[5]).toBe(appearance);
+  expect(capsules.pick({}, {}, {})).toBe(true);
+  expect(capsules.takeForDraw()).toEqual({ post: actual, fresh: false });
 });

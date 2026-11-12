@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Aperture, ArrowLeft, DoorOpen, House, Mountain, Users } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
+import { useMyAvatar } from "../../features/avatar/hooks.js";
 import { useChatSession } from "../../features/chat/ChatSessionProvider";
 import { chatLocation } from "../../features/chat/ChatLink";
 import { useGroupMusic } from "../../features/group-music/index.js";
@@ -60,6 +61,9 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, setup, 
   const memberId = auth.member?.id ?? auth.user?.id;
   const canDecorate = Boolean(isMember && memberId === group.leader?.memberId && group.status !== "ENDED");
   const [expanded, setExpanded] = useState(() => /\/space\/?$/.test(location.pathname));
+  const avatarEnabled = expanded && auth.status === "authenticated" && !auth.logoutPending;
+  const myAvatar = useMyAvatar({ enabled: avatarEnabled });
+  const avatarAppearance = avatarEnabled && !myAvatar.isError && myAvatar.data?.customized ? myAvatar.data.appearance : undefined;
   const [cameraFlight, setCameraFlight] = useState(null);
   const [sceneStatus, setSceneStatus] = useState("loading");
   const [previewExterior, setPreviewExterior] = useState(true);
@@ -214,7 +218,7 @@ export default function GroupClubhouse({ auth, group, groupId, isMember, setup, 
     onActivityLinksChange: updateActivityLinks, canChat: isMember,
     presentation: expanded ? "immersive" : "web", previewExterior, previewWideAngle, cameraFlight, visitPointerLockRef, onBackdropChange: updateBackdrop,
     onDirtyChange: updateUnsavedSpace, onSceneStatus: setSceneStatus,
-    speechMessages, greetingMembers, displayRecord, onRecordDisplayed: ackDisplay,
+    speechMessages, greetingMembers, avatarAppearance, displayRecord, onRecordDisplayed: ackDisplay,
     announcementText: announcements.records[0]?.title ?? "",
     onOpenAnnouncements: () => openWebTab("announcements")
   };

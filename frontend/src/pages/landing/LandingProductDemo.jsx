@@ -13,8 +13,8 @@ const demoDurations = {
   chat: "7.5s",
   calendar: "6s",
   activity: "12s",
-  // 녹화 영상 길이 16.43초에 데모 재생 속도 1.5를 곱한 값이라 진행 막대가 영상과 함께 끝난다.
-  sparring: "24.65s"
+  // 녹화 영상 길이 26.07초에 데모 재생 속도 1.5를 곱한 값이라 진행 막대가 영상과 함께 끝난다.
+  sparring: "39.1s"
 };
 
 const demoLabels = {
