@@ -89,10 +89,13 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                     Assertions.assertNull(snapshot.get("posts[1].appearance"));
 
                     // When
-                    post(coral, id, "코랄 받아치기", original, UUID.randomUUID()).then().statusCode(201);
+                    long replyId = post(coral, id, "코랄 받아치기", original, UUID.randomUUID())
+                            .then().statusCode(201).extract().jsonPath().getLong("data.id");
 
                     // Then
                     var update = readEvent(reader, "update");
+                    while (update.getInt("postCount") < 3) update = readEvent(reader, "update");
+                    Assertions.assertEquals(replyId, update.getLong("posts[0].id"), update::prettify);
                     Assertions.assertEquals("CORAL", update.getString("posts[0].side"));
                     Assertions.assertEquals("bob", update.getString("posts[0].appearance.hair"));
                     Assertions.assertEquals("MINT", update.getString("posts[0].replyTo.side"));
