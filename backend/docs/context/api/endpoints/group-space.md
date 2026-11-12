@@ -21,20 +21,21 @@
 ## PUT /api/groups/{groupId}/space
 
 현재 ACTIVE 모임의 LEADER만 저장한다. 인증 쿠키와 기존 CSRF 쿠키/헤더가 필요하다.
-요청은 `{ "room": <v8~v11 공간 객체>, "expectedRevision": <마지막 조회 revision> }`이다.
+요청은 `{ "room": <v8~v12 공간 객체>, "expectedRevision": <마지막 조회 revision> }`이다.
 성공하면 GET과 동일한 envelope를 반환하고 revision을 1 증가시킨다.
 `updatedAt`은 기존 공통 계약의 Asia/Seoul LocalDateTime 문자열이다.
 
 처음 저장할 때도 `expectedRevision: 0`을 전달한다. 그룹 행의 쓰기 잠금으로 첫 저장과
 리더 위임·종료·삭제를 직렬화한다. 일치하지 않는 revision은 저장하지 않고
-409 `GROUP_SPACE_CONFLICT`를 반환한다. 클라이언트는 편집 초안을 유지하고 최신 공간을
-다시 불러올 수 있어야 한다. 충돌 후 자동 덮어쓰기는 하지 않는다.
+409 `GROUP_SPACE_CONFLICT`를 반환한다. 첫 아지트 선택이 충돌하면 클라이언트는 먼저
+저장된 공간을 다시 조회해 연다. 기존 공간을 편집하던 중에 충돌하면 편집 초안을 유지한다.
+충돌 후 자동 덮어쓰기는 하지 않는다.
 
 ## 문서 제한
 
 | 필드 | 제한 |
 | --- | --- |
-| version | 정수 8~11; 저장된 구조 개정 번호를 그대로 보존 |
+| version | 정수 8~12. v12는 복층 기본 아지트(`lounge`) 전용 |
 | name | 공백만으로 구성되지 않은 30자 이하 문자열 |
 | template | lounge, climbing, boardgame, dining, band, study, photo (study/photo는 v9 이상) |
 | theme | blue, sage, rose, wood, chalk, walnut, rehearsal, studio, gallery (추가 3종은 v9 이상) |
@@ -43,11 +44,11 @@
 | food | pizza, ramen, dessert |
 | notice | 100자 이하 |
 | coverPhoto, items[].photo | 빈 문자열 또는 JPEG/PNG base64 data URL, 각각 220,000자 이하 |
-| items | v10/v11 최대 400개, v9 최대 160개, v8 최대 64개; id 중복 불가 |
+| items | v10~v12 최대 400개, v9 최대 160개, v8 최대 64개. id 중복 불가 |
 | items[].id / title / note | 각각 1~80자 / 최대40자 / 최대500자 |
 | items[].x, z | 유한한 수, -64~64 (정확한 배치 가능 여부는 클라이언트 검증) |
 | items[].rotation | 정수 0~3 |
-| items[].level | 생략 또는 0; v9 이상은 lounge를 제외한 모든 테마에서 1 허용, v8은 climbing/boardgame만 1 허용 |
+| items[].level | 생략 또는 0. `lounge`는 v12에서만 1 허용. 다른 테마는 v9 이상, v8은 climbing/boardgame에서 1 허용 |
 | items[].color | 생략 또는 #RRGGBB |
 | items[].link | memory에만 허용, 빈 문자열 또는 사용자정보 없는 HTTP(S) 절대 URL, 최대1,000자 |
 | 전체 문서 | 공백을 제거한 JSON UTF-8 바이트 기준 2,097,152바이트 이하 |
@@ -174,3 +175,13 @@ v8 호환·64개 경계도 검증한다. `src/test/resources/group-space-v9-cata
 검증하고, 인수 테스트는 각 문서에 `outdoors`를 함께 넣어 저장한 뒤 멤버 조회 결과가
 원본과 정확히 같은지 검증한다. v8/v9, 공개 정보 가림, 모임장 권한, CSRF,
 revision 충돌 및 날씨 API 검증도 유지한다. DB 마이그레이션이나 저장 시 버전 변환은 없다.
+
+### 복층 기본 아지트 배포 순서
+
+1. v11 단층과 v12 복층을 모두 열 수 있는 프론트를 먼저 배포한다. 이 버전은
+   기본 아지트를 v11로 저장하고, 서버에 저장된 v12 공간은 읽기 전용으로 연다.
+2. v12 저장을 허용하는 서버를 배포한 뒤, v12 기본 배치 생성과 편집 저장을 켠
+   프론트를 배포한다. 1단계 배포 전부터 열려 있던 탭은 새로고침해야 v12를 열 수 있다.
+
+복층 저장을 켠 뒤 프론트를 되돌릴 때는 1단계 버전을 사용한다. 이미 저장한 v12
+공간은 1단계에서도 열리고 편집은 비활성화된다.
