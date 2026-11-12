@@ -126,7 +126,7 @@ export function RhythmHarpoonEntryPage() {
         }}
         open={tutorialPromptOpen}
         panelClassName="rhythm-tutorial-prompt"
-        title="튜토리얼 보시겠어요?"
+        title="튜토리얼을 보시겠어요?"
       >
         <p>1분이면 끝나요.</p>
         <div className="rhythm-tutorial-prompt__actions">

@@ -116,7 +116,7 @@ describe("tutorial prompt for first-time visitors", () => {
 
   it("asks once, closes with Esc without leaving and remembers the answer in a cookie", () => {
     const first = render(<RhythmHarpoonEntryPage />);
-    const dialog = screen.getByRole("dialog", { name: "튜토리얼 보시겠어요?" });
+    const dialog = screen.getByRole("dialog", { name: "튜토리얼을 보시겠어요?" });
     const accept = within(dialog).getByRole("link", { name: "튜토리얼 보기" });
     expect(accept).toHaveAttribute("href", "/games/rhythm-harpoon/learn");
     expect(accept).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_tutorial_prompt_accept");
