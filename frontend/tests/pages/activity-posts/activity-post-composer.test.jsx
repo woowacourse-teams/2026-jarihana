@@ -146,3 +146,16 @@ it("allows dismissing the composer again when saving fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "취소" }));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it("attaches a captured room photo without uploading or publishing before submit", async () => {
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: jest.fn(() => "https://preview.example.test/room.png") });
+  const file = new File(["room-photo"], "room.png", { type: "image/png" });
+  const onSave = jest.fn().mockResolvedValue(undefined);
+  render(<ActivityPostComposer fixedGroup={group} initialFile={file} onClose={jest.fn()} onSave={onSave} open />);
+  const upload = useImageUpload.mock.results.at(-1).value.mutateAsync;
+  expect(screen.getByAltText("선택한 활동 사진 미리보기")).toHaveAttribute("src", "https://preview.example.test/room.png");
+  expect(upload).not.toHaveBeenCalled(); expect(onSave).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "공개하기" }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  expect(upload).toHaveBeenCalledWith(file);
+});

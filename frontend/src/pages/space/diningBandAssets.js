@@ -1,3 +1,4 @@
+import { sharedDoor } from "./sharedDoor.js";
 import { createWoodGrain } from "./architecturalMaterials";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
@@ -119,8 +120,9 @@ function cabinet(target, width, depth, color, doors = 3) {
   target.box(width, 0.085, depth, "#e4d8bd", 0, 0.97, 0, 0.018);
   for (let i = 0; i < doors; i += 1) {
     const x = (i + 0.5) * (width - 0.12) / doors - (width - 0.12) / 2;
-    target.box((width - 0.12) / doors - 0.028, 0.71, 0.035, color, x, 0.51, depth / 2 - 0.01, 0.01, "wood");
-    target.box(0.24, 0.022, 0.04, "#b8a27d", x, 0.77, depth / 2, 0.008);
+    const panel = target.box((width - 0.12) / doors - 0.028, 0.71, 0.035, color, x, 0.51, depth / 2 - 0.01, 0.01, "wood");
+    const handle = target.box(0.24, 0.022, 0.04, "#b8a27d", x, 0.77, depth / 2, 0.008);
+    sharedDoor(target.group, [panel, handle], x - (width - 0.12) / doors / 2, depth / 2);
   }
 }
 
@@ -163,8 +165,9 @@ function range(target, color) {
 function fridge(target, color) {
   target.box(1.15, 2.15, 0.94, color || "#bec3bd", 0, 1.075, 0, 0.06, "metal");
   for (const [y, h] of [[0.47, 0.82], [1.52, 1.22]]) {
-    target.box(1.09, h, 0.055, color || "#c9cec6", 0, y, 0.463, 0.025, "metal");
-    target.box(0.034, h * 0.45, 0.075, DARK, 0.43, y, 0.462, 0.01);
+    const panel = target.box(1.09, h, 0.055, color || "#c9cec6", 0, y, 0.463, 0.025, "metal");
+    const handle = target.box(0.034, h * 0.45, 0.075, DARK, 0.43, y, 0.462, 0.01);
+    sharedDoor(target.group, [panel, handle], -0.545, 0.463);
   }
   for (let i = 0; i < 5; i += 1) {
     const note = target.box(0.19, 0.24, 0.008, ["#e7cc76", "#b3cfc0", "#ddaa91"][i % 3], -0.27 + i % 2 * 0.35, 1.45 + Math.floor(i / 2) * 0.2, 0.496, 0);
@@ -181,10 +184,11 @@ function pantry(target, color) {
     target.box(2.36, 0.065, 0.62, wood, 0, y, 0, 0.01, "wood");
     for (let i = 0; i < 8; i += 1) {
       const x = -0.98 + i * 0.28;
-      if (row % 2) bottle(target, x, y + 0.033, 0.08, ["#a67445", "#85936e", "#d3b77e"][i % 3]);
+      const z = i === 5 || i === 6 ? -0.12 : 0.07;
+      if (row % 2) bottle(target, x, y + 0.033, z, ["#a67445", "#85936e", "#d3b77e"][i % 3]);
       else {
-        target.box(0.2, 0.33, 0.26, ["#d4b780", "#aeb690", "#c78d6d"][i % 3], x, y + 0.2, 0.07, 0.025);
-        target.box(0.13, 0.12, 0.012, CREAM, x, y + 0.23, 0.206, 0);
+        target.box(0.2, 0.33, 0.26, ["#d4b780", "#aeb690", "#c78d6d"][i % 3], x, y + 0.2, z, 0.025);
+        target.box(0.13, 0.12, 0.012, CREAM, x, y + 0.23, z + 0.136, 0);
       }
     }
   }

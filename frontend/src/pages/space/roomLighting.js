@@ -93,7 +93,21 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
       );
   }
 
-  return function update(atmosphere = DEFAULT_ATMOSPHERE, shell, front = false, template, { generalLighting = true, building, terrace } = {}) {
+  function applyMaterial(material) {
+    if (Array.isArray(material)) { material.forEach(applyMaterial); return; }
+    if (!(material?.isMeshStandardMaterial || material?.isMeshLambertMaterial) || fillMaterials.has(material)) return;
+    const prepare = material.onBeforeCompile;
+    const cacheKey = material.customProgramCacheKey();
+    material.onBeforeCompile = (shader, renderer) => {
+      prepare.call(material, shader, renderer);
+      addDiffuseFill(shader, material);
+    };
+    material.customProgramCacheKey = () => `${cacheKey}|room-diffuse-fill`;
+    material.needsUpdate = true;
+    fillMaterials.add(material);
+  }
+
+  function update(atmosphere = DEFAULT_ATMOSPHERE, shell, front = false, template, { generalLighting = true, building, terrace } = {}) {
     const band = template === "band";
     if (band || template === "photo") {
       // The band's dark finishes need a stronger floor and wall wash.
@@ -180,10 +194,7 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
       if (building && object.material) {
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
           if (material.aoMap?.userData.roomBakedOcclusion) material.aoMapIntensity = atmosphere.shadows ? 0.8 : 0;
-          if (!material.isMeshStandardMaterial || fillMaterials.has(material)) continue;
-          material.onBeforeCompile = (shader) => addDiffuseFill(shader, material);
-          material.needsUpdate = true;
-          fillMaterials.add(material);
+          if (material.isMeshStandardMaterial) applyMaterial(material);
         }
       }
       if (object.userData.roomLamp) {
@@ -209,5 +220,8 @@ uniform vec4 terraceBounds;\n${shader.fragmentShader}`
         material.emissiveIntensity = outdoors ? (outdoors.phase === "night" ? 0.06 : 0.24) * atmosphere.ambient / 100 : original.emissiveIntensity;
       }
     });
-  };
+  }
+
+  update.applyMaterial = applyMaterial;
+  return update;
 }

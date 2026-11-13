@@ -800,3 +800,203 @@ test("E toggles asset menus, numbers choose drinks or garden actions and R clear
     walk.dispose();
   }
 });
+
+test("shared pickup waits for authority and a removed seat restores the server safe position", async () => {
+  const scene = new THREE.Scene();
+  const container = document.createElement("div"); container.tabIndex = 0; document.body.append(container);
+  const room = { ...createInitialRoom(), items: [{ id: "sofa", kind: "sofa", x: 0, z: 0, rotation: 0 }] };
+  const command = jest.fn().mockRejectedValue(new Error("연결을 확인해 주세요"));
+  const actor = { memberId: "1", avatarColor: "#536bd6", position: { x: 0, y: 0, z: 8 }, yaw: 0, locomotion: "idle",
+    seat: null, heldItemId: null, emote: null, pose: "relaxed" };
+  let state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor], items: [], assets: {} };
+  const runtime = { connection: { command, move: jest.fn() }, store: { getState: () => state, serverNow: () => 1000 } };
+  const walk = createWalkthrough(scene, container, { getRoom: () => room, getObstacles: () => [], render: jest.fn() });
+  try {
+    walk.update("thirdPerson", "#536bd6"); walk.setRealtime(runtime); walk.applyRealtimeState(state);
+    walk.command("greet"); await Promise.resolve(); await Promise.resolve();
+    expect(command).toHaveBeenCalledWith({ action: "EMOTE", kind: "wave" });
+    expect(scene.getObjectByName("greeting-hand")).toBeUndefined();
+    state = { ...state, type: "ROOM_STATE", participants: [{ ...actor, heldItemId: "cookie", seat: { assetId: "sofa", slot: 0,
+      position: { x: -.81, y: .335, z: .33 }, approach: { x: 0, y: 0, z: 2 }, yaw: Math.PI } }],
+      items: [{ id: "cookie", kind: "cookie", remaining: .5 }] };
+    walk.applyRealtimeState(state);
+    expect(scene.getObjectByName("walk-prop")).toBeDefined();
+    expect(scene.getObjectByName("mascot").position.y).toBeCloseTo(.381);
+    state = { ...state, layoutRevision: 2, participants: [{ ...actor, position: { x: 2, y: 0, z: 8 } }], items: [] };
+    walk.applyRealtimeState(state);
+    expect(scene.getObjectByName("mascot").position.toArray()).toEqual([2, 0, 8]);
+    expect(scene.getObjectByName("walk-prop")).toBeUndefined();
+  } finally { walk.dispose(); }
+});
+
+test("rapid shared direction clicks move at walking speed and end at idle", () => {
+  const { walk } = setup();
+  const move = jest.fn();
+  const state = { participants: [], items: [], assets: {} };
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.setRealtime({ connection: { move, ready: () => true }, store: { getState: () => state, serverNow: () => 1000 } });
+    const start = walk.camera.position.z;
+    for (let click = 0; click < 6; click += 1) walk.command("forward");
+    expect(walk.camera.position.z).toBe(start);
+    advance(16);
+    expect(start - walk.camera.position.z).toBeCloseTo(PLAYER.speed / 60);
+    for (let time = 32; time <= 320; time += 16) advance(time);
+    expect(start - walk.camera.position.z).toBeCloseTo(0.8);
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+  } finally { walk.dispose(); }
+});
+
+test("shared input retains throttled paths, pauses during recovery and resets the path at a snapshot", () => {
+  const { walk, container } = setup();
+  let ready = true, send = false;
+  const sent = [];
+  const move = jest.fn((payload) => { if (send) sent.push(JSON.parse(JSON.stringify(payload))); return send; });
+  const actor = { memberId: "1", avatarColor: "#536bd6", position: { ...PLAYER.spawn, y: 0 }, yaw: 0,
+    locomotion: "idle", seat: null, heldItemId: null, emote: null, pose: "relaxed" };
+  const state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor], items: [], assets: {} };
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.setRealtime({ connection: { move, ready: () => ready }, store: { getState: () => state, serverNow: () => 1000 } });
+    walk.applyRealtimeState(state);
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW" }));
+    advance(100); advance(150); advance(200);
+    send = true; advance(250);
+    expect(sent.at(-1).path.length).toBeGreaterThan(3);
+    const beforePause = walk.camera.position.z;
+    ready = false; advance(300);
+    expect(walk.camera.position.z).toBe(beforePause);
+    ready = true;
+    const corrected = { ...actor, position: { ...actor.position, z: actor.position.z + .5 } };
+    walk.applyRealtimeState({ ...state, participants: [corrected] });
+    advance(350);
+    expect(sent.at(-1).path[0]).toEqual(corrected.position);
+    expect(sent.at(-1).path.at(-1).z).toBeCloseTo(sent.at(-1).z);
+  } finally { walk.dispose(); }
+});
+
+test("jump correction keeps the path on the floor instead of adding jump height twice", () => {
+  const { walk } = setup();
+  const move = jest.fn();
+  const actor = { memberId: "1", avatarColor: "#536bd6", position: { ...PLAYER.spawn, y: .6 }, yaw: 0,
+    locomotion: "jumping", seat: null, heldItemId: null, emote: null, pose: "relaxed" };
+  const state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor], items: [], assets: {} };
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.setRealtime({ connection: { move, ready: () => true }, store: { getState: () => state, serverNow: () => 1000 } });
+    walk.applyRealtimeState(state); walk.command("turnRight");
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ y: .6, path: [{ ...PLAYER.spawn, y: 0 }] }), false);
+  } finally { walk.dispose(); }
+});
+
+test("shared movement ends with idle and looking around does not report walking", () => {
+  const { walk, container } = setup();
+  const move = jest.fn();
+  const state = { participants: [], items: [], assets: {} };
+  const realtime = { connection: { move, ready: () => true }, store: { getState: () => state, serverNow: () => 1000 } };
+  try {
+    walk.update("firstPerson", "#536bd6"); walk.setRealtime(realtime);
+    walk.command("turnRight");
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), false);
+    container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW", bubbles: true }));
+    advance(100); advance(200);
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "walking" }), false);
+    container.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW", bubbles: true }));
+    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+  } finally { walk.dispose(); }
+});
+
+test("a free mouse click consumes once and the final cookie stays attached until the bite", async () => {
+  const { scene, walk } = setup();
+  let now = 1000;
+  const command = jest.fn().mockResolvedValue(undefined);
+  const actor = { memberId: "1", avatarColor: "#536bd6", position: { x: 0, y: 0, z: 8 }, yaw: 0,
+    locomotion: "idle", seat: null, heldItemId: "cookie", emote: null, pose: "relaxed" };
+  let state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", connectionGeneration: "g", controlSeq: 1,
+    serverTime: now, layoutRevision: 1, selfId: "1", participants: [actor],
+    items: [{ id: "cookie", kind: "cookie", location: "HELD", holderId: "1", remaining: .32 }], assets: {} };
+  try {
+    walk.update("thirdPerson", "#536bd6");
+    walk.setRealtime({ connection: { command, move: jest.fn() }, store: { getState: () => state, serverNow: () => now } });
+    walk.applyRealtimeState(state);
+    const prop = scene.getObjectByName("walk-prop");
+    const hand = scene.getObjectByName("mascot-grip-hand");
+    const start = { hand: hand.position.y, cookie: prop.position.y };
+    walk.onDown({ button: 0, pointerType: "mouse" });
+    expect(command).toHaveBeenCalledWith({ action: "CONSUME", itemId: "cookie" });
+    await Promise.resolve(); await Promise.resolve();
+    now = 1100;
+    state = { ...state, type: "ROOM_STATE", controlSeq: 2, serverTime: now,
+      participants: [{ ...actor, heldItemId: null }], items: [] };
+    walk.applyRealtimeState(state);
+    expect(scene.getObjectByName("walk-prop")).toBe(prop);
+    walk.command("consume");
+    expect(command).toHaveBeenCalledTimes(1);
+    now = 1450; advance(now);
+    expect(prop.visible).toBe(true);
+    expect(hand.position.y - start.hand).toBeCloseTo(.4);
+    expect(prop.position.y - start.cookie).toBeCloseTo(.4);
+    now = 1550; advance(now);
+    expect(prop.visible).toBe(false);
+    now = 2050; advance(now);
+    expect(scene.getObjectByName("walk-prop")).toBeUndefined();
+  } finally { walk.dispose(); }
+});
+
+test("locked mouse clicks reach the lock owner and consume once without affecting HUD clicks", () => {
+  const { walk, container } = setup();
+  const command = jest.fn().mockResolvedValue(undefined);
+  const actor = { memberId: "1", position: { x: 0, y: 0, z: 8 }, yaw: 0, seat: null, heldItemId: "cookie" };
+  const state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor],
+    items: [{ id: "cookie", kind: "cookie", remaining: 1 }], assets: {} };
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, value: container });
+  document.exitPointerLock = jest.fn();
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.setRealtime({ connection: { command, move: jest.fn() }, store: { getState: () => state, serverNow: () => 1000 } });
+    walk.applyRealtimeState(state);
+    const hud = document.createElement("button"); container.append(hud);
+    hud.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
+    container.dispatchEvent(new MouseEvent("mousedown", { button: 2, bubbles: true }));
+    expect(command).not.toHaveBeenCalled();
+    container.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
+    container.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
+    expect(command).toHaveBeenCalledTimes(1);
+    expect(command).toHaveBeenCalledWith({ action: "CONSUME", itemId: "cookie" });
+  } finally { walk.dispose(); delete document.pointerLockElement; delete document.exitPointerLock; }
+});
+
+test.each(["unavailable", "denied"])("mouse look recovers when pointer lock is %s", (mode) => {
+  const { walk, container } = setup();
+  const canvas = document.createElement("canvas"); container.append(canvas);
+  canvas.setPointerCapture = jest.fn(); canvas.hasPointerCapture = () => true; canvas.releasePointerCapture = jest.fn();
+  if (mode === "denied") container.requestPointerLock = () => document.dispatchEvent(new Event("pointerlockerror"));
+  try {
+    walk.update("firstPerson", "#536bd6");
+    if (mode === "denied") walk.onDown({ currentTarget: canvas, button: 0, pointerType: "mouse", pointerId: 1, clientX: 100, clientY: 100 });
+    else walk.command("lockPointer");
+    const event = new MouseEvent("mousemove", { bubbles: true });
+    Object.defineProperty(event, "movementX", { value: 35 });
+    canvas.dispatchEvent(event);
+    expect(walk.camera.getWorldDirection(new THREE.Vector3()).x).toBeGreaterThan(.1);
+  } finally { walk.dispose(); }
+});
+
+test("relocking immediately after an unlock cancels the previous delayed pause", () => {
+  jest.useFakeTimers({ doNotFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  const { walk, container } = setup();
+  let owner;
+  const changeOwner = (value) => { owner = value; document.dispatchEvent(new Event("pointerlockchange")); };
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => owner });
+  document.exitPointerLock = jest.fn(() => changeOwner(null));
+  container.requestPointerLock = jest.fn(() => changeOwner(container));
+  try {
+    walk.update("firstPerson", "#536bd6");
+    walk.command("lockPointer");
+    changeOwner(null);
+    walk.command("lockPointer");
+    jest.advanceTimersByTime(150);
+    expect(owner).toBe(container);
+    expect(container.requestPointerLock).toHaveBeenCalledTimes(2);
+  } finally { walk.dispose(); jest.useRealTimers(); delete document.pointerLockElement; delete document.exitPointerLock; }
+});

@@ -1,0 +1,70 @@
+name: jarihana-realtime
+services:
+  realtime:
+    image: ${REALTIME_IMAGE:?Set the immutable realtime image tag or digest}
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      MANAGEMENT_SERVER_PORT: 8081
+      REALTIME_ENABLED: "true"
+      REALTIME_DEV_TOKEN_KEY: ${REALTIME_DEV_TOKEN_KEY:?Set the development realtime token key}
+      REALTIME_DEV_DB_JDBC_URL: ${REALTIME_DEV_DB_JDBC_URL:?Set the development PostgreSQL JDBC URL}
+      REALTIME_DEV_DB_USERNAME: ${REALTIME_DEV_DB_USERNAME:?Set the development PostgreSQL reader}
+      REALTIME_DEV_DB_PASSWORD: ${REALTIME_DEV_DB_PASSWORD:?Set the development PostgreSQL reader password}
+      REALTIME_PROD_TOKEN_KEY: ${REALTIME_PROD_TOKEN_KEY:?Set the production realtime token key}
+      REALTIME_PROD_DB_JDBC_URL: ${REALTIME_PROD_DB_JDBC_URL:?Set the production PostgreSQL JDBC URL}
+      REALTIME_PROD_DB_USERNAME: ${REALTIME_PROD_DB_USERNAME:?Set the production PostgreSQL reader}
+      REALTIME_PROD_DB_PASSWORD: ${REALTIME_PROD_DB_PASSWORD:?Set the production PostgreSQL reader password}
+      REALTIME_ALLOWED_ORIGINS: ${REALTIME_ALLOWED_ORIGINS:?Set the comma-separated frontend origins}
+      JAVA_TOOL_OPTIONS: ${REALTIME_JAVA_OPTIONS:--XX:MaxRAMPercentage=65}
+    ports:
+      - "8080:8080"
+      - "127.0.0.1:8081:8081"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: ${REALTIME_MEMORY_LIMIT:-768m}
+    cpus: ${REALTIME_CPU_LIMIT:-1.0}
+    pids_limit: 256
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      HOST_ID: ${REALTIME_HOST_ID:-jarihana-realtime-ec2}
+      PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL:?Set the Prometheus remote-write URL}
+      LOKI_PUSH_URL: ${LOKI_PUSH_URL:?Set the Loki push URL}
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  alloy-data:

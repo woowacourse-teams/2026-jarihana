@@ -1,0 +1,34 @@
+server:
+  port: ${PORT:8090}
+  shutdown: graceful
+spring:
+  application:
+    name: jarihana-realtime
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      show-details: never
+      group:
+        deploy:
+          include: "*"
+          additional-path: "server:/healthz"
+realtime:
+  enabled: ${REALTIME_ENABLED:false}
+  dev:
+    token-key: ${REALTIME_DEV_TOKEN_KEY:}
+    db-jdbc-url: ${REALTIME_DEV_DB_JDBC_URL:}
+    db-username: ${REALTIME_DEV_DB_USERNAME:}
+    db-password: ${REALTIME_DEV_DB_PASSWORD:}
+  prod:
+    token-key: ${REALTIME_PROD_TOKEN_KEY:}
+    db-jdbc-url: ${REALTIME_PROD_DB_JDBC_URL:}
+    db-username: ${REALTIME_PROD_DB_USERNAME:}
+    db-password: ${REALTIME_PROD_DB_PASSWORD:}
+  lease-validity: ${REALTIME_LEASE_VALIDITY:60s}
+  allowed-origins: ${REALTIME_ALLOWED_ORIGINS:http://localhost:5173}
