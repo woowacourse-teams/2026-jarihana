@@ -13,7 +13,7 @@ let mockRouteParams = {};
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useParams: () => mockRouteParams
-}), { virtual: true });
+}));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
 jest.mock("../../features/group-space/api.js", () => ({ fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
@@ -25,13 +25,15 @@ jest.mock("./SpaceStudioPage.jsx", () => ({
   SpaceStudioPage: (props) => <MockEditor {...props} />
 }));
 
-function MockEditor({ initialRoom, onSave, canEdit, savedAt, groupContext }) {
+function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayoutChange, onSave, canEdit, savedAt, groupContext }) {
   const [draft, setDraft] = useState(initialRoom);
   const [error, setError] = useState("");
   return <section aria-label="공간 편집기">
     <input aria-label="테스트 공간 이름" value={draft.name} readOnly={!canEdit}
       onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
     <span>{canEdit ? "편집 가능" : "읽기 전용"}</span>
+    <output aria-label="실시간 배치">{memberId}:{layoutRevision}:{sharedRoom.version}</output>
+    <button onClick={() => onLayoutChange()}>실시간 배치 다시 읽기</button>
     <output aria-label="저장 시각">{savedAt}</output>
     <a href={groupContext.backHref}>실제 모임 {groupContext.name}</a>
     {canEdit && <button onClick={async () => {
@@ -90,12 +92,26 @@ test("member sees the server room read-only", async () => {
   expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
 });
 
-test("the compatibility release opens a saved loft without allowing the leader to submit it", async () => {
+test("the leader can submit edits to a saved loft", async () => {
   const room = { ...createInitialRoom("lounge", { loungeLoft: true }), name: "저장된 복층 아지트" };
   fetchGroupSpace.mockResolvedValue(snapshot(room));
+  saveGroupSpace.mockResolvedValue(snapshot(room, { revision: 4 }));
   setup();
-  expect(await screen.findByDisplayValue(room.name)).toHaveAttribute("readonly");
-  expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
+  await screen.findByDisplayValue(room.name);
+  save();
+  await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", { room, expectedRevision: 3 }));
+});
+
+test("the shared scene uses the persisted geometry until the loft is saved", async () => {
+  const legacy = createInitialRoom("lounge", { loungeLoft: false });
+  const loft = createInitialRoom("lounge", { loungeLoft: true });
+  fetchGroupSpace.mockResolvedValueOnce(snapshot(legacy, { canEdit: false }))
+    .mockResolvedValueOnce(snapshot(loft, { revision: 4, canEdit: false }));
+  setup();
+
+  expect(await screen.findByLabelText("실시간 배치")).toHaveTextContent("7:3:11");
+  fireEvent.click(screen.getByRole("button", { name: "실시간 배치 다시 읽기" }));
+  await waitFor(() => expect(screen.getByLabelText("실시간 배치")).toHaveTextContent("7:4:12"));
 });
 
 test.each([[403, "모임원만 들어갈 수 있어요"], [404, "모임을 찾을 수 없어요"], [500, "공간을 불러오지 못했어요"]])(

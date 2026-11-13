@@ -168,7 +168,7 @@ function AtmosphereColor({ field, label, value, action, codeAction, onStart, onP
   </div>;
 }
 
-export function SpaceStudioPage({ initialRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
@@ -248,7 +248,7 @@ export function SpaceStudioPage({ initialRoom, layoutRevision = 0, memberId, onL
   const noticeFocusPending = useRef(false);
   const [gestureDirty, setGestureDirty] = useState(false);
   const room = history.present;
-  const visibleRoom = shared ? pendingLayout ?? savedRoom : room;
+  const visibleRoom = shared ? sharedRoom ?? pendingLayout ?? savedRoom : room;
   const announcementText = clubhouse?.announcementText;
   const defaultOutdoorMode = groupContext ? "live" : "custom";
   const outdoors = visibleRoom.atmosphere.outdoors ?? { ...DEFAULT_OUTDOORS, mode: defaultOutdoorMode };
