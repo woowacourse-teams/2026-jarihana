@@ -1,0 +1,13 @@
+**
+!realtime
+!realtime/gradlew
+!realtime/settings.gradle
+!realtime/build.gradle
+!realtime/gradle
+!realtime/gradle/**
+!realtime/src
+!realtime/src/**
+!contracts
+!contracts/realtime
+!contracts/realtime/v1
+!contracts/realtime/v1/*.json

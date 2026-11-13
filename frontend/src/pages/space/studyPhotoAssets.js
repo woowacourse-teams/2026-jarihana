@@ -1,3 +1,4 @@
+import { sharedDoor } from "./sharedDoor.js";
 import { createWoodGrain } from "./architecturalMaterials";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
@@ -288,8 +289,9 @@ function storage(target, color) {
   cabinet(target, 2.4, 0.65, 0.94, color);
   for (let col = 0; col < 3; col += 1) {
     for (let row = 0; row < 2; row += 1) {
-      target.box(0.72, 0.35, 0.055, row ? "#d8cfbb" : color, (col - 1) * 0.77, 0.31 + row * 0.39, 0.2775, 0.014, "wood");
-      target.box(0.14, 0.018, 0.025, CHARCOAL, (col - 1) * 0.77, 0.39 + row * 0.39, 0.311, 0.007, "metal");
+      const panel = target.box(0.72, 0.35, 0.055, row ? "#d8cfbb" : color, (col - 1) * 0.77, 0.31 + row * 0.39, 0.2775, 0.014, "wood");
+      const handle = target.box(0.14, 0.018, 0.025, CHARCOAL, (col - 1) * 0.77, 0.39 + row * 0.39, 0.311, 0.007, "metal");
+      sharedDoor(target.group, [panel, handle], (col - 1) * 0.77 - 0.36, 0.2775);
     }
   }
   for (let i = 0; i < 4; i += 1) target.box(0.35, 0.043, 0.28, ACCENTS[i], -0.7, 0.965 + i * 0.045, 0, 0.009);

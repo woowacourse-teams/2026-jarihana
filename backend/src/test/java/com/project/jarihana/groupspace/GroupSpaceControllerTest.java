@@ -2,7 +2,9 @@ package com.project.jarihana.groupspace;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static com.project.jarihana.support.TestSupportConfig.FIXED_NOW;
 
@@ -70,6 +72,14 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         memberships.save(GroupMember.createLeader(group, leader, FIXED_NOW));
         memberships.save(GroupMember.createMember(group, member, FIXED_NOW));
         csrf = given().get("/groups?size=1").cookie("XSRF-TOKEN");
+    }
+
+    @Test
+    @DisplayName("기본 설정에서 아지트 입장 토큰을 발급한다")
+    void issuesRealtimeJoinTokenByDefault() {
+        // Given / When / Then
+        request(leader).post(path() + "/join-token").then().statusCode(200)
+                .body("data.token", not(emptyOrNullString()));
     }
 
     @Test

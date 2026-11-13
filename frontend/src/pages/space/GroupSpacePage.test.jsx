@@ -25,13 +25,15 @@ jest.mock("./SpaceStudioPage.jsx", () => ({
   SpaceStudioPage: (props) => <MockEditor {...props} />
 }));
 
-function MockEditor({ initialRoom, onSave, canEdit, savedAt, groupContext }) {
+function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayoutChange, onSave, canEdit, savedAt, groupContext }) {
   const [draft, setDraft] = useState(initialRoom);
   const [error, setError] = useState("");
   return <section aria-label="공간 편집기">
     <input aria-label="테스트 공간 이름" value={draft.name} readOnly={!canEdit}
       onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
     <span>{canEdit ? "편집 가능" : "읽기 전용"}</span>
+    <output aria-label="실시간 배치">{memberId}:{layoutRevision}:{sharedRoom.version}</output>
+    <button onClick={() => onLayoutChange()}>실시간 배치 다시 읽기</button>
     <output aria-label="저장 시각">{savedAt}</output>
     <a href={groupContext.backHref}>실제 모임 {groupContext.name}</a>
     {canEdit && <button onClick={async () => {
@@ -98,6 +100,18 @@ test("the leader can submit edits to a saved loft", async () => {
   await screen.findByDisplayValue(room.name);
   save();
   await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", { room, expectedRevision: 3 }));
+});
+
+test("the shared scene uses the persisted geometry until the loft is saved", async () => {
+  const legacy = createInitialRoom("lounge", { loungeLoft: false });
+  const loft = createInitialRoom("lounge", { loungeLoft: true });
+  fetchGroupSpace.mockResolvedValueOnce(snapshot(legacy, { canEdit: false }))
+    .mockResolvedValueOnce(snapshot(loft, { revision: 4, canEdit: false }));
+  setup();
+
+  expect(await screen.findByLabelText("실시간 배치")).toHaveTextContent("7:3:11");
+  fireEvent.click(screen.getByRole("button", { name: "실시간 배치 다시 읽기" }));
+  await waitFor(() => expect(screen.getByLabelText("실시간 배치")).toHaveTextContent("7:4:12"));
 });
 
 test.each([[403, "모임원만 들어갈 수 있어요"], [404, "모임을 찾을 수 없어요"], [500, "공간을 불러오지 못했어요"]])(

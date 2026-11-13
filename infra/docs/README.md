@@ -5,6 +5,7 @@
 | 문서 | 내용 |
 | --- | --- |
 | [인프라 ADR 목록](adr/README.md) | 기술 선택의 배경, 대안과 감수하는 비용 |
+| [아지트 멀티플레이 아키텍처와 결정 이력](../../docs/clubhouse-realtime-architecture.md) | M1·M2 HLD, DB·환경 분리, 배포 선택, 가구·아바타 규칙과 M3 보류 사항 |
 | [블루그린 배포 개요](../blue-green-deploy/README.md) | 구조와 배포 흐름 요약 |
 | [블루그린 동작 구조](../blue-green-deploy/docs/architecture.md) | 구성요소, worker 인계, 프론트 릴리스와 실행 보호 |
 | [블루그린 서버 구성](../blue-green-deploy/docs/server-setup/README.md) | 필수 호스트, 권한과 관측 설정, 환경 재구성과 최초 worker 등록 |
