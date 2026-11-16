@@ -8,18 +8,18 @@ const EAT_POSE = { rightArm: -1.68052, rightElbow: -0.51371, rightSpread: -0.460
 const DRINK_POSE = { rightArm: -1.19627, rightElbow: -0.87650, rightSpread: -0.55297 };
 
 export function drawClubhouseAvatar(characters, index, appearance, position, scale, yaw,
-  { seated, locomotion, stride, held, lift, consume = 0, greeting, time }) {
-  const running = locomotion === "running";
-  const jumping = locomotion === "jumping";
+  { seated, locomotion, stride, held, lift, consume = 0, greeting, time, motion }) {
+  const running = motion?.running ?? Number(locomotion === "running");
+  const jumping = motion?.jumping ?? Number(locomotion === "jumping");
   const consumePose = held === "cookie" ? EAT_POSE : DRINK_POSE;
   const showAppearance = held && appearance.handheld !== "none" ? { ...appearance, handheld: "none" } : appearance;
   return characters.draw(index, { appearance: showAppearance }, position, scale * WALK_AVATAR_SCALE, {
     seated: Number(seated),
-    stride: jumping ? 0 : stride,
-    stepLift: running ? 0.10 : 0,
-    forwardLean: running ? 0.12 : 0,
-    leftKick: jumping ? 0.23 : 0,
-    rightKick: jumping ? 0.43 : 0,
+    stride: motion?.stride ?? (jumping ? 0 : stride),
+    stepLift: running * 0.10,
+    forwardLean: running * 0.12,
+    leftKick: jumping * 0.23,
+    rightKick: jumping * 0.43,
     ...(greeting && { leftArm: -0.9, leftElbow: -1.35, leftSpread: -0.60 + Math.sin(time / 140) * 0.28 }),
     ...(held === "book" ? BOOK_POSE : held ? CARRY_POSE : {}),
     ...(lift > 0 && {
