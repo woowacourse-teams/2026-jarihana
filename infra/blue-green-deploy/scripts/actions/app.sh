@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Runs on the selected application runner; management access never leaves loopback.
-# APP_RELEASE_COMPOSE_CAPABILITY=1
 set -Eeuo pipefail
 set +x
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
-source "$SCRIPT_ROOT/release-compose.sh"
 
 app_check() {
   bg_grant "$GRANT_OPERATION" "$BG_SLOT"
@@ -220,7 +218,7 @@ app_stop_container() {
 }
 
 app_release_compose() {
-  local destination=$1 checkout=$BG_RELEASE_COMPOSE_CHECKOUT
+  local destination=$1 checkout=$SCRIPT_ROOT
   local source_path=infra/blue-green-deploy/controller/app-compose.yml
   local source_sha blob size release_hash
   source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
@@ -229,25 +227,18 @@ app_release_compose() {
   size=$(git -C "$checkout" cat-file -s "$blob") || bg_die 'Release Compose file is missing'
   (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
   git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
-  app_compose_matches_control "$SCRIPT_ROOT/../../controller/app-compose.yml" "$destination" ||
-    bg_die 'Release Compose differs from protected control settings'
   release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
-  printf 'Release Compose commit: %s, SHA-256: %s\n' "$source_sha" "${release_hash%% *}"
+  RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$source_sha" --arg sha256 "${release_hash%% *}" '{commit:$commit,sha256:$sha256}')
+  printf 'Release Compose commit: %s, SHA-256: %s, path: %s\n' "$source_sha" "${release_hash%% *}" "$source_path"
 }
 
 app_prepare() {
   local compose project_directory existing inspected deadline pin
-  compose=$(jq -r '.compose_file' <<<"$CONFIG")
-  project_directory=$(dirname -- "$compose")
-  if [[ "$ENVIRONMENT" == prod && -n ${BG_RELEASE_COMPOSE_CHECKOUT:-} ]]; then
-    RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
-    trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
-    app_release_compose "$RELEASE_COMPOSE_FILE"
-    compose=$RELEASE_COMPOSE_FILE
-  else
-    bg_root_file "$compose"
-    cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
-  fi
+  project_directory="/etc/jarihana-deploy/$ENVIRONMENT"
+  RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
+  trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
+  app_release_compose "$RELEASE_COMPOSE_FILE"
+  compose=$RELEASE_COMPOSE_FILE
   : "${RDS_URL:?GitHub RDS_URL is required}"
   [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"
@@ -354,10 +345,21 @@ app_run() {
 }
 
 app_result() {
+  local compose_source
+  if [[ $OPERATION == prepare ]]; then
+    compose_source=${RELEASE_COMPOSE_SOURCE:?Prepared Compose source is required}
+  else
+    compose_source=$(jq -c --argjson app "$SNAPSHOT" '
+      [.target_status,.old_status,.previous_backend_status]
+      | map(select(.identity==$app.identity and .image==$app.version) | .compose_source // empty)
+      | unique | if length>1 then error("Conflicting Compose sources") else .[0] end
+    ' <<<"$STATE") || bg_die 'Cannot establish application Compose source'
+  fi
   RESULT=$(jq -c --arg instance "$INSTANCE_ID" --arg op "$OPERATION" --arg dep "$DEPLOYMENT_ID" --arg slot "$BG_SLOT" \
     --argjson run "$RUN_ID" --arg grant "$GRANT_ID" --argjson stopped "$STOPPED" --argjson evidence "${SHUTDOWN_EVIDENCE:-null}" \
+    --argjson compose "$compose_source" \
     --argjson started "${OBSERVED_STARTED_AT:-null}" --argjson finished "${OBSERVED_FINISHED_AT:-null}" \
-    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
+    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,compose_source:$compose,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
   bg_output result "$RESULT"
 }
 

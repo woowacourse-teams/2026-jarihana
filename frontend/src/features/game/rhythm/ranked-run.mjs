@@ -1,12 +1,18 @@
 import { GameEngine, LANES, LEVELS } from "./engine.mjs";
+import { STAGES, stageOf } from "./stages.mjs";
 
 // 서버 재계산 규칙과 채보 판본이다. 판정, 라이프, 채보를 바꾸면 서버 채보와 대조 데이터를 다시 만들고 판본을 올린다.
+// 채보 판본은 곡마다 따로 있다. ANOTHER는 스윙 곡의 판본을 쓴다.
 export const RANKED_RULES_VERSION = "rhythm-harpoon-ranked-4";
-export const RANKED_CHART_VERSION = "bars-13-16-1";
+export const RANKED_CHART_VERSION = STAGES.original.chartVersion;
 export const RANKED_BATCH_SECONDS = 2;
 
-export function assertRankedVersions({ rulesVersion, chartVersion }) {
-  if (rulesVersion !== RANKED_RULES_VERSION || chartVersion !== RANKED_CHART_VERSION) {
+export function rankedChartVersion(level) {
+  return STAGES[stageOf(level)].chartVersion;
+}
+
+export function assertRankedVersions({ level, rulesVersion, chartVersion }) {
+  if (rulesVersion !== RANKED_RULES_VERSION || chartVersion !== rankedChartVersion(level)) {
     throw new Error("게임이 새로 바뀌었어요. 새로고침한 뒤 다시 도전해 주세요.");
   }
 }

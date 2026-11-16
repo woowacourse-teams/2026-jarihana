@@ -1,4 +1,4 @@
-/* 공식 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
+/* 랭킹 도전: 옵션과 랭킹 병치, 확인, 결과와 랭킹 병치 화면이다. 판은 rhythm-game.css의 연습 판 스타일을 그대로 쓴다. */
 .rhythm-challenge-steps {
   display: flex;
   gap: var(--space-2);
@@ -50,6 +50,10 @@
 }
 .rhythm-game .rhythm-challenge__levels {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* 스윙 곡을 치는 번외 난이도는 원곡 난이도 아래 한 줄에 나란히 둔다. */
+.rhythm-game .rhythm-challenge__levels button[data-level="anotherHard"] {
+  margin-top: 0;
 }
 .rhythm-game .rhythm-challenge__levels button {
   display: flex;

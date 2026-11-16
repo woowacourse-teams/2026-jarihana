@@ -313,10 +313,20 @@ case_profile_wrong_token() {
 
 prepare_db_fixture() {
   cp "$ROOT/infra/blue-green-deploy/controller/app-compose.yml" "$APP_DIR/compose.yml"
-  CONFIG=$(jq --arg compose "$APP_DIR/compose.yml" '. + {compose_file:$compose,app_port:8080}' <<< "$CONFIG")
+  CONFIG=$(jq '. + {app_port:8080}' <<< "$CONFIG")
+  SCRIPT_ROOT=$APP_DIR/release-source
+  RELEASE_SOURCE=$SCRIPT_ROOT/infra/blue-green-deploy/controller/app-compose.yml
+  mkdir -p "$(dirname "$RELEASE_SOURCE")"
+  cp "$APP_DIR/compose.yml" "$RELEASE_SOURCE"
+  git init -q "$SCRIPT_ROOT"
+  commit_release_fixture
   HOST='{"upstream":"10.0.3.2:8080"}'
   docker() {
     printf '%s\n' "$*" >> "$APP_DIR/docker-calls"
+    if [[ $1 == ps ]]; then
+      if [[ -n ${RELEASE_COMPOSE_FILE:-} ]]; then cp "$RELEASE_COMPOSE_FILE" "$APP_DIR/execution-compose.yml"; fi
+      return 1
+    fi
     [[ $1 == compose && ${*: -2} == 'config --quiet' ]] || return 1
     while [[ $1 != -f ]]; do shift; done
     cp "$2" "$APP_DIR/validated-compose.yml"
@@ -329,7 +339,7 @@ case_prepare_single_rds() {
     rm -f "$APP_DIR/docker-calls"
     if (app_prepare) > "$APP_DIR/prepare.log" 2>&1; then exit 1; fi
     grep -q 'Cannot enumerate application containers' "$APP_DIR/prepare.log"
-    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *' config --quiet' ]]
+    [[ $(sed -n '1p' "$APP_DIR/docker-calls") == *"--project-directory /etc/jarihana-deploy/$ENVIRONMENT --env-file /dev/null -f $APP_DIR/release-compose."*" config --quiet" ]]
     [[ $(sed -n '2p' "$APP_DIR/docker-calls") == "ps -aq --no-trunc --filter name=^/$CONTAINER$" ]]
   done
 }
@@ -353,21 +363,14 @@ case_prepare_invalid_rds() {
 prepare_release_fixture() {
   prepare_db_fixture
   ENVIRONMENT=prod
-  BG_RELEASE_COMPOSE_CHECKOUT=$APP_DIR/release-source
-  RELEASE_SOURCE=$BG_RELEASE_COMPOSE_CHECKOUT/infra/blue-green-deploy/controller/app-compose.yml
-  mkdir -p "$(dirname "$RELEASE_SOURCE")"
-  awk '{
-    print
-    if ($0 == "    environment:") print "      POINTS_STARTS_AT: \"${POINTS_STARTS_AT:-}\""
-  }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
-  git init -q "$BG_RELEASE_COMPOSE_CHECKOUT"
+  sed 's/mem_limit: 896m/mem_limit: 1g/' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
   commit_release_fixture
 }
 commit_release_fixture() {
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" add -- .
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" -c user.name=Fixture -c user.email=fixture@example.com \
+  git -C "$SCRIPT_ROOT" add -- .
+  git -C "$SCRIPT_ROOT" -c user.name=Fixture -c user.email=fixture@example.com \
     -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm 'Release Compose fixture'
-  GITHUB_SHA=$(git -C "$BG_RELEASE_COMPOSE_CHECKOUT" rev-parse HEAD)
+  GITHUB_SHA=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
 }
 case_prepare_release_compose() {
   prepare_release_fixture
@@ -376,44 +379,26 @@ case_prepare_release_compose() {
   reject app_prepare
   grep -q 'Cannot enumerate application containers' "$APP_DIR/rejected.log"
   grep -q "Release Compose commit: $GITHUB_SHA" "$APP_DIR/rejected.log"
-  git -C "$BG_RELEASE_COMPOSE_CHECKOUT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
+  git -C "$SCRIPT_ROOT" show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" |
     cmp -s - "$APP_DIR/validated-compose.yml"
   grep -Fxq '      POINTS_STARTS_AT: "${POINTS_STARTS_AT:-}"' "$APP_DIR/validated-compose.yml"
-  [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose.*' -print) ]]
+  cmp -s "$APP_DIR/validated-compose.yml" "$APP_DIR/execution-compose.yml"
+  [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose*.*' -print) ]]
+}
+case_prepare_release_compose_missing_file() {
+  prepare_release_fixture
+  rm "$RELEASE_SOURCE"
+  commit_release_fixture
+  reject app_prepare
+  grep -q 'Release Compose file is missing' "$APP_DIR/rejected.log"
+  [[ ! -e $APP_DIR/docker-calls ]]
+  [[ -z $(find "$APP_DIR" -maxdepth 1 -name 'release-compose*.*' -print) ]]
 }
 case_prepare_release_compose_wrong_commit() {
   prepare_release_fixture
   GITHUB_SHA=1111111111111111111111111111111111111111
   reject app_prepare
   grep -q 'checkout does not match the deployment commit' "$APP_DIR/rejected.log"
-  [[ ! -e "$APP_DIR/docker-calls" ]]
-}
-case_prepare_release_compose_protected_settings() {
-  local change
-  prepare_release_fixture
-  cp "$RELEASE_SOURCE" "$APP_DIR/original-release.yml"
-  for change in \
-    's|127.0.0.1:|0.0.0.0:|' \
-    's|PUSH_WORKER_START_PAUSED: "true"|PUSH_WORKER_START_PAUSED: "false"|' \
-    's|jdbc:postgresql://|jdbc:postgresql://unexpected-|' \
-    's|POINTS_STARTS_AT:-|DB_PASSWORD:-|' \
-    's|restart: "no"|privileged: true|'; do
-    sed "$change" "$APP_DIR/original-release.yml" >"$RELEASE_SOURCE"
-    commit_release_fixture
-    reject app_prepare
-    grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
-    [[ ! -e "$APP_DIR/docker-calls" ]]
-  done
-  awk '{
-    print
-    if ($0 == "    environment:") {
-      print "      JARIHANA_PUSH_WORKER_START_PAUSED: \"${JARIHANA_PUSH_WORKER_START_PAUSED:-}\""
-      print "      JARIHANA_PUSH_WORKER_CONTROL_ENABLED: \"${JARIHANA_PUSH_WORKER_CONTROL_ENABLED:-}\""
-    }
-  }' "$APP_DIR/compose.yml" >"$RELEASE_SOURCE"
-  commit_release_fixture
-  reject app_prepare
-  grep -q 'Release Compose differs from protected control settings' "$APP_DIR/rejected.log"
   [[ ! -e "$APP_DIR/docker-calls" ]]
 }
 case_prepare_release_compose_checks_before_removal() {
@@ -434,6 +419,50 @@ case_receipt() {
     and .grant_id==$grant and .pending_id==$grant and .image==$digest and .identity.bootId==$boot
     and .running and .healthy and (.normal_exit|not) and .shutdown_evidence==null
     and (.observed_finished_at-.observed_started_at)==300 and .authority.revision==10' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_prepared_compose() {
+  prepare_release_fixture
+  app_release_compose "$APP_DIR/source.yml"
+  STOPPED=false OPERATION=prepare
+  bg_output() { printf '%s\n' "$2" > "$APP_DIR/receipt"; }
+  app_result
+  local hash
+  hash=$(sha256sum "$APP_DIR/source.yml"); hash=${hash%% *}
+  jq -e --arg commit "$GITHUB_SHA" --arg hash "$hash" '.compose_source=={commit:$commit,sha256:$hash}' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_carries_compose() {
+  local source key
+  source=$(jq -cn --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '{commit:$commit,sha256:$hash}')
+  GITHUB_SHA=$(printf '%040d' 2)
+  for key in target_status old_status previous_backend_status; do
+    STATE=$(jq -cn --arg key "$key" --argjson app "$SNAPSHOT" --argjson source "$source" '{($key):{identity:$app.identity,image:$app.version,compose_source:$source}}')
+    for OPERATION in handoff activate observe complete stop rollback; do
+      STOPPED=false
+      bg_output() { printf '%s\n' "$2" > "$APP_DIR/receipt"; }
+      app_result
+      jq -e --argjson source "$source" '.compose_source==$source' "$APP_DIR/receipt" >/dev/null
+    done
+  done
+}
+case_receipt_unknown_compose() {
+  GITHUB_SHA=$(printf '%040d' 2)
+  case_receipt
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_different_app_compose() {
+  case_receipt_carries_compose
+  STATE=$(jq '.previous_backend_status.identity.bootId="another-boot"' <<<"$STATE")
+  app_result
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+  case_receipt_carries_compose
+  STATE=$(jq '.previous_backend_status.image="sha256:another-image"' <<<"$STATE")
+  app_result
+  jq -e '.compose_source==null' "$APP_DIR/receipt" >/dev/null
+}
+case_receipt_conflicting_compose() {
+  case_receipt_carries_compose
+  STATE=$(jq '.old_status=.previous_backend_status | .old_status.compose_source.commit="another-commit"' <<<"$STATE")
+  reject app_result
 }
 
 docker_fixture() {
@@ -488,7 +517,7 @@ case_shutdown_generation_change() {
 
 if [[ ${1:-} == --case ]]; then fixture; "case_$2"; exit; fi
 passed=0
-for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_wrong_commit prepare_release_compose_protected_settings prepare_release_compose_checks_before_removal receipt shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
+for scenario in command_rechecks_cached_parent shutdown_rechecks_cached_parent handoff activation_and_completion response_loss cas_race_before cas_race_after grant_and_deadline boot_change initial_idle_snapshot bootstrap_with_live_http bootstrap_rejects_background_work bad_counter wrong_environment no_release_with_work no_activation_with_owner rollback_target rollback_unhealthy_target rollback_wrong_owner handoff_unhealthy activation_unhealthy rollback_old rollback_already_released observation observation_clock_jump observation_readiness status_requires_grant mutation_grant_mismatch profile profile_public_management profile_dev_scheduler profile_live_dev profile_live_dev_starts_paused profile_live_dev_mismatched_push push_settings_rehearsal push_settings_live push_settings_invalid push_settings_prod_unchanged live_push_handoff live_push_cannot_take_owned_authority profile_wrong_db profile_wrong_token prepare_single_rds prepare_ignores_legacy_rds prepare_invalid_rds prepare_release_compose prepare_release_compose_missing_file prepare_release_compose_wrong_commit prepare_release_compose_checks_before_removal receipt receipt_prepared_compose receipt_carries_compose receipt_unknown_compose receipt_different_app_compose receipt_conflicting_compose shutdown shutdown_abnormal shutdown_http_work shutdown_generation_change; do
   bash "$0" --case "$scenario"
   printf 'PASS %s\n' "$scenario"
   passed=$((passed+1))

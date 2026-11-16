@@ -1,0 +1,270 @@
+/* 첫 섹션: 아지트가 비치는 장막 위에 제목을 두고, 스크롤하면 장막이 걷히며 아래에 고정된 아지트 화면이 드러난다.
+   스크롤을 가로채지 않고 sticky만 써서, 내리는 만큼만 장막이 올라간다. */
+.landing-clubhouse {
+  --clubhouse-stage: calc(100vh - var(--landing-header));
+  --clubhouse-ground: #e6efd9;
+  --clubhouse-veil-strong: rgb(245 249 248 / 88%);
+  --clubhouse-veil-soft: rgb(245 249 248 / 42%);
+  --clubhouse-ink: #33433f;
+  --clubhouse-curtain-shadow: 0 2rem 4rem rgb(17 43 41 / 28%);
+}
+@supports (height: 100svh) {
+  .landing-clubhouse {
+    --clubhouse-stage: calc(100svh - var(--landing-header));
+  }
+}
+.landing-clubhouse__track {
+  position: relative;
+  height: calc(var(--clubhouse-stage) * 2 + 10rem);
+}
+.landing-clubhouse__curtain {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: var(--clubhouse-stage);
+  border-radius: 0 0 var(--landing-radius) var(--landing-radius);
+  box-shadow: var(--clubhouse-curtain-shadow);
+}
+/* 장막은 흰 막만 두고 뒤의 3D 무대가 비치게 한다. 장막이 걷히면 같은 장면이 막 없이 드러난다. */
+.landing-clubhouse__backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.landing-clubhouse__backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    58% 52% at 50% 46%,
+    var(--clubhouse-veil-strong) 0%,
+    var(--clubhouse-veil-soft) 100%
+  );
+}
+/* 실제 아지트 3D 장면. 준비되기 전과 그래픽 가속을 쓸 수 없을 때는 첫 장면 이미지를 보여 준다.
+   배경 장식이라 포인터를 받지 않아 스크롤과 터치가 그대로 페이지로 간다. */
+.landing-clubhouse-scene,
+.landing-clubhouse-scene__poster,
+.landing-clubhouse-scene__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.landing-clubhouse-scene {
+  pointer-events: none;
+}
+.landing-clubhouse-scene__poster {
+  display: block;
+  object-fit: cover;
+  object-position: 55% 45%;
+}
+.landing-clubhouse-scene__canvas {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+/* 움직이는 동안 장면은 그리는 해상도를 낮추므로 캔버스를 늘 칸 크기에 맞춰 늘린다. */
+.landing-clubhouse-scene__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.landing-clubhouse-scene[data-scene-status="ready"] .landing-clubhouse-scene__canvas {
+  opacity: 1;
+}
+.landing-clubhouse__copy {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--space-12) var(--space-6) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  text-align: center;
+}
+.landing-clubhouse__copy h1 {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--landing-hero-size);
+  line-height: 1.22;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: var(--landing-heading-tracking);
+}
+.landing-clubhouse__lead {
+  max-width: 38rem;
+  color: var(--clubhouse-ink);
+  font-size: var(--text-body-lg);
+  line-height: var(--landing-body-leading);
+  text-wrap: balance;
+}
+.landing-clubhouse__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.landing-button.landing-clubhouse__shortcut {
+  border: var(--border-thin) solid var(--color-line);
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+.landing-button.landing-clubhouse__shortcut:hover {
+  background: var(--color-surface-sunken);
+}
+.landing-clubhouse__pull {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-6);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  color: var(--color-surface);
+  background: var(--color-ink);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+/* 영상을 끝까지 기다리지 않아도 된다는 걸 문구와 함께 안내 전체가 아래로 통통 튀며 알린다. */
+.landing-clubhouse__pull {
+  animation: landing-clubhouse-nudge 1.2s var(--landing-ease) infinite;
+}
+@keyframes landing-clubhouse-nudge {
+  0%,
+  60%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  30% {
+    transform: translate(-50%, 0.5rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-clubhouse__pull {
+    animation: none;
+  }
+  .landing-clubhouse-scene__canvas,
+  .landing-clubhouse__caption {
+    transition: none;
+  }
+}
+.landing-clubhouse__stage {
+  position: sticky;
+  top: var(--landing-header);
+  z-index: 1;
+  height: var(--clubhouse-stage);
+  overflow: hidden;
+  background: var(--clubhouse-ground);
+}
+.landing-clubhouse__caption {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-8);
+  width: max-content;
+  max-width: calc(100% - var(--space-8));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: var(--shadow-float);
+  transform: translateX(-50%);
+}
+/* 장막이 비쳐 보이므로, 장막이 덮고 있는 동안에는 걷기 장면의 안내를 감춘다. 키보드로 들어오면 보인다. */
+.landing-clubhouse__caption {
+  transition: opacity 0.3s ease;
+}
+.landing-clubhouse__track[data-scene-mode="orbit"] .landing-clubhouse__caption:not(:focus-within) {
+  opacity: 0;
+}
+.landing-clubhouse__caption strong {
+  font-size: var(--text-body);
+}
+.landing-clubhouse__try {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-1) 0 var(--space-4);
+  color: var(--color-ink);
+  background: var(--color-surface-sunken);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.landing-clubhouse__try > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: var(--color-surface);
+  background: var(--color-ink);
+}
+.landing-clubhouse__highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-5);
+  margin-block: var(--space-16) 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-clubhouse__highlights li {
+  overflow: hidden;
+  border-radius: var(--landing-radius);
+  background: var(--color-section-soft);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.landing-clubhouse__highlights img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.landing-clubhouse__highlights div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+.landing-clubhouse__highlights h2 {
+  font-size: var(--text-h3);
+  font-weight: var(--font-weight-bold);
+}
+.landing-clubhouse__highlights p {
+  color: var(--color-muted-ink);
+  font-size: var(--text-body);
+  line-height: var(--landing-body-leading);
+}
+
+@media (max-width: 47.9375rem) {
+  .landing-clubhouse__copy {
+    padding-inline: var(--space-4);
+  }
+  /* 제목 두 줄이 좁은 화면에서도 각각 한 줄에 들어가도록 화면 너비에 맞춰 줄인다. */
+  .landing-clubhouse__copy h1 {
+    font-size: clamp(1.75rem, 8vw, var(--landing-hero-size));
+  }
+  .landing-clubhouse__caption {
+    bottom: var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+  .landing-clubhouse__highlights {
+    margin-top: var(--space-12);
+  }
+}

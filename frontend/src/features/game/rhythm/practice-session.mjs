@@ -1,4 +1,4 @@
-import { GameEngine, PRACTICE_LEVELS } from "./engine.mjs";
+import { GameEngine, LEVELS } from "./engine.mjs";
 
 // These runs are local feedback only. A future record API must independently
 // validate a server-issued session and inputs, never accept this local summary.
@@ -8,11 +8,9 @@ export function createPracticeRun(chart, settings = {}) {
     throw new TypeError("서비스 연습에서는 난이도와 이동 배속만 설정할 수 있어요.");
   }
   const level = settings.level ?? "easy";
-  if (!Object.hasOwn(PRACTICE_LEVELS, level)) throw new RangeError("알 수 없는 난이도예요.");
+  if (!Object.hasOwn(LEVELS, level)) throw new RangeError("알 수 없는 난이도예요.");
   const engine = new GameEngine(chart, {
     level,
-    // ANOTHER는 스윙 곡 전용 채보를 단순화 없이 그대로 친다.
-    ...(level === "another" ? { events: chart.events } : {}),
     scrollSpeed: settings.scrollSpeed ?? 1,
     startAt: 0,
     startLoop: 1,

@@ -152,7 +152,7 @@ test("the server chart and the JS/Java golden replays are regenerated from the c
 
 test("golden replays exercise two loop rewards on every level with real missed groups", () => {
   const golden = JSON.parse(readText(GOLDEN_REPLAYS_PATH));
-  for (const [level, lives] of [["easy", 6], ["medium", 4], ["hard", 4], ["hardest", 8]]) {
+  for (const [level, lives] of [["easy", 6], ["medium", 4], ["hard", 4], ["hardest", 8], ["anotherHard", 6], ["anotherHardest", 8]]) {
     const scenario = golden.scenarios.find((item) => item.name === level + "-loop-recharge");
     assert.equal(scenario.expected.lives, lives);
     assert.equal(scenario.expected.loop, 3);

@@ -32,7 +32,7 @@ public final class RhythmEngine {
     private static final double APPEND_AHEAD_SECONDS = 4;
     private static final List<RhythmLane> LANES = List.of(RhythmLane.values());
 
-    private final RhythmChart chart;
+    private final RhythmChart.Song song;
     private final RhythmChart.Level levelChart;
     private final double scrollSpeed;
     private final RhythmRandom random;
@@ -63,7 +63,7 @@ public final class RhythmEngine {
         if (startLoop < 1) {
             throw new IllegalArgumentException("시작 루프는 1 이상이어야 합니다.");
         }
-        this.chart = chart;
+        this.song = chart.song(level);
         this.levelChart = chart.level(level);
         this.scrollSpeed = scrollSpeed;
         this.random = new RhythmRandom(seed);
@@ -72,7 +72,7 @@ public final class RhythmEngine {
             laneNotes.put(lane, new ArrayList<>());
         }
         double rate = rateForLoop(startLoop, levelChart.speedUpFromLoop());
-        double countInDuration = ((60 / chart.bpm()) * 4) / rate;
+        double countInDuration = ((60 / song.bpm()) * 4) / rate;
         double leadIn = Math.max(countInDuration, APPROACH_SECONDS / this.scrollSpeed / rate);
         appendLoop(startLoop, leadIn, LANES);
         appendNextLoop();
@@ -116,11 +116,11 @@ public final class RhythmEngine {
 
     private void appendLoop(int number, double start, List<RhythmLane> map) {
         double rate = rateForLoop(number, levelChart.speedUpFromLoop());
-        double duration = chart.durationSeconds() / rate;
+        double duration = song.durationSeconds() / rate;
         List<RhythmChart.Staircase> staircases = levelChart.staircasesFor(map);
         loops.add(new Loop(number, start, start + duration, List.copyOf(map)));
         for (RhythmChart.Event event : levelChart.events()) {
-            double songTime = event.sample() / chart.sampleRateHz();
+            double songTime = event.sample() / song.sampleRateHz();
             double at = start + songTime / rate;
             RhythmChart.Staircase staircase = staircaseAt(staircases, event.step());
             Group group = new Group(at);
@@ -137,7 +137,7 @@ public final class RhythmEngine {
         }
     }
 
-    private static RhythmChart.Staircase staircaseAt(List<RhythmChart.Staircase> staircases, int step) {
+    private static RhythmChart.Staircase staircaseAt(List<RhythmChart.Staircase> staircases, double step) {
         for (RhythmChart.Staircase staircase : staircases) {
             if (step >= staircase.start() && step < staircase.end()) {
                 return staircase;
@@ -148,7 +148,27 @@ public final class RhythmEngine {
 
     private void appendNextLoop() {
         Loop last = loops.getLast();
-        appendLoop(last.number + 1, last.end, shuffleLanes(last.map));
+        List<RhythmLane> map = shuffleLanes(last.map);
+        // 마지막 노트와 다음 루프 첫 노트가 붙어 있는 채보는 둘이 같은 방향에 오면 다시 섞는다.
+        // 프론트엔드 engine.mjs의 appendNextLoop와 같은 순서로 난수를 쓴다.
+        if (levelChart.loopSeamGuard()) {
+            List<RhythmLane> ending = notes.subList(notes.size() - levelChart.events().getLast().keys().size(),
+                    notes.size()).stream().map(note -> note.lane).toList();
+            List<RhythmLane> opening = levelChart.events().getFirst().keys();
+            while (seamCollides(map, opening, ending)) {
+                map = shuffleLanes(last.map);
+            }
+        }
+        appendLoop(last.number + 1, last.end, map);
+    }
+
+    private static boolean seamCollides(List<RhythmLane> map, List<RhythmLane> opening, List<RhythmLane> ending) {
+        for (RhythmLane key : opening) {
+            if (ending.contains(map.get(key.ordinal()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<RhythmLane> shuffleLanes(List<RhythmLane> previous) {

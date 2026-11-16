@@ -96,6 +96,17 @@ export function RhythmScore({ columns, label, caption, labels = "syllable" }) {
                 </text>
               </g>
             ))}
+            {beat.triplet ? (
+              // 셋잇단 묶음은 빔 위에 3을 적는다.
+              <text
+                className="rhythm-score__ink rhythm-score__tuplet"
+                x={(beat.notes[0].stemX + beat.notes[beat.notes.length - 1].stemX) / 2}
+                y={TOP - 4}
+                textAnchor="middle"
+              >
+                3
+              </text>
+            ) : null}
             {beat.beams.map((beam) => (
               <rect
                 key={`${beam.level}-${beam.x1}`}

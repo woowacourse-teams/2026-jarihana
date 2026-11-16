@@ -38,17 +38,10 @@ jobs:
       digest: ${{ steps.image.outputs.digest }}
       frontend_only: ${{ steps.image.outputs.frontend_only }}
       backend_only: ${{ steps.image.outputs.backend_only }}
-    env:
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
     steps:
-      - name: 보호된 배포 제어 코드 checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
-          path: deployment-control
-          persist-credentials: false
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           path: source
           fetch-depth: 0
           persist-credentials: false
@@ -68,7 +61,6 @@ jobs:
           BG_MODE: ${{ inputs.mode }}
           BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
           BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
-          BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
           RDS_URL: ${{ vars.RDS_URL }}
           BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
           BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
@@ -77,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana && "$GITHUB_RUN_ATTEMPT" == 1 ]]
-          [[ "$BG_CONTROL_REF" =~ ^refs/tags/deployment-control-[A-Za-z0-9._-]+$ ]]
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           [[ "$BG_ENVIRONMENT" == dev || "$BG_ENVIRONMENT" == prod ]]
           [[ "$BG_MODE" == deploy || "$BG_MODE" == bootstrap ]]
           [[ "$BG_DEV_AUTO_ENABLED" == true || "$BG_DEV_AUTO_ENABLED" == false ]]
@@ -109,11 +101,6 @@ jobs:
             echo '::error::frontend_only와 backend_only는 함께 선택할 수 없습니다.'; exit 1;
           }
           if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
-            control=../deployment-control/infra/blue-green-deploy/scripts/actions
-            [[ -f "$control/frontend.sh" ]] && grep -qx 'FE_RELEASE_CAPABILITY=3' "$control/frontend.sh" || {
-              echo '::error::Approved control tag lacks coordinated frontend release capability'
-              exit 1
-            }
             if [[ "$INPUT_FRONTEND_ONLY" == true ]]; then
               frontend_only=true
             elif [[ "$INPUT_BACKEND_ONLY" == true ]]; then
@@ -135,18 +122,11 @@ jobs:
             echo "digest=sha256:$(printf '%064d' 0)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [[ "$BG_ENVIRONMENT" == prod && "$BG_MODE" == deploy ]]; then
-            if [[ ! -f "$control/release-compose.sh" ]] ||
-              ! grep -Fxq '# APP_RELEASE_COMPOSE_CAPABILITY=1' "$control/app.sh"; then
-              echo '::error::Approved control tag lacks release Compose capability'
-              exit 1
-            fi
-            source "$control/release-compose.sh"
-            compose=infra/blue-green-deploy/controller/app-compose.yml
-            app_compose_matches_control "../deployment-control/$compose" "$compose" || {
-              echo '::error::Release Compose differs from protected control settings. Update the approved control tag before deployment.'
-              exit 1
-            }
+          if [[ "$BG_MODE" == deploy ]]; then
+            compose=$(mktemp)
+            trap 'rm -f -- "$compose"' EXIT
+            git show "$GITHUB_SHA:infra/blue-green-deploy/controller/app-compose.yml" > "$compose"
+            bash infra/blue-green-deploy/scripts/actions/compose-preflight.sh "$compose" "$BG_ENVIRONMENT"
           fi
           if [[ "$BG_MODE" == bootstrap ]]; then
             [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$INPUT_TAG" ]]
@@ -202,22 +182,16 @@ jobs:
       contents: read
       actions: write
     env:
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: 전용 runner queue와 전체 실행 기한 감시
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/queue-guard.sh
-          # The immutable control checkout may predate the package move.
-          if [[ ! -f "$script" ]]; then
-            script=infra/scripts/deploy/actions/queue-guard.sh
-          fi
-          [[ -f "$script" ]] || { echo '::error::Control release queue guardian entrypoint is missing'; exit 1; }
           exec bash "$script"
   bootstrap:
     name: bootstrap
@@ -514,8 +488,6 @@ jobs:
     needs: [resolve, plan, finish-bootstrap, stop-ec2, finish-rollback, interrupt, seal, frontend-seal, frontend-recover]
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    env:
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
     steps:
       - name: 성공·롤백·확인 필요 결과 보고
         env:

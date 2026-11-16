@@ -61,9 +61,10 @@ CloudFront의 설정 전파와 추가 쓰기 권한에 의존하지 않고 기�
 이 조건이 바뀌면 게시와 복구 계약을 다시 검토한다. API와 이미지 경로는 보존한다.
 
 새 장기 AWS 키, OIDC 또는 모니터링 EC2 배포 의존성을 추가하지 않는다. 기존 EC2 역할에는
-공개 prefix와 릴리스 prefix에 필요한 최소 권한만 부여한다. 현재 control tag를 이동하지 않고
-새 코드를 포함하는 immutable tag와 SHA를 보호된 서버 설정 및 GitHub 변수에 함께 고정한다.
-옛 control release에 새 기능이 없으면 공개 파일이나 서버를 변경하기 전에 실패해야 한다.
+공개 prefix와 릴리스 prefix에 필요한 최소 권한만 부여한다. 배포 스크립트와 Compose는
+실행을 시작한 main 커밋 SHA로 함께 고정하며, 별도 제어태그는 사용하지 않는다.
+서버의 환경/호스트 설정과 실행 SHA, GitHub run 및 작업 허가는 계속 검증한다.
+최초 운영 전환과 설치형 도구의 범위는 [SHA 배포 전환](../../blue-green-deploy/docs/release-sha.md)을 따른다.
 
 비활성화된 배포가 다른 게시 방식으로 우회되지 않게 한다. 활성화 조건과 최초 권한 등록은
 [배포 실행](../../blue-green-deploy/docs/deployment.md#배포-실행)을 따른다.

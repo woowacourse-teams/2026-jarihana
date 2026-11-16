@@ -40,6 +40,19 @@
 .ui-overlay:has(> .chat-modal) { padding: 0; }
 .chat-modal__loading { margin: auto; padding: var(--space-6); }
 
+@media (min-width: 768px) {
+  .ui-dialog.chat-modal--clubhouse {
+    position: absolute;
+    left: max(var(--space-4), calc((100% - 86rem) / 2));
+    bottom: max(var(--space-4), env(safe-area-inset-bottom));
+    width: min(31rem, calc(100vw - var(--space-8)));
+    height: min(37rem, calc(100dvh - var(--space-12)));
+  }
+  .chat-modal--clubhouse :is(.chat-sidebar, .chat-sidebar-resizer) { display: none; }
+  .chat-modal--clubhouse .chat-panel { grid-column: 1; }
+  .chat-modal--clubhouse .chat-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Keep the background detail in the root snapshot during chat-only transitions. */
 :root:has(.chat-modal) .group-detail-page :is(
   .group-profile, .group-profile__art, .group-profile__shade,

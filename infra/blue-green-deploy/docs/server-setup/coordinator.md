@@ -1,12 +1,12 @@
 # Nginx와 배포 제어기 호스트 구성
 
-[서버 구성](README.md)의 관리자 입력, OS 도구와 고정 제어 릴리스를 먼저 준비한다.
+[서버 구성](README.md)의 관리자 입력, OS 도구와 설치용 소스를 먼저 준비한다.
 아래는 새 호스트에서 수행할 수동 절차다. 기존 설치본의 경로/권한/실행 원본은 대조했지만,
 이 명령 전체를 빈 서버에서 실행하는 검증은 하지 않았다. 이미 운영 중인 호스트에 덮어쓰지 않는다.
 
 진행 순서는 계정/설정 준비 → [앱 A/B의 키와 PAUSED 앱 준비](app-hosts.md) →
 허가 조회 연결 → Nginx 기동 → watchdog/수집기 → [완료 판정](README.md#완료-판정과-검증-범위)이다.
-`CONTROL_DIR`, `CONTROL_SHA`, `CONTROL_REF`는 [릴리스 준비](README.md#고정-제어-릴리스-준비)에서 정한 값이다.
+`SETUP_DIR`, `SETUP_SHA`는 [릴리스 준비](README.md#설치용-소스-준비)에서 정한 값이다.
 
 ## 계정과 보호 디렉터리
 
@@ -31,18 +31,17 @@ install -d -o jarihana-coordinator -g jarihana-coordinator -m 0750 \
 
 runner는 [등록 절차](README.md#runner-등록과-부팅-설정)에 따라 이 계정으로 등록한다.
 설치 패키지를 root로 풀었다면 runner 디렉터리만 해당 계정 소유로 맞춘다.
-보호된 설정과 제어 릴리스까지 runner 소유로 바꾸지 않는다.
+보호된 설정과 설치용 소스까지 runner 소유로 바꾸지 않는다.
 
 ## coordinator 설정
 
 관리자가 보호된 작업 디렉터리에 `full-coordinator.example.json`을 복사해 수정한다.
-실제 값을 채운 파일을 아래 입력 경로에 준비한다. 원본 예시의 dev/주소/ID/SHA를 그대로 사용하지 않는다.
+실제 값을 채운 파일을 아래 입력 경로에 준비한다. 원본 예시의 dev/주소/ID를 그대로 사용하지 않는다.
 
 | 필드 | 채울 내용 |
 | --- | --- |
 | repository | 저장소 이름과 id는 예시의 고정값 유지 |
 | topology | environment=prod, 실제 Nginx/A/B instance ID, private upstream, 서로 다른 host_id |
-| topology.control | 승인한 CONTROL_REF/CONTROL_SHA. 앱 A/B와 전체 topology가 동일해야 함 |
 | ec2 | 실제 account_id, VPC와 ap-northeast-2 |
 | nginx | `/var/lib/jarihana-deploy/prod/nginx`, 실제 Compose container 이름, loopback probe port |
 | telemetry | 사설 gateway의 `/prometheus`, 허용 최신성과 실패 기준은 [상태 확인](../status.md#관찰-기준) 참조 |
@@ -52,8 +51,8 @@ INPUT_DIR=/root/jarihana-reconstruction
 install -d -o root -g root -m 0700 "$INPUT_DIR"
 # INPUT_DIR/coordinator.json은 관리자가 예시를 편집해 채운 보호된 입력이다.
 test -f "$INPUT_DIR/coordinator.json"
-jq -e --arg ref "$CONTROL_REF" --arg sha "$CONTROL_SHA" \
-  '.topology.environment=="prod" and .topology.control.ref==$ref and .topology.control.sha==$sha' \
+jq -e \
+  '.topology.environment=="prod"' \
   "$INPUT_DIR/coordinator.json" >/dev/null
 install -o root -g jarihana-coordinator -m 0640 "$INPUT_DIR/coordinator.json" \
   /etc/jarihana-deploy/prod/coordinator.json
@@ -65,7 +64,7 @@ runuser -u jarihana-coordinator -- bash -c \
    bg_machine "$(jq -r .topology.coordinator_instance_id "$2")"
    bg_ec2_state A
    bg_ec2_state B' \
-  _ "$CONTROL_DIR" /etc/jarihana-deploy/prod/coordinator.json
+  _ "$SETUP_DIR" /etc/jarihana-deploy/prod/coordinator.json
 ```
 
 신규 환경에서는 빈 `state.json`이나 성공 모양의 저널을 만들지 않는다. 최초 저널은 승인된
@@ -89,7 +88,7 @@ chmod 0755 /var/lib/jarihana-grant
 install -d -o root -g root -m 0755 /var/lib/jarihana-grant/.ssh /usr/local/libexec
 helper_tmp=$(mktemp)
 sed 's@/ENVIRONMENT/@/prod/@g' \
-  "$CONTROL_DIR/infra/blue-green-deploy/controller/read-deployment-grant.sh" > "$helper_tmp"
+  "$SETUP_DIR/infra/blue-green-deploy/controller/read-deployment-grant.sh" > "$helper_tmp"
 sh -n "$helper_tmp"
 install -o root -g root -m 0755 "$helper_tmp" /usr/local/libexec/jarihana-read-prod-deployment-grant
 rm -- "$helper_tmp"
@@ -143,7 +142,7 @@ NGINX_DEPLOY_DIRECTORY=$(jq -r '.nginx.directory' "$CONFIG")
 upstream=$(jq -r '.topology.a.upstream' "$CONFIG")
 nginx_tmp=$(mktemp)
 sed -e "s/@UPSTREAM@/$upstream/g" -e 's/@SLOT@/A/g' \
-  "$CONTROL_DIR/infra/blue-green-deploy/nginx/nginx.conf.template" > "$nginx_tmp"
+  "$SETUP_DIR/infra/blue-green-deploy/nginx/nginx.conf.template" > "$nginx_tmp"
 install -o jarihana-coordinator -g jarihana-coordinator -m 0600 "$nginx_tmp" \
   "$NGINX_DEPLOY_DIRECTORY/current.conf"
 rm -- "$nginx_tmp"
@@ -155,7 +154,7 @@ docker run --rm --entrypoint sh "$NGINX_IMAGE" -c 'for tool in curl sh tr awk; d
 docker run --rm --entrypoint nginx \
   -v "$NGINX_DEPLOY_DIRECTORY:/etc/nginx/deploy:ro" "$NGINX_IMAGE" -t -c /etc/nginx/deploy/current.conf
 docker compose --env-file /etc/jarihana-deploy/prod/nginx.env -p "$NGINX_PROJECT" \
-  -f "$CONTROL_DIR/infra/blue-green-deploy/nginx/docker-compose.yml" up -d nginx
+  -f "$SETUP_DIR/infra/blue-green-deploy/nginx/docker-compose.yml" up -d nginx
 curl --fail --silent --show-error --max-time 3 --include \
   "http://127.0.0.1:$NGINX_PROBE_PORT/__deployment"
 ```
@@ -173,33 +172,42 @@ Nginx 컨테이너 이름은 Compose 프로젝트 이름과 연결되므로 임�
 ```bash
 install -d -o root -g root -m 0755 /opt/jarihana-deploy
 install -o root -g root -m 0644 \
-  "$CONTROL_DIR/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.service" \
+  "$SETUP_DIR/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.service" \
   /etc/systemd/system/jarihana-deploy-watchdog@.service
 install -o root -g root -m 0644 \
-  "$CONTROL_DIR/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.timer" \
+  "$SETUP_DIR/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.timer" \
   /etc/systemd/system/jarihana-deploy-watchdog@.timer
 install -d -o root -g root -m 0755 /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d
-cat > /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d/control-release.conf <<EOF
+cat > /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d/watchdog.conf <<EOF
 [Service]
-WorkingDirectory=$CONTROL_DIR
+WorkingDirectory=$SETUP_DIR
 ExecStart=
-ExecStart=/bin/bash $CONTROL_DIR/infra/blue-green-deploy/scripts/actions/coordinator.sh watchdog
+ExecStart=/bin/bash $SETUP_DIR/infra/blue-green-deploy/scripts/actions/coordinator.sh watchdog
 EOF
-chmod 0644 /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d/control-release.conf
+chmod 0644 /etc/systemd/system/jarihana-deploy-watchdog@prod.service.d/watchdog.conf
 systemctl daemon-reload
 systemctl show --no-pager jarihana-deploy-watchdog@prod.service -p User -p ExecStart -p DropInPaths
-# 신규 환경 준비 완료 또는 기존 환경의 재개 조건을 충족한 뒤 실행한다.
-systemctl enable --now jarihana-deploy-watchdog@prod.timer
-systemctl show --no-pager jarihana-deploy-watchdog@prod.timer -p ActiveState -p TimersMonotonic
 ```
 
 watchdog의 10초 주기는 배포 단계의 잠금 대기 15초와 다른 값이다.
 watchdog은 배포 허가를 새로 만들거나 앱을 중지하지 않는다. 실제 실행 경로를 `systemctl show`로 대조한다.
+기존 서버의 `control-release.conf`를 `watchdog.conf`로 교체할 때는
+[최초 전환 절차](../release-sha.md)를 따른다. 새 drop-in의 실제 적용 경로를 확인하고 옛 drop-in을
+백업한 뒤 제거한다. watchdog이 참조하는 `SETUP_DIR`은 배포가 끝나도 삭제하지 않는다.
+
+타이머 기동은 설치와 분리한다. 신규 환경의 준비가 끝났거나 기존 환경의 최초 전환 4단계 확인이
+모두 끝난 뒤에만 아래 명령을 실행한다. 최초 전환 3단계의 설치 중에는 실행하지 않는다.
+
+```bash
+systemctl enable --now jarihana-deploy-watchdog@prod.timer
+systemctl show --no-pager jarihana-deploy-watchdog@prod.timer -p ActiveState -p TimersMonotonic
+```
 
 ## 중앙 수집기와 최종 확인
 
-중앙 수집기는 control tag에서 복사하지 않는다. 수집기 원본이 포함된 별도 승인 checkout을
+중앙 수집기는 독립된 설치 단위다. 수집기 원본이 포함된 검토된 checkout을
 준비한 뒤 [중앙 수집기의 설치 순서](../../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md#관리-원본과-재구성)를 따른다.
+기존 설치본의 제어태그 검사 제거는 [수집 스크립트 갱신](../../../docs/observability/CENTRAL-DEPLOYMENT-COLLECTOR.md#기존-설치본의-제어태그-제거-대응)을 따른다.
 앱 Alloy와 서로 다른 설정, Compose 프로젝트와 WAL을 사용한다.
 
 새 서버에서 [상태 확인](../status.md)과 [완료 판정](README.md#완료-판정과-검증-범위)을

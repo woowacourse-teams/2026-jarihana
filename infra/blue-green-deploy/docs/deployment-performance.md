@@ -77,10 +77,9 @@ bash infra/blue-green-deploy/tests/actions/run-api-budget.sh
 bash infra/blue-green-deploy/tests/actions/deployment-api-budget-case.sh 161 success both existing
 ```
 
-이 코드는 일반 앱 배포만으로 활성화되지 않는다. 확인 당시 운영 pin은
-`refs/tags/deployment-control-prod-20261106-01`, SHA는 `8be39c8b15d7d86536bd2efa857ddce9c1fd9687`이었다.
-사람의 승인 후 새 immutable control tag를 만들고 [고정 제어 버전 교체](control-upgrade.md)에 따라
-서버의 보호 설정, watchdog과 GitHub pin을 함께 교체한다. 기존 tag나 완료 저널을 덮어쓰지 않는다.
+현재 배포 방식에서는 main 실행의 SHA에 포함된 성능 개선 코드가 같은 실행에 사용된다.
+이 문서의 과거 측정은 이 코드의 운영 적용을 증명하지 않는다.
+최초 방식 전환은 [SHA 배포 전환](release-sha.md), 설치형 watchdog/수집기는 서버 구성 절차를 따른다.
 
 첫 공동 배포에서는 전체 시간과 plan/switch/seal의 시간, worker 인계에서 활성화까지의 공백,
 HTTP/worker 각각 300초 관찰 완료와 최종 COMPLETE를 확인한다. 추가된

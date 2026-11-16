@@ -10,7 +10,9 @@
 3. 새 프론트엔드를 배포한다. dev에서 두 계정으로 방 생성, 교체 입장, 재접속과 종료를 확인한다.
 4. 대상 GitHub Environment의 `GOMOKU_CHAT_ENABLED`를 `true`로 설정해 백엔드를 재배포한다. 활성화 배포 중에는 직전 서버도 새 참가 회차 기록을 지원하는 버전이어야 한다.
 
-dev Compose, 기존 prod Compose와 Blue-Green 앱 Compose가 이 변수를 전달한다. Blue-Green은 고정 `BLUE_GREEN_CONTROL_REF`의 제어 파일을 사용하므로 해당 릴리스에 새 Compose/변수 전달이 포함되어 있어야 한다. 이 코드 변경만으로 현재 고정 제어 릴리스를 갱신하지 않는다.
+dev Compose, 기존 prod Compose와 Blue-Green 앱 Compose가 이 변수를 전달한다.
+운영 Blue-Green은 실행을 시작한 main SHA의 앱 Compose와 스크립트를 함께 사용한다.
+Compose와 workflow의 변수 전달 항목을 같은 main 배포에 포함한다.
 로컬은 `backend/.env`에 true를 설정한 뒤 기존 실행 절차로 재시작한다. 비활성 중에도 참가 회차는 계속 기록한다.
 
 ## 확인

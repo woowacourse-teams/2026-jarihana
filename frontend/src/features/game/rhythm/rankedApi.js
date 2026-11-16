@@ -5,10 +5,12 @@ export const RANKED_LEVELS = Object.freeze({
   easy: "EASY",
   medium: "MEDIUM",
   hard: "HARD",
-  hardest: "HARDEST"
+  hardest: "HARDEST",
+  anotherHard: "ANOTHER_HARD",
+  anotherHardest: "ANOTHER_HARDEST"
 });
 
-const levelSchema = z.enum(["EASY", "MEDIUM", "HARD", "HARDEST"]);
+const levelSchema = z.enum(["EASY", "MEDIUM", "HARD", "HARDEST", "ANOTHER_HARD", "ANOTHER_HARDEST"]);
 
 export const challengeSchema = z.object({
   challengeId: z.number().int(),

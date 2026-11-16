@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { apiClient } from "../../shared/api";
 const nullableId = z.number().int().nullable();
+export const spectatorsSignalSchema = z.object({
+  roomId: z.number().int().positive(),
+  spectators: z
+    .array(
+      z.object({
+        memberId: z.number().int().positive(),
+        name: z.string().min(1),
+        avatarUrl: z.string().url().nullable().default(null)
+      })
+    )
+    .refine((people) => new Set(people.map((person) => person.memberId)).size === people.length)
+});
 export const roomSchema = z.object({
   id: z.number().int(),
   hostMemberId: z.number().int(),

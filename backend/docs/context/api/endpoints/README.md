@@ -12,8 +12,13 @@
 
 | 분류 | Method | Endpoint | 권한 | 설명 |
 | --- | --- | --- | --- | --- |
+| 회원 아바타 | `GET` | `/api/members/me/avatar` | `MEMBER` | [내 저장 외형 또는 기본형 조회](member-avatar.md) |
+| 회원 아바타 | `PUT` | `/api/members/me/avatar` | `MEMBER` | 내 외형 전체 생성·교체 |
+| 회원 아바타 | `DELETE` | `/api/members/me/avatar` | `MEMBER` | 저장 조합 삭제, 기본형 복귀 |
 | 포인트 | `GET` | `/api/members/me/points` | `MEMBER` | 잔액, 처리 상태와 주간 한도 조회 |
 | 포인트 | `GET` | `/api/members/me/points/transactions` | `MEMBER` | 본인 적립 내역 커서 조회 |
+| 모임 공간 | `GET` | `/api/group-spaces/weather` | `PUBLIC` | 서울의 날씨 코드와 당일 일출·일몰, 이전 응답 여부 |
+| 실시간 아지트 | `POST` | `/api/groups/{groupId}/space/join-token` | `MEMBER` | 현재 회원·모임에 한정된 60초 입장 토큰 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements` | `PUBLIC + 공개 범위` | 모임 구성원 공개와 전체 공개 공지를 최신순으로 조회 |
 | 공지 | `POST` | `/api/groups/{groupId}/announcements` | `LEADER` | 활동 중인 모임에 공개 범위를 지정해 공지 등록 |
 | 공지 | `GET` | `/api/groups/{groupId}/announcements/{announcementId}` | `PUBLIC + 공개 범위` | 공개 범위를 확인해 공지 상세 조회 |
@@ -141,6 +146,10 @@
 | 오목 | `GET` | `/api/games/gomoku/history/me/summary` | `MEMBER` | 본인 총 대국, 승/패/무와 승률 |
 | 오목 | `GET` | `/api/games/gomoku/history/me` | `MEMBER` | 본인 완료 대전기록 커서 조회 |
 | 오목 | `GET` | `/api/games/gomoku/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
+| 의자 쌓기 | `GET` | `/api/games/chair-stack/runs/current` | `PUBLIC` | 현재 판, 최고 기록 조회, 게스트 쿠키 발급 |
+| 의자 쌓기 | `POST` | `/api/games/chair-stack/runs` | `PUBLIC + 플레이어 확인` | 새 판 시작 |
+| 의자 쌓기 | `POST` | `/api/games/chair-stack/drops` | `PUBLIC + 판 소유자` | 착지와 전체 균형 판정 |
+| 의자 쌓기 | `GET` | `/api/games/chair-stack/rankings` | `PUBLIC` | 전체 랭킹과 내 순위 조회 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges` | `MEMBER` | 공식 도전 생성과 시드 발급 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/start` | `MEMBER + 본인` | 실제 경과 시간 기준 시각 기록 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/batches` | `MEMBER + 본인` | 입력 묶음으로 점수 재계산, 실시간 진행 검사 |
@@ -156,6 +165,7 @@
 | 포인트 | [points.md](points.md) | 잔액, 주간 한도와 적립 내역 |
 | 공지 | [announcements.md](announcements.md) | 공개 범위, 공지 등록·목록·상세 조회와 알림 |
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
+| 의자 쌓기 | [chair-stack.md](chair-stack.md) | 게스트와 회원의 게임 진행 및 공개 랭킹 |
 | 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
@@ -176,8 +186,16 @@
 ## 스파링
 
 [스파링 API](sparrings.md): 공개 주제/의견 조회, 회원 주제 등록·편 선택·의견 전송,
-SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
+진영별 장식 아바타, SSE 메시지 스냅샷·추가분과 투표 집계. [OpenAPI](../../../openapi/sparring.yaml)
 
 - [오목 게임방 채팅](gomoku-chat.md): 입장 회차와 메시지 순번, REST 복구, SSE 알림 계약
 
 - [오목 관전](gomoku-observation.md): 관전 입장/종료, 조회 권한과 접속 인원수
+
+- [상점 구매](shop.md): 공개 상품 설정, 회원 잔액·보유 조회, 원자적 구매·차감과 재시도.
+
+## 아지트
+
+- [모임 공간](group-space.md) — 공개 배치 조회, 멤버 원본 조회와 모임장 저장
+- [실시간 아지트](group-space-realtime.md) — 입장 토큰 발급
+- [모임 음악](group-music.md) — 공개 음악과 서버 기준 재생 타임라인, 모임장 설정

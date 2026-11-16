@@ -63,7 +63,6 @@ jobs:
       BG_FRONTEND_ONLY: ${{ inputs.frontend_only }}
       BG_BACKEND_ONLY: ${{ inputs.backend_only }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_PHASE: ${{ inputs.phase }}
       APP_RESULT: ${{ inputs.app_result }}
       TARGET_RESULT: ${{ inputs.target_result }}
@@ -71,15 +70,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: 운영 프론트엔드 제어 기능 확인과 AWS CLI 준비
+      - name: 운영 프론트엔드 AWS CLI 준비
         if: inputs.environment == 'prod' && inputs.mode == 'deploy' && contains(fromJSON('["plan","switch","observe","seal","frontend-publish","frontend-seal","frontend-recover"]'), inputs.phase)
         shell: bash
         run: |
           set -euo pipefail
-          script=infra/blue-green-deploy/scripts/actions/frontend.sh
-          [[ -f "$script" ]] && grep -qx 'FE_RELEASE_CAPABILITY=3' "$script"
           bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
       - name: 프론트엔드 artifact 디렉터리 준비
         if: inputs.environment == 'prod' && inputs.mode == 'deploy' && inputs.phase == 'plan' && !inputs.backend_only
@@ -106,11 +103,6 @@ jobs:
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/coordinator.sh
-          # The immutable control checkout may predate the package move.
-          if [[ ! -f "$script" ]]; then
-            script=infra/scripts/deploy/actions/coordinator.sh
-          fi
-          [[ -f "$script" ]] || { echo '::error::Control release coordinator entrypoint is missing'; exit 1; }
           exec bash "$script" "$BG_PHASE"
       - name: 임시 프론트엔드 CLI와 artifact 정리
         if: always() && inputs.environment == 'prod' && inputs.mode == 'deploy'

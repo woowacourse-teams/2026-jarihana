@@ -14,6 +14,11 @@ const mockIdleInfinite = {
   fetchNextPage: jest.fn()
 };
 
+jest.mock("../../../src/pages/groups/GroupClubhouse.jsx", () => ({
+  __esModule: true,
+  default: ({ children, group }) => <><h1 id="group-title" tabIndex={-1}>{group.name}</h1>{children}</>
+}));
+
 jest.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useLocation: () => ({ pathname: "/groups/41", search: "?tab=members", state: null }),

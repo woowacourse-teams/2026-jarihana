@@ -10,6 +10,8 @@
 | `title` | String | NOT NULL, 1~100자 | 공지 제목 |
 | `content` | String | NOT NULL, 1~10,000자 | 일반 텍스트 본문 |
 | `scope` | enum | NOT NULL, `MEMBERS` 또는 `PUBLIC` | 조회할 수 있는 사용자 범위 |
+| `requestId` | UUID | NULL, 모임과 작성자별 고유 | 등록 재시도에서 같은 공지를 찾는다 |
+| `requestFingerprint` | String | NULL, SHA-256 16진수 64자 | 최초 등록의 제목, 내용, 공개 범위를 비교하며 공지를 수정해도 유지한다 |
 | `createdAt` | LocalDateTime | NOT NULL | 등록 시각이며 목록 정렬에 사용한다 |
 | `updatedAt` | LocalDateTime | NOT NULL | 공통 감사 필드 |
 | `deletedAt` | LocalDateTime | NULL | 숨긴 시각. 목록·상세 조회에서는 제외한다 |
@@ -32,6 +34,8 @@
 - 공개 범위에 따라 응답이 달라지므로 목록과 상세 API는 `Cache-Control: no-store`를 사용한다.
 
 ## 등록 알림
+
+같은 등록 요청으로 공지를 다시 만들거나 등록 이벤트를 다시 발행하지 않는다. 재요청 규칙은 [공지 등록 API](../../api/endpoints/announcements.md#등록)를 따른다.
 
 공지 등록은 `AnnouncementCreatedEvent`를 발행한다. BEFORE_COMMIT 알림 리스너가 같은 트랜잭션에서 작성자를 제외한 모든 현재 구성원의 알림함 행을 만들고, 당시 공지 지원 버전(`clientVersion=2`)의 활성 브라우저 구독별 `NotificationDelivery`를 만든다. 구독이 없어도 알림함 행은 저장하며, 나중에 구독한 브라우저에 과거 공지를 다시 보내지 않는다.
 

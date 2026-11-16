@@ -64,6 +64,9 @@ logging:
         environment: dev
 
 jarihana:
+  group-space:
+    weather:
+      enabled: ${GROUP_SPACE_WEATHER_ENABLED:true}
   minigame:
     pepero-day:
       # 공유 개발 환경은 기간과 관계없이 이벤트를 열어 둔다.

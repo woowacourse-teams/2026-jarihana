@@ -3,6 +3,7 @@ package com.project.jarihana.sparring.query.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
+import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
 import com.project.jarihana.sparring.query.service.dto.SparringPostResult;
 import com.project.jarihana.sparring.query.service.dto.SparringStreamResult;
 
@@ -16,11 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class SparringStreamQueryService {
     private final SparringQueryRepository repository;
+    private final SparringPostAppearances postAppearances;
 
     // Revision, totals and posts must describe one committed snapshot, before advancing the cursor.
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -41,21 +44,22 @@ public class SparringStreamQueryService {
                                 () ->
                                         new BusinessException(
                                                 ErrorCode.SPARRING_NOT_FOUND, "스파링을 찾을 수 없어요."));
-        List<SparringPostResult> latest =
+        List<SparringPostProjection> latestRows =
                 snapshotRequired
-                        ? repository
-                                .posts(topicId, null, false, null, null, null, PageRequest.ofSize(30))
-                                .stream()
-                                .map(SparringPostResult::from)
-                                .sorted(Comparator.comparingLong(SparringPostResult::id))
-                                .toList()
+                        ? repository.posts(topicId, null, false, null, null, null, PageRequest.ofSize(30))
                         : List.of();
-        List<SparringPostResult> added =
+        List<SparringPostProjection> addedRows =
                 previousRevision >= 0 && revision != previousRevision
-                        ? repository.postsAfter(topicId, afterId, Pageable.unpaged()).stream()
-                                .map(SparringPostResult::from)
-                                .toList()
+                        ? repository.postsAfter(topicId, afterId, Pageable.unpaged())
                         : List.of();
+        var appearances = postAppearances.findFor(Stream.concat(latestRows.stream(), addedRows.stream()));
+        List<SparringPostResult> latest = latestRows.stream()
+                .map(post -> SparringPostResult.from(post, appearances))
+                .sorted(Comparator.comparingLong(SparringPostResult::id))
+                .toList();
+        List<SparringPostResult> added = addedRows.stream()
+                .map(post -> SparringPostResult.from(post, appearances))
+                .toList();
         return new SparringStreamResult(
                 revision,
                 topic.getVotesA(),

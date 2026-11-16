@@ -84,6 +84,14 @@ export function ProfileMenu() {
           >
             마이페이지
           </Link>
+          <Link
+            className="app-header__profile-option"
+            data-ph-capture-attribute-action="shop_open"
+            onClick={() => setOpen(false)}
+            to="/shop"
+          >
+            득템하나?
+          </Link>
           <button
             className="app-header__profile-option"
             data-ph-capture-attribute-action="logout"

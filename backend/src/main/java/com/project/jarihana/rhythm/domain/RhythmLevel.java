@@ -4,7 +4,10 @@ public enum RhythmLevel {
     EASY("easy"),
     MEDIUM("medium"),
     HARD("hard"),
-    HARDEST("hardest");
+    HARDEST("hardest"),
+    // 스윙 편곡을 치는 번외 난이도다. 채보와 곡 정보는 ranked-chart.json의 각 난이도에 따로 있다.
+    ANOTHER_HARD("anotherHard"),
+    ANOTHER_HARDEST("anotherHardest");
 
     private final String key;
 

@@ -182,7 +182,7 @@ export function useChat(roomId) {
 
   const send = useCallback(async (content, retryMessage) => {
     const controller = lifetime.current;
-    if (!controller || controller.signal.aborted) return;
+    if (!controller || controller.signal.aborted || !roomId || activeRoom.current.roomId !== roomId) return false;
     const message = retryMessage ?? {
       id: `pending-${messageUuid()}`, clientMessageId: messageUuid(),
       groupId: roomId, senderId: memberId, author: auth.member.crewName ?? "나",
@@ -194,6 +194,7 @@ export function useChat(roomId) {
       const saved = await postMessage(roomId, { content: message.content, clientMessageId: message.clientMessageId }, controller.signal);
       if (!controller.signal.aborted) {
         if (applyChatMessage(client, scope, saved, memberId)) void synchronize.current();
+        return saved;
       }
     } catch {
       if (!controller.signal.aborted) {
@@ -201,6 +202,7 @@ export function useChat(roomId) {
         void synchronize.current();
       }
     }
+    return false;
   }, [auth.member.crewName, client, historyKey, memberId, roomId, scope]);
 
   const read = useCallback(async (sequence) => {

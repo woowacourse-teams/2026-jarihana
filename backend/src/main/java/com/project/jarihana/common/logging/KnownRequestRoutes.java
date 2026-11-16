@@ -20,7 +20,9 @@ final class KnownRequestRoutes {
             "/recruitments/{recruitmentId}/registrations/read", "/members", "/members/me",
             "/members/me/points", "/members/me/points/transactions",
             "/auth/logout", "/auth/refresh", "/oauth/github/callback", "/image-uploads", "/feedbacks",
-            "/share/groups/{groupId}", "/share/sparrings/{topicId}"
+            "/shop/products", "/members/me/shop", "/members/me/shop/purchases", "/members/me/shop/equipment",
+            "/games/chair-stack/runs/current", "/games/chair-stack/runs", "/games/chair-stack/drops",
+            "/games/chair-stack/rankings", "/share/groups/{groupId}", "/share/sparrings/{topicId}"
     ).stream().map(KnownRequestRoutes::route).toList();
 
     private KnownRequestRoutes() { }

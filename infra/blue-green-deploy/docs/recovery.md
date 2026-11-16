@@ -23,10 +23,24 @@
 복구한다. 정상 롤백도 Actions 결과는 실패다. HTTP만 복구됐으면 전체 복구 성공이 아니다.
 앱 롤백으로 DB 스키마, 저장된 데이터나 이미 발송한 알림을 되돌리지 않는다.
 
+## 앱 Compose와 이전 배포 복구
+
+전환 후 확정 전 자동 롤백은 남아 있는 이전 앱 컨테이너의 트래픽과 worker를 복구한다.
+최신 Compose로 이전 앱을 재생성하지 않으며, Compose를 자동으로 다시 설치하는 rollback job도 없다.
+컨테이너 삭제나 호스트 교체로 이전 앱을 재구성해야 한다면 해당 앱의 receipt에서
+`compose_source.commit`, `compose_source.sha256`과 `image`를 확인한다.
+그 커밋의 앱 Compose를 가져와 파일 SHA-256을 대조한 뒤 사용한다. 환경 변수/secret 호환성과 현재 DB 스키마도
+함께 확인한다. 새 배포의 Compose와 이전 이미지를 임의로 조합하지 않는다.
+이 재구성은 관리자 복구이며, 기존 deploy 입력으로 임의의 과거 backend 트리 배포를 허용하는 변경은 아니다.
+후속 frontend-only 실행도 기존 백엔드 receipt의 출처를 보존하지만, 저널 최상위 `sha`는 프론트 실행을 가리킨다.
+Compose만 바꾼 배포는 같은 이미지 digest를 재사용할 수 있으므로 digest만으로 원본 SHA를 정하지 않는다.
+receipt의 위치는 [상태 확인](status.md#실제-실행과-저널)을 따른다. `compose_source`가 없거나 null인 기존 앱은
+당시 prepare 로그나 보존한 배포 자료로 출처를 확인해야 한다. 출처를 확인하지 못하면 최신 SHA로 대체하지 않는다.
+
 ## 복구 허가와 기한
 
 API 복구는 S3 접근과 임시 CLI 준비에 의존하지 않는다. 복구 허가는
-[coordinator의 복구 경로](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
+[coordinator의 복구 경로](../scripts/actions/coordinator.sh)에서 다음과 같이 발급한다.
 
 | 복구 작업 | 허가 조건과 기한 |
 | --- | --- |
@@ -40,9 +54,9 @@ job timeout만으로 복구 성공을 보장하지 않는다.
 ## 수동 조사
 
 서버 분실이나 교체는 [서버 구성](server-setup/README.md#재구성-절차)의 복원 원본과 중단 조건을
-먼저 확인한다. 새 instance ID나 control pin을 기존 저널에 대입하지 않는다.
-동일 서버 구성에서 control pin만 바꾸고 실제 서비스와 완료 기록이 일치하면
-[고정 제어 버전 교체](control-upgrade.md)의 명시적 이관 허가를 사용할 수 있다.
+먼저 확인한다. 새 instance ID나 소스 SHA를 기존 저널에 대입하지 않는다.
+완료된 배포에서 다음 커밋으로 넘어가는 데 별도 허가는 필요 없지만, 호스트 topology 변경이나
+미완료 저널은 자동으로 채택하지 않는다. 최초 방식 전환은 [SHA 배포 전환](release-sha.md)을 따른다.
 새 호스트 준비와 운영 상태의 이관을 별개로 다루며, bootstrap으로 기존 owner를 덮어쓰지 않는다.
 
 1. 새 배포와 종료 작업을 중단하고 run/deployment ID, 저널, intent, S3 state와 ETag,

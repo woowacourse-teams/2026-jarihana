@@ -25,14 +25,9 @@ IMAGE_CLEANUP_ENABLED=false
 `local`과 테스트 및 미지정 프로필은 실제 공유 S3 호출을 하지 않는다.
 자세한 결정은 [백엔드 ADR 0026](../../backend/docs/adr/0026-image-lifecycle-and-access.md)의
 공유 S3 삭제 경계 보완을 따른다. IAM의 삭제 리소스 범위 제한은 별도 운영 작업이며 정리 기본값은
-계속 `false`다. 블루그린 배포는 이 변경을 포함한 control release를 준비한 뒤 다음 순서로 적용한다.
-
-1. 각 앱 호스트의 `/etc/jarihana-deploy/<env>/app-compose.yml`을 새 릴리스의
-   `infra/blue-green-deploy/controller/app-compose.yml`과 바이트 단위로 같게 교체한다.
-2. 모든 해당 호스트의 교체를 확인한 뒤 GitHub Environment의 `BLUE_GREEN_CONTROL_REF`를
-   그 릴리스로 변경한다. `app_prepare`는 설치된 Compose와 control checkout의 템플릿이 다르면
-   `Installed Compose differs from immutable checkout`으로 중단하므로 이 순서를 지킨다.
-3. 정리 설정을 `false`로 유지한 채 배포하고 정상 기동과 설정 전달을 확인한다.
+계속 `false`다. 블루그린 배포는 해당 main 실행 SHA의 앱 Compose를 사용한다.
+Compose 환경 변수와 workflow의 Variables/Secrets 전달 항목을 함께 main에 반영하고,
+정리 설정을 `false`로 유지한 채 배포한 뒤 정상 기동과 설정 전달을 확인한다.
 
 CloudFront에서 다음을 설정한다.
 

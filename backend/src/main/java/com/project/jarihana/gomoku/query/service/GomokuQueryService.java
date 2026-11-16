@@ -10,6 +10,7 @@ import com.project.jarihana.gomoku.domain.RoomVisibility;
 import com.project.jarihana.gomoku.query.repository.dto.GomokuRoomProjection;
 import com.project.jarihana.gomoku.query.service.dto.GomokuPageResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
+import com.project.jarihana.gomoku.query.service.dto.GomokuSpectatorResult;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,6 +66,12 @@ public class GomokuQueryService {
 
     public Set<UUID> activeObservations(long id, Set<UUID> candidates) {
         return candidates.isEmpty() ? Set.of() : observations.findActiveParticipations(id, candidates);
+    }
+
+    public List<GomokuSpectatorResult> connectedSpectators(long id) {
+        return observations.findSpectators(id, LocalDateTime.now(clock)).stream()
+                .map(person -> new GomokuSpectatorResult(person.getMemberId(), person.getName(), person.getGithubId()))
+                .toList();
     }
 
     public GomokuRoomResult preview(String token) {

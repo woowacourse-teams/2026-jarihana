@@ -12,8 +12,9 @@ const post = { side: 'a', memberType: 'CREW' };
 let world;
 
 function matrixAt(mesh, index) {
-  const matrix = new THREE.Matrix4();
-  mesh.getMatrixAt(index, matrix);
+  const physicalIndex = mesh.userData.avatarInstanceIds?.indexOf(index) ?? index;
+  const matrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  if (physicalIndex >= 0) mesh.getMatrixAt(physicalIndex, matrix);
   return matrix;
 }
 
@@ -239,7 +240,10 @@ it('한 슬롯을 숨겨도 다른 슬롯의 몸과 의자 행렬을 보존하�
   characters.hide(0);
   characters.pickMeshes.forEach((mesh, index) => {
     const stride = mesh.instanceMatrix.count / 2;
-    expect(mesh.count).toBe(stride * 2);
+    if (mesh.userData.avatarInstanceIds) {
+      expect(mesh.count).toBe(mesh.userData.avatarInstanceIds.length);
+      expect(mesh.userData.avatarInstanceIds.every(id => Math.floor(id / stride) === 1)).toBe(true);
+    } else expect(mesh.count).toBe(stride * 2);
     for (let part = 0; part < stride; part++) {
       expect(matrixAt(mesh, part).determinant()).toBe(0);
       expect(matrixAt(mesh, stride + part).elements).toEqual(otherSlot[index][part]);

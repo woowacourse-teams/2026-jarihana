@@ -10,10 +10,10 @@ observe_journal() {
   [[ $(wc -c < "$file") -le 4194304 ]] || return 0
   JOURNAL=$(cat -- "$file") || { JOURNAL=null; return 0; }
   digest=$(bg_topology_digest)
-  if ! jq -es --arg env "$ENVIRONMENT" --arg digest "$digest" --arg control "$(jq -r '.topology.control.sha' <<< "$CONFIG")" '
+  if ! jq -es --arg env "$ENVIRONMENT" --arg digest "$digest" '
     def integer: type=="number" and floor==. and .>=0;
     length==1 and (.[0] |
-      .schema_version==2 and .environment==$env and .topology_digest==$digest and .control_sha==$control and
+      .schema_version==2 and .environment==$env and .topology_digest==$digest and
       (.revision|integer) and (.run_id|integer and .>0) and .attempt==1 and
       (.sha|type=="string" and test("^[a-f0-9]{40}$")) and (.mode|IN("deploy","bootstrap")) and
       (.old|IN("A","B")) and (.target|IN("A","B")) and

@@ -3,6 +3,9 @@ import { createCapsulePhysics, CAPACITY, RADIUS, FRESH_CAPSULE_SCALE } from './p
 import { voteColors } from './vote-colors.js';
 import { createReplayQueue } from './replay-queue.js';
 
+const DECORATIVE_AVATAR_LIMIT = 24;
+const NO_CANDIDATES = [];
+
 export function createCapsules(scene, onSelect, onReady, requestHistory) {
   const batch = createCapsuleBatch(scene, CAPACITY), physics = createCapsulePhysics();
   physics.settle();
@@ -12,6 +15,8 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
   const replayCounts = { a: 0, b: 0 };
   const pipeCursors = { a: 0, b: 0 };
   let postsBySide = { a: [], b: [] };
+  let avatarCandidates = NO_CANDIDATES, avatarCursor = 0;
+  const decorativeAvatars = new Map();
   const rendered = Array.from({ length: CAPACITY }, () => ({ visible: null }));
   const replay = createReplayQueue(requestHistory);
   const pendingLaunches = [];
@@ -25,27 +30,46 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
         return;
       }
       const { post, body } = entry, { position: p, quaternion: q } = body;
+      const appearance = entry.fresh && !entry.revealed ? post?.appearance ?? null
+        : decorativeAvatars.get(entry) ?? null;
       const size = RADIUS / 0.48 * (entry.fresh && !entry.revealed ? FRESH_CAPSULE_SCALE : 1);
       // Only the tank's packed pose is static; animated/open capsules must keep updating.
       const cacheable = entry.phase === undefined && entry.characterPose === undefined && !entry.parts;
       if (cacheable && last.cacheable && last.visible && last.post === post &&
           last.id === post?.id && last.name === post?.name && last.authorId === post?.authorId &&
           last.memberType === post?.memberType && last.postSide === post?.side && last.side === entry.visualSide &&
-          last.fresh === entry.fresh && last.revealed === entry.revealed && last.size === size &&
+          last.fresh === entry.fresh && last.revealed === entry.revealed && last.appearance === appearance && last.size === size &&
           last.shellScale === entry.shellScale && last.yaw === entry.characterYaw &&
           last.x === p.x && last.y === p.y && last.z === p.z &&
           last.qx === q.x && last.qy === q.y && last.qz === q.z && last.qw === q.w) return;
-      batch.draw(index, entry, size);
+      batch.draw(index, entry, size, 0, false, appearance);
       last.visible = true; last.cacheable = cacheable;
       last.post = post; last.id = post?.id; last.name = post?.name; last.authorId = post?.authorId;
       last.memberType = post?.memberType; last.postSide = post?.side; last.side = entry.visualSide;
       last.fresh = entry.fresh; last.revealed = entry.revealed; last.size = size;
+      last.appearance = appearance;
       last.shellScale = entry.shellScale; last.yaw = entry.characterYaw;
       last.x = p.x; last.y = p.y; last.z = p.z;
       last.qx = q.x; last.qy = q.y; last.qz = q.z; last.qw = q.w;
     });
   }
-  function updateState(nextPosts, votes, history) {
+  function decorate(entry) {
+    decorativeAvatars.delete(entry);
+    if (!avatarCandidates.length) return;
+    if (decorativeAvatars.size === DECORATIVE_AVATAR_LIMIT) {
+      decorativeAvatars.delete(decorativeAvatars.keys().next().value);
+    }
+    decorativeAvatars.set(entry, avatarCandidates[avatarCursor]);
+    avatarCursor = (avatarCursor + 1) % avatarCandidates.length;
+  }
+  function seedDecorations() {
+    const slots = physics.entries.filter(entry => !entry.fresh || entry.revealed);
+    const count = Math.min(slots.length, DECORATIVE_AVATAR_LIMIT);
+    for (let i = 0; i < count; i++) {
+      decorate(slots[Math.floor((i + 0.5) * slots.length / count)]);
+    }
+  }
+  function updateState(nextPosts, votes, history, candidates = NO_CANDIDATES) {
     const seedTank = !populated && votes.total > 0;
     posts = nextPosts; ratio = votes.ratio; populated = votes.total > 0;
     postsBySide = { a: [], b: [] };
@@ -60,6 +84,12 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       });
       pipeCredit = 0.5;
     }
+    if (candidates !== avatarCandidates) {
+      avatarCandidates = candidates;
+      avatarCursor %= Math.max(1, candidates.length);
+    }
+    if (!populated || !candidates.length) decorativeAvatars.clear();
+    else if (!decorativeAvatars.size) seedDecorations();
     initialized = true; draw();
   }
   function launch(post, { reduced = false } = {}) {
@@ -75,6 +105,7 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
       const { post, reduced } = pendingLaunches[index];
       const entry = physics.launch(post, { mode, fresh: true, skipProtected: !(reduced || reduceMotion || paused), speed: speedFor(post.side) });
       if (!entry) return;
+      decorativeAvatars.delete(entry);
       pendingLaunches.splice(index, 1);
       entry.flightUntil = performance.now() + 4500;
       queueReplay(post, entry.flightUntil);
@@ -90,7 +121,9 @@ export function createCapsules(scene, onSelect, onReady, requestHistory) {
     // Votes keep the pipe flowing even before anyone on that side writes a message.
     const post = matching.length ? matching[pipeCursors[side] % matching.length]
       : { id: 'vote-' + side, side, name: '', text: '' };
-    if (!physics.launch(post, { mode, skipProtected: true, speed: speedFor(side) })) return null;
+    const entry = physics.launch(post, { mode, skipProtected: true, speed: speedFor(side) });
+    if (!entry) return null;
+    decorate(entry);
     pipeCredit = nextCredit - (side === 'a' ? 1 : 0);
     pipeCursors[side]++;
     pipeReplays++;

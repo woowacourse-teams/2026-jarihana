@@ -8,10 +8,12 @@ import com.project.jarihana.gomoku.command.service.GomokuObservationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.project.jarihana.gomoku.query.controller.dto.GomokuRoomResponse;
+import com.project.jarihana.gomoku.query.controller.dto.GomokuSpectatorsResponse;
 import com.project.jarihana.gomoku.query.service.GomokuQueryService;
 import com.project.jarihana.gomoku.query.service.GomokuChatQueryService;
 import com.project.jarihana.gomoku.query.service.dto.GomokuChatSignalResult;
 import com.project.jarihana.gomoku.query.service.dto.GomokuRoomResult;
+import com.project.jarihana.gomoku.query.service.dto.GomokuSpectatorResult;
 
 import jakarta.annotation.PreDestroy;
 
@@ -94,7 +96,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         client.emitter.onCompletion(client::remove);
         client.emitter.onTimeout(client::close);
         client.emitter.onError(error -> client.remove());
-        client.offer(initial, signals, observationId == null ? Set.of() : Set.of(observationId));
+        client.offer(initial, signals, observationId == null ? Set.of() : Set.of(observationId), null);
         return client.emitter;
     }
 
@@ -142,10 +144,17 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                         } catch (RuntimeException exception) {
                             signals = null;
                         }
-                        Set<UUID> candidates = room.clients.stream().filter(client -> client.connectionId != null)
+                        List<Client> pollingClients = List.copyOf(room.clients);
+                        Set<UUID> candidates = pollingClients.stream().filter(client -> client.connectionId != null)
                                 .map(client -> client.participationId).collect(Collectors.toSet());
                         Set<UUID> activeObservations = queries.activeObservations(id, candidates);
-                        for (Client client : room.clients) client.offer(snapshot, signals, activeObservations);
+                        List<GomokuSpectatorResult> spectators;
+                        try {
+                            spectators = queries.connectedSpectators(id);
+                        } catch (RuntimeException exception) {
+                            spectators = null;
+                        }
+                        for (Client client : pollingClients) client.offer(snapshot, signals, activeObservations, spectators);
                     } catch (RuntimeException exception) {
                         room.clients.forEach(Client::close);
                     } finally {
@@ -221,6 +230,7 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
         private long sent = -1;
         private long chatSent = -1;
         private long lastSentAt;
+        private List<GomokuSpectatorResult> spectatorsSent;
 
         private Client(long roomId, long memberId, long expiresAt, UUID participationId, UUID connectionId, SseEmitter emitter) {
             this.roomId = roomId;
@@ -232,7 +242,8 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
             this.emitter = emitter;
         }
 
-        private void offer(GomokuRoomResult snapshot, List<GomokuChatSignalResult> signals, Set<UUID> activeObservations) {
+        private void offer(GomokuRoomResult snapshot, List<GomokuChatSignalResult> signals, Set<UUID> activeObservations,
+                List<GomokuSpectatorResult> spectators) {
             if (!running || closed.get() || !writing.compareAndSet(false, true)) return;
             deliveries.submit(
                     () -> {
@@ -267,6 +278,12 @@ public class GomokuStreams implements AutoCloseable, SmartLifecycle {
                                 lastSentAt = clock.millis();
                             } else if (clock.millis() - lastSentAt >= 15_000L) {
                                 emitter.send(SseEmitter.event().comment("keepalive"));
+                                lastSentAt = clock.millis();
+                            }
+                            if (snapshot.status() != RoomStatus.CLOSED && spectators != null && !spectators.equals(spectatorsSent)) {
+                                emitter.send(SseEmitter.event().name("spectators_changed")
+                                        .data(GomokuSpectatorsResponse.from(roomId, spectators)));
+                                spectatorsSent = spectators;
                                 lastSentAt = clock.millis();
                             }
                             if (snapshot.status() == RoomStatus.CLOSED) close();

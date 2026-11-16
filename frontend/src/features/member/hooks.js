@@ -8,12 +8,13 @@ import { fetchMembers, signupMember, transferLeader } from "./api.js";
 export const memberKeys = {
   all: ["group-members"],
   lists: () => ["group-members", "list"],
-  list: (groupId) => ["group-members", "list", groupId]
+  list: (groupId) => ["group-members", "list", String(groupId)],
+  greeters: (groupId) => [...memberKeys.list(groupId), "greeters"]
 };
 
-export function useInfiniteGroupMembers(groupId) {
+export function useInfiniteGroupMembers(groupId, { forGreeters = false } = {}) {
   return useInfiniteQuery({
-    queryKey: memberKeys.list(groupId),
+    queryKey: forGreeters ? memberKeys.greeters(groupId) : memberKeys.list(groupId),
     initialPageParam: null,
     queryFn: ({ pageParam }) => fetchMembers(groupId, { cursor: pageParam }),
     getNextPageParam: getSafeNextCursor,

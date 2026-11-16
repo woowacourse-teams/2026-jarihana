@@ -1,10 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { useArenaBridge } from "./useArenaBridge";
-import { getSparring, getSparringPosts, postSparring, voteSparring } from "./api";
+import { getSparring, getSparringAvatarCandidates, getSparringPosts, postSparring, voteSparring } from "./api";
 
 jest.mock("./api", () => ({
   ...jest.requireActual("./api"),
   getSparring: jest.fn(),
+  getSparringAvatarCandidates: jest.fn(),
   getSparringPosts: jest.fn(),
   postSparring: jest.fn(),
   voteSparring: jest.fn()
@@ -59,10 +61,14 @@ beforeEach(() => {
   Stream.autoSnapshot = true;
   global.EventSource = Stream;
   getSparring.mockResolvedValue(topic);
+  getSparringAvatarCandidates.mockResolvedValue({ appearances: [] });
   getSparringPosts.mockResolvedValue({ items: [], nextCursor: null, hasNext: false });
 });
 function setup(actor = member) {
-  const hook = renderHook(() => useArenaBridge({ topicId: "1", member: actor, login, retry: 0 }));
+  const hook = renderHook(
+    ({ actorAppearance }) => useArenaBridge({ topicId: "1", member: actor, login, retry: 0, actorAppearance }),
+    { initialProps: { actorAppearance: null } }
+  );
   const target = { postMessage: jest.fn() };
   hook.result.current.frame.current = {
     contentWindow: target,
@@ -86,6 +92,82 @@ const streamData = (posts = [], revision = 1, counts = {}) => ({
   revision, votesA: 1, votesB: 0, postCount: posts.length, posts, ...counts
 });
 const snapshots = target => target.postMessage.mock.calls.map(([message]) => message).filter(message => message.kind === "snapshot");
+
+it("publishes a late composer appearance without restarting the stream or replaying posts", async () => {
+  const { receive, result, rerender, target } = setup();
+  receive({ kind: "ready" });
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  expect(snapshots(target).at(-1).state.actorAppearance).toBeNull();
+  const appearance = AVATAR_PRESETS[0].appearance;
+  rerender({ actorAppearance: appearance });
+  expect(snapshots(target).at(-1)).toMatchObject({ fresh: [], state: { actorAppearance: appearance } });
+  expect(Stream.instances).toHaveLength(1);
+});
+
+describe("decorative avatar polling", () => {
+  const first = AVATAR_PRESETS[0].appearance;
+  const second = AVATAR_PRESETS[1].appearance;
+  const messages = target => target.postMessage.mock.calls.map(([message]) => message)
+    .filter(message => message.kind === "avatarCandidates").map(message => message.candidates);
+  const advance = ms => act(async () => jest.advanceTimersByTimeAsync(ms));
+  let hidden;
+  function visibility(value) {
+    hidden = value;
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+  }
+  beforeEach(() => {
+    jest.useFakeTimers();
+    hidden = false;
+    jest.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it("polls on entry and after 30 seconds while votes and posts update the arena independently", async () => {
+    getSparringAvatarCandidates.mockResolvedValueOnce({ appearances: [first] });
+    const { receive, target } = setup();
+    await advance(0);
+    receive({ kind: "ready" });
+    expect(messages(target)).toEqual([[first]]);
+    const stream = Stream.instances.at(-1);
+    act(() => stream.emit("update", streamData([post], 2)));
+    act(() => stream.emit("update", streamData([], 3, { postCount: 1, votesA: 0, votesB: 1 })));
+    expect(snapshots(target).at(-1).state.balance).toEqual({ a: 0, b: 1, total: 1, ratio: 0 });
+    expect(snapshots(target).at(-1).state).not.toHaveProperty("avatarCandidates");
+    await advance(29999);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(1);
+
+    getSparringAvatarCandidates.mockResolvedValue({ appearances: [first, second] });
+    await advance(1);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(2);
+    expect(messages(target)).toEqual([[first], [first, second]]);
+    await advance(30000);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(3);
+    expect(messages(target)).toHaveLength(2);
+  });
+
+  it("pauses polling when hidden and retains the last list if a refresh fails", async () => {
+    getSparringAvatarCandidates.mockResolvedValueOnce({ appearances: [first] });
+    const { receive, target } = setup();
+    await advance(0);
+    receive({ kind: "ready" });
+    visibility(true);
+    await advance(60000);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(1);
+
+    getSparringAvatarCandidates.mockRejectedValueOnce(new Error("offline"));
+    visibility(false);
+    await advance(0);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(2);
+    expect(messages(target)).toEqual([[first]]);
+
+    await advance(30000);
+    expect(getSparringAvatarCandidates).toHaveBeenCalledTimes(3);
+    expect(messages(target)).toEqual([[first], []]);
+  });
+});
 
 it("exposes entry metadata before the SSE snapshot or renderer is ready", async () => {
   Stream.autoSnapshot = false;
@@ -171,6 +253,23 @@ describe("SSE message delivery", () => {
     act(() => Stream.instances.at(-1).emit("update", streamData([{ ...post, id: 1001, authorId: 2 }], 1002)));
     expect(snapshots(target).at(-1).fresh).toEqual(["1001"]);
     expect(snapshots(target).at(-1).state.posts).toHaveLength(30);
+  });
+
+  it("forwards a streamed reply with the appearance and side of each actual author", async () => {
+    const { receive, target, result } = setup();
+    receive({ kind: "ready" });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const mint = AVATAR_PRESETS[0].appearance;
+    const coral = AVATAR_PRESETS[1].appearance;
+    const reply = {
+      ...post, id: 2, authorId: 2, side: "CORAL", appearance: coral,
+      replyTo: { ...post, appearance: mint }
+    };
+    act(() => Stream.instances.at(-1).emit("update", streamData([reply], 3, { postCount: 2 })));
+    expect(snapshots(target).at(-1).livePosts).toEqual([expect.objectContaining({
+      authorId: "2", side: "b", appearance: coral,
+      replyTo: expect.objectContaining({ authorId: "1", side: "a", appearance: mint })
+    })]);
   });
 
   it("replaces replay on reconnect without replaying missed launches or calling REST", async () => {
@@ -357,7 +456,8 @@ it("catches up an initially empty room and never re-emits an acknowledged own po
     )
   );
   postSparring.mockResolvedValue({ id: 1 });
-  getSparringPosts.mockResolvedValue({ items: [post], nextCursor: null, hasNext: false });
+  const appearance = AVATAR_PRESETS[0].appearance;
+  getSparringPosts.mockResolvedValue({ items: [{ ...post, appearance }], nextCursor: null, hasNext: false });
   receive({
     kind: "command",
     action: "post",
@@ -372,6 +472,9 @@ it("catches up an initially empty room and never re-emits an acknowledged own po
     ).toBe(true)
   );
   expect(getSparringPosts).toHaveBeenCalledWith("1", { size: 1, afterId: 0 });
+  expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+    kind: "result", requestId: "rpc1", result: expect.objectContaining({ appearance })
+  }), window.location.origin);
   getSparring.mockResolvedValue({ ...topic, revision: 2 });
   act(() => Stream.instances.at(-1).emit("update", streamData([post], 2)));
   expect(getSparringPosts).toHaveBeenCalledTimes(1);

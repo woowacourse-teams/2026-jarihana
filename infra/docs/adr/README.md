@@ -14,6 +14,11 @@
 | 0004 | [Tempo는 기본 모니터링 경로에서 비활성화하고 DB 호출 지표는 JDBC 메트릭으로 본다](0004-disable-tempo-by-default.md) | 채택(저장소 구성 반영, AWS 미배포) | 2026-10-13 | 메모리 부족으로 ADR 0003의 상시 실행을 중단하고 JDBC 지표로 대시보드 유지 |
 | 0005 | [별도 Nginx와 고정된 운영 EC2 두 대로 Blue-Green 배포한다](0005-nginx-ec2-blue-green-deployment.md) | 채택 | 2026-10-21 | A/B 교대, 5분 관찰, 롤백, worker 인계와 호환 DB 변경. 기존 이미지 공급 방식은 유지 |
 | 0006 | [프론트엔드 원본을 S3에 보관하고 백엔드와 함께 복구한다](0006-s3-paired-frontend-rollback.md) | 채택 | 2026-10-29 | ADR 0005의 prod 배포와 복구를 프론트엔드 릴리스 쌍으로 확장 |
+| 0007 | [아지트 상태를 별도 Spring 실시간 앱에서 처리한다](0007-clubhouse-realtime-service.md) | 채택 · 로컬 구현·검증, 운영 적용 미확인 | 2026-11-12 | M1·M2 독립 앱, DB 직접 조회, 환경·방 분리와 입장 키 |
+| 0008 | [기존 환경 설정으로 공용 realtime 컨테이너를 배포한다](0008-shared-realtime-deployment.md) | 채택 · 구성 구현, 운영 적용 미확인 | 2026-11-13 | ADR 0007의 배포 상세. 기존 Environment 준비 잡, CloudFront 8080, 복구·관측 |
+| 0009 | [프로젝터 화면 공유는 LiveKit SFU를 사용하고 구현은 보류한다](0009-projector-livekit-direction.md) | 방향 채택 · M3 구현·네트워크 구성 보류 | 2026-11-13 | 초기 P2P·coturn 구상을 변경. 현재 M1·M2 배포에는 미포함 |
+
+아지트 논의의 전체 흐름과 HLD는 [아지트 멀티플레이 아키텍처와 결정 이력](../../../docs/clubhouse-realtime-architecture.md)에 있다. ADR 0007~0009의 상태는 설계 선택과 저장소 구현을 구분하며 운영 성공을 뜻하지 않는다. 실행 증거는 [M1·M2 검증 기록](../../realtime/VERIFICATION.md)에서 관리한다.
 
 ## 배포 ADR의 운영 적용 상태
 

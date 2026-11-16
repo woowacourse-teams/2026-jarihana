@@ -7,7 +7,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Headset, MessageCircle, UserRound } from "lucide-react";
 
 import { peekReturnTarget, storeReturnTarget, useAuth } from "../features/auth";
-import { PEPERO_DAY_PATH, usePeperoDayStatus } from "../features/pepero-day";
 import {
   FeedbackForm,
   FeedbackLoginPrompt,
@@ -19,7 +18,7 @@ import { Avatar, Drawer, Modal, useToast } from "../shared/ui";
 import githubMark from "../shared/assets/brand/github-mark.svg";
 import logoMark from "../shared/assets/brand/jarihana-favicon.png";
 import createChairImage from "../shared/assets/brand/jarihana-chair-create.png";
-import { PeperoStickIcon } from "./PeperoStickIcon";
+import { GroupMusicHeaderSlot } from "../features/group-music/index.js";
 import { ProfileMenu } from "./ProfileMenu";
 import { GroupNavigation, isGroupNavigationActive } from "./GroupNavigation";
 
@@ -29,16 +28,6 @@ const SPARRING_LINK = {
   label: "토론하나?",
   requiresAuth: false,
   to: "/sparring"
-};
-
-// 빼빼로데이 이벤트 진입점이다. 서버가 이벤트를 진행 중(OPEN)이라고 할 때만 보인다.
-const PEPERO_DAY_LINK = {
-  action: "pepero_day_view",
-  icon: PeperoStickIcon,
-  isActive: (pathname) => pathname === PEPERO_DAY_PATH,
-  label: "반띵 게임",
-  requiresAuth: false,
-  to: PEPERO_DAY_PATH
 };
 
 const GAMES_LINK = {
@@ -63,19 +52,11 @@ const MEMBER_LINKS = [
 
 const DESKTOP_MEMBER_LINKS = [SPARRING_LINK, GAMES_LINK];
 
-function withEventLink(links, eventOpen) {
-  if (!eventOpen) return links;
-  const createIndex = links.findIndex((link) => link.requiresAuth);
-  if (createIndex < 0) return [...links, PEPERO_DAY_LINK];
-  return [...links.slice(0, createIndex), PEPERO_DAY_LINK, ...links.slice(createIndex)];
-}
-
-function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, status }) {
+function HeaderLinks({ links, onNavigate, onProtectedNavigate, status }) {
   const { pathname } = useLocation();
 
   return links.map((link) => {
     const isActive = link.isActive(pathname);
-    const Icon = link.icon;
     return (
       <Link
         aria-current={isActive ? "page" : undefined}
@@ -91,7 +72,6 @@ function HeaderLinks({ links = MEMBER_LINKS, onNavigate, onProtectedNavigate, st
         }}
         to={link.to}
       >
-        {Icon ? <Icon /> : null}
         {link.label}
       </Link>
     );
@@ -216,10 +196,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
     ?? `${generationLabel(member?.generation)}${member?.course ? ` / ${COURSE_LABELS[member.course]}` : ""}`;
   const { hash, pathname, search } = useLocation();
   const chatUnread = useChatUnreadCount();
-  const eventOpen = usePeperoDayStatus().data?.status === "OPEN";
-  const desktopLinks = withEventLink(DESKTOP_MEMBER_LINKS, eventOpen);
-  const mobileLinks = withEventLink(MEMBER_LINKS, eventOpen);
-  const activeLinkIndex = desktopLinks.findIndex((link) => link.isActive(pathname));
+  const activeLinkIndex = DESKTOP_MEMBER_LINKS.findIndex((link) => link.isActive(pathname));
   const activeMenuIndex = isGroupNavigationActive(pathname) ? 0 : activeLinkIndex >= 0 ? activeLinkIndex + 1 : -1;
   const navigationKey = `${pathname}${search}${hash}`;
   const navigate = useNavigate();
@@ -300,6 +277,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
               <img alt="" aria-hidden="true" className="app-header__brand-mark" src={logoMark} />
               <span className="app-header__brand-text">자리하나?</span>
             </Link>
+            <GroupMusicHeaderSlot />
           </div>
 
           <nav
@@ -308,12 +286,12 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             data-active={activeMenuIndex >= 0}
             style={{
               "--header-active-index": Math.max(0, activeMenuIndex),
-              "--header-nav-item-count": desktopLinks.length + 1
+              "--header-nav-item-count": DESKTOP_MEMBER_LINKS.length + 1
             }}
           >
             <GroupNavigation key={navigationKey} />
             <HeaderLinks
-              links={desktopLinks}
+              links={DESKTOP_MEMBER_LINKS}
               onNavigate={() => {}}
               onProtectedNavigate={redirectToLogin}
               status={status}
@@ -455,7 +433,7 @@ export function AppHeader({ action = null, onOpenPwaGuide, title = "" }) {
             <h3 className="app-header__mobile-section-title">메뉴</h3>
             <GroupNavigation key={navigationKey} mobile onNavigate={closeMenu} />
             <HeaderLinks
-              links={mobileLinks}
+              links={MEMBER_LINKS}
               onNavigate={closeMenu}
               onProtectedNavigate={redirectToLogin}
               status={status}

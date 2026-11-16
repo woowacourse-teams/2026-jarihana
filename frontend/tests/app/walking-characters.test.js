@@ -6,19 +6,22 @@ import { releasedCharacterPose, LANDING_FALL_SECONDS, LANDING_SECONDS } from '..
 jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 
 const crew = { memberType: 'CREW' }, coach = { memberType: 'COACH' };
+function partMatrix(mesh, part, slot = 0) {
+  const index = mesh.userData.avatarInstanceIds.indexOf(slot * mesh.userData.avatarStride + part);
+  const matrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  if (index >= 0) mesh.getMatrixAt(index, matrix);
+  return matrix;
+}
 function snapshot(models, slot) {
-  return models.pickMeshes.map(mesh => {
-    const length = mesh.instanceMatrix.array.length / 2;
-    return Array.from(mesh.instanceMatrix.array.slice(slot * length, (slot + 1) * length));
-  });
+  return models.pickMeshes.map(mesh => Array.from({ length: mesh.userData.avatarStride }, (_, part) =>
+    partMatrix(mesh, part, slot).toArray()).flat());
 }
 function bounds(models, slot) {
-  const box = new THREE.Box3(), matrix = new THREE.Matrix4();
+  const box = new THREE.Box3();
   for (const mesh of models.pickMeshes) {
     mesh.geometry.computeBoundingBox();
-    const count = mesh.instanceMatrix.count / 2;
-    for (let index = slot * count; index < (slot + 1) * count; index++) {
-      mesh.getMatrixAt(index, matrix);
+    for (let part = 0; part < mesh.userData.avatarStride; part++) {
+      const matrix = partMatrix(mesh, part, slot);
       if (Math.abs(matrix.determinant()) > 1e-8) box.union(mesh.geometry.boundingBox.clone().applyMatrix4(matrix));
     }
   }
@@ -147,7 +150,7 @@ it.each([crew, coach])('화난 표정은 눈썹 안쪽을 낮추고 평소 표�
   const eyebrows = models.pickMeshes.find(mesh => mesh.geometry.parameters?.tubularSegments === 12
     && mesh.geometry.parameters.radius === .009);
   const readBrows = () => [0, 1].map(index => {
-    const matrix = new THREE.Matrix4(); eyebrows.getMatrixAt(index, matrix); return matrix;
+    return partMatrix(eyebrows, index);
   });
   const relaxed = readBrows();
   models.draw(0, post, origin, 1, { anger: 1 });
@@ -172,10 +175,11 @@ it.each([crew, coach])('화난 표정은 눈썹 안쪽을 낮추고 평소 표�
 
 it.each([crew, coach])('강한 짜증에는 눈을 좁히고 입을 벌리며 표정을 해제하면 원래 얼굴로 돌아온다: %j', post => {
   const models = createWalkingCharacters(new THREE.Scene(), 2), origin = new THREE.Vector3();
-  const face = models.pickMeshes.find(mesh => mesh.geometry.type === 'SphereGeometry' && mesh.material.color.getHex() === 0x24201e);
+  models.draw(0, post, origin, 1, {});
+  const face = models.pickMeshes.find(mesh => mesh.geometry.type === 'SphereGeometry' && hasInstanceColor(mesh, 0x24201e));
   const mouth = models.pickMeshes.find(mesh => mesh.geometry.parameters?.tubularSegments === 20
     && mesh.geometry.parameters.radius === .0065);
-  const matrix = (mesh, index) => { const value = new THREE.Matrix4(); mesh.getMatrixAt(index, value); return value; };
+  const matrix = (mesh, index) => { return partMatrix(mesh, index); };
   const faceParts = () => [0, 1, 2].map(index => matrix(face, index));
   models.draw(0, post, origin, 1, {});
   models.draw(1, post, origin, 1, {});
@@ -199,12 +203,13 @@ it.each([crew, coach])('강한 짜증에는 눈을 좁히고 입을 벌리며 �
 
 it.each([crew, coach])('놀란 표정은 눈과 눈썹을 올리고 작은 둥근 입을 만들며 다음 인물과 평소 얼굴에 남지 않는다: %j', post => {
   const models = createWalkingCharacters(new THREE.Scene(), 2), origin = new THREE.Vector3();
-  const face = models.pickMeshes.find(mesh => mesh.geometry.type === 'SphereGeometry' && mesh.material.color.getHex() === 0x24201e);
+  models.draw(0, post, origin, 1, {});
+  const face = models.pickMeshes.find(mesh => mesh.geometry.type === 'SphereGeometry' && hasInstanceColor(mesh, 0x24201e));
   const brows = models.pickMeshes.find(mesh => mesh.geometry.parameters?.tubularSegments === 12
     && mesh.geometry.parameters.radius === .009);
   const smile = models.pickMeshes.find(mesh => mesh.geometry.parameters?.tubularSegments === 20
     && mesh.geometry.parameters.radius === .0065);
-  const matrix = (mesh, index) => { const value = new THREE.Matrix4(); mesh.getMatrixAt(index, value); return value; };
+  const matrix = (mesh, index) => { return partMatrix(mesh, index); };
   const scale = (mesh, index) => new THREE.Vector3().setFromMatrixScale(matrix(mesh, index));
   models.draw(0, post, origin, 1, {});
   models.draw(1, post, origin, 1, {});
@@ -236,10 +241,11 @@ it.each([crew, coach])('놀란 표정은 눈과 눈썹을 올리고 작은 둥�
 it('잡힌 달리기는 무릎을 번갈아 접고 양발을 앞뒤로 움직이며 바닥 자세에는 적용되지 않는다', () => {
   const models = createWalkingCharacters(new THREE.Scene(), 2);
   const frame = { position: new THREE.Vector3(), pose: { hanging: true } };
-  const legs = models.pickMeshes.find(mesh => mesh.geometry.hasAttribute('limbBend') && mesh.material.color.getHex() === 0x406387);
-  const soles = models.pickMeshes.find(mesh => mesh.geometry.type === 'BoxGeometry' && mesh.material.color.getHex() === 0xdeddd9);
+  models.draw(0, crew, frame.position, 1, {});
+  const legs = models.pickMeshes.find(mesh => mesh.geometry.hasAttribute('limbBend') && hasInstanceColor(mesh, 0x406387));
+  const soles = models.pickMeshes.find(mesh => mesh.geometry.type === 'BoxGeometry' && hasInstanceColor(mesh, 0xdeddd9));
   const feet = () => [0, 1].map(index => {
-    const matrix = new THREE.Matrix4(); soles.getMatrixAt(index, matrix);
+    const matrix = partMatrix(soles, index);
     return new THREE.Vector3().setFromMatrixPosition(matrix);
   });
   const pose = heldReactionPose(frame, Math.PI / 40).pose;
@@ -265,7 +271,7 @@ it('한 인물의 교체·숨김이 다른 인물의 자세나 부품을 바꾸�
   models.draw(0, crew, new THREE.Vector3(-2, 0, 0), 1, { stride: 0 });
   models.draw(1, coach, new THREE.Vector3(2, 0, 0), 1, { stride: 0 });
   const other = snapshot(models, 1);
-  expect(models.pickMeshes.every(mesh => mesh.count === mesh.instanceMatrix.count)).toBe(true);
+  expect(models.pickMeshes.every(mesh => mesh.count <= mesh.instanceMatrix.count)).toBe(true);
   models.draw(0, coach, new THREE.Vector3(-2, 0, 0), 1, { stride: 1 });
   expect(snapshot(models, 1)).toEqual(other);
   models.hide(0);
@@ -275,7 +281,7 @@ it('한 인물의 교체·숨김이 다른 인물의 자세나 부품을 바꾸�
   models.hide(1);
   expect(models.pickMeshes.every(mesh => mesh.count === 0)).toBe(true);
   models.draw(0, crew, new THREE.Vector3(), 1, { stride: 0 });
-  expect(models.pickMeshes.every(mesh => mesh.count === mesh.instanceMatrix.count / 2)).toBe(true);
+  expect(models.pickMeshes.every(mesh => mesh.count <= mesh.instanceMatrix.count / 2)).toBe(true);
 });
 
 it.each([crew, coach])('보행 중 지지발은 바닥에 남고 몸은 바닥 아래로 꺼지지 않는다: %j', post => {
@@ -394,4 +400,238 @@ it('의자를 잡는 명시적인 어깨·팔꿈치 자세는 말하기 동작�
   for (const name of ['leftHand', 'rightHand']) expect(second[name].toArray()).toEqual(hands[name].toArray());
   models.draw(0, crew, new THREE.Vector3(), 1, {});
   expect(second.rightHand.distanceTo(hands.rightHand)).toBeGreaterThan(0.2);
+});
+
+// These cases exercise instance isolation and geometry through the same renderer used by the arena.
+const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+it('노트북은 덮개 뒷면이 바깥을 향하고 수평 바닥은 한 손 위를 따르며 반대 손을 움직이지 않는다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  const itemMatrix = (material, predicate = () => true) => {
+    for (const mesh of models.pickMeshes.filter(mesh => mesh.userData.avatarMaterial === material)) {
+      for (let index = 0; index < mesh.count; index++) {
+        const matrix = new THREE.Matrix4(); mesh.getMatrixAt(index, matrix);
+        if (Math.abs(matrix.determinant()) > 1e-8 && predicate(matrix)) return matrix;
+      }
+    }
+    throw new Error(`Visible ${material} part is missing`);
+  };
+  try {
+    for (const pose of [{}, { stride: 0.8 }, { seated: 1 }, { speaking: true, time: 1 },
+      { rightArm: -0.6, rightElbow: -0.8, rightSpread: 0.2 }]) {
+      const freeLeft = models.draw(0, { appearance: original }, new THREE.Vector3(), 1, pose).leftHand.clone();
+      const hands = models.draw(0, { appearance: { ...original, handheld: 'laptop' } }, new THREE.Vector3(), 1, pose);
+      expect(hands.leftHand.toArray()).toEqual(freeLeft.toArray());
+      const base = itemMatrix('itemMetal', matrix => new THREE.Vector3().setFromMatrixScale(matrix).y < 0.02);
+      const center = new THREE.Vector3().setFromMatrixPosition(base);
+      expect(center.distanceTo(hands.rightHand)).toBeLessThan(0.15);
+      expect(center.y).toBeGreaterThan(hands.rightHand.y);
+      expect(new THREE.Vector3(0, 1, 0).transformDirection(base).y).toBeCloseTo(1, 5);
+      const screen = itemMatrix('itemScreen');
+      expect(new THREE.Vector3(0, 0, -1).transformDirection(screen).z).toBeLessThan(-0.9);
+      expect(new THREE.Vector3().setFromMatrixPosition(screen).z).toBeGreaterThan(center.z + 0.1);
+    }
+  } finally { models.dispose(); }
+});
+it('가방·소지품 조합은 걷기·앉기에서도 유효하고 다른 슬롯에 번지지 않으며 벗으면 원래 모습으로 돌아온다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    for (const bag of ['backpack', 'crossbody', 'shoulder']) for (const handheld of ['hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone']) {
+      for (const pose of [{ stride: 0.8 }, { seated: 1 }, { speaking: true, time: 1 }]) {
+        models.draw(0, { appearance: { ...original, bag, bagColor: 'coral', handheld } }, new THREE.Vector3(), 1, pose);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+      }
+      expect(snapshot(models, 1)).toEqual(other);
+      expect(colorSnapshot(models, 1)).toEqual(otherColors);
+    }
+    const grip = { rightArm: -0.7, rightElbow: -0.4, rightSpread: 0.2 };
+    const emptyHand = models.draw(0, { appearance: original }, new THREE.Vector3(), 1, grip).rightHand.clone();
+    const carrying = models.draw(0, { appearance: { ...original, handheld: 'phone' } }, new THREE.Vector3(), 1, grip);
+    expect(carrying.rightHand.toArray()).toEqual(emptyHand.toArray());
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(before);
+  } finally { models.dispose(); }
+});
+it('모자·선글라스를 모든 머리와 섞어도 다른 슬롯에 번지지 않고 벗으면 원래 외형으로 돌아온다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), beforeColors = colorSnapshot(models, 0);
+    const other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    const accessoryVisible = () => models.pickMeshes.filter(mesh => ['hat', 'hatTrim', 'lenses'].includes(mesh.userData.avatarMaterial))
+      .some(mesh => {
+        const matrix = new THREE.Matrix4();
+        for (let i = 0; i < mesh.count; i++) {
+          mesh.getMatrixAt(i, matrix); if (Math.abs(matrix.determinant()) > 1e-8) return true;
+        }
+        return false;
+      });
+    expect(accessoryVisible()).toBe(false);
+    for (const hair of ['curly', 'parted', 'bob', 'long', 'flowing', 'bald']) {
+      for (const hat of ['cap', 'bucket', 'beanie', 'beret']) {
+        models.draw(0, { appearance: { ...original, hair, hat, hatColor: 'mint', glasses: 'sunglasses' } },
+          new THREE.Vector3(), 1, { stride: 0.8, speaking: true, time: 1 });
+        expect(accessoryVisible()).toBe(true);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+        expect(snapshot(models, 1)).toEqual(other);
+        expect(colorSnapshot(models, 1)).toEqual(otherColors);
+      }
+    }
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    expect(accessoryVisible()).toBe(false);
+    expect(snapshot(models, 0)).toEqual(before);
+    expect(colorSnapshot(models, 0)).toEqual(beforeColors);
+  } finally { models.dispose(); }
+});
+it('신발 교체는 다른 파츠와 다른 사람의 외형을 유지하며 보행 중 바닥을 뚫지 않는다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  const original = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance: original }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance: original }, new THREE.Vector3(2, 0, 0), 1, {});
+    const other = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+    const body = () => snapshot(models, 0).filter((_, i) => !['footwear', 'sole'].includes(models.pickMeshes[i].userData.avatarMaterial));
+    const before = body(), originalShoes = snapshot(models, 0);
+    for (const shoes of ['slipOn', 'highTop', 'sneakers']) {
+      models.draw(0, { appearance: { ...original, shoes, shoeColor: 'ink' } }, new THREE.Vector3(), 1, {});
+      expect(body()).toEqual(before);
+      if (shoes !== 'sneakers') expect(snapshot(models, 0)).not.toEqual(originalShoes);
+      for (const stride of [-1, 0, 1]) {
+        models.draw(0, { appearance: { ...original, shoes, shoeColor: 'ink' } }, new THREE.Vector3(), 1, { stride });
+        expect(bounds(models, 0).min.y).toBeGreaterThanOrEqual(-0.005);
+        expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+      }
+    }
+    expect(snapshot(models, 1)).toEqual(other);
+    expect(colorSnapshot(models, 1)).toEqual(otherColors);
+    const legacy = { ...original }; delete legacy.shoes; delete legacy.shoeColor;
+    models.draw(0, { appearance: legacy }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(originalShoes);
+  } finally { models.dispose(); }
+});
+it('카드용 경량 조명에서도 선택한 파츠·색·관절 위치는 편집 미리보기와 같다', () => {
+  const detailed = createWalkingCharacters(new THREE.Scene(), 2);
+  const card = createWalkingCharacters(new THREE.Scene(), 2, { lightweight: true });
+  try {
+    const appearances = [...AVATAR_PRESETS.map(preset => preset.appearance),
+      ...['sneakers', 'slipOn', 'highTop'].map(shoes => ({ ...AVATAR_PRESETS[0].appearance, shoes, shoeColor: 'coral' })),
+      ...['cap', 'bucket', 'beanie', 'beret'].map(hat => ({ ...AVATAR_PRESETS[0].appearance, hat, hatColor: 'cream', glasses: 'sunglasses' })),
+      ...['backpack', 'crossbody', 'shoulder'].map(bag => ({ ...AVATAR_PRESETS[0].appearance, bag, bagColor: 'navy' })),
+      ...['hotCoffee', 'icedCoffee', 'book', 'laptop', 'phone'].map(handheld => ({ ...AVATAR_PRESETS[0].appearance, handheld }))];
+    for (const appearance of appearances) {
+      const post = { appearance };
+      detailed.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
+      card.draw(0, post, new THREE.Vector3(), 1, { stride: 0.5 });
+      expect(snapshot(card, 0)).toEqual(snapshot(detailed, 0));
+      expect(colorSnapshot(card, 0)).toEqual(colorSnapshot(detailed, 0));
+    }
+    expect(card.pickMeshes.every(mesh => mesh.material.isMeshLambertMaterial)).toBe(true);
+  } finally { detailed.dispose(); card.dispose(); }
+});
+function colorSnapshot(models, slot) {
+  return models.pickMeshes.map(mesh => Array.from({ length: mesh.userData.avatarStride }, (_, part) => {
+    const index = mesh.userData.avatarInstanceIds.indexOf(slot * mesh.userData.avatarStride + part);
+    if (index < 0) return [0, 0, 0];
+    const color = new THREE.Color(); mesh.getColorAt(index, color); return color.toArray();
+  }).flat());
+}
+
+it('커스텀 외형을 바꾸거나 기본 외형으로 돌아가도 다른 인물의 파츠·색은 유지된다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  models.draw(0, { appearance: AVATAR_PRESETS[0].appearance }, new THREE.Vector3(), 1, {});
+  models.draw(1, { appearance: AVATAR_PRESETS[3].appearance }, new THREE.Vector3(2, 0, 0), 1, {});
+  const otherMatrices = snapshot(models, 1), otherColors = colorSnapshot(models, 1);
+  const firstColors = colorSnapshot(models, 0);
+  for (const preset of AVATAR_PRESETS.slice(1)) {
+    models.draw(0, { appearance: preset.appearance }, new THREE.Vector3(), 1, { stride: 0.8, speaking: true, time: 1 });
+    expect(colorSnapshot(models, 0)).not.toEqual(firstColors);
+    expect(snapshot(models, 1)).toEqual(otherMatrices);
+    expect(colorSnapshot(models, 1)).toEqual(otherColors);
+  }
+  models.draw(0, crew, new THREE.Vector3(), 1, {});
+  expect(snapshot(models, 1)).toEqual(otherMatrices);
+  expect(colorSnapshot(models, 1)).toEqual(otherColors);
+});
+
+it.each(AVATAR_PRESETS)('$name: 보행·캡슐 회전 중 좌표가 유효하고 지지발이 바닥에 남는다', preset => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), post = { appearance: preset.appearance };
+  for (const stride of [-1, 0, 1]) {
+    models.draw(0, post, new THREE.Vector3(), 1, { stride, stepLift: 0.08 });
+    const box = bounds(models, 0);
+    expect(box.min.y).toBeGreaterThanOrEqual(-0.005);
+    expect(box.min.y).toBeLessThan(0.02);
+    expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+  }
+  models.draw(0, post, new THREE.Vector3(), 1, { stage: 'packed', scale: 0.31, lift: -0.34 }, 0,
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.7, 0.3, 1.2)));
+  expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+});
+
+it('잘못된 커스텀 설정은 기존 회원 유형의 외형과 같은 파츠·색으로 돌아간다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2);
+  models.draw(0, coach, new THREE.Vector3(), 1, {});
+  const original = snapshot(models, 0), originalColors = colorSnapshot(models, 0);
+  models.draw(0, { ...coach, appearance: { ...AVATAR_PRESETS[0].appearance, version: 999 } }, new THREE.Vector3(), 1, {});
+  expect(snapshot(models, 0)).toEqual(original);
+  expect(colorSnapshot(models, 0)).toEqual(originalColors);
+});
+
+it.each([
+  ['eyebrows', 'straight'], ['eyebrows', 'bold'], ['nose', 'small'], ['nose', 'wide'],
+  ['mouth', 'flat'], ['mouth', 'open'], ['eyes', 'dot'], ['eyes', 'slim'],
+])('%s=%s를 같은 머리 모델에서 바꿔도 다른 슬롯의 얼굴은 유지된다', (part, value) => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), appearance = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance }, new THREE.Vector3(), 1, {});
+    models.draw(1, { appearance }, new THREE.Vector3(2, 0, 0), 1, {});
+    const before = snapshot(models, 0), other = snapshot(models, 1);
+    models.draw(0, { appearance: { ...appearance, [part]: value } }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).not.toEqual(before);
+    expect(snapshot(models, 0).flat().every(Number.isFinite)).toBe(true);
+    expect(snapshot(models, 1)).toEqual(other);
+    models.draw(0, { appearance }, new THREE.Vector3(), 1, {});
+    expect(snapshot(models, 0)).toEqual(before);
+  } finally { models.dispose(); }
+});
+
+function hasInstanceColor(mesh, expected) {
+  if (!mesh.instanceColor) return false;
+  const color = new THREE.Color();
+  mesh.getColorAt(0, color);
+  return color.getHex() === expected;
+}
+
+it('미선택 소품은 그리기 범위에서 제외하고 제거·재사용 시 다른 인물의 파츠와 색을 보존한다', () => {
+  const models = createWalkingCharacters(new THREE.Scene(), 2), origin = new THREE.Vector3();
+  const appearance = AVATAR_PRESETS[0].appearance;
+  try {
+    models.draw(0, { appearance }, origin, 1, {});
+    const count = () => models.pickMeshes.reduce((sum, mesh) => sum + mesh.count, 0);
+    const base = count();
+    const equipment = models.pickMeshes.filter(mesh => /^(hat|bag|item)/.test(mesh.userData.avatarMaterial));
+    expect(equipment.every(mesh => mesh.count === 0 && !mesh.visible)).toBe(true);
+    const writes = equipment.map(mesh => jest.spyOn(mesh, 'setMatrixAt'));
+    models.draw(0, { appearance }, origin, 1, { stride: 0.6 });
+    writes.forEach(write => { expect(write).not.toHaveBeenCalled(); write.mockRestore(); });
+    models.draw(0, { appearance }, origin, 1, {});
+    models.draw(1, { appearance: { ...appearance, hat: 'bucket', bag: 'backpack', handheld: 'laptop' } }, origin, 1, {});
+    const other = snapshot(models, 1), colors = colorSnapshot(models, 1), both = count();
+    expect(both).toBeGreaterThan(base * 2);
+    models.hide(0);
+    expect(count()).toBe(both - base);
+    expect(snapshot(models, 1)).toEqual(other);
+    expect(colorSnapshot(models, 1)).toEqual(colors);
+    models.draw(0, { appearance }, origin, 1, {});
+    expect(count()).toBe(both);
+    for (const mesh of models.pickMeshes) for (let index = 0; index < mesh.count; index++) {
+      const matrix = new THREE.Matrix4(); mesh.getMatrixAt(index, matrix);
+      expect(Math.abs(matrix.determinant())).toBeGreaterThan(0);
+    }
+    models.hide(1);
+    expect(count()).toBe(base);
+    expect(equipment.every(mesh => mesh.count === 0 && !mesh.visible)).toBe(true);
+  } finally { models.dispose(); }
 });

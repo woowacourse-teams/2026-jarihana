@@ -30,7 +30,13 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,6 +55,83 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
     @Autowired private AccessTokenProvider tokens;
     @Autowired private AuthCookieProperties cookies;
     @Autowired private JdbcTemplate jdbc;
+
+    @Test
+    @DisplayName("같은 공지 등록 요청을 동시에 보내도 공지와 알림은 한 번만 생성한다.")
+    void replaysAnnouncementCreationWithoutDuplicatingNotification() throws Exception {
+        Group group = saveGroup("공지 재전송 모임");
+        Member leader = saveMember("다온", "announcement-retry-leader");
+        Member reader = saveMember("해솔", "announcement-retry-reader");
+        saveLeader(group, leader);
+        saveMemberOf(group, reader);
+        String csrf = csrfToken();
+        UUID requestId = UUID.randomUUID();
+        var payload = Map.of("title", "모임 공지", "content", "다음 일정 안내", "scope", "MEMBERS",
+                "requestId", requestId);
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<Long> submit = () -> {
+            assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+            return mutation(leader, csrf).contentType("application/json").body(payload)
+                    .post("/groups/{groupId}/announcements", group.getId())
+                    .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        };
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(submit);
+            var second = pool.submit(submit);
+            start.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isEqualTo(second.get(10, TimeUnit.SECONDS));
+        }
+
+        mutation(leader, csrf).contentType("application/json")
+                .body(Map.of("title", "다른 공지", "content", "다음 일정 안내", "scope", "MEMBERS",
+                        "requestId", requestId))
+                .post("/groups/{groupId}/announcements", group.getId()).then().statusCode(409);
+        assertThat(jdbc.queryForObject("select count(*) from announcements where group_id = ?",
+                Long.class, group.getId())).isEqualTo(1);
+        assertThat(authenticated(reader).queryParam("clientVersion", 2)
+                .get("/notifications").jsonPath().getList("data.items")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("공지를 수정한 뒤에도 최초 등록 요청에는 기존 공지 ID를 반환한다.")
+    void replaysOriginalCreationAfterAnnouncementWasEdited() {
+        Group group = saveGroup("공지 수정 후 재전송 모임");
+        Member leader = saveMember("다온", "announcement-edited-leader");
+        Member reader = saveMember("해솔", "announcement-edited-reader");
+        saveLeader(group, leader);
+        saveMemberOf(group, reader);
+        String csrf = csrfToken();
+        UUID requestId = UUID.randomUUID();
+        var edited = Map.of("title", "일요일 모임", "content", "오후 3시에 만나요", "scope", "PUBLIC");
+        var registration = Map.of("title", "토요일 모임", "content", "오후 2시에 만나요",
+                "scope", "MEMBERS", "requestId", requestId);
+
+        long id = mutation(leader, csrf).contentType("application/json").body(registration)
+                .post("/groups/{groupId}/announcements", group.getId())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        mutation(leader, csrf).contentType("application/json").body(edited)
+                .put("/groups/{groupId}/announcements/{announcementId}", group.getId(), id)
+                .then().statusCode(200);
+
+        long replayedId = mutation(leader, csrf).contentType("application/json").body(registration)
+                .post("/groups/{groupId}/announcements", group.getId())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        Response conflict = mutation(leader, csrf).contentType("application/json")
+                .body(Map.of("title", edited.get("title"), "content", edited.get("content"),
+                        "scope", edited.get("scope"), "requestId", requestId))
+                .post("/groups/{groupId}/announcements", group.getId());
+        Response detail = authenticated(reader).get("/groups/{groupId}/announcements/{announcementId}",
+                group.getId(), id);
+
+        assertThat(replayedId).isEqualTo(id);
+        assertThat(conflict.statusCode()).isEqualTo(409);
+        assertThat(conflict.jsonPath().getString("error.code")).isEqualTo("ANNOUNCEMENT_REQUEST_CONFLICT");
+        assertThat(detail.jsonPath().getMap("data")).containsAllEntriesOf(edited);
+        assertThat(jdbc.queryForObject("select count(*) from announcements where group_id = ?",
+                Long.class, group.getId())).isEqualTo(1);
+        assertThat(authenticated(reader).queryParam("clientVersion", 2)
+                .get("/notifications").jsonPath().getList("data.items")).hasSize(1);
+    }
 
     @Test
     @DisplayName("모임원 공개 공지는 현재 구성원에게만 보이고 전체 공개 공지는 비로그인 방문자에게도 보인다.")

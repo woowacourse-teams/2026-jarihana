@@ -1,0 +1,290 @@
+name: Realtime Deploy
+
+on:
+  pull_request:
+    branches: [develop]
+    paths: &realtime_paths
+      - "realtime/**"
+      - "contracts/realtime/**"
+      - "infra/realtime/**"
+      - "backend/src/main/resources/db/migration/V1__baseline.sql"
+      - "backend/src/main/resources/db/migration/V39__member_avatar.sql"
+      - "backend/src/main/resources/db/migration/V40__group_space.sql"
+      - "frontend/src/pages/space/**"
+      - ".github/workflows/realtime-deploy.yml"
+  push:
+    branches: [develop]
+    paths: *realtime_paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realtime-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REALTIME_REPOSITORY: ghcr.io/woowacourse-teams/jarihana-realtime
+  REALTIME_HANDOFF_ROOT: /dev/shm/jarihana-realtime-${{ github.repository_id }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: realtime/**/*.gradle*
+      - run: npm ci --prefix frontend
+      - run: node contracts/realtime/export-runtime.cjs --check
+      - run: ./gradlew test bootJar --no-daemon
+        working-directory: realtime
+      - name: 개발·운영 DB와 WebSocket 격리 검증
+        run: node infra/realtime/verify-protocol.mjs
+      - name: Alloy 설정 검증
+        run: |
+          docker run --rm -v "$PWD/infra/realtime/config.alloy:/etc/alloy/config.alloy:ro" \
+            grafana/alloy:v1.20.1 validate /etc/alloy/config.alloy
+
+  publish:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: GHCR 로그인
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$GHCR_TOKEN"
+      - uses: docker/setup-buildx-action@v4
+      - name: ARM64 이미지 빌드 및 발행
+        id: image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: realtime/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REALTIME_REPOSITORY }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  prepare:
+    needs: publish
+    name: Prepare ${{ matrix.target }} realtime settings
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [dev, prod]
+    environment: ${{ matrix.target }}
+    runs-on: [self-hosted, Linux, ARM64, jarihana-realtime]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: 기존 API 설정 읽기
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          RDS_URL: ${{ vars.RDS_URL }}
+          DB_USERNAME: ${{ vars.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          : "${DB_USERNAME:?Set DB_USERNAME in the API Environment}"
+          : "${DB_PASSWORD:?Set DB_PASSWORD in the API Environment}"
+          : "${ACCESS_TOKEN_SECRET:?Set ACCESS_TOKEN_SECRET in the API Environment}"
+          if [[ ! "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ || ! "$FRONTEND_ORIGIN" =~ ^https?://[^/,[:space:]]+$ ]]; then
+            echo 'Expected an RDS hostname and a single frontend origin.' >&2
+            exit 1
+          fi
+
+          token_key=$(printf '%s' "$ACCESS_TOKEN_SECRET" | node infra/realtime/derive-token-key.mjs "$TARGET")
+          unset ACCESS_TOKEN_SECRET
+          echo "::add-mask::$token_key"
+          jdbc_url="jdbc:postgresql://$RDS_URL:5432/jarihana_$TARGET?sslmode=require"
+
+          # A dedicated runner keeps this private tmpfs directory available between jobs.
+          mkdir -p -- "$REALTIME_HANDOFF_ROOT"
+          [[ -O "$REALTIME_HANDOFF_ROOT" && ! -L "$REALTIME_HANDOFF_ROOT" ]]
+          chmod 700 "$REALTIME_HANDOFF_ROOT"
+          find "$REALTIME_HANDOFF_ROOT" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-[0-9]*' -mmin +60 -exec rm -rf -- {} +
+          handoff_dir="$REALTIME_HANDOFF_ROOT/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p -- "$handoff_dir"
+          pending=$(mktemp "$handoff_dir/$TARGET.XXXXXX")
+          trap 'rm -f -- "$pending"' EXIT
+          printf '%s\0' "$token_key" "$jdbc_url" "$DB_USERNAME" "$DB_PASSWORD" "$FRONTEND_ORIGIN" > "$pending"
+          mv -- "$pending" "$handoff_dir/$TARGET"
+
+  deploy:
+    needs: [publish, prepare]
+    if: always() && needs.publish.result == 'success'
+    runs-on: [self-hosted, Linux, ARM64, jarihana-realtime]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        if: needs.prepare.result == 'success' && !cancelled()
+        with:
+          persist-credentials: false
+      - name: 공용 realtime 배포 및 두 DB 상태 확인
+        if: needs.prepare.result == 'success' && !cancelled()
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REALTIME_IMAGE: ${{ env.REALTIME_REPOSITORY }}@${{ needs.publish.outputs.digest }}
+          MONITORING_BIND_ADDRESS: ${{ vars.MONITORING_BIND_ADDRESS }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          handoff_dir="$REALTIME_HANDOFF_ROOT/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          origins=()
+          load_settings() {
+            local target=$1 prefix=$2 key value masked origin
+            if [[ ! -r "$handoff_dir/$target" ]]; then
+              echo "Missing $target realtime settings on this runner. Re-run all jobs on the dedicated runner." >&2
+              return 1
+            fi
+            {
+              for key in TOKEN_KEY DB_JDBC_URL DB_USERNAME DB_PASSWORD; do
+                IFS= read -r -d '' value || return 1
+                case "$key" in
+                  TOKEN_KEY|DB_PASSWORD)
+                    masked=${value//%/%25}
+                    masked=${masked//$'\r'/%0D}
+                    masked=${masked//$'\n'/%0A}
+                    printf '::add-mask::%s\n' "$masked"
+                    ;;
+                esac
+                export "${prefix}_${key}=$value"
+              done
+              IFS= read -r -d '' origin || return 1
+            } < "$handoff_dir/$target"
+            origins+=("$origin")
+          }
+          load_settings dev REALTIME_DEV
+          load_settings prod REALTIME_PROD
+          export REALTIME_ALLOWED_ORIGINS="${origins[0]},${origins[1]}"
+          : "${MONITORING_BIND_ADDRESS:?Set the existing repository monitoring address variable}"
+          export PROMETHEUS_REMOTE_WRITE_URL="http://$MONITORING_BIND_ADDRESS:8080/prometheus/api/v1/write"
+          export LOKI_PUSH_URL="http://$MONITORING_BIND_ADDRESS:8080/loki/api/v1/push"
+
+          docker_plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/realtime-docker.XXXXXX")
+          export DOCKER_CONFIG
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          if [[ -d "$docker_plugins" ]]; then
+            ln -s "$(cd -- "$docker_plugins" && pwd)" "$DOCKER_CONFIG/cli-plugins"
+          fi
+          docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin <<< "$GHCR_TOKEN"
+          unset GHCR_TOKEN
+
+          : "${REALTIME_IMAGE:?Set the GHCR image digest}"
+          if [[ ! "$REALTIME_IMAGE" =~ ^ghcr\.io/woowacourse-teams/jarihana-realtime@sha256:[a-f0-9]{64}$ ]]; then
+            echo 'Expected a pinned jarihana-realtime image from GHCR.' >&2
+            exit 1
+          fi
+
+          source_dir="$GITHUB_WORKSPACE/infra/realtime"
+          state_dir="$HOME/.local/state/jarihana-realtime"
+
+          # Keep the Compose file and the Alloy bind mount together for rollback.
+          config_hash=$(cd "$source_dir" && sha256sum compose.yaml config.alloy | sha256sum)
+          config_dir="$state_dir/config/${config_hash%% *}"
+          mkdir -p -- "$config_dir"
+          for config_file in compose.yaml config.alloy; do
+            if ! cmp -s -- "$source_dir/$config_file" "$config_dir/$config_file"; then
+              install -m 600 -- "$source_dir/$config_file" "$config_dir/$config_file"
+            fi
+          done
+
+          last_success="$state_dir/last-success"
+
+          compose() {
+            local config_path=$1 image=$2
+            shift 2
+            REALTIME_IMAGE="$image" docker compose --project-name jarihana-realtime \
+              --env-file /dev/null --file "$config_path/compose.yaml" "$@"
+          }
+
+          wait_for_health() {
+            local config_path=$1 attempt endpoint=/actuator/health
+            # The first release with Alloy moved the public-port health path.
+            if [[ -f "$config_path/config.alloy" ]]; then
+              endpoint=/healthz
+            fi
+            for ((attempt = 1; attempt <= 18; attempt++)); do
+              if curl --fail --silent --show-error --max-time 3 --noproxy '*' \
+                --output /dev/null "http://127.0.0.1:8080$endpoint"; then
+                return 0
+              fi
+              sleep 2
+            done
+            return 1
+          }
+
+          compose "$config_dir" "$REALTIME_IMAGE" config --quiet
+          compose "$config_dir" "$REALTIME_IMAGE" pull
+
+          if compose "$config_dir" "$REALTIME_IMAGE" up -d --no-build --pull never --remove-orphans &&
+            wait_for_health "$config_dir"; then
+            pending_state=$(mktemp "$state_dir/last-success.XXXXXX")
+            printf '%s\n%s\n' "$config_dir" "$REALTIME_IMAGE" > "$pending_state"
+            mv -- "$pending_state" "$last_success"
+            echo 'Realtime deploy is healthy.'
+            if ! curl --fail --silent --show-error --max-time 3 --noproxy '*' \
+              --retry 3 --retry-all-errors --retry-delay 2 --output /dev/null http://127.0.0.1:12345/-/ready; then
+              echo '::warning::Realtime Alloy is not ready. Check the collector on the realtime EC2.'
+            fi
+            exit 0
+          fi
+
+          echo 'Realtime deploy failed.' >&2
+          if [[ -f "$last_success" ]]; then
+            if { IFS= read -r previous_config && IFS= read -r previous_image; } < "$last_success" &&
+              compose "$previous_config" "$previous_image" up -d --no-build --pull missing --remove-orphans &&
+              wait_for_health "$previous_config"; then
+              echo 'Restored the last successful realtime deployment.' >&2
+            else
+              echo 'The last successful realtime deployment could not be restored.' >&2
+            fi
+          else
+            echo 'No last successful deployment is recorded on this runner.' >&2
+          fi
+          exit 1
+      - name: 이번 실행의 임시 설정 삭제
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -O "$REALTIME_HANDOFF_ROOT" && ! -L "$REALTIME_HANDOFF_ROOT" ]]; then
+            rm -rf -- "$REALTIME_HANDOFF_ROOT/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          fi

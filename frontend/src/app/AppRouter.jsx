@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
+import { GroupMusicProvider } from "../features/group-music/index.js";
 import { GroupTransitionProvider } from "../pages/groups/GroupTransition.jsx";
 import { Skeleton } from "../shared/ui";
 import { AnalyticsBridge } from "./AnalyticsBridge";
@@ -32,16 +33,21 @@ const loadAccountPages = () => import("../pages/account/index.js");
 const loadActivityPostPages = () => import("../pages/activity-posts/index.js");
 const loadGroupEditorPages = () => import("../pages/group-editor/index.jsx");
 const loadGroupPages = () => import("../pages/groups/index.js");
+const loadLandingFeaturePages = () => import("../pages/landing/LandingFeaturePages.jsx");
 const loadManagePages = () => import("../pages/manage/index.js");
 const loadProposalPages = () => import("../pages/proposals/index.js");
 
 const loadNotificationPages = () => import("../pages/notifications/index.jsx");
 export const lazyPageRegistry = Object.freeze({
+  ShopPage: lazyNamed(() => import("../pages/shop/ShopPage.jsx"), "ShopPage"),
   GamesPage: lazyNamed(() => import("../pages/games/index.jsx"), "GamesPage"),
+  ChairStackPage: lazyNamed(() => import("../pages/games/ChairStackPage.jsx"), "ChairStackPage"),
   GomokuLobbyPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuLobbyPage"),
   GomokuRoomPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuRoomPage"),
   GomokuObservationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuObservationPage"),
   GomokuInvitationPage: lazyNamed(() => import("../pages/games/index.jsx"), "GomokuInvitationPage"),
+
+  AvatarPage: lazyNamed(loadAccountPages, "AvatarPage"),
   StickHalvingRoomPage: lazyNamed(() => import("../pages/games/StickHalvingRoomPage.jsx"), "StickHalvingRoomPage"),
   RhythmHarpoonEntryPage: lazyNamed(
     () => import("../pages/games/RhythmHarpoonEntryPage.jsx"),
@@ -78,6 +84,11 @@ export const lazyPageRegistry = Object.freeze({
   GroupsPage: lazyNamed(loadGroupPages, "GroupsPage"),
   HomePage: lazyNamed(() => import("../pages/HomePage.jsx"), "HomePage"),
   LandingPage: lazyNamed(() => import("../pages/landing/LandingPage.jsx"), "LandingPage"),
+  DemodayLandingPage: lazyNamed(() => import("../pages/landing/DemodayLandingPage.jsx"), "DemodayLandingPage"),
+  LandingJoinPage: lazyNamed(loadLandingFeaturePages, "LandingJoinPage"),
+  LandingCreatePage: lazyNamed(loadLandingFeaturePages, "LandingCreatePage"),
+  LandingSparringPage: lazyNamed(loadLandingFeaturePages, "LandingSparringPage"),
+  LandingGamesPage: lazyNamed(loadLandingFeaturePages, "LandingGamesPage"),
   MyGroupsPage: lazyNamed(loadAccountPages, "MyGroupsPage"),
   MyPage: lazyNamed(loadAccountPages, "MyPage"),
   MyPointsPage: lazyNamed(loadAccountPages, "MyPointsPage"),
@@ -93,7 +104,8 @@ export const lazyPageRegistry = Object.freeze({
   ShowcasePage: lazyNamed(() => import("../pages/ShowcasePage.jsx"), "ShowcasePage"),
   SparringDetailPage: lazyNamed(() => import("../pages/sparring/SparringDetailPage.jsx"), "SparringDetailPage"),
   SparringPage: lazy(() => import("../pages/sparring/SparringPage.jsx")),
-  SignupPage: lazyNamed(loadAccountPages, "SignupPage")
+  SignupPage: lazyNamed(loadAccountPages, "SignupPage"),
+  SpaceStudioPage: lazyNamed(() => import("../pages/space/SpaceStudioPage.jsx"), "SpaceStudioPage")
 });
 
 function PageLoading() {
@@ -164,7 +176,7 @@ export function createAppRouteElements(pageRegistry, loaders = {}) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppShell />}>{createAppRouteElements(lazyPageRegistry)}</Route>
+      <Route element={<GroupMusicProvider><AppShell /></GroupMusicProvider>}>{createAppRouteElements(lazyPageRegistry)}</Route>
     </Routes>
   );
 }
@@ -174,7 +186,7 @@ function RouterLayout() {
     <>
       <AnalyticsBridge />
       <GroupTransitionProvider>
-        <AppShell />
+        <GroupMusicProvider><AppShell /></GroupMusicProvider>
       </GroupTransitionProvider>
       <ScrollRestoration />
     </>

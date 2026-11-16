@@ -11,7 +11,6 @@ reject() { if ( "$@" ) >"$TEST_DIR/rejected.log" 2>&1; then printf 'unexpected a
 
 ENVIRONMENT=dev; RUN_ID=100; ATTEMPT=1; BRANCH=develop; BG_MODE=deploy
 GITHUB_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-CONTROL_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 REPO=woowacourse-teams/2026-jarihana; WORKFLOW_ID=9
 GITHUB_OUTPUT="$TEST_DIR/output"
 MOCK_API_BODY=$(jq -cn --arg sha "$GITHUB_SHA" --arg repo "$REPO" '{id:100,run_attempt:1,head_sha:$sha,head_branch:"develop",workflow_id:9,path:".github/workflows/backend-dev-deploy.yml",event:"workflow_dispatch",repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}')
@@ -81,7 +80,7 @@ if [[ $(uname -s) == Linux ]]; then
       bg_config "$TEST_DIR/state/config.json"
       pass "valid root example accepted ($example)"
     done
-    for mutation in '.management_port=8081.5' '.app_port=.management_port' '.compose_file="/etc/jarihana-deploy/prod/app-compose.yml"' '.worker_token_file="/etc/jarihana-deploy/prod/worker-token"'; do
+    for mutation in '.management_port=8081.5' '.app_port=.management_port' '.worker_token_file="/etc/jarihana-deploy/prod/worker-token"'; do
       jq "$mutation" "$ROOT/infra/blue-green-deploy/controller/full-app-A.example.json" > "$TEST_DIR/state/config.json"
       reject bg_config "$TEST_DIR/state/config.json"
       pass "invalid app configuration rejected ($mutation)"
@@ -106,7 +105,7 @@ SSH
   bg_root_file() { :; }
   BG_IMAGE_DIGEST=sha256:$(printf 'a%.0s' {1..64})
   CONFIG='{"topology":{"environment":"dev","a":{"slot":"A"},"b":{"slot":"B"}},"coordinator_address":"10.0.0.5","journal_key":"/etc/jarihana-deploy/dev/grant-key","known_hosts":"/etc/jarihana-deploy/dev/known-hosts"}'
-  grant=$(jq -cn --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg image "$BG_IMAGE_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,environment:"dev",run_id:100,attempt:1,sha:$sha,control_sha:$control,mode:"deploy",image:$image,topology_digest:$topology,phase:"PREPARING",old:"A",target:"B",created_at:1000,heartbeat:1000,expires_at:2000,deployment_id:"11111111-1111-1111-1111-111111111111",pending:{id:"22222222-2222-2222-2222-222222222222",operation:"prepare",slot:"B",deadline:1500},switched:false,sealed:false,observation_failed:false}')
+  grant=$(jq -cn --arg sha "$GITHUB_SHA" --arg image "$BG_IMAGE_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,environment:"dev",run_id:100,attempt:1,sha:$sha,mode:"deploy",image:$image,topology_digest:$topology,phase:"PREPARING",old:"A",target:"B",created_at:1000,heartbeat:1000,expires_at:2000,deployment_id:"11111111-1111-1111-1111-111111111111",pending:{id:"22222222-2222-2222-2222-222222222222",operation:"prepare",slot:"B",deadline:1500},switched:false,sealed:false,observation_failed:false}')
   printf '%s\n' "$grant" > "$BG_TEST_GRANT_FILE"
   bg_grant prepare B
   pass 'exact fresh SSH grant accepted'
@@ -122,6 +121,46 @@ SSH
   pass 'a fresh journal cannot authorize an ended GitHub run after the 10-second check boundary'
   MOCK_API_BODY=$original
 fi
+# Real Git commits prove that each run follows its caller SHA without a host version pin.
+(
+  SCRIPT_ROOT="$TEST_DIR/checkout"
+  mkdir "$SCRIPT_ROOT"
+  git init -q "$SCRIPT_ROOT"
+  echo first >"$SCRIPT_ROOT/release"
+  commit_fixture() {
+    git -C "$SCRIPT_ROOT" add release
+    git -C "$SCRIPT_ROOT" -c user.name=Fixture -c user.email=fixture@example.com \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm fixture
+  }
+  commit_fixture
+  GITHUB_SHA=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
+  first_sha=$GITHUB_SHA
+  BG_ENVIRONMENT=prod; BG_SLOT=A; BG_MODE=deploy
+  BG_IMAGE_DIGEST=sha256:$(printf '%064d' 1)
+  GITHUB_RUN_ID=100; GITHUB_RUN_ATTEMPT=1
+  GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana
+  GITHUB_REF=refs/heads/main
+  GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy.yml@refs/heads/main"
+  id() { echo jarihana-runner; }
+  bg_config() { CONFIG=$(jq '.topology.environment="prod"' "$ROOT/infra/blue-green-deploy/controller/full-app-A.example.json"); }
+  bg_machine() { :; }
+  bg_github() {
+    if [[ $1 == */workflows/* ]]; then
+      echo '{"id":9,"path":".github/workflows/backend-prod-deploy.yml","state":"active"}'
+    else
+      jq -cn --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '{id:100,run_attempt:1,head_sha:$sha,head_branch:"main",workflow_id:9,path:".github/workflows/backend-prod-deploy.yml",event:"push",repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}'
+    fi
+  }
+  bg_init app
+  echo second >"$SCRIPT_ROOT/release"; commit_fixture
+  reject bg_init app
+  grep -q 'does not match the deployment commit' "$TEST_DIR/rejected.log"
+  GITHUB_SHA=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
+  [[ $GITHUB_SHA != "$first_sha" ]]
+  bg_init app
+)
+pass 'successive caller SHAs work without host version changes; another checkout SHA is rejected'
+
 bg_uuid() { printf '11111111-1111-1111-1111-111111111111\n'; }
 bg_output result '{"safe":true}'
 grep -q '^result<<bg-' "$GITHUB_OUTPUT" && grep -q '{"safe":true}' "$GITHUB_OUTPUT"

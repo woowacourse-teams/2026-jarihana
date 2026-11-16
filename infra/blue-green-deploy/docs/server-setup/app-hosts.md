@@ -1,12 +1,13 @@
 # 앱 A/B 호스트 구성
 
-[서버 구성](README.md)의 입력과 고정 제어 릴리스를 각 호스트에 준비한다.
-이 절차는 새 서버용이며, 기존 앱의 재시작/교체 명령이 아니다. 기존 활성 A에서 설정을 읽기
-대조했지만 B의 현재 내부 설정, 새 호스트 설치와 아래 최초 기동 명령 전체는 미검증이다.
+[서버 구성](README.md)의 입력과 설치용 소스를 각 호스트에 준비한다.
+이 절차는 새 서버용이며, 기존 앱의 재시작/교체 명령이 아니다. 과거 조회 때의 활성 슬롯을
+현재 상태로 간주하지 않는다. 최근 조회 범위는 [운영 적용 상태](../deployment.md#운영-적용-상태)에 기록하며,
+새 호스트 설치와 아래 최초 기동 명령 전체는 미검증이다.
 
 ## 계정, 슬롯과 보호된 설정
 
-각 서버의 관리자 Bash에서 실행한다. `CONTROL_DIR`는 [릴리스 준비](README.md#고정-제어-릴리스-준비)의
+각 서버의 관리자 Bash에서 실행한다. `SETUP_DIR`는 [릴리스 준비](README.md#설치용-소스-준비)의
 root 소유 Git checkout이다. 동일 서버에 A/B 앱 두 개를 설치하지 않는다.
 
 ```bash
@@ -34,21 +35,24 @@ container_name/project를 채운다. topology 전체는 Nginx와 같아야 한�
 
 ```bash
 test -f "$INPUT_DIR/app-$APP_SLOT.json"
-jq -e --arg slot "$APP_SLOT" --arg ref "$CONTROL_REF" --arg sha "$CONTROL_SHA" \
-  '.local_slot==$slot and .topology.environment=="prod" and .topology.control.ref==$ref and .topology.control.sha==$sha' \
+jq -e --arg slot "$APP_SLOT" \
+  '.local_slot==$slot and .topology.environment=="prod"' \
   "$INPUT_DIR/app-$APP_SLOT.json" >/dev/null
 install -o root -g jarihana-runner -m 0640 "$INPUT_DIR/app-$APP_SLOT.json" \
   "/etc/jarihana-deploy/prod/app-$APP_SLOT.json"
 install -o root -g jarihana-runner -m 0640 \
-  "$CONTROL_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
-cmp -s "$CONTROL_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
+  "$SETUP_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
+cmp -s "$SETUP_DIR/infra/blue-green-deploy/controller/app-compose.yml" /etc/jarihana-deploy/prod/app-compose.yml
 runuser -u jarihana-runner -- bash -c \
   'ENVIRONMENT=prod
    source "$1/infra/blue-green-deploy/scripts/actions/common.sh"
    bg_config "$2"
    bg_machine "$(jq -r ".topology.${3,,}.instance_id" "$2")"' \
-  _ "$CONTROL_DIR" "/etc/jarihana-deploy/prod/app-$APP_SLOT.json" "$APP_SLOT"
+  _ "$SETUP_DIR" "/etc/jarihana-deploy/prod/app-$APP_SLOT.json" "$APP_SLOT"
 ```
+
+위 설치 Compose는 새 서버의 최초 앱 기동용이다. 일반 prepare는 실행 SHA의 Compose를
+임시 파일로 읽으며 이 관리자 설치본으로 대체하지 않는다.
 
 runner는 [공통 등록 절차](README.md#runner-등록과-부팅-설정)에 따라 jarihana-runner로 실행한다.
 BLUE_GREEN_PROD_A_RUNNER/B_RUNNER의 라벨과 실제 서버를 대응시킨다.
@@ -92,7 +96,7 @@ runuser -u jarihana-runner -- bash -c '
     -o StrictHostKeyChecking=yes -o UpdateHostKeys=no \
     -o UserKnownHostsFile=/etc/jarihana-deploy/prod/known-hosts -o ConnectTimeout=3 \
     "jarihana-grant@$(jq -r .coordinator_address "$c")" |
-    jq -e "{environment,phase,run_id,control_sha,topology_digest}"
+    jq -e "{environment,phase,run_id,sha,topology_digest}"
 ' _ "$APP_SLOT"
 ```
 
@@ -106,11 +110,11 @@ runner의 읽기 성공 여부를 판단하지 않는다. 이전 서버의 SSH �
 
 ```bash
 install -d -o root -g root -m 0755 /opt/jarihana-app-observability
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/blue-green-deploy/controller/observability-compose.yml" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/blue-green-deploy/controller/observability-compose.yml" \
   /opt/jarihana-app-observability/docker-compose.yml
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/monitoring/alloy/config.alloy" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/monitoring/alloy/config.alloy" \
   /opt/jarihana-app-observability/config.alloy
-install -o root -g root -m 0644 "$CONTROL_DIR/infra/monitoring/alloy/postgres-queries.yaml" \
+install -o root -g root -m 0644 "$SETUP_DIR/infra/monitoring/alloy/postgres-queries.yaml" \
   /opt/jarihana-app-observability/postgres-queries.yaml
 # 아래는 환경 파일의 키 목록이다. 보호 원본에서 실제 값을 준비하며 이 예시로 기동하지 않는다.
 cat > "$INPUT_DIR/alloy.env.example" <<'ENV'
@@ -165,7 +169,7 @@ volume 생성/복원과 재부팅, 새 host_id의 로그 도착은 미검증이�
 컨테이너가 있으면 멈춘다. 신규 B 앱은 기동하지 않고 최초 prepare workflow에 맡긴다.
 bootstrap workflow 자체는 앱을 설치하지 않으므로 A의 최초 PAUSED 기동 준비가 필요하다.
 
-관리자가 [앱 workflow](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/backend-app-operation.yml)의
+관리자가 [앱 workflow](../../../../.github/workflows/backend-app-operation.yml)의
 env를 기준으로 값을 Bash 형식으로 인용한 `INPUT_DIR/bootstrap.env`를 준비한다.
 GitHub Variables 이름과 프로세스 안의 이름이 다른 OAuth 설정은 workflow의 대응을 그대로 사용한다.
 
@@ -176,9 +180,11 @@ GitHub Variables 이름과 프로세스 안의 이름이 다른 OAuth 설정은 
 | OAuth | GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET, GITHUB_OAUTH_REDIRECT_URI |
 | push | PUSH_ENABLED, PUSH_WORKER_ENABLED, PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_PRIVATE_KEY, PUSH_VAPID_SUBJECT |
 | 이미지 | IMAGE_S3_BUCKET, IMAGE_S3_REGION, IMAGE_S3_KEY_PREFIX, IMAGE_S3_PUBLIC_BASE_URL, IMAGE_CDN_DELIVERY_BASE_URL, IMAGE_CLOUDFRONT_KEY_PAIR_ID, IMAGE_CLOUDFRONT_PRIVATE_KEY |
-| 선택 | SENTRY_BACKEND_DSN |
+| 선택 기능 | YOUTUBE_DATA_API_KEY, GOMOKU_CHAT_ENABLED, POINTS_STARTS_AT, IMAGE_CLEANUP_ENABLED, IMAGE_CLEANUP_GRACE_PERIOD, SENTRY_BACKEND_DSN |
 
 필수 값과 활성 기능에 필요한 키를 보호 원본에서 채우며 선택 값만 빈 값을 허용한다.
+선택 기능의 값도 운영 workflow와 맞춘다. 생략하면 음악 키와 포인트 시작 시각, Sentry DSN은 비어 있고,
+오목 채팅과 이미지 정리는 false, 이미지 정리 유예 기간은 P7D로 적용된다.
 RDS_URL은 endpoint만, PEM은 Bash 인용 안에서 줄바꿈을 보존한다. bootstrap.env는
 컨테이너 기동 환경을 전달하는 파일이며 Compose 구조나 PAUSED/graceful 설정은 변경하지 않는다.
 

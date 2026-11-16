@@ -1,4 +1,4 @@
-import { PRACTICE_LEVELS as LEVELS } from "./engine.mjs";
+import { LEVELS } from "./engine.mjs";
 import { createPracticeRun, summarizePracticeRun } from "./practice-session.mjs";
 import { MusicTransport } from "./audio.mjs";
 import { Renderer, loopHealAnnouncement } from "./render.mjs";
@@ -13,25 +13,9 @@ import {
   readPracticeSettings,
   writePracticeSettings
 } from "./preferences.mjs";
+import { STAGES, stageOf } from "./stages.mjs";
 
-// ANOTHER는 스윙 곡과 전용 채보를 쓴다. 다른 난이도는 원곡 채보를 단순화해 쓴다.
-const STAGE_ASSETS = {
-  original: {
-    chart: "/game-assets/rhythm-harpoon/assets/chart.json?v=bars-13-16-1",
-    music: "/game-assets/rhythm-harpoon/assets/pixel-circuit.ogg?v=spiral-melody-5",
-    kicker: "ARROWS + WASD / 128 BPM",
-    title: "Pixel Circuit",
-    meta: "128 BPM / 90초 루프"
-  },
-  swing: {
-    chart: "/game-assets/rhythm-harpoon/assets/swing-chart.json?v=another-2",
-    music: "/game-assets/rhythm-harpoon/assets/pixel-circuit-swing.ogg?v=another-1",
-    kicker: "ARROWS + WASD / 144 BPM SWING",
-    title: "Pixel Circuit (Swing)",
-    meta: "144 BPM 스윙 / 80초 루프"
-  }
-};
-const stageOf = (level) => (level === "another" ? "swing" : "original");
+const kickerOf = (level) => "ARROWS + WASD / " + STAGES[stageOf(level)].bpmLabel;
 
 export function mountPracticeGame({ root, onReady, onError, onPlayingChange, keyBindings }) {
   const document = root.ownerDocument;
@@ -95,7 +79,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
     $("difficulty-copy").textContent = LEVELS[level].description;
     $("speed-up-copy").textContent =
       LEVELS[level].speedUpFromLoop + "루프부터 곡 배속이 매 루프 +0.05 / 음높이도 함께 상승";
-    const stage = STAGE_ASSETS[stageOf(level)];
+    const stage = STAGES[stageOf(level)];
     $("track-title").textContent = stage.title;
     $("track-meta").textContent = stage.meta;
     $("legend-triplet").hidden = stageOf(level) !== "swing";
@@ -118,7 +102,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
   function loadStage(name) {
     if (stages.has(name)) return Promise.resolve(stages.get(name));
     if (!pendingStages.has(name)) {
-      const assets = STAGE_ASSETS[name];
+      const assets = STAGES[name];
       const promise = Promise.all([
         fetch(assets.chart, { signal: lifetime.signal }).then((response) => {
           if (!response.ok) throw new Error("채보를 불러올 수 없어요.");
@@ -428,7 +412,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
       setLife(LEVELS[level].lives, LEVELS[level].lives);
       saveSettings();
       if (state === "ready") {
-        $("overlay-kicker").textContent = STAGE_ASSETS[stageOf(level)].kicker;
+        $("overlay-kicker").textContent = kickerOf(level);
         void loadStage(stageOf(level)).catch(() => {});
       }
       restartFromSettings();
@@ -528,7 +512,7 @@ export function mountPracticeGame({ root, onReady, onError, onPlayingChange, key
       if (disposed || !stage) return;
       chart = stage.chart;
       transport = new MusicTransport(audioContext, stage.buffer);
-      $("overlay-kicker").textContent = STAGE_ASSETS[stageOf(level)].kicker;
+      $("overlay-kicker").textContent = kickerOf(level);
       transport.gain.gain.value = Number($("volume").value) / 100;
       renderer = new Renderer(canvas, sprites);
       renderer.showTiming = $("timing-feedback").checked;

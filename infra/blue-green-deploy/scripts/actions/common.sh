@@ -73,9 +73,7 @@ bg_config() {
       .topology.coordinator_instance_id != .topology.b.instance_id and
       .topology.a.host_id != .topology.b.host_id and .topology.a.upstream != .topology.b.upstream and
       ([.topology.a.host_id,.topology.b.host_id] | all(test("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"))) and
-      ([.topology.a.upstream,.topology.b.upstream] | all(test("^[0-9.]+:[0-9]{1,5}$"))) and
-      (.topology.control.ref | test("^refs/tags/deployment-control-[A-Za-z0-9._-]+$")) and
-      (.topology.control.sha | test("^[a-f0-9]{40}$"))
+      ([.topology.a.upstream,.topology.b.upstream] | all(test("^[0-9.]+:[0-9]{1,5}$")))
     ' <<< "$CONFIG" >/dev/null || bg_die 'Repository, environment or A/B topology is invalid.'
     jq -e '
       def port: type == "number" and floor == . and . >= 1024 and . <= 65535;
@@ -87,7 +85,6 @@ bg_config() {
         .image_repository == "ghcr.io/woowacourse-teams/jarihana-backend" and
         (.container_name | test("^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$")) and
         (.project | test("^[a-z0-9][a-z0-9_-]{0,63}$")) and
-        .compose_file == ("/etc/jarihana-deploy/" + $env + "/app-compose.yml") and
         .worker_token_file == ("/etc/jarihana-deploy/" + $env + "/worker-token") and
         .journal_key == ("/etc/jarihana-deploy/" + $env + "/grant-key") and
         .known_hosts == ("/etc/jarihana-deploy/" + $env + "/known-hosts")
@@ -207,13 +204,10 @@ bg_init() {
     [[ $(id -un) == "$name" ]] || bg_die 'Use the dedicated deployment account.'
     bg_config "$file"
     [[ $(jq -r '.topology.environment' <<< "$CONFIG") == "$ENVIRONMENT" ]] || bg_die 'Configuration environment differs.'
-    CONTROL_SHA=$(jq -r '.topology.control.sha' <<< "$CONFIG")
-    expected=$(jq -r '.topology.control.ref' <<< "$CONFIG")
-    [[ "${BG_CONTROL_REF:-}" == "$expected" || "refs/tags/${BG_CONTROL_REF:-}" == "$expected" ]] || bg_die 'Control tag differs from administrator settings.'
-    actual=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
-    [[ "$actual" == "$CONTROL_SHA" ]] || bg_die 'Checked-out control code is not the approved SHA.'
     REPO=$(jq -r '.repository.full_name' <<< "$CONFIG")
     [[ "${GITHUB_REPOSITORY:-}" == "$REPO" && "${GITHUB_SHA:-}" =~ ^[a-f0-9]{40}$ ]] || bg_die 'Deployment repository or SHA differs.'
+    actual=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
+    [[ "$actual" == "$GITHUB_SHA" ]] || bg_die 'Checked-out deployment code does not match the deployment commit.'
     BRANCH=main; [[ "$ENVIRONMENT" != dev ]] || BRANCH=develop
     expected="$REPO/.github/workflows/backend-$ENVIRONMENT-deploy.yml@refs/heads/$BRANCH"
     [[ "${GITHUB_REF:-}" == "refs/heads/$BRANCH" && "${GITHUB_WORKFLOW_REF:-}" == "$expected" ]] || bg_die 'Use the approved environment workflow and branch.'
@@ -262,11 +256,11 @@ bg_grant() {
     STATE=$(cat -- "$temporary"); rm -f -- "$temporary"
     jq -es 'length == 1 and (.[0] | type == "object")' <<< "$STATE" >/dev/null || bg_die 'Invalid coordinator grant JSON.'
     now=$(bg_now)
-    jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" \
+    jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" \
       --arg env "$ENVIRONMENT" --arg mode "$BG_MODE" --arg operation "$operation" --arg slot "$slot" \
       --arg image "$BG_IMAGE_DIGEST" --arg topology "$(bg_topology_digest)" --argjson now "$now" '
       .schema_version == 2 and .environment == $env and .run_id == $run and .attempt == 1 and
-      .sha == $sha and .control_sha == $control and .mode == $mode and .image == $image and
+      .sha == $sha and .mode == $mode and .image == $image and
       .topology_digest == $topology and (.old == "A" or .old == "B") and
       (.target == "A" or .target == "B") and .old != .target and
       .phase != "NEEDS_ATTENTION" and .expires_at > $now and

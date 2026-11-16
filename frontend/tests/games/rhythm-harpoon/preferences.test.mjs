@@ -10,6 +10,7 @@ import {
   readKeymap,
   readPracticeSettings,
   writeKeymap,
+  writePlaySettings,
   writePracticeSettings
 } from "../../../src/features/game/rhythm/preferences.mjs";
 import {
@@ -82,6 +83,18 @@ test("key layout and practice settings survive reloads and fall back on broken v
   });
   assert.equal(readPracticeSettings(blocked), null);
   assert.equal(writePracticeSettings(blocked, settings), false);
+});
+
+test("challenge play settings keep the practice level and speed and fall back only when none are saved", () => {
+  const storage = memoryStorage();
+  const display = { volume: 30, timingFeedback: false, labels: false };
+  assert.equal(writePlaySettings(storage, display, { level: "hard", rate: 2 }), true);
+  assert.deepEqual(readPracticeSettings(storage), { level: "hard", rate: 2, ...display });
+
+  writePracticeSettings(storage, { level: "medium", rate: 1.5, volume: 65, timingFeedback: true, labels: true });
+  writePlaySettings(storage, display, { level: "hardest", rate: 3 });
+  assert.deepEqual(readPracticeSettings(storage), { level: "medium", rate: 1.5, ...display });
+  assert.equal(writePlaySettings(blocked, display, { level: "easy", rate: 1 }), false);
 });
 
 test("lesson tempo and scroll speed are remembered only when they are valid choices", () => {

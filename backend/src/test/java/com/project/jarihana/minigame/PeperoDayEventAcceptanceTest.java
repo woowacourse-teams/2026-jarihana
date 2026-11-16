@@ -70,8 +70,8 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                 .then()
                 .statusCode(201)
                 .body("data.round", equalTo(1))
-                .body("data.timeLimitSeconds", equalTo(30))
-                .body("data.remainingMillis", equalTo(30000))
+                .body("data.timeLimitSeconds", equalTo(10))
+                .body("data.remainingMillis", equalTo(10000))
                 .body("data.stick.lengthCm", equalTo(12.0f))
                 .body("data.stick.cells", hasSize(24))
                 .body("data.stick.startPosition", notNullValue())
@@ -102,7 +102,7 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
                         .statusCode(200)
                         .body("data.runId", equalTo((int) runId))
                         .body("data.round", equalTo(round + 1))
-                        .body("data.remainingMillis", equalTo(30000))
+                        .body("data.remainingMillis", equalTo(10000))
                         .extract()
                         .jsonPath()
                         .getMap("data.stick");
@@ -207,7 +207,7 @@ class PeperoDayEventAcceptanceTest extends IntegrationTestSupport {
         Map<String, Object> first = issueRound(owner, runId, 2).then().statusCode(200)
                 .extract().jsonPath().getMap("data.stick");
         Map<String, Object> again = issueRound(owner, runId, 2).then().statusCode(200)
-                .body("data.remainingMillis", equalTo(30000))
+                .body("data.remainingMillis", equalTo(10000))
                 .extract().jsonPath().getMap("data.stick");
         assertThat(again).isEqualTo(first);
         cut(owner, runId, 2, 6).then().statusCode(200).body("data.round", equalTo(2));

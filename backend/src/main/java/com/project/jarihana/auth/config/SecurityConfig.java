@@ -22,16 +22,22 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {"/oauth/**"};
     private static final String[] PUBLIC_GET_PATHS = {
+            "/shop/products",
             "/games/gomoku/rooms",
             "/games/gomoku/invitations/*",
             "/home",
             "/sparrings",
             "/sparrings/*",
             "/sparrings/*/posts",
+            "/sparrings/*/avatar-pools",
             "/sparrings/*/events",
             "/groups",
             "/groups/*",
             "/groups/*/calendar",
+            "/groups/*/space",
+            "/group-spaces/weather",
+            "/groups/*/music",
+            "/groups/*/music/events",
             "/groups/*/members",
             "/groups/*/recruitments",
             "/groups/*/recruitments/*",
@@ -48,13 +54,17 @@ public class SecurityConfig {
             "/events/pepero-day",
             "/events/pepero-day/rankings",
             "/games/stick-halving/rankings",
+            "/games/chair-stack/runs/current",
+            "/games/chair-stack/rankings",
             "/images/**",
             "/share/groups/*",
             "/share/sparrings/*",
             "/invitations/links/*",
             "/assets/default-group.png"
     };
-    private static final String[] PUBLIC_POST_PATHS = {"/auth/refresh"};
+    private static final String[] PUBLIC_POST_PATHS = {
+            "/auth/refresh", "/games/chair-stack/runs", "/games/chair-stack/drops"
+    };
 
     /**
      * 가입 세션과 Access Token 중 하나만 있어도 되는 경로다. 필터는 Access Token만 이해하므로

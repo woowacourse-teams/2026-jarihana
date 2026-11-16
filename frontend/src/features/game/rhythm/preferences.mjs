@@ -1,4 +1,4 @@
-import { PRACTICE_LEVELS } from "./engine.mjs";
+import { LEVELS } from "./engine.mjs";
 
 // 연습 설정과 키 배치는 이 브라우저의 localStorage에 남겨 다시 접속해도 유지한다.
 const KEYMAP_KEY = "haengseong-keymap-v1";
@@ -109,7 +109,7 @@ export function readPracticeSettings(storage) {
     const parsed = JSON.parse(storage?.getItem(PRACTICE_KEY) ?? "null");
     if (!parsed || typeof parsed !== "object") return null;
     return {
-      level: Object.hasOwn(PRACTICE_LEVELS, parsed.level) ? parsed.level : "easy",
+      level: Object.hasOwn(LEVELS, parsed.level) ? parsed.level : "easy",
       rate: RATES.includes(parsed.rate) ? parsed.rate : 1,
       volume: Number.isInteger(parsed.volume) && parsed.volume >= 0 && parsed.volume <= 100 ? parsed.volume : 65,
       timingFeedback: parsed.timingFeedback !== false,
@@ -118,6 +118,19 @@ export function readPracticeSettings(storage) {
   } catch {
     return null;
   }
+}
+
+// 랭킹 도전 옵션에서 바꾼 음량과 표시 설정을 연습 설정과 같은 곳에 남긴다.
+// 연습에서 마지막으로 고른 난이도와 배속은 건드리지 않고, 저장된 값이 없을 때만 fallback을 쓴다.
+export function writePlaySettings(storage, { volume, timingFeedback, labels }, fallback) {
+  const saved = readPracticeSettings(storage);
+  return writePracticeSettings(storage, {
+    level: saved?.level ?? fallback.level,
+    rate: saved?.rate ?? fallback.rate,
+    volume,
+    timingFeedback,
+    labels
+  });
 }
 
 export function writePracticeSettings(storage, settings) {

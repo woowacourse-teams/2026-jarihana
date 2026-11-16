@@ -9,7 +9,8 @@ const number = (value) => value.toLocaleString("ko-KR");
 const MEDAL_CLASS = { 1: "is-gold", 2: "is-silver", 3: "is-bronze" };
 
 // 옵션과 결과 화면 오른쪽의 난이도별 랭킹이다. 회원마다 가장 높은 기록 한 판으로 줄을 세운다.
-export function RhythmRanking({ level }) {
+// heading이 false면(창 안처럼 제목이 따로 있을 때) 머리 글을 빼고 이름만 붙인다.
+export function RhythmRanking({ level, heading = true }) {
   const query = useRhythmRanking(level);
   const { member } = useAuth();
   const rows = query.data
@@ -21,12 +22,20 @@ export function RhythmRanking({ level }) {
     : [];
   const me = query.data?.pages[0].me ?? null;
   return (
-    <section className="rhythm-ranking" aria-labelledby="rhythm-ranking-title">
-      <header className="rhythm-ranking__heading">
-        <span className="eyebrow">RANKING</span>
-        <h2 id="rhythm-ranking-title">{LEVELS[level].name} 랭킹</h2>
+    <section
+      className="rhythm-ranking"
+      aria-label={heading ? undefined : LEVELS[level].name + " 랭킹"}
+      aria-labelledby={heading ? "rhythm-ranking-title" : undefined}
+    >
+      {heading ? (
+        <header className="rhythm-ranking__heading">
+          <span className="eyebrow">RANKING</span>
+          <h2 id="rhythm-ranking-title">{LEVELS[level].name} 랭킹</h2>
+          <p className="small muted">회원마다 가장 높은 점수 한 판으로 순위를 매겨요.</p>
+        </header>
+      ) : (
         <p className="small muted">회원마다 가장 높은 점수 한 판으로 순위를 매겨요.</p>
-      </header>
+      )}
       {query.isPending ? (
         <p className="rhythm-ranking__state" role="status">
           랭킹을 불러오고 있어요.

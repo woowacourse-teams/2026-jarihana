@@ -12,6 +12,7 @@
 - [프론트엔드 릴리스](#프론트엔드-릴리스)
 - [내부 점검과 관측](#내부-점검과-관측)
 - [실행 보호와 기한](#실행-보호와-기한)
+- [저장 형식의 버전과 호환성](#저장-형식의-버전과-호환성)
 
 ## 구성요소와 요청 경로
 
@@ -31,6 +32,14 @@ A/B는 고정된 논리 슬롯이며 실제 호스트는 보호된 topology 설�
 정상 배포 순서는 [배포 실행](deployment.md#정상-배포-순서),
 호스트별 통신과 권한은 [서버 구성](server-setup/README.md#호스트와-네트워크)을 따른다.
 
+## 앱 Compose와 제어 코드의 버전
+
+일반 운영 배포는 실행을 시작한 main 커밋 SHA의 스크립트와 앱 Compose를 함께 사용한다.
+`resolve`에서 Compose 문법과 배포 필수 조건을 비밀값 없이 검사한 뒤 plan으로 진행한다.
+앱 runner는 실제 값으로 `docker compose config --quiet`를 다시 수행하고 같은 파일로 후보 컨테이너를 만든다.
+배포 도중 main의 새 HEAD를 다시 읽지 않으며 서버에 배포 코드 버전을 별도로 고정하지 않는다.
+원본 선택과 실행 방식은 [Compose 선택](deployment.md#운영-백엔드의-compose-선택)을 따른다.
+
 ## worker 인계와 정상 종료
 
 후보는 `PUSH_WORKER_CONTROL_ENABLED=true`, `PUSH_WORKER_START_PAUSED=true`로 시작한다.
@@ -44,7 +53,7 @@ UNASSIGNED가 된 뒤 후보를 activate한다. PAUSE 성공이나 `processDue()
 
 앱 runner가 해당 호스트의 `http://127.0.0.1:<management_port>/actuator/workercontrol`을 사용한다.
 기본 포트는 8081이며 `X-Jarihana-Worker-Control-Token`으로 별도 머신 토큰을 전달한다.
-[앱 실행기](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/app.sh)가 보호된 파일을 읽어 curl stdin 설정으로 전달하므로,
+[앱 실행기](../scripts/actions/app.sh)가 보호된 파일을 읽어 curl stdin 설정으로 전달하므로,
 토큰을 포함한 명령을 셸 인자나 로그에 직접 남기지 않는다. 공개 앱 포트의 접근은 거부한다.
 
 GET 상태에서 version, environment, identity의 hostId/bootId와 아래 항목을 함께 확인한다.
@@ -67,8 +76,8 @@ deadline은 시간대 오프셋 없는 LocalDateTime이며 호스트의 시간�
 명령 ID와 원본 payload를 intent에 먼저 저장한다. 정확히 같은 마지막 명령은 중복 적용하지 않지만,
 응답 유실이나 5xx 뒤에 자동 재전송하거나 새 ID로 재시도하지 않는다.
 충돌은 409, 잘못된 요청은 400, 토큰 오류나 공개 포트 접근은 403으로 처리한다.
-상세 payload와 전이 규칙은 [worker endpoint](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/backend/src/main/java/com/project/jarihana/notificationdelivery/command/controller/WorkerControlEndpoint.java)와
-[권한 서비스](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/backend/src/main/java/com/project/jarihana/notificationdelivery/command/service/WorkerAuthorityService.java)를 따른다.
+상세 payload와 전이 규칙은 [worker endpoint](../../../backend/src/main/java/com/project/jarihana/notificationdelivery/command/controller/WorkerControlEndpoint.java)와
+[권한 서비스](../../../backend/src/main/java/com/project/jarihana/notificationdelivery/command/service/WorkerAuthorityService.java)를 따른다.
 이 API는 HTTP 전환, EC2 중지나 배포 성공을 수행하지 않는다.
 실습 종료의 HANDOFF에서 COMPLETE 전이는 owner가 없고 UNASSIGNED이며 로컬 drain이
 확인된 경우에만 가능하다. COMPLETE/UNASSIGNED는 운영 배포 성공이나 배포 관찰 완료가 아니다.
@@ -79,6 +88,10 @@ deadline은 시간대 오프셋 없는 LocalDateTime이며 호스트의 시간�
 종료된 것을 확인한다. Docker 컨테이너 ID, 시작 시각과 재시작 횟수를 고정한 뒤 SIGTERM을 보낸다.
 종료 코드 0 또는 143, OOM 없음, 재시작 없음과 정상 종료 증거가 있어야 EC2를 중지한다.
 시간 초과를 이유로 강제 kill하지 않는다. 종료가 불확실하면 양쪽 EC2와 intent를 보존한다.
+
+정상 종료한 컨테이너는 EC2 디스크에 남는다. 다음 교대에서 해당 EC2를 시작하고 새 Compose를
+검증한 뒤, 이전 컨테이너 ID/시작 시각/재시작 횟수와 정상 종료 기록이 실제 상태와 일치하면
+이전 컨테이너를 삭제하고 새 SHA의 설정으로 후보를 만든다. `stop`과 `docker rm`은 서로 다른 배포에서 수행된다.
 
 ## 프론트엔드 릴리스
 
@@ -98,7 +111,7 @@ s3://techcourse-project-2026/jarihana/
 
 복구 원본은 과거 커밋 재빌드가 아닌 실제 바이트다. 파일의 path, size와 SHA-256을 manifest에
 기록하고, 모든 원본 검증 뒤 release.json을 마지막에 쓴다. 미완성 manifest는 복구 원본이 아니다.
-릴리스는 source SHA, backend digest, run/deployment ID와 control SHA로 연결한다.
+릴리스는 source SHA, backend digest, run/deployment ID로 연결한다.
 최초 baseline의 소스를 모르면 null로 두며 추정하지 않는다. 비밀값은 기록하지 않는다.
 
 릴리스 객체는 기존 객체가 없는 경우에만 생성하고 덮어쓰지 않는다. state.json은 읽은 ETag에
@@ -140,7 +153,7 @@ Nginx 서버의 중앙 수집기는 기존 [중앙 수집기 운영 문서](../.
 요청만 http.server.requests 타이머에서 제외한다. 같은 경로의 일반 요청은 집계하며
 로그, JDBC, CPU와 메모리 지표는 유지한다. 필터 전에는 표시된 점검도 집계된다.
 
-활성 Nginx 설정뿐 아니라 고정 제어 릴리스의 템플릿과 직접 검사 스크립트를 대조한다.
+활성 Nginx 설정뿐 아니라 배포 SHA의 템플릿과 직접 검사 스크립트를 대조한다.
 템플릿에 표시가 없으면 다음 전환에서 수동 설정이 덮어써질 수 있다. 설치 타이머와 prod 전용
 systemd drop-in도 함께 확인하고 코드 병합만으로 모든 경로에 적용됐다고 판단하지 않는다.
 
@@ -151,9 +164,15 @@ systemd drop-in도 함께 확인하고 코드 병합만으로 모든 경로에 �
 
 저널 schema 2를 사용하며 이전 v1 자동 이관과 미완료 저널에서의 새 plan은 허용하지 않는다.
 단계 실행은 현재 GitHub run과 첫 attempt, 저장소, branch, 부모 SHA와 workflow 경로,
-control SHA, 실제 EC2, image와 허가를 대조한다. A/B 앱은 로컬 관리 API만 호출하고
+checkout SHA, 실제 EC2, image와 허가를 대조한다. A/B 앱은 로컬 관리 API만 호출하고
 coordinator가 SSH 원격 명령으로 앱을 배포하지 않는다. SSH는 최신 저널 읽기 전용이다.
 앱 작업 결과와 Nginx 종료 증거를 native outputs로 검증하며 누락 값을 0이나 true로 채우지 않는다.
+
+앱 receipt의 `compose_source`는 원본 Compose의 40자리 커밋 SHA와 64자리 파일 SHA-256을 보관한다.
+새 `prepare` 결과는 현재 실행 SHA와 일치하는 출처가 필수다. 이후 작업은 hostId/bootId와 image가 같은
+저널 receipt의 출처를 전달하며 coordinator는 단계 사이의 변경이나 유실을 거부한다.
+frontend-only 배포도 `previous_backend_status`에서 기존 백엔드 receipt를 이어받는다.
+기존 receipt의 누락/null 출처는 알 수 없는 값으로 허용한다. 새 서버 파일이나 렌더링된 비밀값은 저장하지 않는다.
 
 | 제한 | 값과 의미 |
 | --- | --- |
@@ -177,19 +196,40 @@ GitHub API 응답의 잔여 요청은 새 plan/bootstrap 900, 일반 진행 500,
 헤더 누락, 403/429나 예산 부족이면 실패 경로로 진행하며 제한 해제까지 맹목적으로 기다리지 않는다.
 이 예산은 저장소가 공유하므로 다른 workflow의 소비나 GitHub 장애 중 복구 성공을 보장하지 않는다.
 
-요청 예산과 캐시는 [공통 실행 코드](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/common.sh)를 따른다.
+요청 예산과 캐시는 [공통 실행 코드](../scripts/actions/common.sh)를 따른다.
 
-watchdog은 검토한 control checkout과 실행 도구를 `/opt/jarihana-deploy`에 준비한다.
-[watchdog unit](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
+watchdog의 기본 unit 경로는 `/opt/jarihana-deploy`이며, [운영 설치 절차](server-setup/coordinator.md#watchdog-설치)는
+prod drop-in으로 `WorkingDirectory`와 `ExecStart`를 `/opt/jarihana-prod-deploy/releases/<SETUP_SHA>`의
+설치용 checkout으로 바꾼다. [watchdog unit](../controller/systemd/jarihana-deploy-watchdog@.service)은 coordinator 계정으로
 동일한 저널 잠금과 보호된 설정을 사용한다. pending deadline, heartbeat와 전체 만료를 보고
 NEEDS_ATTENTION만 기록한다. 강제 권한 회수, 허가 재발급이나 EC2 중지는 수행하지 않는다.
 `always()` finalizer도 runner 전원과 네트워크 장애 때 실행을 보장하지 않는다.
 
-Blue-Green과 [Monitoring Deploy](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/.github/workflows/monitoring-deploy.yml)는
+Blue-Green과 [Monitoring Deploy](../../../.github/workflows/monitoring-deploy.yml)는
 jarihana-observed-deployment 잠금을 공유한다. 관측 gateway 재생성과 배포 관찰을 겹치지 않게 한다.
 환경별로 잠금을 나누거나 부모/자식에 같은 잠금을 중복 설정하지 않는다.
 cancel-in-progress=false와 queue=max로 직렬화하고 대기열이 가득 찬 실행 결과도 확인한다.
 수동 재시작과 S3 writer는 이 잠금을 우회하므로 관찰 중 실행하지 않는다.
+
+### 저장 형식의 버전과 호환성
+
+다음 배포의 코드는 이전 SHA의 코드가 남긴 저널과 프론트 pointer를 읽는다.
+`schema_version`은 소스 커밋이나 Compose 설정의 버전이 아니라 저장된 필드의 구조와 해석 규칙을 나타낸다.
+저널과 그 안의 실행 허가는 schema 2, 프론트 pointer와 릴리스 manifest는 각각 schema 1을 사용한다.
+
+- 필드 삭제, 이름/자료형 변경, 필수 조건 강화나 의미 변경으로 기존 기록과 호환되지 않으면
+  해당 저장 형식의 `schema_version`을 올린다. 같은 버전의 필드를 다른 의미로 재해석하지 않는다.
+- 이전 기록의 해석을 유지하고 누락을 처리하는 선택 필드 추가는 버전을 유지할 수 있다.
+  receipt의 `compose_source`처럼 기존 기록의 누락/null을 허용하는 변경이 해당한다.
+  일반 앱 코드나 Compose 설정만 바뀌는 배포에는 저장 형식 버전을 올리지 않는다.
+- 호환성을 깨는 변경 PR에는 이전 형식을 명시적으로 읽는 처리 또는 배포 전 이관 절차를 포함한다.
+  버전 숫자만 올리거나 기존 파일의 숫자만 덮어써서 이관을 대신하지 않는다.
+  coordinator, 앱의 허가 검사, 설치된 watchdog/수집기 등 해당 형식을 읽는 구성요소의 적용 순서도 명시한다.
+- 그런 변경을 할 때는 변경 전 기록으로 읽기 호환 또는 이관 결과를 검증하고, 지원하지 않는 형식을
+  추측해 배포를 진행하지 않고 거부하는지 확인한다. 검증 방법과 결과는 해당 PR에 남긴다.
+
+이는 향후 저장 형식 변경 시 지킬 규칙이다. 현재 schema 값이나 서버 기록을 바꾸거나
+임의의 과거 버전을 자동으로 이관한다는 뜻은 아니다.
 
 ### 배포 저널 잠금
 
@@ -198,4 +238,4 @@ cancel-in-progress=false와 queue=max로 직렬화하고 대기열이 가득 찬
 시도하며 다른 실행의 잠금 보유로 경합한 경우에만 검사를 건너뛰고 다음 timer tick에 재확인한다.
 잠금의 실제 오류는 실패로 처리한다. 저널은 잠금을 얻은 뒤 읽고 검증하며, 잠금 대기로 기존
 허가 기한을 연장하거나 저널을 병렬 변경하지 않는다.
-잠금 경계는 [coordinator 진입점](https://github.com/woowacourse-teams/2026-jarihana/blob/2f2cc2cc91ea7216acb677b9f89c16b1cce398dd/infra/blue-green-deploy/scripts/actions/coordinator.sh)을 따른다.
+잠금 경계는 [coordinator 진입점](../scripts/actions/coordinator.sh)을 따른다.

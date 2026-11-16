@@ -662,8 +662,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       return delivered;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
-    updateState(posts, balance, historyPage) {
-      capsules.updateState(posts, balance, historyPage); duel.updateState(posts);
+    updateState(posts, balance, historyPage, avatarCandidates) {
+      capsules.updateState(posts, balance, historyPage, avatarCandidates); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
         if (posts.length) {

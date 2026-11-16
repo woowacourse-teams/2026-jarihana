@@ -84,6 +84,25 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /sparrings/{topicId}/avatar-pools:
+    parameters: [{$ref: '#/components/parameters/TopicId'}]
+    get:
+      operationId: getSparringAvatarPools
+      responses:
+        '200':
+          description: A shared list of up to 240 saved voter appearances, ordered by member ID. Cached appearances are served during background refresh after 30 seconds.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        required: [appearances]
+                        properties:
+                          appearances: {type: array, maxItems: 240, items: {$ref: '#/components/schemas/Appearance'}}
+        '404': {$ref: '#/components/responses/NotFound'}
   /sparrings/{topicId}/posts:
     parameters: [{$ref: '#/components/parameters/TopicId'}]
     get:
@@ -191,6 +210,28 @@ components:
         mySide: {type: [string, 'null'], enum: [MINT, CORAL, null]}
         closesAt: {type: [string, 'null'], format: date-time, description: Deadline returned with Asia/Seoul offset}
         createdAt: {type: string, description: Asia/Seoul LocalDateTime without offset, example: '2026-10-29T12:00:00'}
+    Appearance:
+      type: object
+      required: [version, hair, skin, hairColor, face, eyes, eyebrows, nose, mouth, glasses, outfit, shoes, shoeColor, hat, hatColor, bag, bagColor, handheld]
+      properties:
+        version: {type: integer, const: 1}
+        hair: {type: string}
+        skin: {type: string}
+        hairColor: {type: string}
+        face: {type: string}
+        eyes: {type: string}
+        eyebrows: {type: string}
+        nose: {type: string}
+        mouth: {type: string}
+        glasses: {type: string}
+        outfit: {type: string}
+        shoes: {type: string}
+        shoeColor: {type: string}
+        hat: {type: string}
+        hatColor: {type: string}
+        bag: {type: string}
+        bagColor: {type: string}
+        handheld: {type: string}
     Reply:
       type: object
       required: [id, authorId, name, memberType, side, text]
@@ -201,6 +242,9 @@ components:
         memberType: {type: string, enum: [CREW, COACH, BOOTCAMP, PROFESSIONAL, MEMBER]}
         side: {$ref: '#/components/schemas/Side'}
         text: {type: string}
+        appearance:
+          description: The author's saved appearance at query time, or null when unset
+          oneOf: [{$ref: '#/components/schemas/Appearance'}, {type: 'null'}]
     Post:
       allOf:
         - $ref: '#/components/schemas/Reply'

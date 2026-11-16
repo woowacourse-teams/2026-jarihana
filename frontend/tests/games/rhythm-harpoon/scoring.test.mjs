@@ -15,6 +15,12 @@ const chart = JSON.parse(
     "utf8"
   )
 );
+const swingChart = JSON.parse(
+  readFileSync(
+    new URL("../../../public/game-assets/rhythm-harpoon/assets/swing-chart.json", import.meta.url),
+    "utf8"
+  )
+);
 
 test("a caught or missed germ cannot exempt repeated inputs from empty-hit penalties", () => {
   const run = new GameEngine(chart);
@@ -39,22 +45,30 @@ test("legitimate four-note chords keep their full award without an empty-hit pen
   assert.equal(run.lives, run.maxLives);
 });
 
-test("four-key repeated input stays at or below 5% of a perfect loop across 1280 cadence and phase cases", () => {
+// 원곡 난이도는 네 키 뭉개기를 완벽한 플레이 점수의 5% 아래로 묶는다.
+// ANOTHER는 스윙 엇박과 다음 정박이 다른 레인에 139ms로 붙어 있어 한 번 누르면 둘 다 잡힌다.
+// 헛공격 감점은 원곡과 같은 300을 유지하기로 했으므로(2026-11-10) 그때 잰 최댓값을 넘지 않게만 막는다.
+// 첫 루프 기준으로는 ANOTHER Hard 2.8%, ANOTHER Hardest 8.6%다.
+const MASHING_LIMIT = { anotherHard: 0.16, anotherHardest: 0.25 };
+
+test("four-key repeated input stays within each level's bound across 1920 cadence and phase cases", () => {
   for (const startLoop of [1, 6, 10, 20, 40]) {
     for (const level of Object.keys(LEVELS)) {
+      // ANOTHER는 스윙 곡(144 BPM)이라 그 곡의 박자로 뭉갠다.
+      const song = LEVELS[level].song === "swing" ? swingChart : chart;
       const rate = rateForLoop(startLoop, level);
       for (const hz of [
         2,
-        (128 / 60) * rate,
+        (song.bpm / 60) * rate,
         4,
-        (128 / 60) * 2 * rate,
+        (song.bpm / 60) * 2 * rate,
         6,
-        (128 / 60) * 4 * rate,
+        (song.bpm / 60) * 4 * rate,
         10,
         12
       ]) {
         for (let phase = 0; phase < 8; phase++) {
-          const run = new GameEngine(chart, { level, startLoop, random: () => 0.5 });
+          const run = new GameEngine(song, { level, startLoop, random: () => 0.5 });
           // Continue the full song even when a strategy would already have lost all lives.
           run.lives = 100000;
           const { start, end } = run.loops[0];
@@ -69,7 +83,7 @@ test("four-key repeated input stays at or below 5% of a perfect loop across 1280
           // 빈 입력마다 헛공격 감점이 붙으므로 박자에 맞춰 뭉개도 라이프가 다할 때까지 완벽한 플레이 점수의 5%를 넘지 못한다.
           const perfect = run.notes.filter((note) => note.at < end).length * 1000;
           assert(
-            (scoreAtLifeLimit ?? run.score) <= perfect * 0.05,
+            (scoreAtLifeLimit ?? run.score) <= perfect * (MASHING_LIMIT[level] ?? 0.05),
             JSON.stringify({ level, startLoop, hz, phase, scoreAtLifeLimit, perfect })
           );
         }

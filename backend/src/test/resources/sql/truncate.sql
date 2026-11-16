@@ -1,6 +1,10 @@
 -- 비동기 조회와 잠금 순서가 뒤집히지 않도록 참조 테이블을 CASCADE에 맡기지 않는다.
 -- SSE는 주제 revision을 먼저 읽으므로 sparring_topic을 의견·투표보다 먼저 잠근다.
 TRUNCATE TABLE
+    chair_stack_player,
+    shop_profile_equipment,
+    shop_purchase,
+    shop_product,
     point_group_origin,
     minigame_cut,
     minigame_run,
@@ -44,9 +48,12 @@ TRUNCATE TABLE
     image_promotion_task,
     image_upload,
     feedback,
+    member_avatar,
     registration,
     group_member,
     group_recruitment,
+    group_space,
+    group_music,
     groups,
     member,
     SPRING_SESSION_ATTRIBUTES,

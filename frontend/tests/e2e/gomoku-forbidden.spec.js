@@ -52,14 +52,16 @@ async function setup(page, spectator = false) {
 }
 
 for (const width of [1280, 390]) {
-  test(`black Renju forbidden circles and interaction at ${width}px`, async ({ page }) => {
+  test(`black Renju forbidden dots and interaction at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height:900 });
     const { moves, emit } = await setup(page);
     const center = page.getByRole("button", { name:"H8, 빈 자리, 쌍3 금수", exact:true });
     await expect(center).toHaveAttribute("aria-disabled", "true");
-    const ring = center.locator(".gomoku-forbidden");
-    await expect(ring).toBeVisible();
-    expect(await ring.evaluate((node) => getComputedStyle(node).borderTopColor)).toBe("rgb(199, 53, 42)");
+    const dot = center.locator(".gomoku-forbidden");
+    await expect(dot).toBeVisible();
+    expect(await dot.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe("rgb(199, 53, 42)");
+    const sizeRatio = await dot.evaluate((node) => node.getBoundingClientRect().width / node.parentElement.getBoundingClientRect().width);
+    expect(sizeRatio).toBeCloseTo(0.35, 1);
     await center.dispatchEvent("click");
     await center.dispatchEvent("dblclick");
     await expect(page.getByRole("button", { name:"자리하기", exact:true })).toBeDisabled();

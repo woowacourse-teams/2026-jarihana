@@ -21,8 +21,14 @@ const mySide = () => state.mySide;
 const mobileComposer = () => innerWidth <= 700;
 const composerInput = side => mobileComposer() ? $('#message') : $(`[data-input-side="${side}"]`);
 function scenePost(post) {
-  const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-  return { ...post, mine: own(post), name: displayName(post), replyTo: parent ? { ...parent, name: displayName(parent) } : null };
+  const cachedParent = state.posts.find(item => item.id === post.replyToId);
+  const parent = post.replyTo ? { ...cachedParent, ...post.replyTo } : cachedParent;
+  const withAppearance = item => ({
+    ...item,
+    appearance: item.appearance === undefined && own(item) ? state.actorAppearance : item.appearance,
+    name: displayName(item),
+  });
+  return { ...withAppearance(post), mine: own(post), replyTo: parent ? withAppearance(parent) : null };
 }
 const scenePosts = () => state.posts.map(scenePost);
 function announce(text) { $('#stage-status').textContent = text; }
@@ -56,7 +62,7 @@ function formatTime(timestamp) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(timestamp);
 }
 function storageStatus() {
-  $('#storage-note').textContent = state.connection === 'offline'
+  $('#storage-note').textContent = state.topic.example ? '체험용 대화예요. 새로고침하면 처음으로 돌아가요.' : state.connection === 'offline'
     ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.'
     : '대화는 서버에 저장돼요. 최근 대화와 지난 대화를 이어서 보여드려요.';
 }
@@ -157,6 +163,7 @@ function renderInput() {
     const expanded = mobile ? choice === 'a' : chosen && expandedSide === choice;
     device.querySelector('.composer-field').dataset.reply = String(chosen && !!replyToId);
     device.dataset.expanded = String(expanded);
+    device.avatarAppearance = state.actorAppearance ?? null;
     device.dataset.memberType = state.actorMemberType ?? state.posts.find(own)?.memberType ?? 'CREW';
     const panel = device.querySelector('.composer-drawer');
     panel.id = `composer-panel-${choice}`;
@@ -228,7 +235,7 @@ function renderCounts() {
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) });
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) }, state.avatarCandidates);
   renderInput(); storageStatus();
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }

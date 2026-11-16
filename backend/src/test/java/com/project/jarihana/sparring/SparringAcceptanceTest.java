@@ -3,14 +3,21 @@ package com.project.jarihana.sparring;
 import static io.restassured.RestAssured.given;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.member.command.repository.MemberAvatarRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.AvatarAppearance;
+import com.project.jarihana.member.domain.AvatarCatalog;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberAvatar;
 import com.project.jarihana.support.IntegrationTestSupport;
 
 import io.restassured.RestAssured;
@@ -41,6 +48,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -51,9 +59,113 @@ import javax.sql.DataSource;
 
 class SparringAcceptanceTest extends IntegrationTestSupport {
     @Autowired MemberRepository members;
+    @Autowired MemberAvatarRepository avatars;
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired DataSource dataSource;
+
+    @Test
+    @DisplayName("비회원도 의견과 실시간 받아치기에서 각 작성자의 저장 아바타를 본다")
+    void exposesAuthorAppearanceInHistoryAndStream() throws Exception {
+        // Given
+        String mint = memberWithAvatar("민트", "avatar-mint", "curly");
+        String coral = memberWithAvatar("코랄", "avatar-coral", "bob");
+        String noAvatar = member("기본", "avatar-default");
+        long id = createTopic(mint);
+        vote(mint, id, "MINT");
+        vote(coral, id, "CORAL");
+        vote(noAvatar, id, "MINT");
+        long original = post(mint, id, "민트 의견", null, UUID.randomUUID())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        post(noAvatar, id, "기본 의견", null, UUID.randomUUID()).then().statusCode(201);
+        URI uri = URI.create("http://localhost:" + RestAssured.port + "/api/sparrings/" + id + "/events");
+        try (var http = HttpClient.newHttpClient()) {
+            var response = http.send(
+                    HttpRequest.newBuilder(uri).header("Accept", "text/event-stream").GET().build(),
+                    HttpResponse.BodyHandlers.ofInputStream());
+            Assertions.assertEquals(200, response.statusCode());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(Duration.ofSeconds(8), () -> {
+                    var snapshot = readEvent(reader, "snapshot");
+                    Assertions.assertEquals("curly", snapshot.getString("posts[0].appearance.hair"));
+                    Assertions.assertNull(snapshot.get("posts[1].appearance"));
+
+                    // When
+                    long replyId = post(coral, id, "코랄 받아치기", original, UUID.randomUUID())
+                            .then().statusCode(201).extract().jsonPath().getLong("data.id");
+
+                    // Then
+                    var update = readEvent(reader, "update");
+                    while (update.getInt("postCount") < 3) update = readEvent(reader, "update");
+                    Assertions.assertEquals(replyId, update.getLong("posts[0].id"), update::prettify);
+                    Assertions.assertEquals("CORAL", update.getString("posts[0].side"));
+                    Assertions.assertEquals("bob", update.getString("posts[0].appearance.hair"));
+                    Assertions.assertEquals("MINT", update.getString("posts[0].replyTo.side"));
+                    Assertions.assertEquals("curly", update.getString("posts[0].replyTo.appearance.hair"));
+                });
+            }
+        }
+        given().get("/sparrings/" + id + "/posts").then().statusCode(200)
+                .body("data.items[0].appearance.version", equalTo(1))
+                .body("data.items[0].appearance.hair", equalTo("bob"))
+                .body("data.items[0].replyTo.appearance.hair", equalTo("curly"))
+                .body("data.items[1].appearance", nullValue());
+        given().queryParam("afterId", original).get("/sparrings/" + id + "/posts").then().statusCode(200)
+                .body("data.items[1].appearance.hair", equalTo("bob"))
+                .body("data.items[1].replyTo.appearance.hair", equalTo("curly"));
+    }
+
+    @Test
+    @DisplayName("장식 아바타는 현재 토론의 투표자 중 최대 240명의 외형을 편 구분 없이 공개한다")
+    void exposesBoundedAvatarPoolsForCurrentVotes() {
+        // Given
+        String first = memberWithAvatar("첫투표", "pool-first", "curly");
+        long topic = createTopic(first);
+        vote(first, topic, "MINT");
+        List<String> mintNames = List.of("가나", "다라", "마바", "사아", "자차", "카타", "파하");
+        for (int index = 0; index < mintNames.size(); index++) {
+            vote(memberWithAvatar(mintNames.get(index), "pool-mint-" + index, "curly"), topic, "MINT");
+        }
+        vote(memberWithAvatar("아홉째", "pool-ninth", "parted"), topic, "MINT");
+        vote(memberWithAvatar("코랄", "pool-coral", "bob"), topic, "CORAL");
+        vote(member("기본외형", "pool-default"), topic, "CORAL");
+        String anotherTopicVoter = memberWithAvatar("다른주제", "pool-other-topic", "long");
+        vote(anotherTopicVoter, createTopic(anotherTopicVoter), "CORAL");
+        for (int index = 0; index < 230; index++) {
+            memberWithAvatar("추가" + (char) ('가' + index), "pool-extra-" + index, "curly");
+        }
+        new JdbcTemplate(dataSource).update("""
+                insert into sparring_vote (created_at, updated_at, topic_id, member_id, side)
+                select current_timestamp, current_timestamp, ?, id, 'MINT' from member
+                where github_id like 'pool-extra-%'
+                """, topic);
+        String lastVoter = memberWithAvatar("마지막", "pool-last", "long");
+        vote(lastVoter, topic, "CORAL");
+
+        // When / Then
+        String path = "/sparrings/" + topic + "/avatar-pools";
+        given().get(path).then().statusCode(200)
+                .body("data", not(hasKey("mint")))
+                .body("data", not(hasKey("coral")))
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0..7].hair", everyItem(equalTo("curly")))
+                .body("data.appearances[8].hair", equalTo("parted"))
+                .body("data.appearances[9].hair", equalTo("bob"))
+                .body("data.appearances.hair", everyItem(not(equalTo("long"))))
+                .body("data.appearances.version", everyItem(equalTo(1)))
+                .body("data.appearances", everyItem(not(hasKey("memberId"))))
+                .body("data.appearances", everyItem(not(hasKey("side"))));
+
+        vote(first, topic, "CORAL");
+        given().get("/sparrings/" + topic).then().statusCode(200)
+                .body("data.votesA", equalTo(238))
+                .body("data.votesB", equalTo(4));
+        given().get(path).then().statusCode(200)
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0].hair", equalTo("curly"));
+        given().get("/sparrings/999999/avatar-pools").then().statusCode(404)
+                .body("error.code", equalTo("SPARRING_NOT_FOUND"));
+    }
 
     @Test
     @DisplayName("마감 일시를 저장하고 마감 이후 투표와 새 메시지를 거절한다")
@@ -764,6 +876,19 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     private String member(String name, String github) {
         Member saved = members.save(Member.create(name, 23, github, Course.BACKEND));
         return tokens.issue(saved.getId()).value();
+    }
+
+    private String memberWithAvatar(String name, String github, String hair) {
+        Member saved = members.save(Member.create(name, 23, github, Course.BACKEND));
+        var selections = new EnumMap<>(AvatarCatalog.basicSelections());
+        selections.put(AvatarCatalog.HAIR, hair);
+        avatars.save(MemberAvatar.of(saved.getId(), AvatarAppearance.of(1, selections)));
+        return tokens.issue(saved.getId()).value();
+    }
+
+    private void vote(String token, long topic, String side) {
+        request(token).body(Map.of("side", side)).post("/sparrings/" + topic + "/votes")
+                .then().statusCode(204);
     }
 
     private Map<String, String> topic() {

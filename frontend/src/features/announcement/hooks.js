@@ -57,7 +57,8 @@ export function useAnnouncementDetail(groupId, announcementId, memberId, session
 export function useCreateAnnouncement(groupId) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (values) => createAnnouncement(groupId, values),
+    mutationFn: ({ values, signal }) => createAnnouncement(groupId, values, signal),
+    networkMode: "always",
     onSuccess: () => queryClient.invalidateQueries({
       queryKey: announcementKeys.lists(groupId)
     })

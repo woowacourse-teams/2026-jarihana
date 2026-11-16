@@ -1,4 +1,4 @@
-/* 자유게시판: 1차 1번 카드 목록과 새 페이지로 여는 조건 맞추기 상세(2차 A안) */
+/* 뭐할래: 제안 목록과 새 페이지로 여는 조건 맞추기 상세 */
 
 .proposal-page {
     display: grid;
@@ -7,10 +7,8 @@
 }
 
 /* 한국어 제목이 단어 중간에서 줄바꿈되지 않게 한다. */
-.proposal-hero__title,
 .proposal-card__title,
-.proposal-detail__title,
-.proposal-guide__title {
+.proposal-detail__title {
     word-break: keep-all;
     overflow-wrap: anywhere;
 }
@@ -48,40 +46,31 @@
 
 /* ---------- 목록 ---------- */
 
-.proposal-hero {
-    position: relative;
-    display: grid;
-    gap: var(--space-3);
-    overflow: hidden;
-    padding: var(--space-8) var(--space-6);
-    border-radius: var(--radius-lg);
-    background: var(--color-brand-soft);
+.proposal-board__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
 }
 
-.proposal-hero__title {
-    position: relative;
-    z-index: 1;
+.proposal-board__title {
     margin: 0;
+    color: var(--color-ink);
     font-size: var(--text-h1);
     font-weight: var(--font-weight-extrabold);
-    line-height: 1.25;
-    text-wrap: balance;
+    line-height: 1.3;
 }
 
-.proposal-hero__lead {
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    color: var(--color-text-brand);
+.proposal-board__lead {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted);
     font-size: var(--text-body);
 }
 
-.proposal-hero__chair {
-    position: absolute;
-    inset-block-end: calc(var(--space-4) * -1);
-    inset-inline-end: var(--space-6);
-    inline-size: 7.5rem;
-    opacity: 0.9;
+.proposal-board__create {
+    gap: var(--space-1);
+    flex: none;
 }
 
 .proposal-bar {
@@ -135,19 +124,9 @@
     color: var(--color-brand-ink);
 }
 
-.proposal-bar__create {
-    gap: var(--space-1);
-}
-
 /* 버튼 모양 링크는 밑줄 없이 버튼처럼 보인다. */
 .proposal-page a.ui-button {
     text-decoration: none;
-}
-
-.proposal-layout {
-    display: grid;
-    gap: var(--space-6);
-    align-items: start;
 }
 
 .proposal-cards {
@@ -319,26 +298,81 @@
 }
 
 .proposal-guide {
-    display: grid;
-    gap: var(--space-3);
-    padding: var(--space-6);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface-sunken);
-}
-
-.proposal-guide__title {
-    margin: 0;
-    font-size: var(--text-h3);
-    font-weight: var(--font-weight-bold);
-    line-height: 1.4;
-}
-
-.proposal-guide__steps {
-    display: grid;
-    gap: var(--space-2);
-    margin: 0;
-    padding-inline-start: var(--space-5);
+    border-block-start: var(--border-thin) solid var(--color-line);
+    padding-block-start: var(--space-3);
+    color: var(--color-text-muted);
     font-size: var(--text-label);
+}
+
+.proposal-guide summary {
+    width: fit-content;
+    min-height: var(--touch-target);
+    align-content: center;
+    cursor: pointer;
+    font-weight: var(--font-weight-semibold);
+}
+
+.proposal-guide p {
+    margin: var(--space-2) 0;
+    max-inline-size: 48rem;
+}
+
+/* 목록만 행 형태로 표시한다. 랜딩의 예시 카드와 상세의 공통 스타일은 유지한다. */
+.proposal-board .proposal-cards {
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+    border-block-start: var(--border-thin) solid var(--color-line);
+}
+
+.proposal-board .proposal-card + .proposal-card {
+    border-block-start: var(--border-thin) solid var(--color-line);
+}
+
+.proposal-board .proposal-card__body {
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.proposal-board .proposal-card__body:hover,
+.proposal-board .proposal-card__body:focus-within {
+    background: var(--color-section-soft);
+    box-shadow: none;
+    transform: none;
+}
+
+.proposal-board .proposal-card__title {
+    font-size: var(--text-h3);
+}
+
+.proposal-board .proposal-card__summary {
+    -webkit-line-clamp: 1;
+    overflow-wrap: anywhere;
+}
+
+.proposal-board .proposal-card__foot {
+    border: 0;
+    padding-block-start: var(--space-1);
+    gap: var(--space-2) var(--space-4);
+}
+
+.proposal-board .proposal-card__author {
+    color: var(--color-text-muted);
+    font-weight: normal;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.proposal-board .proposal-pill:not(.proposal-pill--on) {
+    background: transparent;
+    color: var(--color-text-muted);
+}
+
+.proposal-board .proposal-pill--on {
+    background: var(--color-brand-soft);
+    color: var(--color-brand-ink);
 }
 
 .proposal-sentinel {
@@ -902,38 +936,7 @@
 
 /* ---------- 반응형 ---------- */
 
-@media (max-width: 599px) {
-    /* 좁은 화면에서는 의자 그림이 소개 문장을 가리므로 숨긴다. */
-    .proposal-hero__chair {
-        display: none;
-    }
-}
-
-@media (min-width: 768px) {
-    .proposal-hero {
-        padding: var(--space-10) var(--space-10);
-    }
-
-    .proposal-hero__chair {
-        inline-size: 9.5rem;
-        inset-inline-end: var(--space-10);
-    }
-}
-
 @media (min-width: 1024px) {
-    .proposal-layout {
-        grid-template-columns: minmax(0, 1fr) 18rem;
-    }
-
-    .proposal-cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .proposal-guide {
-        position: sticky;
-        top: calc(var(--header-height) + var(--space-4));
-    }
-
     .proposal-detail__grid {
         grid-template-columns: minmax(0, 1fr) 22rem;
         grid-template-rows: auto auto 1fr;
@@ -955,6 +958,31 @@
     .proposal-chip,
     .proposal-pill {
         min-height: var(--touch-target);
+    }
+}
+
+@media (max-width: 599px) {
+    .proposal-board .proposal-card__body {
+        gap: var(--space-3);
+        padding: var(--space-6) var(--space-1);
+    }
+
+    .proposal-board .proposal-card__summary {
+        display: none;
+    }
+
+    .proposal-board .proposal-card__foot {
+        gap: var(--space-3);
+        padding-block-start: var(--space-2);
+    }
+
+    .proposal-board .proposal-pill {
+        min-height: var(--touch-target);
+        padding-inline: var(--space-2);
+    }
+
+    .proposal-board .proposal-card__title {
+        line-height: 1.55;
     }
 }
 

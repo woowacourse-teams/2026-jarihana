@@ -3,16 +3,20 @@ import assert from "node:assert/strict";
 import { GameEngine, noteColor } from "../../../src/features/game/rhythm/engine.mjs";
 import { Renderer } from "../../../src/features/game/rhythm/render.mjs";
 import {
+  CORE_LESSON_STEPS,
   LESSON_BARS,
   LESSON_GAIN,
   LESSON_STEPS,
   LESSON_TAIL_BARS,
   NOTE_SYLLABLES,
   createLessonChart,
+  lessonBpm,
   lessonDrumHits,
   lessonEndOffset,
+  lessonTempos,
   markLessonStep,
   readLessonProgress,
+  scoreStepAt,
   skipLesson,
   summarizeLesson,
   writeLessonProgress
@@ -45,7 +49,10 @@ test("lesson charts alternate two directions per pair of bars and follow the cho
   const slow = createLessonChart(1, { bpm: 72, bars: 2 });
   assert.equal(slow.events.length, 16);
   assert.equal(slow.events[1].sample / slow.sampleRateHz, 60 / 72 / 2);
-  assert.throws(() => createLessonChart(3), RangeError);
+  assert.throws(() => createLessonChart(4), RangeError);
+  // 스윙 단계(따)는 원곡 128 대신 스윙 144를 쓴다.
+  assert.throws(() => createLessonChart(3, { bpm: 128 }), RangeError);
+  assert.throws(() => createLessonChart(0, { bpm: 144 }), RangeError);
   assert.throws(() => createLessonChart(0, { bpm: 90 }), RangeError);
   assert.throws(() => createLessonChart(0, { bars: 0 }), RangeError);
 });
@@ -90,16 +97,21 @@ test("lesson progress survives reloads, tolerates broken storage and records ski
   const values = new Map();
   const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
   let progress = readLessonProgress(storage);
-  assert.deepEqual(progress, { done: [false, false, false], skipped: false, completed: false });
+  assert.deepEqual(progress, { done: [false, false, false, false], skipped: false, completed: false });
   progress = markLessonStep(markLessonStep(progress, 0), 2);
   assert.equal(writeLessonProgress(storage, progress), true);
-  assert.deepEqual(readLessonProgress(storage), { done: [true, false, true], skipped: false, completed: false });
+  assert.deepEqual(readLessonProgress(storage), { done: [true, false, true, false], skipped: false, completed: false });
+  // 번외 단계(따)만 끝내도 완료가 아니고, 기본 세 단계를 끝내면 번외 단계 없이도 완료다.
+  assert.equal(markLessonStep(progress, 3).completed, false);
   progress = markLessonStep(progress, 1);
   writeLessonProgress(storage, progress);
   assert.equal(readLessonProgress(storage).completed, true);
   values.clear();
   writeLessonProgress(storage, skipLesson(readLessonProgress(storage)));
-  assert.deepEqual(readLessonProgress(storage), { done: [false, false, false], skipped: true, completed: true });
+  assert.deepEqual(readLessonProgress(storage), { done: [false, false, false, false], skipped: true, completed: true });
+  // 번외 단계가 생기기 전에 세 단계를 끝내 저장한 기록도 그대로 완료다.
+  values.set("haengseong-lesson-v1", JSON.stringify({ done: [true, true, true], skipped: false }));
+  assert.deepEqual(readLessonProgress(storage), { done: [true, true, true, false], skipped: false, completed: true });
   assert.equal(readLessonProgress({ getItem: () => "{broken" }).completed, false);
   const blocked = {
     getItem() {
@@ -175,4 +187,50 @@ test("the renderer can print sound names above germs", () => {
   renderer.labels = null;
   renderer.germ({ lane: "left", state: "waiting", at: 2, travelDuration: 1.25, step: 0, color: 0 }, 1.5);
   assert.deepEqual(printed, ["착"]);
+});
+
+test("the extra swing step teaches green 따 on the last third of each beat", () => {
+  const index = LESSON_STEPS.findIndex((step) => step.key === "tta");
+  const step = LESSON_STEPS[index];
+  assert.equal(step.extra, true);
+  assert.equal(NOTE_SYLLABLES[step.color], "따");
+  assert.deepEqual(CORE_LESSON_STEPS, [0, 1, 2]);
+  const chart = createLessonChart(index, { bpm: 144, bars: 1 });
+  assert.deepEqual(
+    chart.events.map((event) => noteColor(event.step)),
+    [0, 3, 0, 3, 0, 3, 0, 3]
+  );
+  // 따는 박의 2/3 자리다. 144 BPM이면 쿵 뒤 278ms, 다음 쿵 앞 139ms다.
+  const beat = 60 / 144;
+  assert.ok(Math.abs(chart.events[1].sample / chart.sampleRateHz - (beat * 2) / 3) < 1e-9);
+  const hats = lessonDrumHits(index, { bpm: 144, bars: 1 }).filter((hit) => hit.voice === "closedHat");
+  assert.deepEqual(
+    hats.map((hit) => Math.round((hit.at / beat) * 3)),
+    [2, 5, 8, 11]
+  );
+  assert.deepEqual(lessonTempos(index).map((tempo) => tempo.bpm), [72, 96, 144]);
+  assert.equal(lessonBpm(index, 128), 144);
+  assert.equal(lessonBpm(0, 144), 128);
+  assert.equal(lessonBpm(index, 96), 96);
+});
+
+test("triplet notes are laid out inside their beat, marked 3 and counted 트, 렛", () => {
+  const [first] = layoutRhythmBar([0, 8 / 3]);
+  assert.equal(first.triplet, true);
+  assert.deepEqual(first.notes.map((note) => note.step), [0, 8 / 3]);
+  assert.deepEqual(first.notes.map((note) => note.color), [0, 3]);
+  assert.equal(first.beams.length, 1);
+  assert.equal(layoutRhythmBar([0, 2])[0].triplet, false);
+  assert.deepEqual([4 / 3, 8 / 3].map(countLabel), ["트", "렛"]);
+});
+
+test("the score highlight follows the nearest pattern note, including triplet positions", () => {
+  const swing = [0, 4, 8, 12].flatMap((beat) => [beat, beat + 8 / 3]);
+  assert.equal(scoreStepAt(swing, 2.7), 8 / 3);
+  assert.equal(scoreStepAt(swing, 16 + 0.2), 0);
+  assert.equal(scoreStepAt(swing, 1.3), -1);
+  assert.equal(scoreStepAt(swing, -1), -1);
+  // 16분 패턴은 이전처럼 가장 가까운 칸의 음표만 굵게 한다.
+  assert.equal(scoreStepAt([0, 3, 4, 7], 2.6), 3);
+  assert.equal(scoreStepAt([0, 3, 4, 7], 1.4), -1);
 });
