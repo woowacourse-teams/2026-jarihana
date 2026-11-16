@@ -164,8 +164,9 @@ export default function ClubhousePlayHud({
       description="1인칭과 3인칭 모두 같은 조작으로 아지트를 둘러볼 수 있어요.">
       <dl className="clubhouse-play-help">
         <dt>이동</dt><dd><span className="clubhouse-play-hud__keyboard-copy">WASD로 걷기 · Shift를 누른 채 달리기 · Space로 점프</span><span className="clubhouse-play-hud__touch-copy">방향 버튼으로 걷고 점프 버튼을 눌러요.</span></dd>
-        <dt>둘러보기</dt><dd><span className="clubhouse-play-hud__keyboard-copy">마우스를 움직여요. Esc로 포인터를 풀고, 공간을 클릭하면 다시 둘러볼 수 있어요.</span><span className="clubhouse-play-hud__touch-copy">공간 화면을 밀어 시선을 돌려요.</span></dd>
+        <dt>둘러보기</dt><dd><span className="clubhouse-play-hud__keyboard-copy">마우스를 움직여요. Esc로 포인터를 풀고, Enter를 누르면 다시 둘러볼 수 있어요.</span><span className="clubhouse-play-hud__touch-copy">공간 화면을 밀어 시선을 돌려요.</span></dd>
         <dt>상호작용</dt><dd><span className="clubhouse-play-hud__keyboard-copy">대상 가까이에서 바라보고 E · 숫자키로 행동 선택 · R로 소품 내려놓기</span><span className="clubhouse-play-hud__touch-copy">가까이에서 대상을 바라보고 화면에 나타나는 행동을 눌러요.</span></dd>
+        <dt>손에 든 물건</dt><dd><span className="clubhouse-play-hud__keyboard-copy">마우스 왼쪽 클릭으로 먹기 · 마시기 · 사진 찍기. 화면의 좌클릭 안내도 누를 수 있어요.</span><span className="clubhouse-play-hud__touch-copy">화면에 나타나는 먹기 · 마시기 · 사진 찍기 버튼을 눌러요.</span></dd>
       </dl>
     </Modal>
   </div>;

@@ -56,6 +56,8 @@ sentry:
   enable-tracing: false
 
 jarihana:
+  realtime:
+    websocket-url: ${REALTIME_WEBSOCKET_URL:}
   points:
     starts-at: ${POINTS_STARTS_AT:}
   group-space:

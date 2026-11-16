@@ -8,6 +8,8 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
@@ -18,6 +20,7 @@ import com.project.jarihana.member.domain.AvatarCatalog;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.member.domain.MemberAvatar;
+import com.project.jarihana.sparring.stream.SparringStreams;
 import com.project.jarihana.support.IntegrationTestSupport;
 
 import io.restassured.RestAssured;
@@ -25,7 +28,9 @@ import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +38,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.BufferedReader;
 import java.io.EOFException;
@@ -52,7 +59,10 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import javax.sql.DataSource;
@@ -63,10 +73,62 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired DataSource dataSource;
+    @MockitoSpyBean SparringStreams streams;
+    private final List<StreamSubscription> subscriptions = new CopyOnWriteArrayList<>();
+
+    @BeforeEach
+    void trackServerStreams() {
+        doAnswer(invocation -> {
+            SseEmitter emitter = (SseEmitter) invocation.callRealMethod();
+            var completed = new CompletableFuture<Void>();
+            emitter.onCompletion(() -> completed.complete(null));
+            subscriptions.add(new StreamSubscription(emitter, completed));
+            return emitter;
+        }).when(streams).subscribe(anyLong());
+    }
+
+    @AfterEach
+    void closeServerStreamsBeforeDatabaseReset() throws Exception {
+        // HTTP client close does not await server disconnect detection before @Sql reuses IDs.
+        for (var subscription : subscriptions) subscription.emitter().complete();
+        for (var subscription : subscriptions) subscription.completed().get(5, TimeUnit.SECONDS);
+        subscriptions.clear();
+    }
+
+    @Test
+    @DisplayName("SSE 정리 후 DB의 ID가 재사용되어도 새 글을 전달한다")
+    void deliversNewPostsAfterStreamCleanupAndDatabaseReset() throws Exception {
+        // Given
+        String token = member("이전", "previous-stream");
+        long topicId = createTopic(token);
+        insertPosts(topicId, 1040);
+        URI uri = URI.create(
+                "http://localhost:" + RestAssured.port + "/api/sparrings/" + topicId + "/events");
+        // Keep the previous client connected so server cleanup cannot depend on disconnect timing.
+        try (var http = HttpClient.newHttpClient()) {
+            var response = http.send(
+                    HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            Assertions.assertEquals(200, response.statusCode());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+                    Assertions.assertEquals(1040, readEvent(reader, "snapshot").getInt("postCount"));
+                    // When
+                    closeServerStreamsBeforeDatabaseReset();
+                    new ResourceDatabasePopulator(new ClassPathResource("sql/truncate.sql")).execute(dataSource);
+                    // Then
+                    assertAuthorAppearanceInHistoryAndStream();
+                });
+            }
+        }
+    }
 
     @Test
     @DisplayName("비회원도 의견과 실시간 받아치기에서 각 작성자의 저장 아바타를 본다")
     void exposesAuthorAppearanceInHistoryAndStream() throws Exception {
+        assertAuthorAppearanceInHistoryAndStream();
+    }
+
+    private void assertAuthorAppearanceInHistoryAndStream() throws Exception {
         // Given
         String mint = memberWithAvatar("민트", "avatar-mint", "curly");
         String coral = memberWithAvatar("코랄", "avatar-coral", "bob");
@@ -97,7 +159,8 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                     // Then
                     var update = readEvent(reader, "update");
                     while (update.getInt("postCount") < 3) update = readEvent(reader, "update");
-                    Assertions.assertEquals(replyId, update.getLong("posts[0].id"), update::prettify);
+                    Assertions.assertEquals(
+                            List.of(replyId), update.getList("posts.id", Long.class), update::prettify);
                     Assertions.assertEquals("CORAL", update.getString("posts[0].side"));
                     Assertions.assertEquals("bob", update.getString("posts[0].appearance.hair"));
                     Assertions.assertEquals("MINT", update.getString("posts[0].replyTo.side"));
@@ -932,4 +995,6 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     }
 
     private record PostBody(String text, Long replyToId, UUID requestId) {}
+
+    private record StreamSubscription(SseEmitter emitter, CompletableFuture<Void> completed) {}
 }

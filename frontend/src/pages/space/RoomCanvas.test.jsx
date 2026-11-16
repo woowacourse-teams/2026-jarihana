@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RoomCanvas } from "./RoomCanvas";
 import { createRoomScene, createFurnitureThumbnails } from "./roomScene";
 import { createInitialRoom } from "./roomState";
@@ -9,6 +9,23 @@ function props() { return { room: createInitialRoom(), selectedId: "sofa", view:
   onSelect: jest.fn(), onMove: jest.fn(), onInvalid: jest.fn(), onThumbnails: jest.fn() }; }
 
 beforeEach(() => { jest.resetAllMocks(); createFurnitureThumbnails.mockReturnValue({}); });
+
+test.each([["cookie", "쿠키 먹기"], ["tea", "마시기"], ["camera", "사진 찍기"]])(
+  "held %s exposes a left-click action and blocks repeat consumption while pending", async (held, label) => {
+    const runtime = { update: jest.fn(), command: jest.fn(), dispose: jest.fn() };
+    createRoomScene.mockReturnValue(runtime);
+    render(<RoomCanvas {...props()} view="thirdPerson" playMode realtime={{}} />);
+    await waitFor(() => expect(createRoomScene).toHaveBeenCalledTimes(1));
+    const interaction = { held, consumable: held !== "camera", camera: held === "camera", pending: false };
+    act(() => createRoomScene.mock.calls[0][1].onWalkInteraction(interaction));
+    const button = screen.getByRole("button", { name: `좌클릭 · ${label}` });
+    fireEvent.click(button);
+    expect(runtime.command).toHaveBeenCalledWith(held === "camera" ? "capture" : "consume");
+    expect(screen.getByRole("application")).toHaveFocus();
+    act(() => createRoomScene.mock.calls[0][1].onWalkInteraction({ ...interaction, pending: true }));
+    expect(button).toBeDisabled();
+  }
+);
 
 test("read-only permission blocks keyboard and drag editing and updates without recreating the scene", async () => {
   createRoomScene.mockReturnValue({ update: jest.fn(), dispose: jest.fn() });

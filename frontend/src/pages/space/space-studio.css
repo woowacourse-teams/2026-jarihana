@@ -131,7 +131,7 @@
   background: var(--studio-panel);
   box-shadow: var(--studio-shadow);
 }
-.space-studio__interaction-prompt, .space-studio__interaction-choices > button {
+.space-studio .space-studio__interaction-prompt, .space-studio .space-studio__interaction-choices > button {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -143,6 +143,8 @@
   pointer-events: auto;
 }
 .space-studio__interaction-prompt[aria-keyshortcuts="E"] { padding-block: 1px; }
+.space-studio__held-action svg { width: 19px; height: 19px; flex: none; }
+.space-studio__held-action small { font: inherit; font-weight: 500; }
 .space-studio__interaction kbd {
   display: grid;
   flex: none;

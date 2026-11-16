@@ -105,6 +105,11 @@ watchdog은 runner가 멈춰도 저널 만료를 감지하는 설치형 도구�
 watchdog/수집기 자체를 수정할 때는 관리자가 설치본을 갱신한다. 일반 배포 코드는 Actions가 매번 가져온다.
 최초 설치는 [서버 구성](server-setup/README.md), 기존 환경 전환은 [SHA 배포 전환](release-sha.md)을 따른다.
 
+운영 백엔드는 GitHub `prod` Environment의 기존 `ACCESS_TOKEN_SECRET`을 사용한다.
+공용 접속 주소를 `REALTIME_WEBSOCKET_URL` Variable에 설정한다. 앱 준비 작업은 URL을
+배포 커밋의 `app-compose.yml`을 통해 백엔드에 전달한다. 공용 realtime에는
+[운영 입장 키와 DB 연결](../../realtime/README.md)을 설정한다.
+
 ### 정상 배포 순서
 
 ```text

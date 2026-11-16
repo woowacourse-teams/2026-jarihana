@@ -10,6 +10,7 @@
 - [배포 관제 대시보드](../docs/observability/DEPLOYMENT.md): 배포 단계와 실제 요청 경로 해석
 - [Grafana 운영 대시보드](../docs/observability/DASHBOARD.md): `Jarihana` 폴더의 `jarihana-overview` 대시보드와 필터·패널 해석
 - [채팅 대시보드](../docs/observability/CHAT.md): 개발·운영 환경과 서버별 연결·전송·복구 지표
+- [아지트 Realtime 대시보드와 수집 설정](../realtime/README.md#모니터링): 공용 realtime EC2에서 보내는 WebSocket·DB 풀·호스트 지표와 컨테이너 로그
 - [Explore 자주 쓰는 로그 쿼리](../docs/observability/DASHBOARD.md#로그-조회와-explore): `admin`의 Query history → Starred에 dev·prod 레벨별 쿼리 12개 등록
 - [Grafana Canvas](../docs/observability/CANVAS.md): `jarihana-canvas` 시스템 흐름 화면, 앱·DB 상태와 최근 2분 평균 트래픽 해석
 - [앱 Alloy 설정](alloy/config.alloy): 두 앱 Compose가 마운트하는 공통 수집 설정

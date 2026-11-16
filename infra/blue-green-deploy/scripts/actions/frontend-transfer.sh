@@ -78,6 +78,8 @@ fe_transfer_workers() {
 
 fe_transfer_batch() {
   local batch_pid status=0 saved_traps
+  # Refresh an expired parent-run cache before the workers inherit it.
+  bg_file_guard
   saved_traps=$(trap -p INT TERM)
   # wait must be interruptible: stop and reap the worker group before the coordinator's EXIT recovery.
   trap 'trap "" INT TERM; kill -TERM "${batch_pid:-}" 2>/dev/null || true; wait "${batch_pid:-}" 2>/dev/null || true; exit 130' INT
@@ -90,30 +92,40 @@ fe_transfer_batch() {
   return "$status"
 }
 
+fe_transfer_checkpoint() {
+  # Cache only the parent-run lookup for reads; local leases and write checkpoints stay checked.
+  case $FE_TRANSFER_MODE in
+    download|public) bg_file_guard;;
+    *) bg_guard;;
+  esac
+  bg_touch_local
+}
+
 fe_transfer() {
   local FE_TRANSFER_MODE=$1 manifest=$2 FE_TRANSFER_DIRECTORY=${3:-}
   local FE_TRANSFER_RELEASE row started count=0
   local -a batch=()
   FE_TRANSFER_RELEASE=$(jq -r .release_id "$manifest")
   started=$(date +%s)
+  bg_guard
   while IFS= read -r row; do
     batch+=("$row")
     # Keep the entrypoint in a separate last batch even when fewer than four assets remain.
     if (( ${#batch[@]}==4 )); then
       fe_transfer_batch "${batch[@]}" || bg_die 'Frontend transfer batch failed; preserve release intent'
-      bg_guard; bg_touch_local
+      fe_transfer_checkpoint
       count=$((count+${#batch[@]})); batch=()
     fi
   done < <(jq -r --arg mode "$FE_TRANSFER_MODE" '.files[] | select($mode!="publish" or .path!="index.html") | [.path,.sha256,.size]|@tsv' "$manifest")
   if (( ${#batch[@]}>0 )); then
     fe_transfer_batch "${batch[@]}" || bg_die 'Frontend transfer batch failed; preserve release intent'
-    bg_guard; bg_touch_local
+    fe_transfer_checkpoint
     count=$((count+${#batch[@]}))
   fi
   if [[ $FE_TRANSFER_MODE == publish ]]; then
     row=$(jq -er '.files[]|select(.path=="index.html")|[.path,.sha256,.size]|@tsv' "$manifest")
     fe_transfer_batch "$row" || bg_die 'Frontend transfer batch failed; preserve release intent'
-    bg_guard; bg_touch_local
+    fe_transfer_checkpoint
     count=$((count+1))
   fi
   bg_guard

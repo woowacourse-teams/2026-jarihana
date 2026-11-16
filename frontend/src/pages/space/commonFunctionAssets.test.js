@@ -8,7 +8,7 @@ test.each(ROOM_TEMPLATES.map(({ id }) => id))("%s starts with the same functiona
   for (const status of commonAssetStatus(room.items)) {
     expect(status.items).toHaveLength(1);
     expect(featureForRoomItem(status.items[0])).toBe(status.feature);
-    expect(canPlace(status.items[0], room.items, template)).toBe(true);
+    expect(canPlace(status.items[0], room.items, room)).toBe(true);
   }
 });
 

@@ -11,6 +11,8 @@ import { createRoomSceneLights } from "./roomSceneLights";
 import { createRoomCeilingLighting } from "./roomCeilingLighting";
 import { advanceClubhouseSign, updateClubhouseSign } from "./clubhouseExterior";
 import { applyBakedFurnitureOcclusion, applyBakedWallOcclusion } from "./roomBakedOcclusion";
+import { createRemotePlayers } from "./roomRemotePlayers.js";
+import { seatedAvatarPlacement } from "./seatedAvatar.js";
 import { createWalkthrough } from "./roomWalkthrough";
 import { getRoomLayout } from "./roomLayout";
 import { getDioramaBounds } from "./islandLayout";
@@ -201,6 +203,11 @@ export function createRoomScene(container, callbacks) {
   let cameraReset = 0;
   let drag = null;
   let interactionTargets = [];
+  let realtime = null;
+  let unsubscribeRealtime;
+  const appliedAssets = new Map();
+  const appliedAssetObjects = new Map();
+  const remotePlayers = createRemotePlayers(scene, () => renderMoving(), () => room, updateLighting.applyMaterial);
   const gardenChanges = new Set();
   const paintedPetals = new Map();
   let waterDrops;
@@ -240,8 +247,10 @@ export function createRoomScene(container, callbacks) {
   const walkthrough = createWalkthrough(scene, container, {
     getRoom: () => room,
     getObstacles: () => [shell, objectLayer].filter(Boolean),
+    prepareAvatarMaterial: updateLighting.applyMaterial,
     onPosition: callbacks.onWalkPosition,
-    getInteractionTargets: () => interactionTargets,
+    getInteractionTargets: () => [...interactionTargets, ...remotePlayers.targets()],
+    onCapture: capturePhoto,
     onInteractionChange: callbacks.onWalkInteraction,
     onPointerLockChange: callbacks.onWalkPointerLock,
     onInteract: interactWithTarget,
@@ -496,6 +505,71 @@ export function createRoomScene(container, callbacks) {
     outline.material.color.set(valid ? 0xb5ff95 : 0xff9b91);
   }
 
+
+  function capturePhoto() {
+    if (disposed || preparing || !room) return;
+    renderFrame(performance.now());
+    const photo = document.createElement("canvas");
+    const ratio = Math.min(1, 1600 / Math.max(renderer.domElement.width, renderer.domElement.height));
+    photo.width = Math.round(renderer.domElement.width * ratio); photo.height = Math.round(renderer.domElement.height * ratio);
+    photo.getContext("2d").drawImage(renderer.domElement, 0, 0, photo.width, photo.height);
+    photo.toBlob((blob) => {
+      if (blob && !disposed) callbacks.onCapture?.(new File([blob], `jarihana-${Date.now()}.jpg`, { type: "image/jpeg" }));
+    }, "image/jpeg", 0.9);
+  }
+
+  function applyRealtimeState() {
+    if (!realtime || !room) return;
+    const state = realtime.store.getState();
+    const matches = realtime.connection.layoutMatches();
+    remotePlayers.setVisible(matches);
+    if (!matches) return;
+    walkthrough.applyRealtimeState(state);
+    remotePlayers.refresh();
+    for (const [id, asset] of Object.entries(state.assets)) {
+      const previous = appliedAssets.get(id);
+      const object = objects.get(id);
+      if (previous === asset && appliedAssetObjects.get(id) === object && (id !== ROOM_LIGHT_SWITCH_ID || generalLighting === asset.on)) continue;
+      if (id === ROOM_LIGHT_SWITCH_ID && typeof asset.on === "boolean" && generalLighting !== asset.on) {
+        generalLighting = asset.on; updateRoomLighting(); callbacks.onSharedLighting?.(asset.on);
+      }
+      if (object && previous?.wateredAt !== asset.wateredAt && asset.wateredAt && state.serverTime - asset.wateredAt < 1500) {
+        const target = interactionTargets.find((entry) => entry.id === id);
+        if (target) interactWithTarget(target, { id: "water" });
+      }
+      if (object) {
+        object.traverse((child) => {
+          if (child.userData.sharedDoor) child.rotation.y = asset.open ? -Math.PI / 2.4 : 0;
+          if (typeof asset.on === "boolean" && child.isLight) {
+            child.userData.sharedLightIntensity ??= child.intensity;
+            child.intensity = asset.on ? child.userData.sharedLightIntensity : 0;
+          }
+          if (typeof asset.on === "boolean" && child.material?.emissive) {
+            child.userData.sharedIntensity ??= child.material.emissiveIntensity;
+            child.material.emissiveIntensity = asset.on ? child.userData.sharedIntensity : 0;
+          }
+        });
+      }
+      appliedAssets.set(id, asset); appliedAssetObjects.set(id, object);
+    }
+    sceneLights.refresh();
+    render();
+  }
+
+  function setRealtime(next) {
+    unsubscribeRealtime?.(); realtime = next; appliedAssets.clear(); appliedAssetObjects.clear();
+    walkthrough.setRealtime(next); remotePlayers.setStore(next?.store);
+    if (mascotLayer) mascotLayer.visible = !next;
+    rebuildSpeech(); rebuildGreetings();
+    if (room) {
+      const occupied = new Set(next ? [] : mascotLayer?.children.map((actor) => actor.userData.seatId));
+      interactionTargets = room.items.map((item) => itemInteraction(item, placedItemElevation(item, room), occupied.has(item.id), room)).filter(Boolean)
+        .concat(interactionTargets.filter((target) => target.id === ROOM_LIGHT_SWITCH_ID || target.bed));
+    }
+    unsubscribeRealtime = next?.store.subscribe(applyRealtimeState);
+    applyRealtimeState(); render();
+  }
+
   function clearWater() {
     window.clearTimeout(waterTimer);
     if (waterDrops) disposeObject(waterDrops);
@@ -694,29 +768,25 @@ export function createRoomScene(container, callbacks) {
     if (mascotLayer) { scene.remove(mascotLayer); disposeObject(mascotLayer); }
     mascotLayer = new THREE.Group();
     // Decorative occupants follow actual stools, never implied online members.
-    const tables = nextRoom.items.filter((item) => ["table", "diningTable", "gameTable", "feastTable", "studyDesk", "focusDesk", "photoEditDesk", "photoPrintBench", "mixingDesk"].includes(item.kind));
     const colors = ["#83a375", "#b99acb", "#e7c6a2", nextRoom.avatarColor];
-    const avatars = [];
     nextRoom.items.filter((item) => ["stool", "gameChair", "roundChair"].includes(item.kind)).sort((a, b) => Number(a.z >= getRoomLayout(nextRoom).building.maxZ) - Number(b.z >= getRoomLayout(nextRoom).building.maxZ)).slice(0, 6).forEach((seat, index) => {
-      const table = tables.filter((candidate) => (candidate.level || 0) === (seat.level || 0)).reduce((nearest, candidate) => !nearest ||
-        Math.hypot(candidate.x - seat.x, candidate.z - seat.z) < Math.hypot(nearest.x - seat.x, nearest.z - seat.z) ? candidate : nearest, null);
-      avatars.push({ ...seat, angle: table ? Math.atan2(table.x - seat.x, table.z - seat.z) : 0,
-        color: colors[index % colors.length], pose: "seated" });
-    });
-    avatars.forEach((entry) => {
-      const character = createMascot(entry);
-      character.position.set(entry.x, placedItemElevation(entry, nextRoom) + (entry.pose === "seated" ? 0.5 : 0), entry.z);
-      character.userData.roomLevel = entry.level || 0;
-      character.userData.seatId = entry.id;
-      character.rotation.y = entry.angle;
+      const fit = seatedAvatarPlacement(seat, 0, placedItemElevation(seat, nextRoom));
+      const character = createMascot({ color: colors[index % colors.length], pose: "seated" });
+      character.position.set(fit.position.x, fit.position.y, fit.position.z);
+      character.scale.setScalar(fit.scale);
+      character.userData.roomLevel = seat.level || 0;
+      character.userData.seatId = seat.id;
+      character.rotation.y = seat.rotation * Math.PI / 2;
       mascotLayer.add(character);
     });
+    mascotLayer.visible = !realtime;
     scene.add(mascotLayer);
   }
 
   function rebuildSpeech() {
     [...speechLayer.children].forEach((child) => { speechLayer.remove(child); disposeObject(child); });
-    if (!room || !speechMessages.length) return;
+    if (realtime) remotePlayers.setSpeech(speechMessages, speechSprite);
+    if (!room || !speechMessages.length || realtime) return;
     const layout = getRoomLayout(room);
     const positions = [];
     for (let z = layout.building.maxZ - 2; z > layout.building.minZ + 1 && positions.length < 3; z -= 1.6) {
@@ -749,7 +819,7 @@ export function createRoomScene(container, callbacks) {
       disposeObject(greetingLayer);
       greetingLayer = null;
     }
-    if (!room || !greetingMembers.length) return;
+    if (!room || realtime || !greetingMembers.length) return;
     greetingLayer = createYardGreeters(room, greetingMembers);
     scene.add(greetingLayer);
     updateGreetingVisibility();
@@ -962,7 +1032,7 @@ export function createRoomScene(container, callbacks) {
     if (greetingLayoutChanged) rebuildGreetings();
     if (!walking || !interactive || greetingLayoutChanged) resetGarden();
     if (roomChanged || shellChanged || avatarsChanged) {
-      const occupied = new Set(mascotLayer?.children.map((avatar) => avatar.userData.seatId));
+      const occupied = new Set(realtime ? [] : mascotLayer?.children.map((avatar) => avatar.userData.seatId));
       interactionTargets = room.items.map((item) => itemInteraction(item, itemElevations.get(item.id), occupied.has(item.id), room)).filter(Boolean);
       const wallSwitch = shell.getObjectByName(ROOM_LIGHT_SWITCH_ID);
       if (wallSwitch) {
@@ -979,6 +1049,7 @@ export function createRoomScene(container, callbacks) {
       allowFlightLook: Boolean(flight?.fromFrontage && view === "firstPerson")
     });
     updateRoomLighting(shellChanged || furnishingsChanged || avatarsChanged);
+    applyRealtimeState();
     rebuildSpeech();
     if (shellChanged || furnishingsChanged || avatarsChanged || preparationInvalidated) prepareAssets();
     render();
@@ -1292,6 +1363,7 @@ export function createRoomScene(container, callbacks) {
       renderer.shadowMap.needsUpdate = true;
       walkthrough.setPlayerAppearance(appearance);
     },
+    setRealtime, capturePhoto,
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,
     setWalkInputBlocked: walkthrough.setInputBlocked,
     chooseWalkInteraction: walkthrough.chooseInteraction,
@@ -1309,6 +1381,7 @@ export function createRoomScene(container, callbacks) {
       window.clearTimeout(signTimer);
       signObserver?.disconnect();
       reduceMotion?.removeEventListener?.("change", onSignMotionChange);
+      unsubscribeRealtime?.(); remotePlayers.dispose();
       walkthrough.dispose();
       clearWater();
       cameraControls.reset();

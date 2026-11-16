@@ -52,6 +52,9 @@ jobs:
       - name: HTTP 및 SSE 연결 지표 쿼리 검증
         run: node grafana/test-http-sse-dashboard.mjs
 
+      - name: Realtime 대시보드 검증
+        run: node grafana/test-realtime-dashboard.mjs
+
       - name: 운영 헬스 알림 쿼리 검증
         run: node grafana/test-health-alerts.mjs
 

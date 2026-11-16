@@ -5,6 +5,21 @@ import * as roomState from "./roomState";
 const { canPlace, createInitialRoom, placedItemElevation } = roomState;
 
 describe("walkable clubhouse", () => {
+  test("movement trace preserves turns and bounded collision-approved microsteps", () => {
+    const room = { ...createInitialRoom(), items: [] };
+    const path = [];
+    const start = { ...PLAYER.spawn, y: 0 };
+    let position = moveWalker(start, { x: 0, z: -1.7 }, room, path);
+    const turn = { ...position };
+    position = moveWalker(position, { x: .7, z: 0 }, room, path);
+    expect(path[0]).toEqual(start);
+    expect(path).toContainEqual(turn);
+    expect(path.at(-1)).toEqual(position);
+    for (let i = 1; i < path.length; i += 1) {
+      expect(Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z)).toBeLessThanOrEqual(.150001);
+      expect(isWalkablePosition(path[i], room)).toBe(true);
+    }
+  });
   test("consecutive walking steps reuse furniture elevations until the room changes", () => {
     const bench = { id: "bench", kind: "bench", x: -2, z: 4.4, rotation: 0 };
     const room = { ...createInitialRoom(), items: [bench] };

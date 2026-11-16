@@ -88,6 +88,7 @@ jobs:
         id: operation
         env:
           YOUTUBE_DATA_API_KEY: ${{ inputs.operation == 'prepare' && secrets.YOUTUBE_DATA_API_KEY || '' }}
+          REALTIME_WEBSOCKET_URL: ${{ inputs.operation == 'prepare' && vars.REALTIME_WEBSOCKET_URL || '' }}
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/app.sh

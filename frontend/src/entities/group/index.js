@@ -169,7 +169,8 @@ export const groupDetailSchema = groupListItemSchema.extend({
   sessionSchedule: sessionScheduleSchema.nullable(),
   currentMemberRegistrationId: entityIdSchema.nullable().optional(),
   currentMemberRegistrationStatus: groupRegistrationStatusSchema.nullable().optional(),
-  createdAt: localDateTimeSchema
+  createdAt: localDateTimeSchema,
+  clubhouseSetupEnabled: z.boolean().optional()
 });
 
 export const groupCreateResponseSchema = z.object({
