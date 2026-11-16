@@ -66,6 +66,12 @@ export const lazyPageRegistry = Object.freeze({
     () => import("../pages/games/RhythmHarpoonChallengePage.jsx"),
     "RhythmHarpoonChallengePage"
   ),
+  RhythmBattleLobbyPage: lazyNamed(() => import("../pages/games/RhythmBattlePages.jsx"), "RhythmBattleLobbyPage"),
+  RhythmBattleRoomPage: lazyNamed(() => import("../pages/games/RhythmBattlePages.jsx"), "RhythmBattleRoomPage"),
+  RhythmBattleInvitationPage: lazyNamed(
+    () => import("../pages/games/RhythmBattlePages.jsx"),
+    "RhythmBattleInvitationPage"
+  ),
   ChatPage: lazyNamed(() => import("../pages/chat/ChatPage.jsx"), "ChatPage"),
   InvitationPage: lazyNamed(() => import("../pages/invitations/index.jsx"), "InvitationPage"),
   NotificationOpenPage: lazyNamed(loadNotificationPages, "NotificationOpenPage"),

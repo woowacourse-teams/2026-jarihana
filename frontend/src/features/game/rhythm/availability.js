@@ -9,6 +9,10 @@ export const RHYTHM_SINGLE_PATH = "/games/rhythm-harpoon/single";
 export const RHYTHM_PRACTICE_PATH = "/games/rhythm-harpoon/practice";
 export const RHYTHM_CHALLENGE_PATH = "/games/rhythm-harpoon/challenge";
 export const RHYTHM_LESSON_PATH = "/games/rhythm-harpoon/learn";
+// 온라인 매칭(1:1 대전) 대기실, 방, 초대 링크
+export const RHYTHM_BATTLE_PATH = "/games/rhythm-harpoon/battle";
+export const rhythmBattleRoomPath = (roomId) => `${RHYTHM_BATTLE_PATH}/rooms/${roomId}`;
+export const rhythmBattleInvitePath = (token) => `${RHYTHM_BATTLE_PATH}/invite/${token}`;
 
 // 싱글 플레이를 시작하면 가는 곳
 export const RHYTHM_SINGLE_START_PATH = RHYTHM_PRACTICE_ENABLED

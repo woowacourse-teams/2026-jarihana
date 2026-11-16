@@ -95,12 +95,17 @@ it("starts from the official challenge card while practice is closed and plays r
   fireEvent.click(single);
   expect(mockLogin).toHaveBeenCalledTimes(1);
   expect(storeReturnTarget).toHaveBeenCalledWith("/games/rhythm-harpoon/challenge");
-  expect(onlineCard).toHaveClass("games-card", "games-card--soon");
-  expect(onlineCard).toHaveAccessibleName("온라인 매칭, 준비 중");
-  const online = screen.getByRole("button", { name: "준비 중" });
+  // 온라인 매칭도 회원 전용이라 로그인 전이면 로그인으로 보내고, 마치면 대기실로 돌아온다.
+  expect(onlineCard).toHaveClass("games-card", "games-card--playable");
+  expect(onlineCard).toHaveAccessibleName("온라인 매칭");
+  expect(screen.queryByText("준비 중")).not.toBeInTheDocument();
+  const online = screen.getByRole("link", { name: "대기실 입장" });
   expect(onlineCard).toContainElement(online);
-  expect(online).toBeDisabled();
+  expect(online).toHaveAttribute("href", "/games/rhythm-harpoon/battle");
   expect(online).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_online_open");
+  fireEvent.click(online);
+  expect(mockLogin).toHaveBeenCalledTimes(2);
+  expect(storeReturnTarget).toHaveBeenLastCalledWith("/games/rhythm-harpoon/battle");
 });
 
 describe("tutorial prompt for first-time visitors", () => {
