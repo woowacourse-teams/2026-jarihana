@@ -10,12 +10,10 @@
 }
 .app-shell:has(.group-clubhouse--expanded[data-mode="use"] .room-canvas[data-mouse-look="active"]) > .app-header {
   background: color-mix(in srgb, var(--clubhouse-header-tint) 72%, transparent);
-  backdrop-filter: blur(12px) saturate(115%);
 }
 @media (prefers-reduced-transparency: reduce) {
   .app-shell:has(.group-clubhouse--expanded[data-mode="use"] .room-canvas[data-mouse-look="active"]) > .app-header {
     background: var(--clubhouse-header-tint);
-    backdrop-filter: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -23,6 +21,19 @@
 }
 .app-shell:has(.group-clubhouse:not(.group-clubhouse--photo)) > .app-header::before,
 .app-shell:has(.group-clubhouse:not(.group-clubhouse--photo)) > .app-header::after { content: none; }
+
+@media not (prefers-reduced-transparency: reduce) {
+  .app-shell:has(.group-clubhouse--expanded[data-mode="use"] .room-canvas[data-mouse-look="active"]) > .app-header::before {
+    /* Keep the fixed music player anchored to the viewport while the header is blurred. */
+    content: "";
+    inset: 0;
+    width: auto;
+    height: auto;
+    z-index: -1;
+    background: none;
+    backdrop-filter: blur(12px) saturate(115%);
+  }
+}
 
 .group-clubhouse {
   --group-paper: var(--color-surface);
