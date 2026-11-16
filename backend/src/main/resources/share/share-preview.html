@@ -17,23 +17,8 @@
     <meta name="twitter:title" content="%1$s">
     <meta name="twitter:description" content="%2$s">
     <meta name="twitter:image" content="%4$s">
-    <script>
-      const promotionValues = new URLSearchParams(window.location.search)
-        .getAll("promotion_id");
-      const promotionId =
-        promotionValues.length === 1 &&
-        /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(promotionValues[0])
-          ? promotionValues[0]
-          : null;
-      const target = new URL(
-        document.querySelector('link[rel="canonical"]').href
-      );
-      target.searchParams.set("preview", "1");
-      if (promotionId) target.searchParams.set("promotion_id", promotionId);
-      window.location.replace(target.href);
-    </script>
   </head>
   <body>
-    <noscript><p><a href="%5$s">모임 페이지로 이동</a></p></noscript>
+    <p><a href="%3$s">%5$s</a></p>
   </body>
 </html>

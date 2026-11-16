@@ -38,27 +38,18 @@ npm ci
 npm run dev
 ```
 
-현재 로컬 DB에는 공유 미리보기 확인용 모임이 `id=13`으로 준비되어 있다.
-브라우저에서 `http://localhost:5173/groups/13?promotion_id=yutnori_chat_01`을 열면 개발 서버가 운영의
-CloudFront rewrite를 흉내 내 그룹 메타 페이지를 거친 뒤 React 화면을 표시한다.
-주소에 붙인 `promotion_id`는 유효한 형식일 때만 `?preview=1` 이동과 세션 추적에 보존된다.
-크롤러가 받는 원본 HTML을 직접 보려면 주소창에
-`view-source:http://localhost:5173/groups/13`을 입력한다. 원본에서
-`og:title`, `og:description`, `og:image`가 모임 값인지 확인한다.
+로컬 개발 서버는 `/groups/{groupId}`와 `/sparring/{topicId}`에서 React 상세 화면을 연다.
+모임 링크의 유효한 `promotion_id`는 React가 읽어 세션 추적에 사용한다.
 
-백엔드 응답만 확인하려면 다음 요청을 사용한다.
+공유 봇이 받는 HTML은 로컬 백엔드의 공유 API에서 확인한다. ID는 로컬 DB에 있는 값을 사용한다.
 
 ```bash
 curl -i http://localhost:8080/api/share/groups/13
+curl -i http://localhost:8080/api/share/sparrings/12
 ```
 
-`200 OK`, `Content-Type: text/html`, 그리고 모임 이름이 들어간
-`og:title`을 확인할 수 있다. `DB_URL` 같은 값은 `bootRun` 프로세스가 실행되는
-셸에 있어야 하므로, 위의 `source .env` 단계를 생략하면 애플리케이션이 시작되지 않는다.
-
-로컬 DB에 해당 그룹이 없으면 먼저 로컬에서 만든 그룹 ID를 사용한다. localhost는 외부
-서비스가 접근할 수 없으므로 실제 카카오톡·Slack 카드까지 확인할 때는 배포 환경이나
-Cloudflare Tunnel/ngrok 같은 공개 터널 URL이 필요하다.
+`200 OK`, `Content-Type: text/html`, `og:title`, `og:description`, `og:image`를 확인한다.
+실제 카카오톡·Slack 카드는 User-Agent 분기가 설정된 배포 환경의 상세 링크로 확인한다.
 
 ### Cloudflare Quick Tunnel로 외부에서 확인
 
@@ -76,8 +67,8 @@ cloudflared tunnel --url http://localhost:5173
 ```
 
 터미널에 출력된 `https://<무작위>.trycloudflare.com` 주소를 복사한다. 백엔드를
-재시작할 때 `FRONTEND_ORIGIN`을 해당 주소로 덮어써야 canonical, 브라우저 redirect,
-기본 썸네일 주소가 모두 외부에서 접근 가능해진다.
+재시작할 때 `FRONTEND_ORIGIN`을 해당 주소로 설정하면 canonical과 기본 썸네일이
+외부에서 접근할 수 있는 주소를 사용한다.
 
 ```bash
 set -a
@@ -87,11 +78,11 @@ export FRONTEND_ORIGIN=https://<무작위>.trycloudflare.com
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-이제 `https://<무작위>.trycloudflare.com/groups/13`을 브라우저나 공유 서비스에서
-열어 확인한다. 외부에서 받은 HTML만 확인하려면 다음처럼 요청한다.
+브라우저 화면은 `https://<무작위>.trycloudflare.com/groups/13`에서 확인한다.
+공유 미리보기 HTML은 터널을 통해 공유 API에 직접 요청한다.
 
 ```bash
-curl -sS https://<무작위>.trycloudflare.com/groups/13 \
+curl -sS https://<무작위>.trycloudflare.com/api/share/groups/13 \
   | rg 'og:title|og:description|og:image'
 ```
 

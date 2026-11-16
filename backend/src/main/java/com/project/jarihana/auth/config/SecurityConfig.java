@@ -58,6 +58,7 @@ public class SecurityConfig {
             "/games/chair-stack/rankings",
             "/images/**",
             "/share/groups/*",
+            "/share/sparrings/*",
             "/invitations/links/*",
             "/assets/default-group.png"
     };

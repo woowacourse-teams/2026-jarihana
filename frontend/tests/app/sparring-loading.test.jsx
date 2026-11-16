@@ -7,6 +7,8 @@ import { playgroundPeriod } from "../../public/sparring-arena/src/playground-sky
 
 jest.mock("react-router", () => ({
   useParams: () => ({ topicId: "1" }),
+  useLocation: () => ({ pathname: "/sparring/1", search: "", hash: "" }),
+  useNavigate: () => jest.fn(),
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>
 }));
 jest.mock("../../src/features/auth", () => ({ useAuth: jest.fn(), storeReturnTarget: jest.fn() }));

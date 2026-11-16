@@ -48,7 +48,11 @@ fe_aws() {
         else . end';;
     cloudfront/get-function)
       [[ ${EDGE_FUNCTION:-none} != unreadable ]] || return 1
-      sed '1,/^ \*\/$/d' "$ROOT/infra/cloudfront/group-share-preview.js" | head -c -1 >"$output"
+      if [[ $EDGE_FUNCTION == legacy ]]; then
+        cp "$ROOT/infra/blue-green-deploy/tests/actions/fixtures/group-share-preview-legacy.js" "$output"
+      else
+        cp "$ROOT/infra/cloudfront/group-share-preview.js" "$output"
+      fi
       [[ ${EDGE_FUNCTION:-none} != tampered ]] || printf '\n// changed\n' >>"$output";;
     cloudfront/get-cache-policy) jq -cn --argjson ttl "${CACHE_TTL:-0}" '{CachePolicy:{CachePolicyConfig:{MinTTL:$ttl,DefaultTTL:$ttl,MaxTTL:$ttl}}}';;
     s3api/head-bucket) :;;
@@ -240,16 +244,26 @@ missing_baseline() {
 }
 pointer_permission_not_absent() { POINTER_ERROR=true; rejects fe_stage; [[ $(write_count) == 0 ]]; }
 cache_preflight() { CACHE_TTL=1; rejects fe_stage; [[ $(write_count) == 0 ]]; }
-realtime_behavior_preflight() { EDGE_FUNCTION=known; EXTRA_BEHAVIOR=realtime; fe_stage; [[ -f $(manifest_file) ]]; }
-realtime_exact_behavior_preflight() { EDGE_FUNCTION=known; EXTRA_BEHAVIOR=realtime_exact; fe_stage; [[ -f $(manifest_file) ]]; }
-realtime_combined_behavior_preflight() { EDGE_FUNCTION=known; EXTRA_BEHAVIOR=realtime_combined; fe_stage; [[ -f $(manifest_file) ]]; }
+approved_edge_functions() {
+  local variant
+  for variant in legacy current; do
+    (
+      setup "approved-edge-$variant"
+      EDGE_FUNCTION=$variant
+      fe_stage
+      jq -e '.frontend.published==false' "$STATE_FILE" >/dev/null
+    )
+  done
+}
+realtime_behavior_preflight() { EDGE_FUNCTION=current; EXTRA_BEHAVIOR=realtime; fe_stage; [[ -f $(manifest_file) ]]; }
+realtime_exact_behavior_preflight() { EDGE_FUNCTION=current; EXTRA_BEHAVIOR=realtime_exact; fe_stage; [[ -f $(manifest_file) ]]; }
+realtime_combined_behavior_preflight() { EDGE_FUNCTION=current; EXTRA_BEHAVIOR=realtime_combined; fe_stage; [[ -f $(manifest_file) ]]; }
 unexpected_behavior_preflight() {
   EXTRA_BEHAVIOR=unexpected
   rejects fe_stage
   [[ $(write_count) == 0 ]]
   grep -q "Frontend CDN origin or edge transformations differ" "$CASE_DIR/rejection.log"
 }
-approved_edge_function() { EDGE_FUNCTION=known; fe_stage; jq -e '.frontend.published==false' "$STATE_FILE" >/dev/null; }
 unapproved_edge_function() {
   local variant
   for variant in unknown event extra lambda tampered unreadable; do
@@ -459,7 +473,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight realtime_behavior_preflight realtime_exact_behavior_preflight realtime_combined_behavior_preflight unexpected_behavior_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+for test in approved_edge_functions unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight realtime_behavior_preflight realtime_exact_behavior_preflight realtime_combined_behavior_preflight unexpected_behavior_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done
