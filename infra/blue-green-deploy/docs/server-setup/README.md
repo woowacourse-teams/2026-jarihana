@@ -264,11 +264,21 @@ current manifest와 live가 일치하는지 확인한다. 미완료 pending이�
 | cache policy | Managed-CachingDisabled, `4135ea2d-6df8-44a3-9df3-4b5a84be39ad`, 최소/기본/최대 TTL 0 |
 | 다른 경로 | API Nginx origin, 별도 이미지 origin, `/ws/realtime/*` 실시간 origin과 behavior 유지 |
 
+별도 behavior의 경로 이름은 허용 목록으로 제한하지 않는다. 배포 파일 목록의 각 URL에 대해
+CloudFront 등록 순서에서 처음 일치하는 behavior를 선택하고, 없으면 기본 behavior를 사용한다.
+선택된 origin은 위 S3 버킷과 `/jarihana/frontend`를 가리켜야 한다. 새 파일은 릴리스 보관 전에
+검사하고 현재 파일과 복구 원본도 확인한다. 게시와 복구의 공개 파일 쓰기 직전에는 설정을 다시 조회한다.
+파일 URL과 겹치지 않는 API, 이미지, 실시간 경로는 이 검사로 차단하지 않는다.
+검사는 조회 시점의 설정을 기준으로 하므로 이후 설정 변경까지 잠그지는 않는다. 기존 공개 URL 응답의
+SHA-256 검증도 유지한다.
+
 기본 behavior의 viewer-request 함수는 없거나, 제어 코드가 승인한 `jarihana-group-share-preview`
 하나여야 한다. LIVE 코드 해시는 [프론트 제어 코드](../../scripts/actions/frontend.sh)의 preflight와
 대조한다. Lambda@Edge, 다른 함수나 코드 변경, 읽기 실패는 게시 전 차단한다.
 함수를 변경하면 동작 검토와 승인 해시를 함께 갱신하고 main에 반영한다.
 캐시 조건이 달라지면 변경이나 invalidation으로 우회하지 않고 게시 및 복구 계약을 재검토한다.
+프론트 파일에 적용되는 별도 behavior도 Lambda@Edge 없이 동작해야 한다. CloudFront 함수는 없거나
+기본 behavior와 같은 승인된 연결만 허용한다. 별도 cache policy도 최소/기본/최대 TTL이 모두 0이어야 한다.
 
 ## 앱 Alloy와 조회 경로
 

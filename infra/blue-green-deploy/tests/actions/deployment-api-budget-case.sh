@@ -150,7 +150,7 @@ for ((i=5;i<FILES;i++)); do echo "old $i" >"$CASE_DIR/s3/$FE_LIVE/assets/file-$i
 LABEL=seed
 BG_API_MIN_REMAINING=10
 if [[ $BASELINE == existing ]]; then
-  fe_temp; fe_pointer_read; fe_capture_baseline; rm -rf "$FE_TEMP"
+  fe_temp; fe_preflight; fe_pointer_read; fe_capture_baseline; rm -rf "$FE_TEMP"
   : >"$CASE_DIR/api.tsv"
 fi
 BG_FRONTEND_ONLY=false; BG_BACKEND_ONLY=false
