@@ -104,7 +104,7 @@ fe_pointer_write() {
   bg_touch
 }
 fe_preflight() {
-  local distribution policy edge_code edge_sha
+  local distribution edge_code edge_sha
   command -v aws >/dev/null || bg_die 'AWS CLI v2 with conditional S3 put support is required'
   [[ $(fe_aws --version) == aws-cli/2.* ]] || bg_die 'AWS CLI v2 is required'
   (( $(df -Pk "$(dirname "$STATE_FILE")" | awk 'NR==2 {print $4}')>=2097152 )) || bg_die 'Frontend staging requires 2 GiB free disk'
@@ -116,7 +116,6 @@ fe_preflight() {
       (.Quantity==1 and (.Items|length)==1 and .Items[0].EventType=="viewer-request" and
         .Items[0].FunctionARN=="arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview")) and
     ($d.DefaultCacheBehavior.LambdaFunctionAssociations.Quantity // 0)==0 and
-    ([$d.CacheBehaviors.Items[]? | .PathPattern | IN("/api/*","api/*","/images/*","images/*","/ws/realtime","ws/realtime","/ws/realtime/*","ws/realtime/*")]|all) and
     ([$d.Origins.Items[]|select(.Id==$d.DefaultCacheBehavior.TargetOriginId and .OriginPath==$prefix and (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length==1)
   ' <<<"$distribution" >/dev/null || bg_die 'Frontend CDN origin or edge transformations differ'
   if [[ $(jq -r '.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity // 0' <<<"$distribution") == 1 ]]; then
@@ -129,9 +128,45 @@ fe_preflight() {
     # Reviewed LIVE bytes: repository group-share-preview.js without its opening doc comment or final LF.
     [[ $edge_sha == 43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828 ]] || bg_die 'Frontend edge function code differs'
   fi
-  policy=$(fe_aws cloudfront get-cache-policy --id "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")") || bg_die 'Cannot verify frontend cache policy'
-  jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'
+  fe_check_cache_policy "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")"
   fe_aws s3api head-bucket --bucket "$FE_BUCKET" >/dev/null || bg_die 'Frontend bucket is inaccessible'
+  printf '%s\n' "$distribution" > "$FE_TEMP/distribution.json"
+}
+fe_check_cache_policy() {
+  local policy
+  policy=$(fe_aws cloudfront get-cache-policy --id "$1") || bg_die 'Cannot verify frontend cache policy'
+  jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'
+}
+fe_check_routes() {
+  local manifest=$1 policies policy
+  # Manifest paths are already canonical. CloudFront uses the first matching rule, with only * and ? as wildcards.
+  policies=$(jq -r --slurpfile cdn "$FE_TEMP/distribution.json" --arg bucket "$FE_BUCKET" --arg prefix "/$FE_LIVE" '
+    def path_regex:
+      ltrimstr("/") | split("") | map(
+        if .=="*" then ".*" elif .=="?" then "."
+        elif IN(".","+","$","^","(",")","[","]","{","}","|","\\") then "\\"+.
+        else . end) | "^/"+join("")+"$";
+    $cdn[0].DistributionConfig as $d |
+    [.files[].path as $path |
+      (first($d.CacheBehaviors.Items[]? | . as $rule |
+        select(("/"+$path)|test($rule.PathPattern|path_regex))) // $d.DefaultCacheBehavior) as $behavior |
+      if ([$d.Origins.Items[] | select(.Id==$behavior.TargetOriginId and .OriginPath==$prefix and
+        (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length)!=1
+      then error("Frontend CDN route differs for /"+$path+" (origin: "+($behavior.TargetOriginId // "missing")+")")
+      elif (($behavior.LambdaFunctionAssociations.Quantity // 0)!=0 or
+        (($behavior.LambdaFunctionAssociations.Items // [])|length)!=0 or
+        ($behavior.FunctionAssociations.Quantity // 0)!=(($behavior.FunctionAssociations.Items // [])|length) or
+        (($behavior.FunctionAssociations.Items // [])!=[] and
+          ($behavior.FunctionAssociations.Items // [])!=($d.DefaultCacheBehavior.FunctionAssociations.Items // [])))
+      then error("Frontend CDN transformations differ for /"+$path)
+      elif ($behavior.CachePolicyId|type)!="string" or $behavior.CachePolicyId==""
+      then error("Frontend CDN cache policy missing for /"+$path)
+      else $behavior.CachePolicyId end] |
+    unique[] | select(.!=$d.DefaultCacheBehavior.CachePolicyId)
+  ' "$manifest") || bg_die 'Cannot verify frontend file routing'
+  while IFS= read -r policy; do
+    [[ -z $policy ]] || fe_check_cache_policy "$policy"
+  done <<<"$policies"
 }
 fe_verify_files() {
   local manifest=$1 directory=$2 path expected size
@@ -184,13 +219,20 @@ fe_capture_baseline() {
   again=$(fe_aws s3api list-objects-v2 --bucket "$FE_BUCKET" --prefix "$FE_LIVE/" --no-paginate --max-keys 1000) || bg_die 'Cannot recheck current frontend'
   [[ $(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$listing") == "$(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$again")" ]] || bg_die 'Current frontend changed during capture'
   fe_manifest "$FE_TEMP/baseline" "$baseline" "$(jq -r .previous_backend_image <<<"$STATE")" ''
+  fe_check_routes "$FE_TEMP/release.json"
   fe_public_check "$FE_TEMP/release.json"
   fe_archive "$FE_TEMP/baseline" "$FE_TEMP/release.json"
   fe_pointer_write "$(jq -cn --arg current "$baseline" --arg backend "$(jq -r .previous_backend_image <<<"$STATE")" '{schema_version:1,current:$current,previous:null,pending:null,backend_image:$backend}')"
 }
 fe_stage() {
   local release="$GITHUB_SHA-$RUN_ID" previous backend changed=true
-  fe_temp; fe_preflight; fe_pointer_read
+  fe_temp; fe_preflight
+  if [[ $(jq -r '.backend_only // false' <<<"$STATE") != true ]]; then
+    fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
+    fe_check_routes "$FE_TEMP/release.json"
+    mv "$FE_TEMP/release.json" "$FE_TEMP/candidate-manifest.json"
+  fi
+  fe_pointer_read
   [[ $FE_POINTER != null ]] || fe_capture_baseline
   jq -e '.pending==null' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend transaction requires reconciliation'
   previous=$(jq -r .current <<<"$FE_POINTER")
@@ -198,12 +240,12 @@ fe_stage() {
   backend=$(jq -r '.backend_image // empty' <<<"$FE_POINTER")
   [[ -n $backend ]] || backend=$(jq -r .backend_image "$FE_TEMP/download-manifest.json")
   [[ $backend == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Current frontend/backend pair differs'
+  fe_check_routes "$FE_TEMP/download-manifest.json"
   fe_public_check "$FE_TEMP/download-manifest.json"
   if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
     changed=false; release=$previous
   else
-    fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
-    fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/release.json"
+    fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"
   fi
   fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" --argjson changed "$changed" '.frontend={release_id:$release,previous_release_id:$previous,changed:$changed,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
@@ -221,6 +263,8 @@ fe_owned_pointer() {
 }
 fe_publish_files() {
   local directory=$1 manifest=$2
+  fe_preflight
+  fe_check_routes "$manifest"
   # Keep all previous hashed assets. index.html is the last object overwritten.
   fe_transfer publish "$manifest" "$directory"
   fe_public_check "$manifest"
