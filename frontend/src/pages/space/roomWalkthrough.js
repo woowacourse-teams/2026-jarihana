@@ -94,7 +94,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   const active = () => WALK_VIEWS.has(view);
   const acceptsInput = () => active() && controlsEnabled && !inputBlocked;
   const hasMotion = () => jumpVelocity !== 0 || jumpHeight > 0 || keys.size > 0 || stepUntil > 0 || Boolean(walkStep || approaching) ||
-    locomotionBlend.active || cupLiftMoving || consuming || Boolean(serverEmote && realtime && serverEmote.expiresAt > realtime.store.serverNow());
+    cupLiftMoving || consuming || Boolean(serverEmote && realtime && serverEmote.expiresAt > realtime.store.serverNow());
+  const needsAnimation = () => hasMotion() || locomotionBlend.active;
   function releaseDrag() {
     const capture = container.querySelector("canvas");
     const pointerId = pointer?.id;
@@ -395,7 +396,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     syncCamera();
     publishInteraction();
-    if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
+    if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
   }
 
   function jump() {
@@ -583,7 +584,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function tick(time) {
     frame = 0;
-    if (!acceptsInput() || !hasMotion() || disposed) return;
+    if (!acceptsInput() || !needsAnimation() || disposed) return;
     if (time >= stepUntil) stepUntil = 0;
     const elapsed = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
     lastTime = time;
@@ -627,7 +628,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     walkPhase += distance * 5 / PLAYER.speed;
     stride = distance > 0.001 ? Math.sin(walkPhase) : 0;
     syncCamera(keys.size > 0 || Boolean(approaching || walkStep) || jumpHeight > 0);
-    if (hasMotion()) frame = requestAnimationFrame(tick);
+    if (needsAnimation()) frame = requestAnimationFrame(tick);
     else lastTime = 0;
   }
 
@@ -704,8 +705,8 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     sprintKeys.delete(event.code);
     keys.delete(event.code);
     if (wasPressed) syncCamera();
-    if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
-    if (!hasMotion()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; stride = 0; }
+    if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
+    if (!needsAnimation()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; stride = 0; }
   }
   function look(dx, dy) {
     if (!dx && !dy) return;
@@ -802,7 +803,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (menu) menu = { target: menu.target, choices: sharedInteractionTarget(menu.target, state)?.choices ?? [] };
       syncCamera(); publishInteraction();
       applyingServer = false;
-      if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
+      if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
     },
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
