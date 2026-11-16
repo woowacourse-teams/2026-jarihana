@@ -45,3 +45,68 @@ test("duplicate timestamps interpolate finite positions and shortest yaw", () =>
   expect(Number.isFinite(store.interpolate("2").position.x)).toBe(true);
   expect(() => parseRoomMessage('{"type":"ROOM_SNAPSHOT"}')).toThrow();
 });
+
+test("delayed packets do not rewind the server clock or freeze steady remote movement", () => {
+  let time = 1000;
+  const store = createRoomStore({ now: () => time });
+  store.apply(snapshot());
+  const move = (serverTime, x, frameSeq) => store.apply(snapshot({ type: "MOVEMENT_FRAME", serverTime, frameSeq,
+    participants: [{ ...actor("2", x), locomotion: "walking" }] }));
+  time = 1100; move(1100, 1, 2);
+  time = 1249;
+  const previousClock = store.serverNow();
+  const previousPosition = store.interpolate("2").position.x;
+  time = 1250; move(1200, 2, 3);
+  expect(store.serverNow()).toBeGreaterThanOrEqual(previousClock);
+  expect(store.interpolate("2").position.x).toBeGreaterThan(previousPosition);
+  time = 1266;
+  expect(store.interpolate("2").position.x).toBeGreaterThan(1.1);
+});
+
+test("stop animation follows the interpolated position instead of the newest packet", () => {
+  let time = 1000;
+  const store = createRoomStore({ now: () => time });
+  store.apply(snapshot({ participants: [{ ...actor("2"), locomotion: "walking" }] }));
+  time = 1100;
+  store.apply(snapshot({ type: "MOVEMENT_FRAME", serverTime: 1100, frameSeq: 2, participants: [actor("2", 1)] }));
+  time = 1200;
+  expect(store.interpolate("2").position.x).toBeCloseTo(0.5);
+  expect(store.interpolate("2").locomotion).toBe("walking");
+  time = 1250;
+  expect(store.interpolate("2").locomotion).toBe("idle");
+});
+
+test("same-room resync preserves clock continuity and clear allows a new clock", () => {
+  let time = 1000;
+  const store = createRoomStore({ now: () => time });
+  store.apply(snapshot());
+  time = 1200;
+  const previous = store.serverNow();
+  store.apply(snapshot({ serverTime: 1150 }));
+  expect(store.serverNow()).toBe(previous);
+  store.clear();
+  store.apply(snapshot({ serverTime: 5000 }));
+  expect(store.serverNow()).toBe(5000);
+});
+
+test("steady movement stays continuous with alternating 0 to 50ms packet delays", () => {
+  let time = 1000;
+  const store = createRoomStore({ now: () => time });
+  store.apply(snapshot());
+  const delays = [0, 40, 10, 50, 0, 30];
+  let index = 1;
+  let previous = 0;
+  for (time = 1000; time < 7000; time += 10) {
+    while (time >= 1000 + index * 100 + delays[index % delays.length]) {
+      store.apply(snapshot({ type: "MOVEMENT_FRAME", serverTime: 1000 + index * 100, frameSeq: index + 1,
+        participants: [{ ...actor("2", index), locomotion: "walking" }] }));
+      index += 1;
+    }
+    const position = store.interpolate("2").position.x;
+    if (time > 1300) {
+      expect(position).toBeGreaterThan(previous);
+      expect(position - previous).toBeLessThanOrEqual(0.103);
+    }
+    previous = position;
+  }
+});

@@ -1489,25 +1489,25 @@ export function poseMascotGrip(model, held, seated, amount, consume = 0) {
   return anchor;
 }
 
-export function animateMascot(model, locomotion, time) {
-  const running = locomotion === "running";
-  const stepping = running || locomotion === "walking";
-  const jumping = locomotion === "jumping";
-  const phase = time / (running ? 65 : 105);
-  const stride = stepping ? Math.sin(phase) : 0;
+export function animateMascot(model, locomotion, time, blended) {
+  const running = blended?.running ?? Number(locomotion === "running");
+  const walking = blended?.walking ?? Number(locomotion === "walking");
+  const jumping = blended?.jumping ?? Number(locomotion === "jumping");
+  const phase = blended?.phase ?? time / (running ? 65 : 105);
+  const stride = blended?.stride ?? ((walking + running) * Math.sin(phase));
   const motion = model.getObjectByName("mascot-motion");
-  motion.position.y = stepping ? (1 - Math.cos(phase * 2)) * (running ? 0.04 : 0.018) : 0;
-  motion.rotation.x = running ? 0.17 : jumping ? 0.08 : 0;
+  motion.position.y = (1 - Math.cos(phase * 2)) * (running * 0.04 + walking * 0.018);
+  motion.rotation.x = running * 0.17 + jumping * 0.08;
 
   for (const [side, direction] of [["left", 1], ["right", -1]]) {
     const step = stride * direction;
     const leg = model.getObjectByName(`walking-leg-${side}`);
     const arm = model.getObjectByName(`walking-arm-${side}`);
     if (leg) {
-      leg.rotation.x = jumping ? (direction > 0 ? -0.62 : 0.38) : step * (running ? 0.85 : 0.52);
-      leg.position.y = 0.44 + Math.max(0, -step) * (running ? 0.08 : 0.04);
+      leg.rotation.x = jumping * (direction > 0 ? -0.62 : 0.38) + step * (0.52 + running * 0.33);
+      leg.position.y = 0.44 + Math.max(0, -step) * (0.04 + running * 0.04);
     }
-    if (arm) arm.rotation.x = jumping ? -0.72 : -step * (running ? 0.9 : 0.45);
+    if (arm) arm.rotation.x = jumping * -0.72 - step * (0.45 + running * 0.45);
   }
   const hand = model.getObjectByName("greeting-hand");
   if (hand) hand.rotation.z = 0.21 + Math.sin(time / 140) * 0.35;

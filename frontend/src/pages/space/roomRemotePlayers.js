@@ -1,3 +1,4 @@
+import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
@@ -95,7 +96,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
         if (liquid) liquid.position.y = 0.04 + heldRemaining * 0.112;
         (personalized ? model : model.getObjectByName("mascot-held-anchor")).add(prop);
       }
-      layer.add(model); players.set(actor.memberId, { model, appearance, prop, held, seated: Boolean(actor.seat), cupLift });
+      layer.add(model); players.set(actor.memberId, { model, appearance, prop, held, seated: Boolean(actor.seat), cupLift, locomotionBlend: previous?.locomotionBlend ?? createLocomotionBlend() });
     }
     previousState = state;
     const avatarCount = visiblePlayers.filter((actor) => actor.avatarAppearance).length;
@@ -149,6 +150,8 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       entry.model.scale.setScalar(fit?.scale ?? 1);
       entry.model.rotation.y = Math.PI - (actor.seat?.yaw ?? sampled.yaw);
       const locomotion = actor.seat ? "idle" : sampled.locomotion;
+      const motion = sampleLocomotion(entry.locomotionBlend, locomotion, time, Boolean(actor.seat) || reduceMotion?.matches);
+      active ||= motion.active;
       const greeting = actor.emote?.expiresAt > serverNow;
       const raised = Boolean(actor.seat && actor.pose === "drinking" && isCup(entry.held));
       const consumption = consumptions.get(actor.memberId);
@@ -161,11 +164,11 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
         const hands = drawClubhouseAvatar(characters, avatarIndex++, actor.avatarAppearance,
           entry.model.position, entry.model.scale.x, entry.model.rotation.y, {
             seated: Boolean(actor.seat), locomotion, stride: moving ? Math.sin(phase) : 0,
-            held: entry.held, lift: amount, consume: eating.lift, greeting, time: serverNow,
+            held: entry.held, lift: amount, consume: eating.lift, greeting, time: serverNow, motion,
           });
         if (entry.prop) placeAvatarProp(entry.prop, hands, entry.held, entry.model.scale.x);
       } else {
-        animateMascot(entry.model, locomotion, serverNow);
+        animateMascot(entry.model, locomotion, serverNow, motion);
         if (entry.prop) poseMascotGrip(entry.model, entry.held, Boolean(actor.seat), amount, eating.lift);
       }
       if (entry.prop) {

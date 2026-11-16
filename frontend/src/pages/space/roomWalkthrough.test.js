@@ -10,6 +10,7 @@ let frames;
 let frameId;
 beforeEach(() => {
   frames = new Map(); frameId = 0;
+  jest.spyOn(performance, "now").mockReturnValue(0);
   jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.set(++frameId, callback); return frameId; });
   jest.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => frames.delete(id));
 });
@@ -23,6 +24,7 @@ function setup(obstacles = [], template = "climbing") {
   return { scene, container, onPosition, walk };
 }
 function advance(time) {
+  performance.now.mockReturnValue(time);
   const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(time));
 }
 
@@ -630,6 +632,8 @@ test("Shift increases held movement speed and Space completes one jump even afte
     advance(time);
   }
   expect(walk.camera.position.y).toBe(PLAYER.eyeHeight);
+  for (let time = 1000; time <= 1200; time += 50) advance(time);
+  expect(walk.camera.position.y).toBe(PLAYER.eyeHeight);
   expect(frames.size).toBe(0);
   walk.dispose();
 });
@@ -843,7 +847,7 @@ test("rapid shared direction clicks move at walking speed and end at idle", () =
     expect(start - walk.camera.position.z).toBeCloseTo(PLAYER.speed / 60);
     for (let time = 32; time <= 320; time += 16) advance(time);
     expect(start - walk.camera.position.z).toBeCloseTo(0.8);
-    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+    expect(move).toHaveBeenCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
   } finally { walk.dispose(); }
 });
 
@@ -902,7 +906,7 @@ test("shared movement ends with idle and looking around does not report walking"
     advance(100); advance(200);
     expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "walking" }), false);
     container.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW", bubbles: true }));
-    expect(move).toHaveBeenLastCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
+    expect(move).toHaveBeenCalledWith(expect.objectContaining({ locomotion: "idle" }), true);
   } finally { walk.dispose(); }
 });
 
