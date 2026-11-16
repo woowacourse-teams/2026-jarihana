@@ -114,6 +114,12 @@ public interface RhythmBattleQueryRepository extends Repository<RhythmBattleRoom
             """)
     List<RhythmBattleChatProjection> findChatsAfter(long roomId, long afterId, Pageable page);
 
-    @Query("select coalesce(max(m.id), 0) from RhythmBattleChatMessage m where m.roomId = :roomId")
-    long findLatestChatId(long roomId);
+    @Query("""
+            select m.id as id, m.roomId as roomId, m.memberId as memberId, m.senderName as senderName, m.body as body,
+                m.clientMessageId as clientMessageId, m.createdAt as createdAt
+            from RhythmBattleChatMessage m
+            where m.roomId = :roomId and m.id > :afterId
+            order by m.id desc
+            """)
+    List<RhythmBattleChatProjection> findRecentChats(long roomId, long afterId, Pageable page);
 }

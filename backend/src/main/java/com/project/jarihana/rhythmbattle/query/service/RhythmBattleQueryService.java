@@ -23,8 +23,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,10 +116,11 @@ public class RhythmBattleQueryService {
         getRoom(id, memberId);
         long after = repository.findChatAfterId(memberId, id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_DENIED, "방에 참가한 회원만 볼 수 있어요."));
-        long latest = repository.findLatestChatId(id);
-        long from = Math.max(after, latest - CHAT_PAGE * 10L);
-        List<RhythmBattleChatResult> messages = findChatsAfter(id, from);
-        return messages.subList(Math.max(0, messages.size() - CHAT_PAGE), messages.size());
+        List<RhythmBattleChatResult> messages = repository.findRecentChats(id, after, PageRequest.of(0, CHAT_PAGE)).stream()
+                .map(RhythmBattleChatResult::from)
+                .collect(Collectors.toCollection(ArrayList::new));
+        Collections.reverse(messages);
+        return messages;
     }
 
     public List<RhythmBattleChatResult> findChatsAfter(long roomId, long afterId) {

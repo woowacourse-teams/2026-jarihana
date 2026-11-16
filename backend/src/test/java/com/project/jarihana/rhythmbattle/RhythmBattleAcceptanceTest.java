@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
@@ -63,6 +64,7 @@ class RhythmBattleAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items", hasSize(1))
                 .body("data.items[0].id", equalTo((int) roomId))
                 .body("data.items[0].hostName", equalTo("가을"))
+                .body("data.items[0].hostAvatarUrl", startsWith("https://avatars.githubusercontent.com/u/"))
                 .body("data.items[0].level", equalTo("HARD"))
                 .body("data.hasNext", equalTo(false));
         join(guest, roomId, null).statusCode(200);
@@ -79,6 +81,7 @@ class RhythmBattleAcceptanceTest extends IntegrationTestSupport {
                 .body("data.host.memberId", equalTo((int) host.id()))
                 .body("data.guest.memberId", equalTo((int) guest.id()))
                 .body("data.guest.name", equalTo("겨울"))
+                .body("data.guest.avatarUrl", startsWith("https://avatars.githubusercontent.com/u/"))
                 .body("data.serverNow", equalTo(FIXED_EPOCH_MILLIS))
                 .body("data.runs", hasSize(0));
     }
@@ -177,6 +180,7 @@ class RhythmBattleAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items[0].memberId", equalTo((int) guest.id()))
                 .body("data.items[0].rank", equalTo(1))
                 .body("data.items[0].wins", equalTo(1))
+                .body("data.items[0].avatarUrl", startsWith("https://avatars.githubusercontent.com/u/"))
                 .body("data.items[1].losses", equalTo(1))
                 .body("data.me.rank", equalTo(2));
         request(host).get(ROOT + "/history/me/summary")

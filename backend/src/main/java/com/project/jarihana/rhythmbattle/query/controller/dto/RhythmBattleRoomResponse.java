@@ -1,5 +1,6 @@
 package com.project.jarihana.rhythmbattle.query.controller.dto;
 
+import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.rhythm.domain.RhythmLevel;
 import com.project.jarihana.rhythmbattle.domain.BattleEndReason;
 import com.project.jarihana.rhythmbattle.domain.BattleOutReason;
@@ -38,10 +39,10 @@ public record RhythmBattleRoomResponse(
                 room.winnerMemberId(), room.endReason(), room.runs().stream().map(Run::from).toList());
     }
 
-    public record Player(long memberId, String name, String githubId, boolean ready, double scrollSpeed) {
+    public record Player(long memberId, String name, String avatarUrl, boolean ready, double scrollSpeed) {
         static Player from(RhythmBattleRoomResult.Player player) {
-            return new Player(player.memberId(), player.name(), player.githubId(), player.ready(),
-                    player.scrollSpeed());
+            return new Player(player.memberId(), player.name(), GithubAvatarUrl.from(player.githubId()),
+                    player.ready(), player.scrollSpeed());
         }
     }
 
