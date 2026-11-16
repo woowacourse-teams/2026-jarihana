@@ -17,10 +17,9 @@ final class SharePreviewHtmlTemplate {
             String description,
             String canonicalUrl,
             String imageUrl,
-            String redirectUrl,
             String linkText
     ) {
-        return CONTENT.formatted(title, description, canonicalUrl, imageUrl, redirectUrl, linkText);
+        return CONTENT.formatted(title, description, canonicalUrl, imageUrl, linkText);
     }
 
     private static String loadContent() {

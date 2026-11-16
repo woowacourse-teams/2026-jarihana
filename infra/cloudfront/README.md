@@ -75,25 +75,28 @@ S3의 `/index.html`을 받는다.
 현황은 넣지 않는다. 사용자 업로드 사진은 `/api/images/sparrings/...`의 안정된 주소를
 메타데이터에 넣고, 이미지 접근 API가 그때 유효한 CDN 서명 URL로 연결한다.
 
-운영 프론트 배포는 이 함수의 LIVE 코드 해시를 검사한다. 기존 함수에서 User-Agent 분기로
-전환할 때는 두 해시를 허용하는 [제어 릴리스](../blue-green-deploy/docs/control-upgrade.md)를 먼저
-적용한다. 새 버전의 승인 해시는 `group-share-preview.js` 파일 전체의 바이트를 기준으로 한다.
-게시 전에 DEVELOPMENT 코드를 내려받아 주석과 마지막 줄바꿈을 포함한 원본 파일과 일치하는지
-확인한다.
+운영 프론트 배포는 이 함수의 LIVE 코드 해시를 검사한다. 전환에 사용하는 배포 실행 SHA에
+기존과 새 해시를 모두 허용하는 검사가 포함되어 있어야 한다. 배포가 실행할 코드는
+[운영 배포 SHA](../blue-green-deploy/docs/release-sha.md)에서 확인한다.
+새 버전의 승인 해시는 `group-share-preview.js` 파일 전체의 바이트를 기준으로 한다.
+게시 전에 DEVELOPMENT 코드를 내려받아 주석과 마지막 줄바꿈을 포함한 원본 파일과 대조한다.
 
-CloudFront 함수는 다음 순서로 적용한다.
+기존 모임 공유 함수는 브라우저를 공유 HTML로 보낸다. 리다이렉트 제거와 함수 변경을
+같은 운영 배포에서 진행할 때는 User-Agent 분기를 게시하고 전파를 확인한 뒤 앱을 배포한다.
+그 사이 모임 카드와 브라우저 상세 화면은 기존 앱에서 제공된다. 토론 카드는 새 공유 API가
+배포된 뒤 제공된다.
 
-1. 백엔드의 `/api/share/groups/{groupId}`와 `/api/share/sparrings/{topicId}`를 먼저 배포하고
-   공개 GET 요청에 HTML을 반환하는지 확인한다. 기본 토론 사진도 공개 접근되는지 확인한다.
-2. `Functions`에서 기존 `jarihana-group-share-preview`를 열고 Runtime **2.0**에서
+1. `Functions`에서 기존 `jarihana-group-share-preview`를 열고 Runtime **2.0**에서
    새 코드를 DEVELOPMENT에 저장한 뒤 테스트한다. 처음 설정하는 배포판이라면 함수를 생성한다.
-3. 코드의 `BACKEND_ORIGIN_ID`가 Origins 탭의 백엔드 Origin name인
-   `jarihana-backend`인지 확인한다. 이 함수는 URI만 바꾸는 대신 해당 origin도 명시적으로
-   선택한다. CloudFront에서 URI만 바꾸면 기본 S3 origin이 그대로 선택되기 때문이다.
-4. 함수를 **Publish**한다. 배포판 `E1YDHL1SDC4C1C`의 기본 캐시 동작(Default `*`)에 이미
-   Viewer request로 연결돼 있다면 배포 완료 후 갱신된 함수가 적용된다. 최초 설정 시 이 단계에 연결한다.
+2. 코드의 `BACKEND_ORIGIN_ID`가 Origins 탭의 백엔드 Origin name인
+   `jarihana-backend`인지 확인한다. CloudFront에서 URI만 바꾸면 기본 S3 origin이 유지되므로
+   함수가 백엔드 origin도 명시적으로 선택한다.
+3. 함수를 **Publish**한다. 배포판 `E1YDHL1SDC4C1C`의 기본 캐시 동작(Default `*`)에 이미
+   Viewer request로 연결돼 있다면, 배포 완료 후 갱신된 함수가 적용된다. 최초 설정 시 이 단계에 연결한다.
+4. 배포판이 `Deployed` 상태가 되면 기존 모임 링크를 브라우저로 열어 React 화면이 바로 나오는지
+   확인한 뒤 앱을 배포한다. 토론 공유 API와 기본 사진의 공개 접근도 확인한다.
 5. 같은 모임·토론 URL에 브라우저와 공유 봇 User-Agent로 각각 요청해 SPA와 메타데이터가
-   올바르게 분리되는지 확인한다. 이전에 공유된 `?preview=1` 링크에도 같은 분기가 적용된다.
+   분리되는지 확인한다. 이전에 공유된 `?preview=1` 링크에도 같은 분기가 적용된다.
 
 함수는 두 분기 모두 원본으로 전달하는 쿼리를 비운다. 브라우저 주소는 유지되므로 React가
 모임 링크의 `promotion_id`를 기존 방식으로 읽을 수 있다. SPA와 메타데이터는 서로 다른 URI로
@@ -106,10 +109,10 @@ CloudFront 함수는 다음 순서로 적용한다.
 개발에서 검증하려면 먼저 두 공유 API와 기본 사진을 준비하고, 개발 배포판의 백엔드 Origin ID에 맞춘
 `group-share-preview.js`를 기본 동작에 연결한다. 운영 Origin ID를 개발에 그대로 적용하지 않는다.
 
-로컬 경로·리다이렉트 검증:
+로컬 경로 분기 검증
 
 ```bash
-node --test infra/cloudfront/group-share-preview.test.mjs infra/cloudfront/share-preview-redirect.test.mjs
+node --test infra/cloudfront/group-share-preview.test.mjs
 ```
 
 ## 개발 SPA 경로 fallback

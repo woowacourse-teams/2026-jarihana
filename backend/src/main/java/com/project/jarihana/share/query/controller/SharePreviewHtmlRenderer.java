@@ -13,14 +13,12 @@ final class SharePreviewHtmlRenderer {
         String description = escape(preview.description());
         String canonicalUrl = escape(preview.canonicalUrl());
         String imageUrl = escape(preview.imageUrl());
-        String redirectUrl = escape(preview.redirectUrl());
         String linkText = escape(preview.linkText());
         return SharePreviewHtmlTemplate.render(
                 title,
                 description,
                 canonicalUrl,
                 imageUrl,
-                redirectUrl,
                 linkText
         );
     }

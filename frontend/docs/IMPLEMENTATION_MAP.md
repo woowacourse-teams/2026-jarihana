@@ -591,8 +591,7 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `/sparring/:topicId`: 공개 투표 현황·캡슐 경기장·영구 의견. 회원 편 선택 후 POST 의견/받아치기
 - 토론 링크 공유는 서버 HTML의 토론명·양쪽 편명·대표사진을 사용하고 우세·표수·비율은 넣지 않는다.
   CloudFront는 User-Agent로 공유 봇을 분기하고 일반 브라우저는 SPA를 바로 연다.
-  로컬 개발의 메타 페이지나 이전 링크에 붙은 `preview=1`은 SPA 진입 시 router replace로 제거한다.
-  다른 검색 파라미터·해시·navigation state는 보존한다. 공유 HTML 계약은
+  공유 HTML 계약은
   [공유 미리보기 API](../../backend/docs/context/api/endpoints/share-preview.md)를 따른다.
 - `src/features/sparring/api.js`: 공통 API client + Zod 응답 검증
 - `useArenaBridge.js`: 인증/HTTP/SSE, 최초·재연결 시 최근 30개 캐시 갱신, 추가 메시지 전체 수신, ID 중복 제거, 출처/스키마 검증. 과거 재생 페이지·편별 커서와 버퍼는 최근 캐시와 별도로 보존한다.

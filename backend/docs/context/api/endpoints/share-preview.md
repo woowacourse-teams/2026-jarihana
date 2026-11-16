@@ -8,11 +8,8 @@
 
 응답의 `<head>`에는 `og:title`, `og:description`, `og:url`, `og:image`와
 `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`를 포함한다.
-`og:url`은 프론트엔드의 `/groups/{groupId}` canonical URL이다. 브라우저에서만 실행되는
-스크립트가 원래 주소의 유효한 `promotion_id` 하나만 보존해
-`/groups/{groupId}?preview=1&promotion_id=...`로 이동하며, JavaScript를 실행하지 않는
-크롤러는 첫 HTML의 메타데이터를 그대로 읽는다. canonical과 OG URL에는 쿼리를 포함하지
-않는다.
+canonical과 `og:url`은 쿼리를 제외한 프론트엔드의 `/groups/{groupId}` URL이다.
+HTML 본문에 상세 페이지로 이동할 수 있는 링크를 제공한다.
 
 CloudFront viewer-request 함수는 `/groups/{groupId}`에 온 등록된 공유 봇의 GET 요청을
 이 엔드포인트로 보낸다. 일반 브라우저는 S3의 React 앱을 바로 받는다.
@@ -41,8 +38,7 @@ CloudFront viewer-request 함수는 `/groups/{groupId}`에 온 등록된 공유 
 사진 URL은 만료되는 CDN 서명 URL을 HTML에 고정하지 않고 기존 이미지 접근 API의 안정된 주소를 사용한다.
 
 CloudFront 함수는 `/sparring/{topicId}`에 온 등록된 공유 봇의 GET 요청을 이 엔드포인트로
-보내고 일반 브라우저에는 React 앱을 바로 제공한다. 브라우저가 API를 직접 열거나 로컬 개발
-서버에서 공유 HTML을 열면 공용 스크립트가 `?preview=1`을 붙여 React 화면으로 이동한다.
+보내고 일반 브라우저에는 React 앱을 바로 제공한다.
 
 토론이 없으면 공통 JSON 오류 봉투의 `SPARRING_NOT_FOUND`와 HTTP 404를 반환한다.
 서버의 5분 캐시와 별개로 공유 서비스가 메타데이터·이미지를 캐시할 수 있으므로,

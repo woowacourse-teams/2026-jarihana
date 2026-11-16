@@ -32,7 +32,6 @@ public class GroupSharePreviewService {
                 group.getIntroduction(),
                 canonicalUrl,
                 toAbsoluteUrl(result.representativeImageUrl()),
-                canonicalUrl + "?preview=1",
                 "모임 페이지로 이동"
         );
     }

@@ -52,9 +52,9 @@ class GroupSharePreviewControllerTest extends IntegrationTestSupport {
                 .body(containsString("<meta property=\"og:description\" content=\"매주 함께 문제를 풉니다.\""))
                 .body(containsString("<meta property=\"og:url\" content=\"http://localhost:5173/groups/" + group.getId() + "\""))
                 .body(containsString("<meta property=\"og:image\" content=\"https://service.example.test/api/images/groups/1.webp\""))
-                .body(containsString("http://localhost:5173/groups/" + group.getId() + "?preview=1"))
-                .body(containsString("getAll(\"promotion_id\")"))
-                .body(containsString("promotionValues.length === 1"));
+                .body(containsString("<a href=\"http://localhost:5173/groups/" + group.getId() + "\">"))
+                .body(not(containsString("<script")))
+                .body(not(containsString("?preview=")));
     }
 
     @DisplayName("기본 이미지의 공유 미리보기는 프론트 정적 이미지 URL을 사용한다.")

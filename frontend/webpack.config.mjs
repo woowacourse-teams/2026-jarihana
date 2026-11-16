@@ -165,32 +165,6 @@ export default (_, arguments_) => {
           target: process.env.API_PROXY_TARGET || "http://localhost:8080"
         }
       ],
-      setupMiddlewares: (middlewares) => {
-        middlewares.unshift({
-          name: "share-preview",
-          middleware: async (request, response, next) => {
-            const sharePath = request.path.match(/^\/(groups|sparring)\/([1-9][0-9]*)\/?$/);
-            if (request.method !== "GET" || !sharePath || request.query.preview === "1") {
-              next();
-              return;
-            }
-
-            try {
-              const resource = sharePath[1] === "groups" ? "groups" : "sparrings";
-              const previewResponse = await fetch(
-                `http://localhost:8080/api/share/${resource}/${sharePath[2]}`
-              );
-              response.status(previewResponse.status);
-              response.setHeader("Content-Type", "text/html; charset=UTF-8");
-              response.setHeader("Cache-Control", "no-store");
-              response.send(await previewResponse.text());
-            } catch (error) {
-              next(error);
-            }
-          }
-        });
-        return middlewares;
-      },
       static: {
         directory: path.resolve(directory, "public")
       }

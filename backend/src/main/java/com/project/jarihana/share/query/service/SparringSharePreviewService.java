@@ -28,7 +28,6 @@ public class SparringSharePreviewService {
                 topic.a() + " vs " + topic.b(),
                 canonicalUrl,
                 toAbsoluteUrl(topic.representativeImageUrl()),
-                canonicalUrl + "?preview=1",
                 "토론 페이지로 이동"
         );
     }
