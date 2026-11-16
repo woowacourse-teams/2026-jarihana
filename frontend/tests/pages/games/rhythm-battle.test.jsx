@@ -175,12 +175,16 @@ describe("lobby", () => {
     expect(rhythmBattleApi.join).toHaveBeenCalledWith(11);
   });
 
-  it("sends a member who already sits in a room back to that room", async () => {
+  it("points a member who already sits in a room back to it instead of creating or joining another", async () => {
     rhythmBattleApi.mine.mockResolvedValue({ roomId: 9 });
     renderWithQuery(<RhythmBattleLobbyPage />);
-    await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/games/rhythm-harpoon/battle/rooms/9", { replace: true })
-    );
+    const back = await screen.findByRole("link", { name: "내 방으로" });
+    expect(back).toHaveAttribute("href", "/games/rhythm-harpoon/battle/rooms/9");
+    expect(back).toHaveAttribute("data-ph-capture-attribute-action", "rhythm_battle_my_room_open");
+    // 방 화면의 "대기실" 링크로 왔을 수 있으므로 바로 방으로 돌려보내지 않는다.
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "방 만들기" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "참가" })).toBeDisabled();
   });
 
   it("explains a conflict when the room cannot be joined", async () => {

@@ -420,7 +420,7 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 
 리듬게임 온라인 매칭(1:1 대전) 대기실의 첫 화면 복귀는 `rhythm_entry_back`, 방 만들기의 공개 여부와 난이도 선택은
 `rhythm_battle_visibility_select`, `rhythm_battle_level_select`, 방 만들기는 `rhythm_battle_create`, 공개 방 참가는
-`rhythm_battle_join`이다. 초대 링크 화면의 참가는 `rhythm_battle_invite_join`, 방과 초대 화면의 대기실 복귀는
+`rhythm_battle_join`, 이미 앉은 방으로 돌아가는 "내 방으로"는 `rhythm_battle_my_room_open`이다. 초대 링크 화면의 참가는 `rhythm_battle_invite_join`, 방과 초대 화면의 대기실 복귀는
 `rhythm_battle_lobby_back`이다. 방 안에서는 초대 링크 만들기와 복사가 `rhythm_battle_invite_create`,
 `rhythm_battle_invite_copy`, 배속 선택이 `rhythm_battle_speed_change`, 준비와 준비 취소가 `rhythm_battle_ready_toggle`,
 방장의 시작이 `rhythm_battle_start`, 방 나가기가 `rhythm_battle_leave`, 채팅 입력과 보내기가 `rhythm_battle_chat_input`,

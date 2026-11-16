@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Copy, Crown, Swords } from "lucide-react";
@@ -35,7 +35,8 @@ const OUT_COPY = {
   CLOCK_AHEAD: "진행 시각이 맞지 않아 기권 처리됐어요."
 };
 
-// 온라인 매칭 대기실이다. 이미 앉은 방이 있으면 그 방으로 보낸다.
+// 온라인 매칭 대기실이다. 이미 앉은 방이 있으면 그 방으로 돌아가는 안내를 두고 새 방 만들기와 참가를 막는다.
+// 방 화면의 "대기실" 링크로 와도 방을 떠나지 않으므로, 여기서 바로 방으로 돌려보내지 않는다.
 // 방을 만들 때 공개 여부와 난이도를 고르고, 공개 방 목록에서 바로 참가한다. 아래에 내 전적과 승수 랭킹을 둔다.
 export function RhythmBattleLobbyPage() {
   const navigate = useNavigate();
@@ -58,9 +59,8 @@ export function RhythmBattleLobbyPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (mine.data?.roomId) navigate(rhythmBattleRoomPath(mine.data.roomId), { replace: true });
-  }, [mine.data, navigate]);
+  const myRoomId = mine.data?.roomId ?? null;
+  const seated = myRoomId !== null;
 
   async function run(operation) {
     if (busy) return;
@@ -99,6 +99,18 @@ export function RhythmBattleLobbyPage() {
           <h1>온라인 매칭</h1>
           <p>방을 만들어 1:1로 겨뤄요. 같은 채보를 함께 치고, 먼저 라이프를 모두 잃으면 져요.</p>
         </header>
+        {seated ? (
+          <div className="rhythm-battle-card rhythm-battle-mine" role="status">
+            <p>참여 중인 방이 있어요. 새 방에 들어가려면 그 방에서 나와 주세요.</p>
+            <Link
+              className="ui-button ui-button--primary ui-button--md"
+              data-ph-capture-attribute-action="rhythm_battle_my_room_open"
+              to={rhythmBattleRoomPath(myRoomId)}
+            >
+              내 방으로
+            </Link>
+          </div>
+        ) : null}
         <div className="rhythm-battle-lobby__grid">
           <section className="rhythm-battle-card" aria-labelledby="rhythm-battle-create">
             <h2 id="rhythm-battle-create">방 만들기</h2>
@@ -143,7 +155,7 @@ export function RhythmBattleLobbyPage() {
             <Button
               block
               data-ph-capture-attribute-action="rhythm_battle_create"
-              disabled={busy || mine.isPending}
+              disabled={busy || mine.isPending || seated}
               onClick={() => void run(() => rhythmBattleApi.create({ visibility, level }))}
             >
               <Swords aria-hidden="true" size={18} /> 방 만들기
@@ -171,7 +183,7 @@ export function RhythmBattleLobbyPage() {
                     <span className="rhythm-battle-rooms__level">{levelName(room.level)}</span>
                     <Button
                       data-ph-capture-attribute-action="rhythm_battle_join"
-                      disabled={busy}
+                      disabled={busy || seated}
                       onClick={() => void run(() => rhythmBattleApi.join(room.id))}
                       size="sm"
                     >

@@ -39,6 +39,18 @@
   font-weight: 900;
 }
 
+.rhythm-battle-mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.rhythm-battle-mine p {
+  margin: 0;
+  font-weight: 800;
+}
+
 .rhythm-battle-lobby__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
