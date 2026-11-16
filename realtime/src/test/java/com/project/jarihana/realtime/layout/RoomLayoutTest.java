@@ -65,6 +65,17 @@ class RoomLayoutTest {
     }
 
     @Test
+    void readsLoftGeometryOnlyForSavedVersionTwelveLounges() {
+        RoomLayout defaultLayout = catalog.read(0, null);
+        RoomLayout savedLayout = catalog.read(1, mapper.valueToTree(Map.of(
+                "version", 12, "template", "lounge", "items", List.of())));
+
+        assertThat(defaultLayout.geometry()).isEqualTo(empty("lounge").geometry());
+        assertThat(savedLayout.geometry().path("stairs").path("steps").asInt()).isPositive();
+        assertThat(defaultLayout.geometry().path("stairs").isObject()).isFalse();
+    }
+
+    @Test
     void legacyLayoutsRequireAnExplicitEditorSave() {
         assertThatThrownBy(() -> catalog.read(1, mapper.valueToTree(Map.of("version", 8, "template", "lounge", "items", List.of()))))
                 .hasMessage("LAYOUT_UPGRADE_REQUIRED");
