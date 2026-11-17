@@ -6,12 +6,13 @@ FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
 FE_PUBLIC=https://jarihana.com
 FE_DISTRIBUTION=E1YDHL1SDC4C1C
+FE_S3_TRANSPORT=curl
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-s3.sh"
 
 fe_aws_cli() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
 fe_aws() {
-  if [[ ${FE_S3_TRANSPORT:-awscli} == curl && -n ${FE_S3_CACHE:-} && ${1:-} == s3api && ${3:-} == --bucket && ${4:-} == "$FE_BUCKET" && ${5:-} == --key ]]; then
+  if [[ ${FE_S3_TRANSPORT:-curl} == curl && -n ${FE_S3_CACHE:-} && ${1:-} == s3api && ${3:-} == --bucket && ${4:-} == "$FE_BUCKET" && ${5:-} == --key ]]; then
     if [[ $# == 9 && $2 == get-object && $7 == --range ]] &&
        { [[ $FE_TRANSFER_MODE == download && $6 == "$FE_ARCHIVE/"*/files/* && $8 == bytes=0-67108864 ]] ||
          [[ $FE_TRANSFER_MODE == publish && $6 == "$FE_ARCHIVE/state.json" && $8 == bytes=0-1048576 ]]; }; then

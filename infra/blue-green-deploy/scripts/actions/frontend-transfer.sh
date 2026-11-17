@@ -88,7 +88,7 @@ fe_transfer_batch() {
   local batch_pid status=0 saved_traps FE_S3_EXCHANGE=''
   # Refresh an expired parent-run cache before the workers inherit it.
   bg_file_guard
-  if [[ $FE_TRANSFER_MODE != public && ${FE_S3_TRANSPORT:-awscli} == curl ]]; then
+  if [[ $FE_TRANSFER_MODE != public && ${FE_S3_TRANSPORT:-curl} == curl ]]; then
     FE_S3_EXCHANGE=$(mktemp "$FE_TEMP/s3-auth.XXXXXX") || bg_die 'Cannot create frontend credential handoff'
   fi
   saved_traps=$(trap -p INT TERM)
@@ -121,7 +121,7 @@ fe_transfer_checkpoint() {
 fe_transfer() {
   local FE_TRANSFER_MODE=$1 manifest=$2 FE_TRANSFER_DIRECTORY=${3:-}
   local FE_TRANSFER_RELEASE row started count=0 FE_S3_AUTH=''
-  local FE_S3_TRANSPORT=${FE_S3_TRANSPORT:-awscli}
+  local FE_S3_TRANSPORT=${FE_S3_TRANSPORT:-curl}
   [[ $FE_S3_TRANSPORT == awscli || $FE_S3_TRANSPORT == curl ]] || bg_die 'Invalid frontend S3 transport'
   local -a batch=()
   FE_TRANSFER_RELEASE=$(jq -r .release_id "$manifest")
