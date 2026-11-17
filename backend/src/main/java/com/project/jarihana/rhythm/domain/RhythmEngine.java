@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 /**
  * 공식 도전의 판정을 서버에서 다시 계산한다.
@@ -54,6 +55,8 @@ public final class RhythmEngine {
     private int poor;
     private int miss;
     private boolean dead;
+    // 라이프를 모두 잃은 피해를 받은 곡 시각이다. 대전에서 누가 먼저 탈락했는지 비교한다.
+    private double deadAt = Double.NaN;
     private double elapsed;
 
     private RhythmEngine(RhythmChart chart, RhythmLevel level, double scrollSpeed, int seed, int startLoop) {
@@ -289,6 +292,7 @@ public final class RhythmEngine {
             healCompletedLoops(group.at + CAPTURE_WINDOW + ATTACK_DURATION);
             damage(group);
             if (dead) {
+                deadAt = group.at + CAPTURE_WINDOW + ATTACK_DURATION;
                 return;
             }
         }
@@ -357,6 +361,10 @@ public final class RhythmEngine {
 
     public boolean dead() {
         return dead;
+    }
+
+    public OptionalDouble deadAt() {
+        return dead ? OptionalDouble.of(deadAt) : OptionalDouble.empty();
     }
 
     List<List<RhythmLane>> loopMaps() {

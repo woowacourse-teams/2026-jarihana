@@ -108,7 +108,7 @@ public class SecurityConfig {
                         // only resume the existing response after its request-thread context is gone.
                         .requestMatchers(request -> request.getDispatcherType() == DispatcherType.ASYNC
                                 && request.getRequestURI().substring(request.getContextPath().length())
-                                        .matches("/games/gomoku/rooms/[0-9]+/events")).permitAll()
+                                        .matches("/games/(gomoku|rhythm-battle)/rooms/[0-9]+/events")).permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_PATHS).permitAll()

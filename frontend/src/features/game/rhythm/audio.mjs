@@ -75,13 +75,14 @@ export class MusicTransport {
     this.resumedAt = 0;
   }
 
-  async start(loops) {
+  // leadSeconds 뒤를 곡 0초로 잡는다. 대전은 서버가 정한 공통 시작 시각에 맞추려고 남은 시간을 넘긴다.
+  async start(loops, leadSeconds = 0.12) {
     this.stop();
     const generation = this.generation;
     await this.context.resume();
     if (generation !== this.generation) return false;
     this.resumedAt = performance.now();
-    this.baseTime = this.context.currentTime + 0.12;
+    this.baseTime = this.context.currentTime + Math.max(0.12, leadSeconds);
     this.schedule(loops);
     return true;
   }

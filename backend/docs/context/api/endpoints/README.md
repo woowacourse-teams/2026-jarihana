@@ -154,6 +154,23 @@
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/batches` | `MEMBER + 본인` | 입력 묶음으로 점수 재계산, 실시간 진행 검사 |
 | 리듬 작살 | `POST` | `/api/games/rhythm-harpoon/challenges/{id}/abandon` | `MEMBER + 본인` | 이탈한 도전 무효 처리 |
 | 리듬 작살 | `GET` | `/api/games/rhythm-harpoon/rankings` | `MEMBER` | 난이도별 회원 최고 기록 랭킹과 내 순위 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/rooms` | `MEMBER` | 상대를 기다리는 공개 방 목록 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/rooms/me` | `MEMBER` | 현재 참여 방 조회 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms` | `MEMBER` | 방 생성(공개 여부, 난이도)과 방장 자리 확보 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/join` | `MEMBER + 공개 범위/토큰 검증` | 빈 손님 자리 참여 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/rooms/{id}` | `MEMBER + 참가자` | 방과 지금 판의 두 사람 진행 조회 |
+| 리듬 대전 | `PUT` | `/api/games/rhythm-battle/rooms/{id}/ready` | `MEMBER + 참가자` | 다음 판 준비/취소와 내 배속 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/start` | `MEMBER + 방장` | 시드와 공통 시작 시각을 정해 판 시작 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/batches` | `MEMBER + 참가자` | 입력 묶음으로 내 판 재계산과 승패 판정 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/forfeit` | `MEMBER + 참가자` | 현재 판 기권 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/leave` | `MEMBER + 참가자` | 퇴장과 좌석 해제 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/invite` | `MEMBER + 대기방 참가자` | 초대 토큰 발급/회전 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/invitations/{token}` | `MEMBER` | 초대한 방 미리보기 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/rooms/{id}/chat/messages` | `MEMBER + 참가자` | 방 채팅 최근 기록 |
+| 리듬 대전 | `POST` | `/api/games/rhythm-battle/rooms/{id}/chat/messages` | `MEMBER + 참가자` | 멱등 채팅 전송 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/rooms/{id}/events` | `MEMBER + 참가자` | SSE 방 모습, 입력 묶음, 채팅 구독 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/ranking` | `MEMBER` | 누적 승수 랭킹과 내 순위 |
+| 리듬 대전 | `GET` | `/api/games/rhythm-battle/history/me/summary` | `MEMBER` | 본인 승/패/무 |
 
 ## 상세 문서
 
@@ -166,6 +183,7 @@
 | 오목 | [gomoku.md](gomoku.md) | 공개 목록/검색, 방 생성/참가/대국, 초대와 SSE 스냅샷 |
 | 의자 쌓기 | [chair-stack.md](chair-stack.md) | 게스트와 회원의 게임 진행 및 공개 랭킹 |
 | 리듬 작살 | [rhythm-harpoon.md](rhythm-harpoon.md) | 공식 도전 생성/시작/입력 묶음/이탈, 서버 재계산과 난이도별 랭킹 |
+| 리듬 대전 | [rhythm-battle.md](rhythm-battle.md) | 1:1 대전 방, 준비/시작, 입력 묶음 재계산과 승패 판정, 초대, 채팅, SSE, 승수 랭킹 |
 | 채팅 | [chats.md](chats.md) | 영속 메시지·읽음·복구·개인 WebSocket 경로 |
 | 초대 | [invitations.md](invitations.md) | 발급·회원 후보·수신/발급 목록·상세·공개 미리보기·취소·거절·수락·대기 신청 승인 |
 | 피드백 | [feedbacks.md](feedbacks.md) | 피드백 작성 |
