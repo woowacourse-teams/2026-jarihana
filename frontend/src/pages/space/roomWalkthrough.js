@@ -1,3 +1,4 @@
+import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
@@ -86,6 +87,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   let lastLocomotion = "idle";
   let sharedPose = "relaxed";
   const cupLift = createCupLift();
+  const locomotionBlend = createLocomotionBlend();
   let cupLiftMoving = false;
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
@@ -93,6 +95,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   const acceptsInput = () => active() && controlsEnabled && !inputBlocked;
   const hasMotion = () => jumpVelocity !== 0 || jumpHeight > 0 || keys.size > 0 || stepUntil > 0 || Boolean(walkStep || approaching) ||
     cupLiftMoving || consuming || Boolean(serverEmote && realtime && serverEmote.expiresAt > realtime.store.serverNow());
+  const needsAnimation = () => hasMotion() || locomotionBlend.active;
   function releaseDrag() {
     const capture = container.querySelector("canvas");
     const pointerId = pointer?.id;
@@ -116,6 +119,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     approaching = null;
     const wasStriding = Boolean(stride);
     stride = 0;
+    sampleLocomotion(locomotionBlend, "idle", performance.now(), true);
     if (airborne || wasApproaching || wasStriding || wasMoving || realtime) syncCamera();
     if (consuming && acceptsInput() && !disposed && !frame) frame = requestAnimationFrame(tick);
   }
@@ -392,7 +396,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     syncCamera();
     publishInteraction();
-    if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
+    if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
   }
 
   function jump() {
@@ -441,6 +445,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const location = fit?.position ?? position;
     const now = performance.now();
     const time = realtime?.store.serverNow() ?? now;
+    const motion = sampleLocomotion(locomotionBlend, seated ? "idle" : locomotion, now, Boolean(seated) || reduceMotion?.matches);
     const eating = consumptionFrame(consumption, time, reduceMotion?.matches);
     const wasConsuming = consuming;
     consuming = eating.active;
@@ -464,7 +469,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     avatar.scale.setScalar(fit?.scale ?? 1);
     avatar.rotation.y = Math.PI - (seated?.yaw ?? yaw);
     if (!appearance) {
-      animateMascot(avatar, seated ? "idle" : locomotion, time);
+      animateMascot(avatar, seated ? "idle" : locomotion, time, motion);
       const hand = avatar.getObjectByName("greeting-hand");
       if (hand) hand.rotation.z = 0.21 + Math.sin(time / 140) * 0.35;
     }
@@ -511,7 +516,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
         for (const mesh of customAvatar.pickMeshes) prepareAvatarMaterial(mesh.material);
       }
       hands = drawClubhouseAvatar(customAvatar, 0, appearance, avatarOrigin, 1, 0, {
-        seated: Boolean(seated), locomotion, stride, held: visualHeld, lift, consume: eating.lift, greeting, time,
+        seated: Boolean(seated), locomotion, stride, held: visualHeld, lift, consume: eating.lift, greeting, time, motion,
       });
     }
     if (prop) {
@@ -579,7 +584,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function tick(time) {
     frame = 0;
-    if (!acceptsInput() || !hasMotion() || disposed) return;
+    if (!acceptsInput() || !needsAnimation() || disposed) return;
     if (time >= stepUntil) stepUntil = 0;
     const elapsed = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 1 / 60;
     lastTime = time;
@@ -623,7 +628,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     walkPhase += distance * 5 / PLAYER.speed;
     stride = distance > 0.001 ? Math.sin(walkPhase) : 0;
     syncCamera(keys.size > 0 || Boolean(approaching || walkStep) || jumpHeight > 0);
-    if (hasMotion()) frame = requestAnimationFrame(tick);
+    if (needsAnimation()) frame = requestAnimationFrame(tick);
     else lastTime = 0;
   }
 
@@ -699,7 +704,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const wasPressed = sprintKeys.has(event.code) || keys.has(event.code);
     sprintKeys.delete(event.code);
     keys.delete(event.code);
-    if (!hasMotion()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; stride = 0; if (wasPressed) syncCamera(); }
+    if (wasPressed) syncCamera();
+    if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
+    if (!needsAnimation()) { cancelAnimationFrame(frame); frame = 0; lastTime = 0; stride = 0; }
   }
   function look(dx, dy) {
     if (!dx && !dy) return;
@@ -796,7 +803,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (menu) menu = { target: menu.target, choices: sharedInteractionTarget(menu.target, state)?.choices ?? [] };
       syncCamera(); publishInteraction();
       applyingServer = false;
-      if (hasMotion() && !frame) frame = requestAnimationFrame(tick);
+      if (needsAnimation() && !frame) frame = requestAnimationFrame(tick);
     },
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);

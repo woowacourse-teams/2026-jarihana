@@ -9640,6 +9640,279 @@
           }
         ]
       }
+    },
+    "12:lounge": {
+      "building": {
+        "minX": -15,
+        "maxX": 10,
+        "minZ": -8,
+        "maxZ": 5,
+        "height": 7.6,
+        "wingHeight": 4.2
+      },
+      "walls": [
+        {
+          "x": -5.5,
+          "z": -8,
+          "width": 19.2,
+          "depth": 0.24,
+          "height": 7.6
+        },
+        {
+          "x": 7,
+          "z": -8,
+          "width": 6,
+          "depth": 0.24,
+          "height": 4.2
+        },
+        {
+          "x": -15,
+          "z": -1.5,
+          "width": 0.24,
+          "depth": 13,
+          "height": 7.6
+        },
+        {
+          "x": 10,
+          "z": -1.5,
+          "width": 0.24,
+          "depth": 13,
+          "height": 4.2,
+          "cutaway": true
+        },
+        {
+          "x": -9.25,
+          "z": 5,
+          "width": 11.5,
+          "depth": 0.24,
+          "height": 7.6,
+          "cutaway": true
+        },
+        {
+          "x": 1.75,
+          "z": 5,
+          "width": 4.5,
+          "depth": 0.24,
+          "height": 7.6,
+          "cutaway": true
+        },
+        {
+          "x": 7,
+          "z": 5,
+          "width": 6,
+          "depth": 0.24,
+          "height": 4.2,
+          "cutaway": true
+        },
+        {
+          "x": 4,
+          "z": -6.75,
+          "width": 0.2,
+          "depth": 2.5,
+          "height": 4.2
+        },
+        {
+          "x": 4,
+          "z": -1.25,
+          "width": 0.2,
+          "depth": 4.5,
+          "height": 4.2
+        },
+        {
+          "x": 4,
+          "z": 4,
+          "width": 0.2,
+          "depth": 2,
+          "height": 4.2
+        },
+        {
+          "x": 7,
+          "z": -1.5,
+          "width": 6,
+          "depth": 0.2,
+          "height": 4.2
+        }
+      ],
+      "displayName": "기본 아지트",
+      "upperName": "2층 라운지",
+      "mezzanine": {
+        "minX": -14.84,
+        "maxX": 3.84,
+        "minZ": -7.86,
+        "maxZ": -4.3,
+        "height": 4.45
+      },
+      "stairs": {
+        "minX": -14.4,
+        "maxX": -12.3,
+        "minZ": -4.3,
+        "maxZ": 3.7,
+        "height": 4.45,
+        "steps": 26
+      },
+      "pillars": [],
+      "railings": [
+        {
+          "x": -14.620000000000001,
+          "z": -4.3,
+          "width": 0.4399999999999995,
+          "depth": 0.08
+        },
+        {
+          "x": -4.23,
+          "z": -4.3,
+          "width": 16.14,
+          "depth": 0.08
+        },
+        {
+          "x": 3.84,
+          "z": -6.08,
+          "width": 0.08,
+          "depth": 3.5600000000000005
+        }
+      ],
+      "stairRails": [
+        {
+          "x": -14.4,
+          "z": -0.2999999999999998,
+          "width": 0.12,
+          "depth": 8
+        },
+        {
+          "x": -12.3,
+          "z": -0.2999999999999998,
+          "width": 0.12,
+          "depth": 8
+        }
+      ],
+      "clearPaths": [
+        {
+          "minX": -3.25,
+          "maxX": -0.75,
+          "minZ": -4.5,
+          "maxZ": 12.5
+        },
+        {
+          "minX": -0.75,
+          "maxX": 5,
+          "minZ": -5.3,
+          "maxZ": -3.7
+        },
+        {
+          "minX": -0.75,
+          "maxX": 5,
+          "minZ": 1.2,
+          "maxZ": 2.8
+        },
+        {
+          "minX": -14.4,
+          "maxX": -0.75,
+          "minZ": 3.7,
+          "maxZ": 5
+        }
+      ],
+      "mezzaninePaths": [
+        {
+          "minX": -14.84,
+          "maxX": -11.9,
+          "minZ": -6.3,
+          "maxZ": -4.3
+        },
+        {
+          "minX": -12.3,
+          "maxX": 3.84,
+          "minZ": -5.55,
+          "maxZ": -4.3
+        }
+      ],
+      "facilityWalk": [],
+      "facilityPlacement": [],
+      "mats": [],
+      "island": {
+        "surface": {
+          "minX": -29,
+          "maxX": 24,
+          "minZ": -25,
+          "maxZ": 27
+        },
+        "walkable": {
+          "minX": -25,
+          "maxX": 20,
+          "minZ": -21,
+          "maxZ": 23
+        },
+        "bottomY": -8.5,
+        "entrance": {
+          "minX": -25,
+          "maxX": 20,
+          "minZ": 5,
+          "maxZ": 23
+        },
+        "exterior": [
+          {
+            "minX": -25,
+            "maxX": 20,
+            "minZ": 5,
+            "maxZ": 23
+          },
+          {
+            "minX": -25,
+            "maxX": -15,
+            "minZ": -21,
+            "maxZ": 5
+          },
+          {
+            "minX": 10,
+            "maxX": 20,
+            "minZ": -21,
+            "maxZ": 5
+          },
+          {
+            "minX": -15,
+            "maxX": 10,
+            "minZ": -21,
+            "maxZ": -8
+          }
+        ]
+      },
+      "yard": {
+        "minX": -25,
+        "maxX": 20,
+        "minZ": 5,
+        "maxZ": 23
+      },
+      "exterior": [
+        {
+          "minX": -25,
+          "maxX": 20,
+          "minZ": 5,
+          "maxZ": 23
+        },
+        {
+          "minX": -25,
+          "maxX": -15,
+          "minZ": -21,
+          "maxZ": 5
+        },
+        {
+          "minX": 10,
+          "maxX": 20,
+          "minZ": -21,
+          "maxZ": 5
+        },
+        {
+          "minX": -15,
+          "maxX": 10,
+          "minZ": -21,
+          "maxZ": -8
+        }
+      ],
+      "entrance": {
+        "minX": -15,
+        "maxX": 10,
+        "minZ": 5,
+        "maxZ": 8.2
+      }
     }
   }
 }

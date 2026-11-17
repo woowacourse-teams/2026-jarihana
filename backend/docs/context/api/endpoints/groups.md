@@ -261,6 +261,7 @@ Request Body는 없다.
 ### `GET /api/groups/{groupId}`
 
 - 설명: 그룹 상세 조회
+- `clubhouseSetupEnabled`는 초기 아지트 선택 기능 적용 이후 생성된 모임에서 `true`다. 동아리·스터디의 모임장은 저장된 아지트가 없을 때 초기 선택 화면을 본다.
 - 권한: `PUBLIC`
 
 #### Path Parameters
@@ -293,7 +294,8 @@ Request Body는 없다.
     "currentMemberRole": null,
     "currentMemberRegistrationId": null,
     "currentMemberRegistrationStatus": null,
-    "createdAt": "2026-08-13T10:00:00"
+    "createdAt": "2026-08-13T10:00:00",
+    "clubhouseSetupEnabled": false
   },
   "error": null
 }

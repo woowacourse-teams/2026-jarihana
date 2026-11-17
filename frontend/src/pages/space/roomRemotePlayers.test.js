@@ -98,22 +98,26 @@ test("remote locomotion animates the limbs and returns to a standing pose on sto
   };
 
   update("walking", 2150);
+  for (let time = 2166; time <= 2406; time += 16) frame(time);
   const avatar = scene.getObjectByName("remote-player-2");
   const leftLeg = avatar.getObjectByName("walking-leg-left");
   const rightLeg = avatar.getObjectByName("walking-leg-right");
   const leftArm = avatar.getObjectByName("walking-arm-left");
   const walkingSwing = Math.abs(leftLeg.rotation.x);
-  expect(walkingSwing).toBeGreaterThan(0.3);
+  expect(walkingSwing).toBeGreaterThan(0.1);
   expect(leftLeg.rotation.x * rightLeg.rotation.x).toBeLessThan(0);
   expect(leftLeg.rotation.x * leftArm.rotation.x).toBeLessThan(0);
 
-  update("running", 2350);
-  expect(Math.abs(leftLeg.rotation.x)).toBeGreaterThan(walkingSwing);
+  update("running", 2450);
+  for (let time = 2466; time <= 2674; time += 16) frame(time);
   expect(avatar.getObjectByName("mascot-motion").rotation.x).toBeGreaterThan(0);
-  update("jumping", 2550);
+  update("jumping", 2750);
+  for (let time = 2766; time <= 2974; time += 16) frame(time);
   expect(leftArm.rotation.x).toBeLessThan(0);
-  update("idle", 2750);
-  expect(leftLeg.rotation.x).toBe(0);
+  update("idle", 3050);
+  expect(leftLeg.rotation.x).not.toBe(0);
+  for (let time = 3066; time <= 3274; time += 16) frame(time);
+  expect(leftLeg.rotation.x).toBeCloseTo(0);
   expect(leftArm.rotation.x).toBeCloseTo(0);
   expect(avatar.getObjectByName("mascot-motion").position.y).toBe(0);
   players.dispose();

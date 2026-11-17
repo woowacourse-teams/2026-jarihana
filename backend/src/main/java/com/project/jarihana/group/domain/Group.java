@@ -43,6 +43,13 @@ public class Group extends BaseEntity {
     @Column(name = "show_base_schedule_in_calendar", nullable = false)
     private boolean showBaseScheduleInCalendar;
 
+    @Column(name = "clubhouse_setup_enabled", nullable = false, updatable = false)
+    private boolean clubhouseSetupEnabled = true;
+
+    public boolean isClubhouseSetupEnabled() {
+        return clubhouseSetupEnabled;
+    }
+
     @Column(name = "ended_on")
     private LocalDate endedOn;
 

@@ -1,9 +1,23 @@
 const EMPTY = Object.freeze({ participants: [], items: [], assets: {}, selfId: null });
 
-export function createRoomStore({ now = Date.now } = {}) {
+const INTERPOLATION_DELAY_MS = 150;
+
+export function createRoomStore({ now = () => performance.now() } = {}) {
   let state = EMPTY;
   let status = Object.freeze({ status: "idle", error: null, layoutRevision: null });
   let clockOffset = 0;
+  let clockTime = null;
+  let clockLocalTime = 0;
+  function serverNow(time = now()) {
+    if (clockTime === null) return time + clockOffset;
+    const elapsed = Math.max(0, time - clockLocalTime);
+    const predicted = clockTime + elapsed;
+    // Slew by at most 2%: packet jitter must not rewind the animation clock.
+    const correction = Math.max(-elapsed * 0.02, Math.min(elapsed * 0.02, time + clockOffset - predicted));
+    clockTime = predicted + correction;
+    clockLocalTime = Math.max(clockLocalTime, time);
+    return clockTime;
+  }
   const listeners = new Set();
   const statusListeners = new Set();
   const samples = new Map();
@@ -16,10 +30,14 @@ export function createRoomStore({ now = Date.now } = {}) {
   function notify() { listeners.forEach((listener) => listener(state)); }
   function sample(actor, serverTime) {
     const previous = samples.get(actor.memberId) ?? [];
-    samples.set(actor.memberId, [...previous, { ...actor, serverTime }].slice(-4));
+    const entry = { ...actor, serverTime };
+    if (previous.at(-1)?.serverTime === serverTime) previous[previous.length - 1] = entry;
+    else previous.push(entry);
+    samples.set(actor.memberId, previous.slice(-12));
   }
   function apply(message) {
     const snapshot = message.type === "ROOM_SNAPSHOT";
+    const resetClock = clockTime === null || (snapshot && message.roomEpoch !== state.roomEpoch);
     if (!snapshot && (message.roomEpoch !== state.roomEpoch || message.connectionGeneration !== state.connectionGeneration)) return "stale";
     if (!snapshot && message.layoutRevision < state.layoutRevision) return "stale";
     if (message.type === "MOVEMENT_FRAME") {
@@ -37,7 +55,15 @@ export function createRoomStore({ now = Date.now } = {}) {
       state = message;
       state.participants.forEach((actor) => sample(actor, message.serverTime));
     }
-    clockOffset = message.serverTime - now();
+    const receivedAt = now();
+    if (resetClock) {
+      clockOffset = message.serverTime - receivedAt;
+      clockTime = message.serverTime;
+      clockLocalTime = receivedAt;
+    } else {
+      serverNow(receivedAt);
+      clockOffset += (message.serverTime - receivedAt - clockOffset) * 0.1;
+    }
     setStatus("connected");
     notify();
     return "applied";
@@ -45,20 +71,20 @@ export function createRoomStore({ now = Date.now } = {}) {
   function interpolate(memberId, time = now()) {
     const history = samples.get(memberId);
     if (!history?.length) return null;
-    const target = time + clockOffset - 100;
+    const target = serverNow(time) - INTERPOLATION_DELAY_MS;
     const after = history.find((entry) => entry.serverTime >= target) ?? history.at(-1);
     const before = [...history].reverse().find((entry) => entry.serverTime <= target) ?? history[0];
     if (after === before || after.serverTime <= before.serverTime || after.seat || before.seat) return after;
     const alpha = Math.max(0, Math.min(1, (target - before.serverTime) / (after.serverTime - before.serverTime)));
     const deltaYaw = Math.atan2(Math.sin(after.yaw - before.yaw), Math.cos(after.yaw - before.yaw));
-    return { ...after, yaw: before.yaw + deltaYaw * alpha,
+    return { ...after, locomotion: alpha < 1 ? before.locomotion : after.locomotion, yaw: before.yaw + deltaYaw * alpha,
       position: Object.fromEntries(["x", "y", "z"].map((axis) => [axis, before.position[axis] + (after.position[axis] - before.position[axis]) * alpha])) };
   }
   return {
-    getState: () => state, getStatus: () => status, serverNow: () => now() + clockOffset,
+    getState: () => state, getStatus: () => status, serverNow,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     subscribeStatus(listener) { statusListeners.add(listener); return () => statusListeners.delete(listener); },
     setStatus, apply, interpolate, refresh: notify,
-    clear(next = "idle") { state = EMPTY; samples.clear(); setStatus(next); notify(); }
+    clear(next = "idle") { state = EMPTY; samples.clear(); clockTime = null; clockOffset = 0; setStatus(next); notify(); }
   };
 }
