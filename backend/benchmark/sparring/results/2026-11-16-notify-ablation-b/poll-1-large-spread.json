@@ -1,0 +1,374 @@
+{
+  "writes_attempted": 12000,
+  "writes_succeeded": 12000,
+  "writes_failed": {},
+  "storage_tps": 479.8953444232881,
+  "storage_p95_ms": 5769.4,
+  "storage_p99_ms": 6259.59,
+  "sse_p50_ms": 4044.73,
+  "sse_p95_ms": 6357.56,
+  "sse_p99_ms": 6874.42,
+  "sse_from_ack_p50_ms": 519.7,
+  "sse_from_ack_p99_ms": 1528.02,
+  "sse_from_ack_max_ms": 2559.4,
+  "sse_within_1s": 7557,
+  "sse_from_ack_p95_ms": 1131.76,
+  "sse_expected": 48000,
+  "sse_missing": 0,
+  "sse_duplicates": 0,
+  "sse_updates": 21052,
+  "sse_disconnected": [],
+  "send_scheduler_p95_ms": 3.65,
+  "sse_by_committed_posts": {
+    "expected": 48000,
+    "missing": 0,
+    "duplicates": 0
+  },
+  "mode": "poll",
+  "case": "large-spread",
+  "servers": 1,
+  "rooms": 256,
+  "clients": 1024,
+  "target_rate": 480,
+  "seconds": 25,
+  "db_posts": 12000,
+  "db_cpu_pct": 58.84,
+  "db_queries": {
+    "all": 120206,
+    "revision": 6476,
+    "reconcile": 0,
+    "post": 5263,
+    "notify_sql_ms": 0.0,
+    "notify": 0
+  },
+  "app_cpu_pct": [
+    417.73
+  ],
+  "app_peak_rss_mib": [
+    931.61
+  ],
+  "app_jvm": [
+    {
+      "peak_cpu_pct": 555.69,
+      "peak_heap_mib": 356.03,
+      "peak_committed_heap_mib": 384.0,
+      "peak_non_heap_mib": 217.33,
+      "gc_count": 111.0,
+      "gc_pause_ms": 989.0,
+      "allocated_mib": 5476.0,
+      "peak_live_threads": 249.0,
+      "peak_jdbc_active": 9.0,
+      "peak_jdbc_pending": 438.0,
+      "jdbc_timeouts": 0.0,
+      "peak_http_busy": 200.0,
+      "missed_jvm_samples": 3
+    }
+  ],
+  "app_samples": [
+    [
+      {
+        "elapsed_seconds": 0.061,
+        "usage_usec": 52776330,
+        "rss_mib": 823.83,
+        "jvm": {
+          "heap_used_bytes": 331350016.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 221953488.0,
+          "gc_pauses": 4.0,
+          "gc_pause_seconds": 0.057,
+          "allocated_bytes": 585105408.0,
+          "live_threads": 248.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 1.655,
+        "usage_usec": 60097530,
+        "rss_mib": 872.7,
+        "jvm": {
+          "heap_used_bytes": 351164320.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226457248.0,
+          "gc_pauses": 10.0,
+          "gc_pause_seconds": 0.141,
+          "allocated_bytes": 1013972992.0,
+          "live_threads": 249.0,
+          "jdbc_active": 9.0,
+          "jdbc_pending": 251.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 200.0
+        }
+      },
+      {
+        "elapsed_seconds": 5.838,
+        "usage_usec": 82085836,
+        "rss_mib": 895.14,
+        "jvm": null
+      },
+      {
+        "elapsed_seconds": 10.155,
+        "usage_usec": 106075173,
+        "rss_mib": 898.01,
+        "jvm": null
+      },
+      {
+        "elapsed_seconds": 14.605,
+        "usage_usec": 128555666,
+        "rss_mib": 905.51,
+        "jvm": null
+      },
+      {
+        "elapsed_seconds": 19.3,
+        "usage_usec": 149524356,
+        "rss_mib": 911.24,
+        "jvm": {
+          "heap_used_bytes": 360854720.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227888104.0,
+          "gc_pauses": 92.0,
+          "gc_pause_seconds": 0.896,
+          "allocated_bytes": 4889509792.0,
+          "live_threads": 249.0,
+          "jdbc_active": 9.0,
+          "jdbc_pending": 438.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 200.0
+        }
+      },
+      {
+        "elapsed_seconds": 21.951,
+        "usage_usec": 160986434,
+        "rss_mib": 924.61,
+        "jvm": {
+          "heap_used_bytes": 350406496.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227379696.0,
+          "gc_pauses": 102.0,
+          "gc_pause_seconds": 0.977,
+          "allocated_bytes": 5478809504.0,
+          "live_threads": 249.0,
+          "jdbc_active": 9.0,
+          "jdbc_pending": 201.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 139.0
+        }
+      },
+      {
+        "elapsed_seconds": 23.149,
+        "usage_usec": 164242390,
+        "rss_mib": 931.61,
+        "jvm": {
+          "heap_used_bytes": 335633848.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227254064.0,
+          "gc_pauses": 107.0,
+          "gc_pause_seconds": 1.003,
+          "allocated_bytes": 5818548128.0,
+          "live_threads": 249.0,
+          "jdbc_active": 7.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 11.0
+        }
+      },
+      {
+        "elapsed_seconds": 24.386,
+        "usage_usec": 166947302,
+        "rss_mib": 929.7,
+        "jvm": {
+          "heap_used_bytes": 339593712.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226826272.0,
+          "gc_pauses": 111.0,
+          "gc_pause_seconds": 1.023,
+          "allocated_bytes": 6060769176.0,
+          "live_threads": 249.0,
+          "jdbc_active": 2.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 4.0
+        }
+      },
+      {
+        "elapsed_seconds": 25.52,
+        "usage_usec": 168679370,
+        "rss_mib": 929.82,
+        "jvm": {
+          "heap_used_bytes": 322994552.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226753384.0,
+          "gc_pauses": 114.0,
+          "gc_pause_seconds": 1.039,
+          "allocated_bytes": 6259998616.0,
+          "live_threads": 249.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 26.685,
+        "usage_usec": 168995386,
+        "rss_mib": 929.82,
+        "jvm": {
+          "heap_used_bytes": 373326200.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226810584.0,
+          "gc_pauses": 114.0,
+          "gc_pause_seconds": 1.039,
+          "allocated_bytes": 6259998616.0,
+          "live_threads": 249.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 27.838,
+        "usage_usec": 169566603,
+        "rss_mib": 929.95,
+        "jvm": {
+          "heap_used_bytes": 357072856.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227103352.0,
+          "gc_pauses": 115.0,
+          "gc_pause_seconds": 1.046,
+          "allocated_bytes": 6327107480.0,
+          "live_threads": 249.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 28.024,
+        "usage_usec": 169587982,
+        "rss_mib": 929.95,
+        "jvm": {
+          "heap_used_bytes": 359170008.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227127544.0,
+          "gc_pauses": 115.0,
+          "gc_pause_seconds": 1.046,
+          "allocated_bytes": 6327107480.0,
+          "live_threads": 249.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      }
+    ]
+  ],
+  "db_memory_mib": {
+    "current": {
+      "avg": 133.84,
+      "peak": 144.82
+    },
+    "anon": {
+      "avg": 37.21,
+      "peak": 37.43
+    },
+    "file": {
+      "avg": 86.59,
+      "peak": 97.03
+    },
+    "shmem": {
+      "avg": 23.94,
+      "peak": 27.86
+    }
+  },
+  "db_memory_samples": [
+    {
+      "current": 115.56640625,
+      "anon": 36.0078125,
+      "file": 70.05078125,
+      "shmem": 20.79296875
+    },
+    {
+      "current": 116.97265625,
+      "anon": 36.72265625,
+      "file": 70.4296875,
+      "shmem": 20.99609375
+    },
+    {
+      "current": 117.34765625,
+      "anon": 36.8359375,
+      "file": 70.93359375,
+      "shmem": 21.2578125
+    },
+    {
+      "current": 119.1640625,
+      "anon": 37.33203125,
+      "file": 71.9921875,
+      "shmem": 22.08984375
+    },
+    {
+      "current": 137.5234375,
+      "anon": 37.41796875,
+      "file": 89.75,
+      "shmem": 23.01171875
+    },
+    {
+      "current": 139.046875,
+      "anon": 37.421875,
+      "file": 91.5625,
+      "shmem": 23.96484375
+    },
+    {
+      "current": 140.8359375,
+      "anon": 37.421875,
+      "file": 93.32421875,
+      "shmem": 24.8828125
+    },
+    {
+      "current": 141.2421875,
+      "anon": 37.421875,
+      "file": 93.7109375,
+      "shmem": 25.08203125
+    },
+    {
+      "current": 141.68359375,
+      "anon": 37.421875,
+      "file": 94.0390625,
+      "shmem": 25.24609375
+    },
+    {
+      "current": 141.9140625,
+      "anon": 37.421875,
+      "file": 94.2734375,
+      "shmem": 25.36328125
+    },
+    {
+      "current": 141.91796875,
+      "anon": 37.421875,
+      "file": 94.2734375,
+      "shmem": 25.36328125
+    },
+    {
+      "current": 141.9140625,
+      "anon": 37.42578125,
+      "file": 94.2734375,
+      "shmem": 25.36328125
+    },
+    {
+      "current": 144.82421875,
+      "anon": 37.421875,
+      "file": 97.03125,
+      "shmem": 27.86328125
+    }
+  ],
+  "reconcile_seconds": 0,
+  "notify_received": [
+    0
+  ],
+  "notify_dropped": [
+    0
+  ]
+}

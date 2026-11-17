@@ -1,0 +1,1218 @@
+{
+  "writes_attempted": 12000,
+  "writes_succeeded": 12000,
+  "writes_failed": {},
+  "storage_tps": 479.935411885654,
+  "storage_p95_ms": 429.96,
+  "storage_p99_ms": 782.72,
+  "sse_p50_ms": 612.82,
+  "sse_p95_ms": 1113.1,
+  "sse_p99_ms": 1577.55,
+  "sse_from_ack_p50_ms": 554.12,
+  "sse_from_ack_p99_ms": 1115.21,
+  "sse_from_ack_max_ms": 1676.02,
+  "sse_within_1s": 42825,
+  "sse_from_ack_p95_ms": 963.06,
+  "sse_expected": 48000,
+  "sse_missing": 0,
+  "sse_duplicates": 0,
+  "sse_updates": 25612,
+  "sse_disconnected": [],
+  "send_scheduler_p95_ms": 2.12,
+  "sse_by_committed_posts": {
+    "expected": 48000,
+    "missing": 0,
+    "duplicates": 0
+  },
+  "pool_timeline": {
+    "db_waits": 3512,
+    "db_waits_matched_to_lease": 3512,
+    "leases": 19976,
+    "all_pool_full_ms": 6557.18,
+    "pool_full_with_notify_lock_ms": 2964.827,
+    "notify_lock_connection_ms": 20266.021,
+    "operations": {
+      "write": {
+        "connections": 12000,
+        "acquire_p99_ms": 712.914,
+        "total_acquire_ms": 632803.415,
+        "lock_overlap_ms": 357123.037,
+        "full_pool_lock_overlap_ms": 258557.087,
+        "full_pool_lock_overlap_pct": 40.86,
+        "requests_overlapping_full_pool_and_lock": 3212,
+        "p99_tail_overlapping_full_pool_and_lock": 121,
+        "p99_tail_count": 121
+      },
+      "read": {
+        "connections": 6150,
+        "acquire_p99_ms": 504.632,
+        "total_acquire_ms": 540365.797,
+        "lock_overlap_ms": 92168.333,
+        "full_pool_lock_overlap_ms": 69115.776,
+        "full_pool_lock_overlap_pct": 12.79,
+        "requests_overlapping_full_pool_and_lock": 1180,
+        "p99_tail_overlapping_full_pool_and_lock": 62,
+        "p99_tail_count": 62
+      },
+      "other": {
+        "connections": 48,
+        "acquire_p99_ms": 775.731,
+        "total_acquire_ms": 2003.86,
+        "lock_overlap_ms": 846.864,
+        "full_pool_lock_overlap_ms": 635.467,
+        "full_pool_lock_overlap_pct": 31.71,
+        "requests_overlapping_full_pool_and_lock": 10,
+        "p99_tail_overlapping_full_pool_and_lock": 1,
+        "p99_tail_count": 1
+      },
+      "reconcile": {
+        "connections": 5,
+        "acquire_p99_ms": 0.042,
+        "total_acquire_ms": 0.09,
+        "lock_overlap_ms": 0.0,
+        "full_pool_lock_overlap_ms": 0.0,
+        "full_pool_lock_overlap_pct": 0.0,
+        "requests_overlapping_full_pool_and_lock": 0,
+        "p99_tail_overlapping_full_pool_and_lock": 0,
+        "p99_tail_count": 1
+      }
+    },
+    "matched_http_writes": 12000,
+    "http_p99_ms": 782.716,
+    "http_p99_minus_pool_wait_ms": 145.196
+  },
+  "notify_lock_trace": {
+    "matched_requests": 12000,
+    "unmatched_requests": 0,
+    "requests_with_logged_wait": 3512,
+    "db_lock_wait_xids": 3512,
+    "unmatched_lock_xids": 0,
+    "started_without_acquisition": 0,
+    "logged_wait_p99_ms": 27.751,
+    "logged_wait_max_ms": 67.794,
+    "logged_wait_total_ms": 20266.021,
+    "log_threshold_ms": 1,
+    "storage": {
+      "samples": 12000,
+      "p99_ms": 782.716,
+      "p99_minus_observed_lock_ms": 782.152,
+      "tail_with_logged_wait": 99,
+      "tail_samples": 121,
+      "tail_mean_logged_wait_ms": 6.178,
+      "tail_max_logged_wait_ms": 21.487
+    },
+    "sse": {
+      "samples": 48000,
+      "p99_ms": 1577.553,
+      "p99_minus_observed_lock_ms": 1570.256,
+      "tail_with_logged_wait": 329,
+      "tail_samples": 481,
+      "tail_mean_logged_wait_ms": 4.744,
+      "tail_max_logged_wait_ms": 17.67
+    }
+  },
+  "mode": "notify",
+  "case": "large-spread",
+  "servers": 1,
+  "rooms": 256,
+  "clients": 1024,
+  "target_rate": 480,
+  "seconds": 25,
+  "db_posts": 12000,
+  "db_cpu_pct": 48.72,
+  "db_queries": {
+    "all": 123323,
+    "revision": 6406,
+    "reconcile_sql_ms": 0.47400000000000003,
+    "reconcile": 5,
+    "post": 6403,
+    "notify_sql_ms": 31.761,
+    "notify": 12000
+  },
+  "app_cpu_pct": [
+    264.92
+  ],
+  "app_peak_rss_mib": [
+    954.49
+  ],
+  "app_jvm": [
+    {
+      "peak_cpu_pct": 648.16,
+      "peak_heap_mib": 319.06,
+      "peak_committed_heap_mib": 384.0,
+      "peak_non_heap_mib": 218.94,
+      "gc_count": 46.0,
+      "gc_pause_ms": 214.0,
+      "allocated_mib": 5577.0,
+      "peak_live_threads": 252.0,
+      "peak_jdbc_active": 10.0,
+      "peak_jdbc_pending": 189.0,
+      "jdbc_timeouts": 0.0,
+      "peak_http_busy": 200.0,
+      "missed_jvm_samples": 0
+    }
+  ],
+  "app_samples": [
+    [
+      {
+        "elapsed_seconds": 0.058,
+        "usage_usec": 44177429,
+        "rss_mib": 830.61,
+        "jvm": {
+          "heap_used_bytes": 281661448.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 220383888.0,
+          "gc_pauses": 4.0,
+          "gc_pause_seconds": 0.108,
+          "allocated_bytes": 528482304.0,
+          "live_threads": 250.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 1.384,
+        "usage_usec": 52353905,
+        "rss_mib": 862.8,
+        "jvm": {
+          "heap_used_bytes": 256737448.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 229429800.0,
+          "gc_pauses": 6.0,
+          "gc_pause_seconds": 0.155,
+          "allocated_bytes": 737148928.0,
+          "live_threads": 252.0,
+          "jdbc_active": 9.0,
+          "jdbc_pending": 189.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 200.0
+        }
+      },
+      {
+        "elapsed_seconds": 2.743,
+        "usage_usec": 61162431,
+        "rss_mib": 873.05,
+        "jvm": {
+          "heap_used_bytes": 334291824.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 225392464.0,
+          "gc_pauses": 10.0,
+          "gc_pause_seconds": 0.175,
+          "allocated_bytes": 1125122048.0,
+          "live_threads": 252.0,
+          "jdbc_active": 10.0,
+          "jdbc_pending": 162.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 111.0
+        }
+      },
+      {
+        "elapsed_seconds": 4.026,
+        "usage_usec": 68824843,
+        "rss_mib": 882.8,
+        "jvm": {
+          "heap_used_bytes": 301111616.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227902208.0,
+          "gc_pauses": 13.0,
+          "gc_pause_seconds": 0.191,
+          "allocated_bytes": 1469054976.0,
+          "live_threads": 252.0,
+          "jdbc_active": 5.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 4.0
+        }
+      },
+      {
+        "elapsed_seconds": 5.403,
+        "usage_usec": 75574635,
+        "rss_mib": 886.4,
+        "jvm": {
+          "heap_used_bytes": 327673464.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 229289904.0,
+          "gc_pauses": 15.0,
+          "gc_pause_seconds": 0.201,
+          "allocated_bytes": 1720713216.0,
+          "live_threads": 252.0,
+          "jdbc_active": 10.0,
+          "jdbc_pending": 71.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 80.0
+        }
+      },
+      {
+        "elapsed_seconds": 6.741,
+        "usage_usec": 81263688,
+        "rss_mib": 895.38,
+        "jvm": {
+          "heap_used_bytes": 302487128.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228908304.0,
+          "gc_pauses": 18.0,
+          "gc_pause_seconds": 0.21500000000000002,
+          "allocated_bytes": 2102394880.0,
+          "live_threads": 252.0,
+          "jdbc_active": 10.0,
+          "jdbc_pending": 23.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 34.0
+        }
+      },
+      {
+        "elapsed_seconds": 7.995,
+        "usage_usec": 86166415,
+        "rss_mib": 905.23,
+        "jvm": {
+          "heap_used_bytes": 318492496.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228252552.0,
+          "gc_pauses": 20.0,
+          "gc_pause_seconds": 0.22399999999999998,
+          "allocated_bytes": 2407530496.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 9.197,
+        "usage_usec": 89360991,
+        "rss_mib": 918.48,
+        "jvm": {
+          "heap_used_bytes": 319951592.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 229571336.0,
+          "gc_pauses": 22.0,
+          "gc_pause_seconds": 0.23199999999999998,
+          "allocated_bytes": 2624585728.0,
+          "live_threads": 252.0,
+          "jdbc_active": 2.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 10.433,
+        "usage_usec": 92783440,
+        "rss_mib": 923.23,
+        "jvm": {
+          "heap_used_bytes": 325417992.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228891088.0,
+          "gc_pauses": 24.0,
+          "gc_pause_seconds": 0.24,
+          "allocated_bytes": 2886729728.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 11.664,
+        "usage_usec": 95986117,
+        "rss_mib": 929.61,
+        "jvm": {
+          "heap_used_bytes": 256185128.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227842320.0,
+          "gc_pauses": 27.0,
+          "gc_pause_seconds": 0.25,
+          "allocated_bytes": 3284140024.0,
+          "live_threads": 252.0,
+          "jdbc_active": 5.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 5.0
+        }
+      },
+      {
+        "elapsed_seconds": 12.891,
+        "usage_usec": 98766996,
+        "rss_mib": 916.66,
+        "jvm": {
+          "heap_used_bytes": 257154776.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228809128.0,
+          "gc_pauses": 29.0,
+          "gc_pause_seconds": 0.257,
+          "allocated_bytes": 3549429752.0,
+          "live_threads": 252.0,
+          "jdbc_active": 3.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 14.108,
+        "usage_usec": 101199823,
+        "rss_mib": 936.53,
+        "jvm": {
+          "heap_used_bytes": 255964584.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228483464.0,
+          "gc_pauses": 31.0,
+          "gc_pause_seconds": 0.264,
+          "allocated_bytes": 3813670904.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 15.297,
+        "usage_usec": 103175942,
+        "rss_mib": 938.03,
+        "jvm": {
+          "heap_used_bytes": 250787752.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227679568.0,
+          "gc_pauses": 33.0,
+          "gc_pause_seconds": 0.271,
+          "allocated_bytes": 4078960632.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 16.501,
+        "usage_usec": 105096580,
+        "rss_mib": 947.75,
+        "jvm": {
+          "heap_used_bytes": 249643688.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 228323128.0,
+          "gc_pauses": 35.0,
+          "gc_pause_seconds": 0.276,
+          "allocated_bytes": 4345298936.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 5.0
+        }
+      },
+      {
+        "elapsed_seconds": 17.736,
+        "usage_usec": 107539881,
+        "rss_mib": 949.62,
+        "jvm": {
+          "heap_used_bytes": 308458016.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227637232.0,
+          "gc_pauses": 37.0,
+          "gc_pause_seconds": 0.28200000000000003,
+          "allocated_bytes": 4611637240.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 18.928,
+        "usage_usec": 109235539,
+        "rss_mib": 950.12,
+        "jvm": {
+          "heap_used_bytes": 301154120.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227360320.0,
+          "gc_pauses": 39.0,
+          "gc_pause_seconds": 0.288,
+          "allocated_bytes": 4877975544.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 20.108,
+        "usage_usec": 110751071,
+        "rss_mib": 950.24,
+        "jvm": {
+          "heap_used_bytes": 290342208.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226972696.0,
+          "gc_pauses": 41.0,
+          "gc_pause_seconds": 0.294,
+          "allocated_bytes": 5162139632.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 21.303,
+        "usage_usec": 112079437,
+        "rss_mib": 954.37,
+        "jvm": {
+          "heap_used_bytes": 281864432.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227140976.0,
+          "gc_pauses": 43.0,
+          "gc_pause_seconds": 0.299,
+          "allocated_bytes": 5412749296.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 22.501,
+        "usage_usec": 113517162,
+        "rss_mib": 954.49,
+        "jvm": {
+          "heap_used_bytes": 274583904.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226864760.0,
+          "gc_pauses": 45.0,
+          "gc_pause_seconds": 0.305,
+          "allocated_bytes": 5680136176.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 2.0
+        }
+      },
+      {
+        "elapsed_seconds": 23.733,
+        "usage_usec": 115536496,
+        "rss_mib": 951.81,
+        "jvm": {
+          "heap_used_bytes": 334561536.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226851944.0,
+          "gc_pauses": 47.0,
+          "gc_pause_seconds": 0.311,
+          "allocated_bytes": 6012534768.0,
+          "live_threads": 252.0,
+          "jdbc_active": 1.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 24.974,
+        "usage_usec": 117101057,
+        "rss_mib": 951.94,
+        "jvm": {
+          "heap_used_bytes": 333139312.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226943992.0,
+          "gc_pauses": 49.0,
+          "gc_pause_seconds": 0.318,
+          "allocated_bytes": 6215958504.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 3.0
+        }
+      },
+      {
+        "elapsed_seconds": 26.172,
+        "usage_usec": 117866559,
+        "rss_mib": 952.06,
+        "jvm": {
+          "heap_used_bytes": 275110376.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226913064.0,
+          "gc_pauses": 50.0,
+          "gc_pause_seconds": 0.322,
+          "allocated_bytes": 6376390632.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 27.417,
+        "usage_usec": 117895113,
+        "rss_mib": 952.06,
+        "jvm": {
+          "heap_used_bytes": 276158952.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 226918056.0,
+          "gc_pauses": 50.0,
+          "gc_pause_seconds": 0.322,
+          "allocated_bytes": 6376390632.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      },
+      {
+        "elapsed_seconds": 27.984,
+        "usage_usec": 118142824,
+        "rss_mib": 952.19,
+        "jvm": {
+          "heap_used_bytes": 300276200.0,
+          "heap_committed_bytes": 402653184.0,
+          "non_heap_used_bytes": 227204896.0,
+          "gc_pauses": 50.0,
+          "gc_pause_seconds": 0.322,
+          "allocated_bytes": 6376390632.0,
+          "live_threads": 252.0,
+          "jdbc_active": 0.0,
+          "jdbc_pending": 0.0,
+          "jdbc_timeout": 0.0,
+          "http_busy": 1.0
+        }
+      }
+    ]
+  ],
+  "db_memory_mib": {
+    "current": {
+      "avg": 136.14,
+      "peak": 145.87
+    },
+    "anon": {
+      "avg": 39.97,
+      "peak": 40.66
+    },
+    "file": {
+      "avg": 85.71,
+      "peak": 94.29
+    },
+    "shmem": {
+      "avg": 23.54,
+      "peak": 25.29
+    }
+  },
+  "db_memory_samples": [
+    {
+      "current": 117.171875,
+      "anon": 37.23828125,
+      "file": 70.078125,
+      "shmem": 20.81640625
+    },
+    {
+      "current": 119.33203125,
+      "anon": 38.67578125,
+      "file": 70.6953125,
+      "shmem": 21.15625
+    },
+    {
+      "current": 120.48828125,
+      "anon": 39.14453125,
+      "file": 71.2421875,
+      "shmem": 21.46875
+    },
+    {
+      "current": 121.2109375,
+      "anon": 39.1875,
+      "file": 71.69140625,
+      "shmem": 21.72265625
+    },
+    {
+      "current": 121.36328125,
+      "anon": 39.2734375,
+      "file": 72.05859375,
+      "shmem": 21.92578125
+    },
+    {
+      "current": 121.86328125,
+      "anon": 39.2734375,
+      "file": 72.51171875,
+      "shmem": 22.15234375
+    },
+    {
+      "current": 122.3046875,
+      "anon": 39.29296875,
+      "file": 72.98828125,
+      "shmem": 22.40234375
+    },
+    {
+      "current": 123.1171875,
+      "anon": 39.29296875,
+      "file": 73.48828125,
+      "shmem": 22.63671875
+    },
+    {
+      "current": 139.58203125,
+      "anon": 39.296875,
+      "file": 89.85546875,
+      "shmem": 22.80859375
+    },
+    {
+      "current": 140.0078125,
+      "anon": 39.33984375,
+      "file": 90.09765625,
+      "shmem": 22.92578125
+    },
+    {
+      "current": 142.03515625,
+      "anon": 40.65625,
+      "file": 90.69140625,
+      "shmem": 23.55078125
+    },
+    {
+      "current": 142.25,
+      "anon": 40.66015625,
+      "file": 91.15234375,
+      "shmem": 23.69140625
+    },
+    {
+      "current": 142.81640625,
+      "anon": 40.65625,
+      "file": 91.57421875,
+      "shmem": 23.90234375
+    },
+    {
+      "current": 143.2734375,
+      "anon": 40.66015625,
+      "file": 92.04296875,
+      "shmem": 24.14453125
+    },
+    {
+      "current": 143.78125,
+      "anon": 40.65625,
+      "file": 92.55859375,
+      "shmem": 24.39453125
+    },
+    {
+      "current": 144.09765625,
+      "anon": 40.66015625,
+      "file": 92.81640625,
+      "shmem": 24.51171875
+    },
+    {
+      "current": 144.62109375,
+      "anon": 40.65625,
+      "file": 93.36328125,
+      "shmem": 24.77734375
+    },
+    {
+      "current": 144.71875,
+      "anon": 40.66015625,
+      "file": 93.57421875,
+      "shmem": 24.87109375
+    },
+    {
+      "current": 145.3671875,
+      "anon": 40.6640625,
+      "file": 93.66796875,
+      "shmem": 24.97265625
+    },
+    {
+      "current": 145.109375,
+      "anon": 40.66015625,
+      "file": 93.79296875,
+      "shmem": 25.03515625
+    },
+    {
+      "current": 145.87109375,
+      "anon": 40.6640625,
+      "file": 94.18359375,
+      "shmem": 25.23828125
+    },
+    {
+      "current": 145.4453125,
+      "anon": 40.6640625,
+      "file": 94.29296875,
+      "shmem": 25.29296875
+    },
+    {
+      "current": 145.828125,
+      "anon": 40.65625,
+      "file": 94.29296875,
+      "shmem": 25.29296875
+    },
+    {
+      "current": 145.7890625,
+      "anon": 40.66015625,
+      "file": 94.29296875,
+      "shmem": 25.29296875
+    }
+  ],
+  "reconcile_seconds": 5,
+  "heap_mib": 384,
+  "jdbc_operations": [
+    {
+      "read/acquire": {
+        "count": 6406,
+        "total_ms": 557392.34,
+        "mean_ms": 87.011,
+        "p95_bucket_ms": 300.0,
+        "p99_bucket_ms": 750.0
+      },
+      "read/commit": {
+        "count": 6406,
+        "total_ms": 3046.0,
+        "mean_ms": 0.475,
+        "p95_bucket_ms": 2.0,
+        "p99_bucket_ms": 5.0
+      },
+      "read/hold": {
+        "count": 6406,
+        "total_ms": 34119.49,
+        "mean_ms": 5.326,
+        "p95_bucket_ms": 20.0,
+        "p99_bucket_ms": 30.0
+      },
+      "reconcile/acquire": {
+        "count": 5,
+        "total_ms": 0.09,
+        "mean_ms": 0.018,
+        "p95_bucket_ms": 1.0,
+        "p99_bucket_ms": 1.0
+      },
+      "reconcile/hold": {
+        "count": 5,
+        "total_ms": 4.12,
+        "mean_ms": 0.824,
+        "p95_bucket_ms": 2.0,
+        "p99_bucket_ms": 2.0
+      },
+      "write/acquire": {
+        "count": 12000,
+        "total_ms": 632803.37,
+        "mean_ms": 52.734,
+        "p95_bucket_ms": 500.0,
+        "p99_bucket_ms": 750.0
+      },
+      "write/commit": {
+        "count": 12000,
+        "total_ms": 31087.04,
+        "mean_ms": 2.591,
+        "p95_bucket_ms": 12.0,
+        "p99_bucket_ms": 20.0
+      },
+      "write/hold": {
+        "count": 12000,
+        "total_ms": 66852.84,
+        "mean_ms": 5.571,
+        "p95_bucket_ms": 20.0,
+        "p99_bucket_ms": 50.0
+      },
+      "write/topic_lock": {
+        "count": 12000,
+        "total_ms": 4174.84,
+        "mean_ms": 0.348,
+        "p95_bucket_ms": 1.0,
+        "p99_bucket_ms": 5.0
+      }
+    }
+  ],
+  "db_wait_samples": [
+    {
+      "elapsed_seconds": 1.165,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 3
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 2
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "topic_lock",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": null,
+          "event": null,
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 2.522,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 4
+        },
+        {
+          "state": "idle in transaction",
+          "type": null,
+          "event": null,
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 3.863,
+      "states": [
+        {
+          "state": "active",
+          "type": null,
+          "event": null,
+          "phase": "sparring_sql",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 5.17,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "active",
+          "type": "Lock",
+          "event": "NotifyCommitLock",
+          "phase": "commit",
+          "sessions": 5
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 3
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 6.499,
+      "states": [
+        {
+          "state": "active",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 4
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 7.848,
+      "states": [
+        {
+          "state": "active",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "topic_lock",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 9.069,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 10.287,
+      "states": []
+    },
+    {
+      "elapsed_seconds": 11.51,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 6
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 12.746,
+      "states": []
+    },
+    {
+      "elapsed_seconds": 13.974,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "topic_lock",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": null,
+          "event": null,
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 15.171,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "active",
+          "type": "Lock",
+          "event": "NotifyCommitLock",
+          "phase": "commit",
+          "sessions": 2
+        },
+        {
+          "state": "active",
+          "type": "Lock",
+          "event": "object",
+          "phase": "commit",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 16.366,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 2
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 17.597,
+      "states": [
+        {
+          "state": "active",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "active",
+          "type": "Lock",
+          "event": "NotifyCommitLock",
+          "phase": "commit",
+          "sessions": 4
+        },
+        {
+          "state": "active",
+          "type": null,
+          "event": null,
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 2
+        },
+        {
+          "state": "idle in transaction",
+          "type": null,
+          "event": null,
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 18.801,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 19.993,
+      "states": [
+        {
+          "state": "active",
+          "type": null,
+          "event": null,
+          "phase": "commit",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 21.176,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "topic_lock",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 22.372,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 23.577,
+      "states": [
+        {
+          "state": "active",
+          "type": "IO",
+          "event": "WalSync",
+          "phase": "commit",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "other",
+          "sessions": 1
+        },
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 5
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 24.822,
+      "states": [
+        {
+          "state": "idle in transaction",
+          "type": "Client",
+          "event": "ClientRead",
+          "phase": "sparring_sql",
+          "sessions": 1
+        }
+      ]
+    },
+    {
+      "elapsed_seconds": 26.053,
+      "states": []
+    },
+    {
+      "elapsed_seconds": 27.257,
+      "states": []
+    }
+  ],
+  "notify_received": [
+    12000
+  ],
+  "notify_dropped": [
+    0
+  ]
+}

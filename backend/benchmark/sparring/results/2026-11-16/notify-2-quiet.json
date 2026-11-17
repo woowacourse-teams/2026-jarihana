@@ -1,0 +1,45 @@
+{
+  "writes_attempted": 3,
+  "writes_succeeded": 3,
+  "writes_failed": {},
+  "storage_tps": 0.2,
+  "storage_p95_ms": 141.7,
+  "storage_p99_ms": 141.7,
+  "sse_p50_ms": 205.5,
+  "sse_p95_ms": 1150.38,
+  "sse_p99_ms": 1150.38,
+  "sse_from_ack_p95_ms": 1008.69,
+  "sse_expected": 12,
+  "sse_missing": 0,
+  "sse_duplicates": 0,
+  "sse_updates": 12,
+  "sse_disconnected": [],
+  "send_scheduler_p95_ms": 0.8,
+  "mode": "notify",
+  "case": "quiet",
+  "servers": 2,
+  "rooms": 8,
+  "clients": 32,
+  "target_rate": 0.2,
+  "seconds": 15,
+  "db_posts": 3,
+  "db_cpu_pct": 0.49,
+  "db_queries": {
+    "all": 141,
+    "revision": 6,
+    "post": 6,
+    "notify": 3
+  },
+  "app_cpu_pct": [
+    2.4,
+    5.0
+  ],
+  "app_peak_rss_mib": [
+    941.81,
+    735.39
+  ],
+  "notify_received": [
+    3,
+    3
+  ]
+}

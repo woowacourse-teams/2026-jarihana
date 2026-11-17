@@ -1,0 +1,45 @@
+{
+  "writes_attempted": 0,
+  "writes_succeeded": 0,
+  "writes_failed": {},
+  "storage_tps": 0,
+  "storage_p95_ms": null,
+  "storage_p99_ms": null,
+  "sse_p50_ms": null,
+  "sse_p95_ms": null,
+  "sse_p99_ms": null,
+  "sse_from_ack_p95_ms": null,
+  "sse_expected": 0,
+  "sse_missing": 0,
+  "sse_duplicates": 0,
+  "sse_updates": 0,
+  "sse_disconnected": [],
+  "send_scheduler_p95_ms": null,
+  "mode": "poll",
+  "case": "idle-many",
+  "servers": 2,
+  "rooms": 48,
+  "clients": 192,
+  "target_rate": 0,
+  "seconds": 15,
+  "db_posts": 0,
+  "db_cpu_pct": 3.8,
+  "db_queries": {
+    "all": 8237,
+    "revision": 1632,
+    "post": 0,
+    "notify": 0
+  },
+  "app_cpu_pct": [
+    4.62,
+    12.02
+  ],
+  "app_peak_rss_mib": [
+    861.71,
+    714.78
+  ],
+  "notify_received": [
+    0,
+    0
+  ]
+}
