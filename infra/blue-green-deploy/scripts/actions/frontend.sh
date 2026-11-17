@@ -7,8 +7,24 @@ FE_ARCHIVE=jarihana/frontend-releases
 FE_PUBLIC=https://jarihana.com
 FE_DISTRIBUTION=E1YDHL1SDC4C1C
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-s3.sh"
 
-fe_aws() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
+fe_aws_cli() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
+fe_aws() {
+  if [[ ${FE_S3_TRANSPORT:-awscli} == curl && -n ${FE_S3_CACHE:-} && ${1:-} == s3api && ${3:-} == --bucket && ${4:-} == "$FE_BUCKET" && ${5:-} == --key ]]; then
+    if [[ $# == 9 && $2 == get-object && $7 == --range ]] &&
+       { [[ $FE_TRANSFER_MODE == download && $6 == "$FE_ARCHIVE/"*/files/* && $8 == bytes=0-67108864 ]] ||
+         [[ $FE_TRANSFER_MODE == publish && $6 == "$FE_ARCHIVE/state.json" && $8 == bytes=0-1048576 ]]; }; then
+      fe_s3_request "$@"; return
+    fi
+    if [[ $2 == put-object && ${7:-} == --body && ${9:-} == --checksum-sha256 ]] &&
+       { [[ $FE_TRANSFER_MODE == archive && $# == 12 && $6 == "$FE_ARCHIVE/"*/files/* && ${11} == --if-none-match && ${12} == '*' ]] ||
+         [[ $FE_TRANSFER_MODE == publish && $# == 14 && $6 == "$FE_LIVE/"* && ${11} == --content-type && ${13} == --cache-control && ${14} == 'no-cache, max-age=0, must-revalidate' ]]; }; then
+      fe_s3_request "$@"; return
+    fi
+  fi
+  fe_aws_cli "$@"
+}
 fe_enabled() { [[ ${ENVIRONMENT:-} == prod && ${BG_MODE:-} == deploy ]]; }
 fe_changed() { [[ $(jq -r 'if (.frontend // {} | has("changed")) then .frontend.changed else (.backend_only != true) end' <<<"$STATE") == true ]]; }
 fe_id() { [[ $1 =~ ^(baseline-[1-9][0-9]*|[a-f0-9]{40}-[1-9][0-9]*)$ ]] || bg_die 'Invalid frontend release ID'; }
@@ -312,6 +328,8 @@ fe_finalize() {
   rm -rf -- "$FE_TEMP"
 }
 fe_recover() {
+  # Recovery must not depend on the experimental forward-transfer transport.
+  local FE_S3_TRANSPORT=awscli
   fe_temp; fe_owned_pointer
   if fe_changed; then
     fe_download_release "$(jq -r .frontend.previous_release_id <<<"$STATE")" "$FE_TEMP/previous"

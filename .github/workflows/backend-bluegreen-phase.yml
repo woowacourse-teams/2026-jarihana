@@ -64,6 +64,7 @@ jobs:
       BG_BACKEND_ONLY: ${{ inputs.backend_only }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
       BG_PHASE: ${{ inputs.phase }}
+      FE_S3_TRANSPORT: ${{ inputs.environment == 'prod' && vars.FRONTEND_PROD_S3_TRANSPORT || 'awscli' }}
       APP_RESULT: ${{ inputs.app_result }}
       TARGET_RESULT: ${{ inputs.target_result }}
       GH_TOKEN: ${{ github.token }}
