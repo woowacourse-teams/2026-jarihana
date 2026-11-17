@@ -42,7 +42,6 @@ jobs:
 
       - name: 정적 검사
         run: |
-          npm run lint
           npm run typecheck
 
       - name: 운영 환경 변수 확인

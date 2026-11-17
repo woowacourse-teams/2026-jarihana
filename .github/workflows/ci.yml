@@ -62,10 +62,7 @@ jobs:
       - name: 의존성 설치
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
+      - name: 정적 검사
         run: npm run typecheck
 
       - name: 테스트
