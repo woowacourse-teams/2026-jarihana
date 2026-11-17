@@ -6,6 +6,8 @@ set +x
 SCRIPT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BG_READ_ONLY_VERIFIED_AT=0
 BG_LIVE_CACHED_AT=0
+BG_TOPOLOGY_CONFIG=''
+BG_TOPOLOGY_DIGEST=''
 
 bg_api_context() {
     BG_API_MIN_REMAINING=500
@@ -40,7 +42,13 @@ bg_die() { printf '::error::%s\n' "$*" >&2; exit 1; }
 bg_require() { local message=$1; shift; "$@" || bg_die "$message"; }
 bg_now() { date +%s; }
 bg_uuid() { cat /proc/sys/kernel/random/uuid; }
-bg_topology_digest() { jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f 1; }
+bg_topology_digest() {
+    if [[ $CONFIG == "$BG_TOPOLOGY_CONFIG" && -n $BG_TOPOLOGY_DIGEST ]]; then
+        printf '%s\n' "$BG_TOPOLOGY_DIGEST"
+    else
+        jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f 1
+    fi
+}
 
 bg_root_file() {
     local path=$1 maximum=${2:-65536} private=${3:-false} uid mode size directory
@@ -99,6 +107,9 @@ bg_config() {
         (.telemetry.max_mean_seconds | type == "number" and . > 0)
       end
     ' <<< "$CONFIG" >/dev/null || bg_die 'Protected paths, ports or adapter settings belong to another scope.'
+    # Cache only this validated in-memory configuration, never live journal or permission checks.
+    BG_TOPOLOGY_DIGEST=$(bg_topology_digest)
+    BG_TOPOLOGY_CONFIG=$CONFIG
 }
 
 bg_github() {
@@ -226,15 +237,16 @@ bg_init() {
 }
 
 bg_atomic() {
-    local path=$1 value=$2 temporary
-    [[ -d $(dirname -- "$path") && ! -L "$path" ]] || bg_die 'Atomic state destination is invalid.'
+    local path=$1 value=$2 temporary directory
+    directory=$(dirname -- "$path")
+    [[ -d $directory && ! -L "$path" ]] || bg_die 'Atomic state destination is invalid.'
     jq -es 'length == 1 and (.[0] | type == "object")' <<< "$value" >/dev/null || bg_die 'Refusing to save invalid state.'
-    temporary=$(mktemp "$(dirname -- "$path")/.state.XXXXXX")
+    temporary=$(mktemp "$directory/.state.XXXXXX")
     chmod 600 "$temporary"
     printf '%s\n' "$value" > "$temporary"
     sync -f "$temporary"
     mv -f -- "$temporary" "$path"
-    sync -f "$(dirname -- "$path")"
+    sync -f "$directory"
 }
 
 bg_grant() {

@@ -2,7 +2,7 @@
 # The coordinator lock serializes this one-candidate cache beside the journal.
 fe_cache_path() { printf '%s/frontend-candidate\n' "${STATE_FILE%/*}"; }
 fe_cache_owned() {
-  [[ -d $1 && ! -L $1 ]] && [[ $(stat -Lc '%u %a' "$1") == "$(id -u) 700" ]]
+  [[ -d $1 && ! -L $1 ]] && [[ $(stat -Lc '%u %a' "$1") == "$EUID 700" ]]
 }
 fe_cache_clear() {
   local directory

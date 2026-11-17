@@ -96,6 +96,34 @@ symlink_state() { mv "$STATE_FILE" "$STATE_FILE.original"; ln -s "$STATE_FILE.or
 writable_dir() { chmod 777 "$TEST_DIR/state"; rejects bg_guard; }
 cancel_guard() { REVOKED=true; rejects bg_guard; }
 active_lease() { bg_guard; }
+warm_topology_guard() {
+  BG_TOPOLOGY_DIGEST=$(bg_topology_digest); BG_TOPOLOGY_CONFIG=$CONFIG
+  bg_guard
+}
+warm_topology_changed() {
+  warm_topology_guard
+  CONFIG=$(jq '.topology.a.upstream="10.0.0.12:8080"' <<<"$CONFIG")
+  rejects bg_guard
+  grep -q 'Journal topology differs' "$TEST_DIR/rejection.log"
+}
+warm_topology_permissions() {
+  warm_topology_guard
+  chmod 644 "$STATE_FILE"
+  rejects bg_guard
+  grep -q 'Coordinator file ownership, mode or size differs' "$TEST_DIR/rejection.log"
+}
+warm_topology_expired() {
+  warm_topology_guard
+  bg_now() { echo 2500; }
+  rejects bg_guard
+  grep -q 'Journal lease expired' "$TEST_DIR/rejection.log"
+}
+warm_topology_cancelled() {
+  warm_topology_guard
+  REVOKED=true
+  rejects bg_guard
+  grep -q 'Run cancelled' "$TEST_DIR/rejection.log"
+}
 expired_lease() { STATE=$(jq '.pending.deadline=999' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"; rejects bg_guard; }
 watchdog_active() { bg_watchdog; jq -e '.phase=="PREPARING"' "$STATE_FILE" >/dev/null; }
 watchdog_expired() { STATE=$(jq '.pending.deadline=999' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"; bg_watchdog; jq -e '.phase=="NEEDS_ATTENTION" and .pending.id=="grant-1"' "$STATE_FILE" >/dev/null; }
@@ -403,4 +431,4 @@ api_recovery_independent_of_s3() {
   jq -e '.http_recovered==true and .pending.operation=="rollback" and .pending.slot=="B" and .pending.deadline==3400' "$STATE_FILE" >/dev/null
   [[ $(cat "$EVENTS") == recovered ]]
 }
-for test in waiting_poll_budget valid_receipt invalid_compose_receipt changed_compose_receipt legacy_compose_receipt previous_compose_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_switch_fast_confirmation nginx_unknown_reload nginx_drain nginx_bad_current zero_http_traffic missing_http_metrics_are_unknown stale_up_with_zero_traffic_is_unknown scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done
+for test in waiting_poll_budget valid_receipt invalid_compose_receipt changed_compose_receipt legacy_compose_receipt previous_compose_receipt wrong_grant fractional_activity wrong_boot private_state symlink_state writable_dir cancel_guard active_lease warm_topology_changed warm_topology_permissions warm_topology_expired warm_topology_cancelled expired_lease watchdog_active watchdog_expired cloud_start cloud_mismatch cloud_unknown cloud_stop_unsealed cloud_stop_sealed nginx_failed_test nginx_switch nginx_switch_fast_confirmation nginx_unknown_reload nginx_drain nginx_bad_current zero_http_traffic missing_http_metrics_are_unknown stale_up_with_zero_traffic_is_unknown scalar_nan scalar_multiple observation_minimum observation_clock_jump stop_requires_evidence unknown_blocks_plan rollback_unhealthy_released rollback_unknown rollback_malformed rollback_owned stop_valid_receipt stop_wrong_target_boot stop_wrong_grant topology_load topology_load_mismatch topology_guard_mismatch topology_completed_mismatch topology_missing_completed topology_plan readonly_guard_cache cloud_mutation_uncached nginx_reload_uncached observation_job_cadence rollback_http_unknown_preserves_grant seal_undrained_keeps_target seal_drained_completes_normally seal_requires_full_http_window seal_unhealthy_still_allows_rollback seal_unknown_target_not_deferred combined_switch_orders_frontend combined_switch_rejects_changed_image combined_seal_requires_frontend combined_seal_requires_full_worker_window combined_seal_finalizes_before_cleanup combined_frontend_finalization_failure api_recovery_independent_of_s3; do run "$test" "$test"; done

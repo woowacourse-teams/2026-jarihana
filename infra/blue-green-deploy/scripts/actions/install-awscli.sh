@@ -9,7 +9,7 @@ cli_sha=07711a936e9d271045ab937d2c2c5390c25f419e4ba9e25adb9e996031e3f6be
 cli_root="$RUNNER_TOOL_CACHE/jarihana-awscli"
 [[ ! -L $cli_root ]]
 mkdir -p "$cli_root"
-[[ $(stat -c '%u:%a' "$cli_root") == "$(id -u):700" ]]
+[[ $(stat -c '%u:%a' "$cli_root") == "$EUID:700" ]]
 [[ ! -L $cli_root/install.lock ]]
 exec 9>"$cli_root/install.lock"
 flock -w 180 9
@@ -38,7 +38,7 @@ cli_hashes() (
 cli_valid() {
   [[ -d $cli_cache && ! -L $cli_cache && -f $cli_cache/files.sha256 &&
      ! -L $cli_cache/files.sha256 && -f $cli_cache/tree.txt && ! -L $cli_cache/tree.txt &&
-     $(stat -c '%u:%a' "$cli_cache") == "$(id -u):700" ]] || return 1
+     $(stat -c '%u:%a' "$cli_cache") == "$EUID:700" ]] || return 1
   cli_inventory > "$cli_temp/tree.txt" || return 1
   cmp -s "$cli_cache/tree.txt" "$cli_temp/tree.txt" || return 1
   cli_hashes > "$cli_temp/files.sha256" || return 1

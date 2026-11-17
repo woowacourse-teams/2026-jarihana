@@ -13,14 +13,14 @@ bg_owned_directory() {
   while [[ $component != / ]]; do
     [[ ! -L $component ]] || bg_die 'Coordinator directory contains a symlink'
     read -r uid mode < <(stat -Lc '%u %a' "$component")
-    [[ $uid == 0 || $uid == "$(id -u)" ]] || bg_die 'Coordinator directory ancestor belongs to another account'
+    [[ $uid == 0 || $uid == "$EUID" ]] || bg_die 'Coordinator directory ancestor belongs to another account'
     if (( (8#$mode & 0022)!=0 )); then
       [[ $uid == 0 ]] && (( (8#$mode & 01000)!=0 )) || bg_die 'Coordinator directory ancestor is writable'
     fi
     component=$(dirname "$component")
   done
   read -r uid mode < <(stat -Lc '%u %a' "$directory")
-  [[ $uid == "$(id -u)" && $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 0022)==0 )) || bg_die 'Coordinator directory ownership or mode differs'
+  [[ $uid == "$EUID" && $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 0022)==0 )) || bg_die 'Coordinator directory ownership or mode differs'
 }
 bg_owned_file() {
   local path=$1 maximum=${2:-65536}
@@ -28,7 +28,7 @@ bg_owned_file() {
   bg_owned_directory "$(dirname "$path")"
   [[ -f $path && ! -L $path ]] || bg_die 'Invalid coordinator file'
   read -r uid mode size < <(stat -Lc '%u %a %s' "$path")
-  [[ $uid == "$(id -u)" && $mode =~ ^[0-7]{3,4}$ && $size -le $maximum ]] && (( (8#$mode & 0077)==0 )) || bg_die 'Coordinator file ownership, mode or size differs'
+  [[ $uid == "$EUID" && $mode =~ ^[0-7]{3,4}$ && $size -le $maximum ]] && (( (8#$mode & 0077)==0 )) || bg_die 'Coordinator file ownership, mode or size differs'
 }
 bg_state_file() { bg_owned_file "$STATE_FILE"; }
 bg_lock() {
@@ -56,12 +56,19 @@ bg_file_guard() {
 }
 bg_poll_touch() { bg_file_guard; bg_touch_local; }
 bg_guard_local() {
-  local latest
+  local latest check
   bg_state_file
   latest=$(cat "$STATE_FILE")
   [[ $latest == "$STATE" ]] || bg_die 'Journal changed while executing this phase'
-  jq -e --arg topology "$(bg_topology_digest)" '.topology_digest==$topology' <<<"$STATE" >/dev/null || bg_die 'Journal topology differs; manual reconciliation required'
-  jq -e --argjson now "$(bg_now)" '.expires_at>$now and .heartbeat<=($now+5) and (if .pending==null then ($now-.heartbeat)<=60 else .pending.deadline>$now end)' <<<"$STATE" >/dev/null || bg_die 'Journal lease expired'
+  check=$(jq -r --arg topology "$(bg_topology_digest)" --argjson now "$(bg_now)" '
+    if .topology_digest!=$topology then "topology"
+    elif (.expires_at>$now and .heartbeat<=($now+5) and (if .pending==null then ($now-.heartbeat)<=60 else .pending.deadline>$now end)) then "valid"
+    else "lease" end' <<<"$STATE") || bg_die 'Cannot verify journal'
+  case $check in
+    valid) ;;
+    topology) bg_die 'Journal topology differs; manual reconciliation required';;
+    *) bg_die 'Journal lease expired';;
+  esac
 }
 bg_save() {
   local next=$1

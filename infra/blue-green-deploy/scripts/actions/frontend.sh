@@ -57,7 +57,7 @@ fe_validate_manifest() {
   while IFS= read -r path; do fe_path "$path"; done < <(jq -r '.files[].path' "$manifest")
 }
 fe_manifest() {
-  local directory=$1 release=$2 backend=$3 source=$4 path size total=0 count=0
+  local directory=$1 release=$2 backend=$3 source=$4 path size checksum total=0 count=0
   [[ -d $directory && ! -L $directory ]] || bg_die 'Frontend build directory missing'
   [[ -z $(find "$directory" -type l -print -quit) ]] || bg_die 'Frontend symlinks are forbidden'
   [[ -z $(find "$directory" ! -type f ! -type d -print -quit) ]] || bg_die 'Frontend special files are forbidden'
@@ -67,7 +67,8 @@ fe_manifest() {
     size=$(stat -Lc %s "$directory/$path")
     total=$((total+size)); count=$((count+1))
     (( size>0 && size<=67108864 && total<=536870912 && count<=1000 )) || bg_die 'Frontend artifact exceeds transfer limits'
-    jq -cn --arg path "$path" --arg sha "$(sha256sum "$directory/$path" | cut -d ' ' -f1)" --argjson size "$size" '{path:$path,sha256:$sha,size:$size}' >> "$FE_TEMP/files.jsonl"
+    checksum=$(sha256sum "$directory/$path") || bg_die 'Cannot checksum frontend file'
+    jq -cn --arg path "$path" --arg sha "${checksum%% *}" --argjson size "$size" '{path:$path,sha256:$sha,size:$size}' >> "$FE_TEMP/files.jsonl"
   done < <(find "$directory" -type f -print0)
   jq -s --arg release "$release" --arg backend "$backend" --arg source "$source" --argjson run "$RUN_ID" \
     --arg dep "$(jq -r .deployment_id <<<"$STATE")" \
@@ -187,12 +188,13 @@ fe_check_routes() {
   done <<<"$policies"
 }
 fe_verify_files() {
-  local manifest=$1 directory=$2 path expected size
+  local manifest=$1 directory=$2 path expected size actual
   fe_validate_manifest "$manifest"
   while IFS=$'\t' read -r path expected size; do
     [[ -f $directory/$path && ! -L $directory/$path ]] || bg_die 'Frontend file is missing'
     [[ $(stat -Lc %s "$directory/$path") == "$size" ]] || bg_die 'Frontend file size differs'
-    [[ $(sha256sum "$directory/$path" | cut -d ' ' -f1) == "$expected" ]] || bg_die 'Frontend checksum differs'
+    actual=$(sha256sum "$directory/$path") || bg_die 'Cannot checksum frontend file'
+    [[ ${actual%% *} == "$expected" ]] || bg_die 'Frontend checksum differs'
   done < <(jq -r '.files[]|[.path,.sha256,.size]|@tsv' "$manifest")
 }
 fe_public_check() {
@@ -284,14 +286,21 @@ fe_stage() {
   rm -rf -- "$FE_TEMP"
 }
 fe_owned_pointer() {
+  local check
   fe_pointer_read
-  jq -e --argjson state "$STATE" '.current==$state.frontend.previous_release_id and
+  check=$(jq -r --argjson state "$STATE" --arg etag "$FE_ETAG" 'if (.current==$state.frontend.previous_release_id and
     .pending.release_id==$state.frontend.release_id and .pending.previous_release_id==$state.frontend.previous_release_id and
     .pending.run_id==$state.run_id and .pending.source_commit==$state.sha and
     .pending.deployment_id==$state.deployment_id and
     .pending.backend_image==$state.image and .pending.previous_backend_image==$state.previous_backend_image and
-    .pending.frontend_changed==$state.frontend.changed' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend pointer belongs to another release'
-  [[ $FE_ETAG == "$(jq -r .frontend.etag <<<"$STATE")" ]] || bg_die 'Frontend pointer ETag changed'
+    .pending.frontend_changed==$state.frontend.changed) then
+      if $etag==$state.frontend.etag then "valid" else "etag" end
+    else "owner" end' <<<"$FE_POINTER") || bg_die 'Cannot verify frontend pointer'
+  case $check in
+    valid) ;;
+    etag) bg_die 'Frontend pointer ETag changed';;
+    *) bg_die 'Frontend pointer belongs to another release';;
+  esac
 }
 fe_publish_files() {
   local directory=$1 manifest=$2
