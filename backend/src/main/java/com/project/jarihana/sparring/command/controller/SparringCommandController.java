@@ -8,6 +8,8 @@ import com.project.jarihana.sparring.command.controller.dto.SparringPostRequest;
 import com.project.jarihana.sparring.command.controller.dto.SparringVoteRequest;
 import com.project.jarihana.sparring.command.service.SparringCommandService;
 
+import com.project.jarihana.sparring.stream.SparringBenchmarkJdbc;
+
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,7 @@ public class SparringCommandController {
                 .body(
                         ApiResponse.success(
                                 SparringCommandResponse.from(
-                                        service.post(topicId, memberId, request.toCommand()))));
+                                        SparringBenchmarkJdbc.measure("write", request.requestId(),
+                                                () -> service.post(topicId, memberId, request.toCommand())))));
     }
 }

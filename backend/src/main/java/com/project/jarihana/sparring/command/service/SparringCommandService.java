@@ -13,6 +13,7 @@ import com.project.jarihana.sparring.command.repository.SparringVoteCommandRepos
 import com.project.jarihana.sparring.command.service.dto.CreateSparringCommand;
 import com.project.jarihana.sparring.command.service.dto.PostSparringCommand;
 import com.project.jarihana.sparring.command.service.dto.SparringCommandResult;
+import com.project.jarihana.sparring.command.service.dto.SparringRevisionChanged;
 import com.project.jarihana.sparring.domain.SparringPost;
 import com.project.jarihana.sparring.domain.SparringSide;
 import com.project.jarihana.sparring.domain.SparringTopic;
@@ -20,6 +21,8 @@ import com.project.jarihana.sparring.domain.SparringVote;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +40,10 @@ public class SparringCommandService {
     private final ImageLifecycleService imageLifecycle;
     private final ImageReferenceService imageReferences;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
+
+    @Value("${sparring.benchmark.batch-publish:false}")
+    private boolean batchPublish;
 
     @Transactional
     public SparringCommandResult create(long memberId, CreateSparringCommand command) {
@@ -71,6 +78,7 @@ public class SparringCommandService {
                                 topic, member(memberId), side, LocalDateTime.now(clock))
                         : previous.choosing(side));
         topics.advanceRevision(topicId);
+        if (batchPublish) events.publishEvent(new SparringRevisionChanged(topicId));
     }
 
     @Transactional
@@ -114,6 +122,7 @@ public class SparringCommandService {
                                 command.requestId(),
                                 LocalDateTime.now(clock)));
         topics.advanceRevision(topicId);
+        if (batchPublish) events.publishEvent(new SparringRevisionChanged(topicId));
         return new SparringCommandResult(post.getId());
     }
 

@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
@@ -38,10 +41,18 @@ class SparringStreamsTest {
 
     @BeforeEach
     void setUp() {
+        startStreams(false);
+    }
+
+    private void startStreams(boolean notifyMode) {
+        startStreams(notifyMode, false);
+    }
+
+    private void startStreams(boolean notifyMode, boolean immediateDelivery) {
         var repository = mock(SparringQueryRepository.class);
         when(repository.revision(1L)).thenReturn(Optional.of(1L));
         queries = mock(SparringStreamQueryService.class);
-        streams = new SparringStreams(repository, queries);
+        streams = new SparringStreams(repository, queries, notifyMode, 0, immediateDelivery);
         ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "ticker")).shutdownNow();
     }
 
@@ -140,6 +151,158 @@ class SparringStreamsTest {
         // Then
         assertEquals(List.of("snapshot:1:0", "update:2:1"), firstMessages);
         assertEquals(List.of("snapshot:2:1"), secondMessages);
+    }
+
+    @Test
+    @DisplayName("변경 신호를 방별로 병합하고 구독자 없는 방과 조용한 방은 조회하지 않는다")
+    void coalescesSignalsAndSkipsIdleRooms() throws Exception {
+        streams.close();
+        startStreams(true);
+        streams.markChanged(2L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        verifyNoInteractions(queries);
+
+        streams.subscribe(1L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        streams.markChanged(2L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        verify(queries).poll(1L, -1L, 0L, true);
+
+        streams.markChanged(1L);
+        streams.markChanged(1L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        verify(queries, times(2)).poll(1L, -1L, 0L, true);
+    }
+
+    @Test
+    @DisplayName("조회 중 도착한 신호와 LISTEN 재연결 신호는 후속 틱에서 조회한다")
+    void retainsSignalsDuringReadAndAfterReconnect() throws Exception {
+        streams.close();
+        startStreams(true);
+        streams.subscribe(1L);
+        when(queries.poll(1L, -1L, 0L, true))
+                .thenAnswer(invocation -> {
+                    streams.markChanged(1L);
+                    return null;
+                })
+                .thenReturn(null);
+
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        verify(queries, times(2)).poll(1L, -1L, 0L, true);
+
+        streams.markAllChanged();
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+        verify(queries, times(3)).poll(1L, -1L, 0L, true);
+    }
+
+    @Test
+    @DisplayName("즉시 전송 모드는 틱 없이 수신 알림을 조회하여 SSE로 보내고 비활성 방은 건너뛴다")
+    void deliversNotificationWithoutWaitingForTick() throws Exception {
+        // Given
+        streams.close();
+        startStreams(true, true);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markChanged(2L);
+        verifyNoInteractions(queries);
+        streams.markChanged(1L);
+
+        // Then
+        awaitMessages(messages, 1);
+        awaitPoll();
+        verify(queries).poll(1L, -1L, 0L, true);
+        assertEquals(List.of("snapshot:1:0"), messages);
+    }
+
+    @Test
+    @DisplayName("즉시 전송 조회 중 들어온 알림은 병합한 뒤 같은 방을 순서대로 다시 조회한다")
+    void drainsSignalsArrivingDuringImmediateQuery() throws Exception {
+        // Given
+        streams.close();
+        startStreams(true, true);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenAnswer(invocation -> {
+                    entered.countDown();
+                    assertTrue(release.await(5, TimeUnit.SECONDS));
+                    return new SparringStreamResult(1, 0, 0, 0, List.of(), List.of());
+                })
+                .thenReturn(new SparringStreamResult(2, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markChanged(1L);
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            streams.markChanged(1L);
+            streams.markChanged(1L);
+            verify(queries).poll(anyLong(), anyLong(), anyLong(), anyBoolean());
+        } finally {
+            release.countDown();
+        }
+
+        // Then
+        awaitMessages(messages, 2);
+        awaitPoll();
+        verify(queries).poll(1L, -1L, 0L, true);
+        verify(queries).poll(1L, 1L, 0L, false);
+        assertEquals(List.of("snapshot:1:0", "update:2:0"), messages);
+    }
+
+    @Test
+    @DisplayName("즉시 전송 모드는 LISTEN 재연결 뒤 틱 없이 활성 방을 다시 조회한다")
+    void recoversImmediatelyAfterReconnect() throws Exception {
+        // Given
+        streams.close();
+        startStreams(true, true);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markAllChanged();
+
+        // Then
+        awaitMessages(messages, 1);
+        assertEquals(List.of("snapshot:1:0"), messages);
+    }
+
+    @Test
+    @DisplayName("즉시 전송 모드는 보완 조회로 발견한 변경도 틱 없이 전달한다")
+    void deliversReconciledChangesWithoutTick() throws Exception {
+        // Given
+        streams.close();
+        startStreams(true, true);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        var repository = (SparringQueryRepository) ReflectionTestUtils.getField(streams, "repository");
+        var revision = mock(SparringQueryRepository.TopicRevision.class);
+        when(revision.getId()).thenReturn(1L);
+        when(revision.getRevision()).thenReturn(2L);
+        when(repository.revisions(List.of(1L))).thenReturn(List.of(revision));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(2, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "reconcileRevisions");
+
+        // Then
+        awaitMessages(messages, 1);
+        assertEquals(List.of("snapshot:2:0"), messages);
     }
 
     private SseEmitter recordingEmitter(List<String> messages) throws Exception {

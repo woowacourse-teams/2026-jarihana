@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+results/**/*.log
+results/**/*.csv
+results/**/*.txt
+results/**/*.input.json
+results/**/bootjar-*/
