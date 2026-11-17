@@ -11,6 +11,7 @@ import com.project.jarihana.activitypost.query.service.dto.ActivityReactorListRe
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
+import com.project.jarihana.common.pagination.CursorBounds;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -53,8 +54,8 @@ public class ActivityPostReactorQueryService {
                 activityPostReactionQueryRepository.findReactors(
                         postId,
                         emoji,
-                        cursor == null ? null : cursor.reactedAt(),
-                        cursor == null ? null : cursor.id(),
+                        cursor == null ? CursorBounds.EARLIEST_TIME : cursor.reactedAt(),
+                        cursor == null ? CursorBounds.FIRST_ID : cursor.id(),
                         Pageable.ofSize(query.size() + 1)
                 ),
                 query.size(),
@@ -79,8 +80,8 @@ public class ActivityPostReactorQueryService {
                 activityPostCommentReactionQueryRepository.findReactors(
                         commentId,
                         emoji,
-                        cursor == null ? null : cursor.reactedAt(),
-                        cursor == null ? null : cursor.id(),
+                        cursor == null ? CursorBounds.EARLIEST_TIME : cursor.reactedAt(),
+                        cursor == null ? CursorBounds.FIRST_ID : cursor.id(),
                         Pageable.ofSize(query.size() + 1)
                 ),
                 query.size(),

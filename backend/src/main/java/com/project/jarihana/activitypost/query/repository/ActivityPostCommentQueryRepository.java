@@ -32,18 +32,14 @@ public interface ActivityPostCommentQueryRepository extends JpaRepository<Activi
             join comment.post post
             where post.id = :postId
               and comment.deletedAt is null
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or comment.createdAt > :cursorCreatedAt
-                  or (comment.createdAt = :cursorCreatedAt and comment.id > :cursorId)
-              )
+              and (comment.createdAt, comment.id) > (:cursorCreatedAt, :cursorId)
             order by comment.createdAt asc, comment.id asc
             """)
     List<ActivityPostCommentProjection> findPage(
             @Param("postId") long postId,
             @Param("memberId") Long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 

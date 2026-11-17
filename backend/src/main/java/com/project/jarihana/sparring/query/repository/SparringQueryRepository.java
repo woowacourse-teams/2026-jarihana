@@ -35,7 +35,7 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
             value =
                     TOPIC_SELECT
                             + """
-                            where (cast(:beforeAt as timestamp) is null or t.created_at < :beforeAt or (t.created_at=:beforeAt and t.id < :beforeId))
+                            where (t.created_at, t.id) < (:beforeAt, :beforeId)
                               and position(lower(:keyword) in lower(t.title)) > 0
                               and (:filter not in ('active', 'open_active', 'closed_active') or exists(select 1 from sparring_post p where p.topic_id=t.id))
                               and (:filter not in ('open', 'open_active') or t.closes_at is null or t.closes_at > :now)
@@ -50,7 +50,7 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
             String filter,
             LocalDateTime now,
             LocalDateTime beforeAt,
-            Long beforeId,
+            long beforeId,
             Pageable pageable);
 
     @Query("select t.revision from SparringTopic t where t.id=:id")

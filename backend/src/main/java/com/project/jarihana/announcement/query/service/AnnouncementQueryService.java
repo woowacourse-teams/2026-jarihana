@@ -8,6 +8,7 @@ import com.project.jarihana.announcement.query.service.dto.AnnouncementListQuery
 import com.project.jarihana.announcement.query.service.dto.AnnouncementListResult;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
@@ -52,8 +53,8 @@ public class AnnouncementQueryService {
                 groupId,
                 groupMember,
                 memberId,
-                cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(),
+                cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(),
                 Pageable.ofSize(query.size() + 1)
         );
         boolean hasNext = candidates.size() > query.size();

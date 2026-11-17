@@ -10,6 +10,7 @@ import com.project.jarihana.activitypost.query.repository.dto.ActivityPostProjec
 import com.project.jarihana.activitypost.query.repository.dto.ReactorProjection;
 import com.project.jarihana.announcement.query.repository.AnnouncementQueryRepository;
 import com.project.jarihana.announcement.query.repository.dto.AnnouncementSummaryProjection;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.gomoku.query.repository.GomokuGameQueryRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
@@ -128,8 +129,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ActivityPostProjection last) -> activityPostQueryRepository.findPage(null, false, null,
-                        last == null ? null : last.activityDate(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_DATE : last.activityDate(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         NOW,
                         PAGE),
                 ActivityPostProjection::id);
@@ -146,8 +147,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ActivityPostCommentProjection last) -> activityPostCommentQueryRepository.findPage(1L, null,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.EARLIEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.FIRST_ID : last.id(),
                         PAGE),
                 ActivityPostCommentProjection::id);
 
@@ -163,8 +164,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ReactorProjection last) -> activityPostReactionQueryRepository.findReactors(1L, ReactionEmoji.HEART,
-                        last == null ? null : last.reactedAt(),
-                        last == null ? null : last.reactionId(),
+                        last == null ? CursorBounds.EARLIEST_TIME : last.reactedAt(),
+                        last == null ? CursorBounds.FIRST_ID : last.reactionId(),
                         PAGE),
                 ReactorProjection::reactionId);
 
@@ -180,8 +181,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ReactorProjection last) -> activityPostCommentReactionQueryRepository.findReactors(1L,
-                        ReactionEmoji.HEART, last == null ? null : last.reactedAt(),
-                        last == null ? null : last.reactionId(), PAGE),
+                        ReactionEmoji.HEART, last == null ? CursorBounds.EARLIEST_TIME : last.reactedAt(),
+                        last == null ? CursorBounds.FIRST_ID : last.reactionId(), PAGE),
                 ReactorProjection::reactionId);
 
         // Then
@@ -196,8 +197,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (NotificationProjection last) -> notificationQueryRepository.findPage(1L,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         true, true,
                         PAGE)
                         .getContent(),
@@ -215,8 +216,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (AnnouncementSummaryProjection last) -> announcementQueryRepository.findPage(1L, true, null,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         PAGE),
                 AnnouncementSummaryProjection::id);
 
@@ -232,8 +233,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (Group last) -> groupJpaRepository.findPage(GroupStatus.ACTIVE, null, null, null, null,
-                        last == null ? null : last.getCreatedAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getCreatedAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         false, null, null, null, NOW, PAGE).getContent(),
                 Group::getId);
 
@@ -249,8 +250,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (GroupMember last) -> groupMemberListJpaRepository.findPage(1L,
-                        last == null ? null : last.getJoinedAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getJoinedAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         PAGE)
                         .getContent(),
                 GroupMember::getId);
@@ -267,8 +268,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (GroupRecruitment last) -> groupRecruitmentJpaRepository.findPageByGroupId(1L,
-                        last == null ? null : last.getCreatedAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getCreatedAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         PAGE)
                         .getContent(),
                 GroupRecruitment::getId);
@@ -285,8 +286,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (Registration last) -> registrationListJpaRepository.findPage(1L, null,
-                        last == null ? null : last.getRegisteredAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getRegisteredAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         PAGE)
                         .getContent(),
                 Registration::getId);
@@ -303,8 +304,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (Registration last) -> registrationListJpaRepository.findMyPage(6L, null,
-                        last == null ? null : last.getRegisteredAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getRegisteredAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         PAGE)
                         .getContent(),
                 Registration::getId);
@@ -321,8 +322,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (InvitationCandidateProjection last) -> invitationCandidateRepository.findCandidates(2L, 6L, "",
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.memberId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.memberId(),
                         PAGE)
                         .getContent(),
                 InvitationCandidateProjection::memberId);
@@ -339,8 +340,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (IssuedInvitationProjection last) -> invitationQueryRepository.findIssued(2L, 6L, false,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         PAGE)
                         .getContent(),
                 IssuedInvitationProjection::id);
@@ -357,8 +358,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ReceivedInvitationProjection last) -> invitationQueryRepository.findReceived(6L,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         PAGE)
                         .getContent(),
                 ReceivedInvitationProjection::id);
@@ -375,8 +376,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ProposalSummaryProjection last) -> proposalQueryRepository.findPage(null, null,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         PAGE),
                 ProposalSummaryProjection::id);
 
@@ -392,8 +393,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (ProposalCommentProjection last) -> proposalCommentQueryRepository.findPage(1L, null,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.EARLIEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.FIRST_ID : last.id(),
                         PAGE),
                 ProposalCommentProjection::id);
 
@@ -409,8 +410,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (PushSubscriptionProjection last) -> pushSubscriptionQueryRepository.findPage(1L,
-                        last == null ? null : last.createdAt(),
-                        last == null ? null : last.id(),
+                        last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
+                        last == null ? CursorBounds.LAST_ID : last.id(),
                         PAGE)
                         .getContent(),
                 PushSubscriptionProjection::id);
@@ -427,8 +428,8 @@ class CursorBoundaryRegressionTest {
         // When
         List<List<Long>> pages = pagesOf(
                 (SparringTopicProjection last) -> sparringQueryRepository.topics(null, "", "all", NOW,
-                        last == null ? null : last.getCreatedAt(),
-                        last == null ? null : last.getId(),
+                        last == null ? CursorBounds.LATEST_TIME : last.getCreatedAt(),
+                        last == null ? CursorBounds.LAST_ID : last.getId(),
                         PAGE),
                 SparringTopicProjection::getId);
 

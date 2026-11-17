@@ -23,11 +23,7 @@ public interface AnnouncementQueryRepository extends Repository<Announcement, Lo
               and announcement.deletedAt is null
               and (:groupMember = true or announcement.scope = com.project.jarihana.announcement.domain.AnnouncementScope.PUBLIC
                    or announcement.author.id = :memberId)
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or announcement.createdAt < :cursorCreatedAt
-                  or (announcement.createdAt = :cursorCreatedAt and announcement.id < :cursorId)
-              )
+              and (announcement.createdAt, announcement.id) < (:cursorCreatedAt, :cursorId)
             order by announcement.createdAt desc, announcement.id desc
             """)
     List<AnnouncementSummaryProjection> findPage(
@@ -35,7 +31,7 @@ public interface AnnouncementQueryRepository extends Repository<Announcement, Lo
             @Param("groupMember") boolean groupMember,
             @Param("memberId") Long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 
