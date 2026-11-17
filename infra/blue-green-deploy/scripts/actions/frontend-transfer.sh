@@ -25,11 +25,15 @@ fe_transfer_file() {
     archive)
       fe_upload_file "$FE_ARCHIVE/$FE_TRANSFER_RELEASE/files/$path" "$path" "$expected"
       ;;
-    download)
-      parent=$FE_TRANSFER_DIRECTORY
-      [[ $path != */* ]] || parent+=/${path%/*}
-      [[ -d $parent ]] || mkdir -p "$parent"
-      fe_get "$FE_ARCHIVE/$FE_TRANSFER_RELEASE/files/$path" "$FE_TRANSFER_DIRECTORY/$path" >/dev/null || bg_die 'Archived frontend file missing'
+    download|verify)
+      if [[ $FE_TRANSFER_MODE == download ]]; then
+        parent=$FE_TRANSFER_DIRECTORY
+        [[ $path != */* ]] || parent+=/${path%/*}
+        [[ -d $parent ]] || mkdir -p "$parent"
+        fe_get "$FE_ARCHIVE/$FE_TRANSFER_RELEASE/files/$path" "$FE_TRANSFER_DIRECTORY/$path" >/dev/null || bg_die 'Archived frontend file missing'
+      else
+        [[ -f $FE_TRANSFER_DIRECTORY/$path && ! -L $FE_TRANSFER_DIRECTORY/$path ]] || bg_die 'Cached frontend file missing'
+      fi
       [[ $(stat -Lc %s "$FE_TRANSFER_DIRECTORY/$path") == "$size" ]] || bg_die 'Frontend file size differs'
       actual=$(sha256sum "$FE_TRANSFER_DIRECTORY/$path") || bg_die 'Cannot checksum frontend file'
       [[ ${actual%% *} == "$expected" ]] || bg_die 'Frontend checksum differs'
@@ -88,7 +92,7 @@ fe_transfer_batch() {
   local batch_pid status=0 saved_traps FE_S3_EXCHANGE=''
   # Refresh an expired parent-run cache before the workers inherit it.
   bg_file_guard
-  if [[ $FE_TRANSFER_MODE != public && ${FE_S3_TRANSPORT:-curl} == curl ]]; then
+  if [[ $FE_TRANSFER_MODE != public && $FE_TRANSFER_MODE != verify && ${FE_S3_TRANSPORT:-curl} == curl ]]; then
     FE_S3_EXCHANGE=$(mktemp "$FE_TEMP/s3-auth.XXXXXX") || bg_die 'Cannot create frontend credential handoff'
   fi
   saved_traps=$(trap -p INT TERM)
@@ -112,7 +116,7 @@ fe_transfer_batch() {
 fe_transfer_checkpoint() {
   # Cache only the parent-run lookup for reads; local leases and write checkpoints stay checked.
   case $FE_TRANSFER_MODE in
-    download|public) bg_file_guard;;
+    download|public|verify) bg_file_guard;;
     *) bg_guard;;
   esac
   bg_touch_local
@@ -131,13 +135,20 @@ fe_transfer() {
     batch+=("$row")
     # Keep the entrypoint in a separate last batch even when fewer than four assets remain.
     if (( ${#batch[@]}==4 )); then
-      fe_transfer_batch "${batch[@]}" || bg_die 'Frontend transfer batch failed; preserve release intent'
+      if ! fe_transfer_batch "${batch[@]}"; then
+        # Only optional cached bytes may fall back. Revocation or journal drift still aborts.
+        if [[ $FE_TRANSFER_MODE == verify ]]; then bg_guard; return 1; fi
+        bg_die 'Frontend transfer batch failed; preserve release intent'
+      fi
       fe_transfer_checkpoint
       count=$((count+${#batch[@]})); batch=()
     fi
   done < <(jq -r --arg mode "$FE_TRANSFER_MODE" '.files[] | select($mode!="publish" or .path!="index.html") | [.path,.sha256,.size]|@tsv' "$manifest")
   if (( ${#batch[@]}>0 )); then
-    fe_transfer_batch "${batch[@]}" || bg_die 'Frontend transfer batch failed; preserve release intent'
+    if ! fe_transfer_batch "${batch[@]}"; then
+      if [[ $FE_TRANSFER_MODE == verify ]]; then bg_guard; return 1; fi
+      bg_die 'Frontend transfer batch failed; preserve release intent'
+    fi
     fe_transfer_checkpoint
     count=$((count+${#batch[@]}))
   fi

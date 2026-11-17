@@ -9,6 +9,7 @@ FE_DISTRIBUTION=E1YDHL1SDC4C1C
 FE_S3_TRANSPORT=curl
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-s3.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-cache.sh"
 
 fe_aws_cli() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
 fe_aws() {
@@ -244,6 +245,8 @@ fe_capture_baseline() {
 fe_stage() {
   local release="$GITHUB_SHA-$RUN_ID" previous backend changed=true
   fe_temp; fe_preflight
+  # A new plan is admitted only after the previous journal is resolved.
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
   if [[ $(jq -r '.backend_only // false' <<<"$STATE") != true ]]; then
     fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
     fe_check_routes "$FE_TEMP/release.json"
@@ -272,6 +275,9 @@ fe_stage() {
   else
     fe_public_check "$FE_TEMP/download-manifest.json"
     fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"
+    if ! fe_cache_store "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"; then
+      printf '::warning::Frontend candidate cache unavailable; publication will read S3\n' >&2
+    fi
   fi
   fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" --argjson changed "$changed" '.frontend={release_id:$release,previous_release_id:$previous,changed:$changed,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
@@ -296,6 +302,7 @@ fe_publish_files() {
   fe_public_check "$manifest"
 }
 fe_publish() {
+  local FE_CANDIDATE_DIRECTORY
   fe_temp; fe_owned_pointer
   if ! fe_changed; then
     fe_pointer_write "$(jq -c '.pending.status="paired"' <<<"$FE_POINTER")"
@@ -303,11 +310,10 @@ fe_publish() {
     rm -rf -- "$FE_TEMP"
     return
   fi
-  fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/candidate"
-  jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Candidate frontend manifest context differs'
+  fe_prepare_candidate
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.publication_started=true' <<<"$STATE")"
-  fe_publish_files "$FE_TEMP/candidate" "$FE_TEMP/download-manifest.json"
+  fe_publish_files "$FE_CANDIDATE_DIRECTORY" "$FE_TEMP/download-manifest.json"
   fe_pointer_write "$(jq -c '.pending.status="published"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" --argjson now "$(bg_now)" '.frontend.etag=$etag | .frontend.published=true | .frontend.published_at=$now' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
@@ -335,6 +341,7 @@ fe_finalize() {
   fi
   fe_pointer_write "$(jq -c 'if .pending.frontend_changed then .previous=.current | .current=.pending.release_id else . end | .backend_image=.pending.backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.finalized=true' <<<"$STATE")"
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
   rm -rf -- "$FE_TEMP"
 }
 fe_recover() {
@@ -347,5 +354,6 @@ fe_recover() {
   fi
   fe_pointer_write "$(jq -c '.backend_image=.pending.previous_backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.recovered=true' <<<"$STATE")"
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
   rm -rf -- "$FE_TEMP"
 }

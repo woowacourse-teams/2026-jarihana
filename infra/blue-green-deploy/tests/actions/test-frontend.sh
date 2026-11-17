@@ -394,9 +394,69 @@ traversal_manifest() {
 }
 archive_checksum_mismatch() {
   fe_stage
+  fe_cache_clear
   echo corrupted >"$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/sw.js"
   local before; before=$(write_count)
   rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+}
+candidate_cache_reused_across_phases() {
+  fe_stage
+  rm -rf -- "$BG_FRONTEND_DIST"
+  : >"$CASE_DIR/requests"
+  ( unset FE_TEMP FE_POINTER FE_ETAG; STATE=$(cat "$STATE_FILE"); fe_publish )
+  STATE=$(cat "$STATE_FILE")
+  ! grep -q '/files/' "$CASE_DIR/requests"
+  grep -q 'release.json' "$CASE_DIR/requests"
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+  fe_finalize
+  [[ ! -e $(fe_cache_path) ]]
+  jq -e --arg release "$GITHUB_SHA-$RUN_ID" '.current==$release and .previous=="baseline-123" and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+candidate_cache_does_not_rescan_s3_files() {
+  fe_stage
+  echo corrupted >"$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/sw.js"
+  : >"$CASE_DIR/requests"
+  fe_publish
+  ! grep -q '/files/' "$CASE_DIR/requests"
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+}
+candidate_cache_miss_falls_back() {
+  local fault
+  for fault in missing checksum marker symlink; do
+    ( setup "cache-miss-$fault"
+      fe_stage
+      case $fault in
+        missing) fe_cache_clear;;
+        checksum) printf 'bad worker\n' >"$(fe_cache_path)/files/sw.js";;
+        marker) rm "$(fe_cache_path)/release.json";;
+        symlink) mv "$(fe_cache_path)/files/assets" "$CASE_DIR/assets"; ln -s "$CASE_DIR/assets" "$(fe_cache_path)/files/assets";;
+      esac
+      : >"$CASE_DIR/requests"
+      fe_publish
+      [[ $(grep -c "s3api/get-object.*$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/" "$CASE_DIR/requests") == 5 ]]
+      [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+    )
+  done
+}
+candidate_cache_recovery_uses_previous_archive() {
+  fe_stage; fe_publish
+  echo corrupted >"$(fe_cache_path)/files/sw.js"
+  : >"$CASE_DIR/requests"
+  fe_recover
+  [[ $(grep -c "s3api/get-object.*$FE_ARCHIVE/baseline-123/files/" "$CASE_DIR/requests") == 5 ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'old worker' && ! -e $(fe_cache_path) ]]
+}
+candidate_cache_revocation_stops_publication() {
+  fe_stage
+  local before; before=$(write_count)
+  sha256sum() {
+    command sha256sum "$@"
+    if [[ $1 == *frontend-candidate/files/* ]]; then : >"$CASE_DIR/revoked"; fi
+  }
+  rejects fe_publish
+  unset -f sha256sum
+  grep -q 'Parent run revoked' "$CASE_DIR/rejection.log"
   [[ $(write_count) == "$before" ]]
 }
 wrong_manifest_release() {
@@ -581,6 +641,10 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
+for test in candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
+  ( setup "$test"; "$test" )
+  printf 'PASS frontend %s\n' "$test"
+done
 for test in frontend_origin_alias_preflight wrong_frontend_bucket_preflight wrong_frontend_prefix_preflight missing_frontend_origin_preflight formerly_allowed_path_preflight first_matching_behavior_preflight first_wrong_behavior_preflight nested_asset_behavior_preflight single_character_behavior_preflight literal_behavior_pattern_preflight frontend_behavior_transformations_rejected frontend_behavior_cache_preflight changed_route_before_publication changed_route_before_recovery  unrelated_behavior_preflight frontend_behavior_preflight wrong_frontend_origin_preflight \
   approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight realtime_behavior_preflight realtime_exact_behavior_preflight realtime_combined_behavior_preflight misrouted_assets_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
