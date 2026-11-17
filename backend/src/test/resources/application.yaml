@@ -8,6 +8,10 @@ gomoku:
   expiry:
     enabled: false
 
+rhythm-battle:
+  expiry:
+    enabled: false
+
 spring:
   datasource:
     # Testcontainers가 운영과 같은 postgres:17 컨테이너를 띄우고, 같은 URL을 쓰는 Spring 컨텍스트가 함께 쓴다.

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft, Music2, Trophy } from "lucide-react";
+import { ArrowLeft, Music2, Swords, Trophy } from "lucide-react";
 
 import {
+  RHYTHM_BATTLE_PATH,
   RHYTHM_LESSON_PATH,
   RHYTHM_PRACTICE_ENABLED,
   RHYTHM_SINGLE_START_PATH
 } from "../../features/game/rhythm/availability.js";
+import { useOpenBattle } from "../../features/game/rhythm/battle/battleSettings.js";
 import { RhythmDemoBoard } from "../../features/game/rhythm/RhythmDemoBoard.jsx";
 import { RhythmModeArt } from "../../features/game/rhythm/RhythmModeArt.jsx";
 import {
@@ -27,6 +29,7 @@ import "./games.css";
 export function RhythmHarpoonEntryPage() {
   useEscapeBack("/games");
   const openChallenge = useOpenChallenge();
+  const openBattle = useOpenBattle();
   const [tutorialPromptOpen, setTutorialPromptOpen] = useState(() => shouldOfferRhythmTutorial());
   function closeTutorialPrompt() {
     rememberRhythmTutorialOffered();
@@ -88,7 +91,7 @@ export function RhythmHarpoonEntryPage() {
               </div>
             )}
           </article>
-          <article className="games-card games-card--soon" aria-label="온라인 매칭, 준비 중">
+          <article className="games-card games-card--playable" aria-labelledby="rhythm-entry-online">
             <div
               className="games-artwork games-card__visual rhythm-entry__visual"
               aria-hidden="true"
@@ -96,16 +99,17 @@ export function RhythmHarpoonEntryPage() {
               <RhythmDemoBoard variant="duo" />
             </div>
             <div className="games-card__body">
-              <h2>온라인 매칭</h2>
+              <h2 id="rhythm-entry-online">온라인 매칭</h2>
               <p>대기실에서 방을 만들어 1:1로 겨뤄요.</p>
-              <Button
-                className="games-card__cta"
-                block
-                disabled
+              {/* 대전은 회원 전용이라 로그인 전이면 여기서 로그인으로 보낸다. */}
+              <Link
+                className="ui-button ui-button--secondary ui-button--md ui-button--block games-card__cta"
                 data-ph-capture-attribute-action="rhythm_online_open"
+                onClick={openBattle}
+                to={RHYTHM_BATTLE_PATH}
               >
-                준비 중
-              </Button>
+                <Swords size={20} aria-hidden="true" /> 대기실 입장
+              </Link>
             </div>
           </article>
           <Link

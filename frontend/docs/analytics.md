@@ -392,7 +392,7 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 `gomoku_invitation_join`, 게임판의 리듬게임 시작은 `rhythm_game_open`이다.
 
 리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
-준비 중인 온라인 매칭 카드의 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
+온라인 매칭 카드의 "대기실 입장" 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
 따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 랭킹 도전은 `rhythm_ranked_open`이다.
 예전 싱글 플레이 화면의 소리 미리 듣기(`rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`)와
 접힌 튜토리얼 펼치기(`rhythm_tutorial_toggle`)는 화면에서 빠져 더 이상 기록되지 않는다.
@@ -417,6 +417,16 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 키 입력, 보정 측정값과 점수에 대한 별도 분석 이벤트는 전송하지 않는다.
 터치 방향 버튼은 `rhythm_input_left`, `rhythm_input_down`, `rhythm_input_up`, `rhythm_input_right`로
 구분하며, 누를 때마다 click 자동 수집 이벤트가 하나씩 생긴다.
+
+리듬게임 온라인 매칭(1:1 대전) 대기실의 첫 화면 복귀는 `rhythm_entry_back`, 방 만들기의 공개 여부와 난이도 선택은
+`rhythm_battle_visibility_select`, `rhythm_battle_level_select`, 방 만들기는 `rhythm_battle_create`, 공개 방 참가는
+`rhythm_battle_join`, 이미 앉은 방으로 돌아가는 "내 방으로"는 `rhythm_battle_my_room_open`이다. 초대 링크 화면의 참가는 `rhythm_battle_invite_join`, 방과 초대 화면의 대기실 복귀는
+`rhythm_battle_lobby_back`이다. 방 안에서는 초대 링크 만들기와 복사가 `rhythm_battle_invite_create`,
+`rhythm_battle_invite_copy`, 배속 선택이 `rhythm_battle_speed_change`, 준비와 준비 취소가 `rhythm_battle_ready_toggle`,
+방장의 시작이 `rhythm_battle_start`, 방 나가기가 `rhythm_battle_leave`, 채팅 입력과 보내기가 `rhythm_battle_chat_input`,
+`rhythm_battle_chat_send`이다. 판의 Canvas 포커스는 `rhythm_battle_arena_focus`, 브라우저가 소리를 막았을 때 띄우는 "눌러서 소리 켜기"는 `rhythm_battle_audio_unlock`, 터치 방향 버튼은
+`rhythm_battle_input_left`, `rhythm_battle_input_down`, `rhythm_battle_input_up`, `rhythm_battle_input_right`이다.
+대전의 점수, 입력, 채팅 내용과 상대 정보는 분석 이벤트로 보내지 않는다.
 
 좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
 `/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는

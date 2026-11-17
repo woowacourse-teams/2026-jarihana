@@ -118,7 +118,8 @@ request_reduction_preserves_full_checks() {
   [[ $(awk -F '\t' -v prefix="$FE_ARCHIVE/$release/files/" '$1=="s3api/get-object" && index($2,prefix)==1 {n++} END{print n+0}' "$CASE_DIR/requests") == 0 ]]
   : >"$CASE_DIR/requests"
   fe_publish
-  [[ $(awk -F '\t' -v prefix="$FE_ARCHIVE/$release/files/" '$1=="s3api/get-object" && index($2,prefix)==1 {n++} END{print n+0}' "$CASE_DIR/requests") == "$count" ]]
+  # A verified Plan cache replaces the second download; public verification still reads every file.
+  [[ $(awk -F '\t' -v prefix="$FE_ARCHIVE/$release/files/" '$1=="s3api/get-object" && index($2,prefix)==1 {n++} END{print n+0}' "$CASE_DIR/requests") == 0 ]]
   [[ $(awk -F '\t' -v prefix="$FE_LIVE/" '$1=="s3api/get-object" && index($2,prefix)==1 {n++} END{print n+0}' "$CASE_DIR/requests") == 0 ]]
   [[ $(awk -F '\t' '$1=="public" {n++} END{print n+0}' "$CASE_DIR/requests") == "$count" ]]
   : >"$CASE_DIR/requests"

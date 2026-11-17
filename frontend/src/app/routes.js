@@ -36,6 +36,9 @@ export const routeRegistry = Object.freeze([
     page: "RhythmHarpoonChallengePage",
     path: RHYTHM_CHALLENGE_PATH
   },
+  { access: "member", page: "RhythmBattleLobbyPage", path: "/games/rhythm-harpoon/battle" },
+  { access: "member", page: "RhythmBattleRoomPage", path: "/games/rhythm-harpoon/battle/rooms/:roomId" },
+  { access: "member", page: "RhythmBattleInvitationPage", path: "/games/rhythm-harpoon/battle/invite/:token" },
   { access: "member", page: "ChatPage", path: "/chat" },
   { access: "member", page: "ChatPage", path: "/chat/:roomId" },
   { access: "public", page: "HomePage", path: "/" },
