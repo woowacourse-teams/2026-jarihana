@@ -104,14 +104,11 @@ jobs:
         run: |
           script=infra/blue-green-deploy/scripts/actions/coordinator.sh
           exec bash "$script" "$BG_PHASE"
-      - name: 임시 프론트엔드 CLI와 artifact 정리
+      - name: 임시 프론트엔드 artifact 정리
         if: always() && inputs.environment == 'prod' && inputs.mode == 'deploy'
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${FE_AWSCLI_TEMP:-}" && "$FE_AWSCLI_TEMP" == "$RUNNER_TEMP"/frontend-awscli.* ]]; then
-            rm -rf -- "$FE_AWSCLI_TEMP"
-          fi
           if [[ "$BG_PHASE" == plan && "${BG_FRONTEND_DIST:-}" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]; then
             rm -rf -- "$BG_FRONTEND_DIST"
           fi
