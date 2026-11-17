@@ -253,15 +253,24 @@ fe_stage() {
   [[ $FE_POINTER != null ]] || fe_capture_baseline
   jq -e '.pending==null' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend transaction requires reconciliation'
   previous=$(jq -r .current <<<"$FE_POINTER")
-  fe_download_release "$previous" "$FE_TEMP/previous"
+  if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
+    # Read the existing release identity for an unchanged frontend.
+    fe_read_release_manifest "$previous"
+    bg_guard
+  else
+    fe_download_release "$previous" "$FE_TEMP/previous"
+  fi
   backend=$(jq -r '.backend_image // empty' <<<"$FE_POINTER")
   [[ -n $backend ]] || backend=$(jq -r .backend_image "$FE_TEMP/download-manifest.json")
   [[ $backend == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Current frontend/backend pair differs'
   fe_check_routes "$FE_TEMP/download-manifest.json"
-  fe_public_check "$FE_TEMP/download-manifest.json"
   if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
+    jq '.files |= map(select(.path=="index.html" or .path=="sw.js" or .path=="manifest.webmanifest"))' \
+      "$FE_TEMP/download-manifest.json" > "$FE_TEMP/critical-manifest.json"
+    fe_public_check "$FE_TEMP/critical-manifest.json"
     changed=false; release=$previous
   else
+    fe_public_check "$FE_TEMP/download-manifest.json"
     fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"
   fi
   fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
