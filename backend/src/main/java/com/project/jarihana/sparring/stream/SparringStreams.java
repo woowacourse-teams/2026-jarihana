@@ -125,51 +125,7 @@ public class SparringStreams {
         deliveries.submit(
                 () -> {
                     try {
-                        boolean queryRequired = room.dirty.getAndSet(false);
-                        List<Client> subscribers = List.copyOf(room.clients);
-                        if (!queryRequired) {
-                            for (Client client : subscribers) client.heartbeat();
-                            return;
-                        }
-                        boolean snapshotRequired =
-                                subscribers.stream()
-                                        .anyMatch(client -> !client.initialized);
-                        var result =
-                                queries.poll(
-                                        id,
-                                        room.revision,
-                                        room.lastPostId,
-                                        snapshotRequired);
-                        if (result == null) {
-                            for (Client client : subscribers) client.heartbeat();
-                            return;
-                        }
-                        boolean changed = result.revision() != room.revision;
-                        SparringStreamResponse snapshot =
-                                snapshotRequired
-                                        ? SparringStreamResponse.from(result, true)
-                                        : null;
-                        SparringStreamResponse update =
-                                changed
-                                        ? SparringStreamResponse.from(result, false)
-                                        : null;
-                        for (Client client : subscribers) {
-                            if (!client.initialized) {
-                                client.offer("snapshot", snapshot);
-                                client.initialized = true;
-                            } else if (changed) client.offer("update", update);
-                            else client.heartbeat();
-                        }
-                        room.lastPostId =
-                                Math.max(
-                                        room.lastPostId,
-                                        Stream.concat(
-                                                        result.latestPosts().stream(),
-                                                        result.addedPosts().stream())
-                                                .mapToLong(SparringPostResult::id)
-                                                .max()
-                                                .orElse(0));
-                        room.revision = result.revision();
+                        pollRoom(id, room);
                     } catch (RuntimeException exception) {
                         // A transient database outage must not kill the scheduler or
                         // invent a new revision.
@@ -181,6 +137,54 @@ public class SparringStreams {
                         }
                     }
                 });
+    }
+
+    private void pollRoom(long id, Room room) {
+        boolean queryRequired = room.dirty.getAndSet(false);
+        List<Client> subscribers = List.copyOf(room.clients);
+        if (!queryRequired) {
+            for (Client client : subscribers) client.heartbeat();
+            return;
+        }
+        boolean snapshotRequired =
+                subscribers.stream()
+                        .anyMatch(client -> !client.initialized);
+        var result =
+                queries.poll(
+                        id,
+                        room.revision,
+                        room.lastPostId,
+                        snapshotRequired);
+        if (result == null) {
+            for (Client client : subscribers) client.heartbeat();
+            return;
+        }
+        boolean changed = result.revision() != room.revision;
+        SparringStreamResponse snapshot =
+                snapshotRequired
+                        ? SparringStreamResponse.from(result, true)
+                        : null;
+        SparringStreamResponse update =
+                changed
+                        ? SparringStreamResponse.from(result, false)
+                        : null;
+        for (Client client : subscribers) {
+            if (!client.initialized) {
+                client.offer("snapshot", snapshot);
+                client.initialized = true;
+            } else if (changed) client.offer("update", update);
+            else client.heartbeat();
+        }
+        room.lastPostId =
+                Math.max(
+                        room.lastPostId,
+                        Stream.concat(
+                                        result.latestPosts().stream(),
+                                        result.addedPosts().stream())
+                                .mapToLong(SparringPostResult::id)
+                                .max()
+                                .orElse(0));
+        room.revision = result.revision();
     }
 
     @PreDestroy

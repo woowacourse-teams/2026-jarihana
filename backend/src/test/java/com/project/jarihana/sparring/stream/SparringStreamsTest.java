@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -51,6 +52,24 @@ class SparringStreamsTest {
     @AfterEach
     void tearDown() {
         streams.close();
+    }
+
+    @Test
+    @DisplayName("방 조회가 실패하면 연결을 종료하고 활성 방에서 제거한다")
+    void closesSubscribersWhenRoomReadFails() {
+        // Given
+        SseEmitter emitter = mock(SseEmitter.class);
+        attach(emitter);
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenThrow(new IllegalStateException("database unavailable"));
+
+        // When
+        streams.markChanged(1L);
+
+        // Then
+        verify(emitter, timeout(5000)).complete();
+        Map<?, ?> rooms = (Map<?, ?>) ReflectionTestUtils.getField(streams, "rooms");
+        assertTrue(rooms.isEmpty());
     }
 
     @Test
