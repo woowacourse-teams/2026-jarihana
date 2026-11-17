@@ -10,84 +10,82 @@ import org.postgresql.PGConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Properties;
 
 @Component
-@ConditionalOnExpression("${sparring.benchmark.listen:${sparring.benchmark.notify:false}}")
-class SparringBenchmarkListener {
-    private static final Logger log = LoggerFactory.getLogger(SparringBenchmarkListener.class);
+class SparringNotificationListener {
+    private static final Logger log = LoggerFactory.getLogger(SparringNotificationListener.class);
 
     private final SparringStreams streams;
     private final String url;
     private final Properties connectionProperties = new Properties();
     private final Counter received;
-    private final Counter dropped;
-    private final String dropRevision;
     private final Thread listener =
             Thread.ofPlatform().daemon().name("sparring-listen").unstarted(this::listen);
+    private volatile boolean running;
+    private volatile Connection connection;
 
-    SparringBenchmarkListener(
+    SparringNotificationListener(
             SparringStreams streams,
             MeterRegistry meters,
             @Value("${spring.datasource.url}") String url,
-            @Value("${spring.datasource.username}") String username,
-            @Value("${spring.datasource.password}") String password,
-            @Value("${sparring.benchmark.drop-revision:}") String dropRevision) {
+            @Value("${spring.datasource.username:}") String username,
+            @Value("${spring.datasource.password:}") String password) {
         this.streams = streams;
         this.url = url;
         connectionProperties.setProperty("user", username);
         connectionProperties.setProperty("password", password);
         connectionProperties.setProperty("connectTimeout", "5");
         connectionProperties.setProperty("socketTimeout", "5");
-        connectionProperties.setProperty("ApplicationName", "sparring-benchmark-listener");
-        this.dropRevision = dropRevision;
-        this.dropped = meters.counter("sparring.benchmark.notifications.dropped");
-        this.received = meters.counter("sparring.benchmark.notifications.received");
+        connectionProperties.setProperty("ApplicationName", "sparring-notification-listener");
+        this.received = meters.counter("sparring.notifications.received");
     }
 
     @PostConstruct
     void start() {
+        running = true;
         listener.start();
     }
 
     private void listen() {
-        while (!Thread.currentThread().isInterrupted()) {
-            try (var connection = DriverManager.getConnection(url, connectionProperties);
-                    var statement = connection.createStatement()) {
-                statement.execute("LISTEN sparring_benchmark_revision");
-                // LISTEN commits in autocommit mode. Recover changes committed while disconnected.
+        while (running) {
+            // LISTEN needs a persistent session without occupying the application's connection pool.
+            try (var current = DriverManager.getConnection(url, connectionProperties)) {
+                connection = current;
+                if (!running) return;
+                current.setAutoCommit(true);
+                try (var statement = current.createStatement()) {
+                    statement.execute("LISTEN sparring_revision");
+                }
+                // Recover changes committed before LISTEN became active, including disconnections.
                 streams.markAllChanged();
-                log.info("Listening for sparring benchmark notifications");
-                var postgres = connection.unwrap(PGConnection.class);
-                while (!Thread.currentThread().isInterrupted()) {
+                log.info("Listening for sparring notifications");
+                var postgres = current.unwrap(PGConnection.class);
+                while (running) {
                     var notifications = postgres.getNotifications(1000);
                     if (notifications == null) continue;
                     for (var notification : notifications) {
                         received.increment();
-                        String payload = notification.getParameter();
-                        int separator = payload.indexOf(':');
-                        if (separator < 1) continue;
-                        if (payload.substring(separator + 1).equals(dropRevision)) {
-                            dropped.increment();
-                            continue;
-                        }
                         try {
-                            streams.markChanged(Long.parseLong(payload.substring(0, separator)));
+                            streams.markChanged(Long.parseLong(notification.getParameter()));
                         } catch (NumberFormatException ignored) {
                             // A malformed notification cannot interrupt the listener.
                         }
                     }
                 }
-            } catch (SQLException exception) {
-                if (Thread.currentThread().isInterrupted()) return;
-                log.warn("Sparring benchmark listener disconnected (SQL state {})",
-                        exception.getSQLState());
+            } catch (SQLException | RuntimeException exception) {
+                if (!running) return;
+                log.warn("Sparring notification listener disconnected", exception);
+            } finally {
+                connection = null;
+            }
+            if (running) {
                 try {
                     Thread.sleep(Duration.ofSeconds(1));
                 } catch (InterruptedException interrupted) {
@@ -100,6 +98,20 @@ class SparringBenchmarkListener {
 
     @PreDestroy
     void stop() {
+        running = false;
         listener.interrupt();
+        Connection current = connection;
+        if (current != null) {
+            try {
+                current.close();
+            } catch (SQLException exception) {
+                log.warn("Sparring notification connection close failed", exception);
+            }
+        }
+        try {
+            listener.join(6000);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

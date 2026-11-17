@@ -13,8 +13,6 @@ import jakarta.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -34,8 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 /**
- * DB revision polling is shared per active topic, so commits on another application instance are
- * visible.
+ * Notifications trigger reads for active topics. Periodic revision reconciliation recovers missed
+ * notifications, including writes from an older application instance during deployment.
  */
 @Component
 public class SparringStreams {
@@ -43,8 +41,6 @@ public class SparringStreams {
 
     private final SparringQueryRepository repository;
     private final SparringStreamQueryService queries;
-    private final boolean notifyMode;
-    private final boolean immediateDelivery;
     private final ConcurrentHashMap<Long, Room> rooms = new ConcurrentHashMap<>();
     private final ScheduledExecutorService ticker =
             Executors.newSingleThreadScheduledExecutor(
@@ -54,23 +50,13 @@ public class SparringStreams {
     private final Set<Client> clients = ConcurrentHashMap.newKeySet();
 
     public SparringStreams(
-            SparringQueryRepository repository,
-            SparringStreamQueryService queries,
-            @Value("${sparring.benchmark.notify:false}") boolean notifyMode,
-            @Value("${sparring.benchmark.reconcile-seconds:0}") long reconcileSeconds,
-            @Value("${sparring.benchmark.immediate-delivery:false}") boolean immediateDelivery) {
+            SparringQueryRepository repository, SparringStreamQueryService queries) {
         this.repository = repository;
         this.queries = queries;
-        this.notifyMode = notifyMode;
-        this.immediateDelivery = notifyMode && immediateDelivery;
-        reconciliation = notifyMode && reconcileSeconds > 0
-                ? Executors.newSingleThreadScheduledExecutor(
-                        Thread.ofPlatform().daemon().name("sparring-reconcile").factory())
-                : null;
-        if (reconciliation != null) {
-            reconciliation.scheduleWithFixedDelay(
-                    this::reconcileRevisions, reconcileSeconds, reconcileSeconds, TimeUnit.SECONDS);
-        }
+        reconciliation = Executors.newSingleThreadScheduledExecutor(
+                Thread.ofPlatform().daemon().name("sparring-reconcile").factory());
+        reconciliation.scheduleWithFixedDelay(this::reconcileRevisions, 5, 5, TimeUnit.SECONDS);
+        // Initialize new subscriptions and send keepalives without querying unchanged rooms.
         ticker.scheduleWithFixedDelay(this::tick, 1, 1, TimeUnit.SECONDS);
     }
 
@@ -89,7 +75,7 @@ public class SparringStreams {
                 (id, previous) -> {
                     Room room = previous == null ? new Room() : previous;
                     room.clients.add(client);
-                    if (notifyMode) room.dirty.set(true);
+                    room.dirty.set(true);
                     return room;
                 });
         emitter.onCompletion(client::remove);
@@ -99,9 +85,8 @@ public class SparringStreams {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "sparring.benchmark.metrics", havingValue = "true")
-    MeterBinder sparringBenchmarkMetrics() {
-        return registry -> registry.gauge("sparring.benchmark.active.rooms", rooms,
+    MeterBinder sparringStreamMetrics() {
+        return registry -> registry.gauge("sparring.active.rooms", rooms,
                 map -> map.size());
     }
 
@@ -109,7 +94,7 @@ public class SparringStreams {
         Room room = rooms.get(topicId);
         if (room == null) return;
         room.dirty.set(true);
-        if (immediateDelivery) schedulePoll(topicId, room);
+        schedulePoll(topicId, room);
     }
 
     void markAllChanged() {
@@ -121,8 +106,7 @@ public class SparringStreams {
         if (activeRooms.isEmpty()) return;
 
         try {
-            var revisions = SparringBenchmarkJdbc.measure("reconcile",
-                    () -> repository.revisions(List.copyOf(activeRooms.keySet())));
+            var revisions = repository.revisions(List.copyOf(activeRooms.keySet()));
             for (var row : revisions) {
                 Room room = activeRooms.get(row.getId());
                 if (row.getRevision() > room.revision) markChanged(row.getId());
@@ -141,8 +125,7 @@ public class SparringStreams {
         deliveries.submit(
                 () -> {
                     try {
-                        boolean queryRequired =
-                                !notifyMode || room.dirty.getAndSet(false);
+                        boolean queryRequired = room.dirty.getAndSet(false);
                         List<Client> subscribers = List.copyOf(room.clients);
                         if (!queryRequired) {
                             for (Client client : subscribers) client.heartbeat();
@@ -152,11 +135,11 @@ public class SparringStreams {
                                 subscribers.stream()
                                         .anyMatch(client -> !client.initialized);
                         var result =
-                                SparringBenchmarkJdbc.measure("read", () -> queries.poll(
+                                queries.poll(
                                         id,
                                         room.revision,
                                         room.lastPostId,
-                                        snapshotRequired));
+                                        snapshotRequired);
                         if (result == null) {
                             for (Client client : subscribers) client.heartbeat();
                             return;
@@ -193,7 +176,7 @@ public class SparringStreams {
                         for (Client client : room.clients) client.close();
                     } finally {
                         room.polling.set(false);
-                        if (immediateDelivery && room.dirty.get() && rooms.get(id) == room) {
+                        if (room.dirty.get() && rooms.get(id) == room) {
                             schedulePoll(id, room);
                         }
                     }
@@ -203,7 +186,7 @@ public class SparringStreams {
     @PreDestroy
     void close() {
         ticker.shutdownNow();
-        if (reconciliation != null) reconciliation.shutdownNow();
+        reconciliation.shutdownNow();
         clients.forEach(Client::close);
         deliveries.shutdownNow();
     }

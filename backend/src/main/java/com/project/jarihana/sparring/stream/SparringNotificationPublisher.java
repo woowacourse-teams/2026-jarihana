@@ -10,9 +10,9 @@ import jakarta.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.HashSet;
@@ -23,9 +23,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Component
-@ConditionalOnProperty(name = "sparring.benchmark.batch-publish", havingValue = "true")
-class SparringBenchmarkPublisher {
-    private static final Logger log = LoggerFactory.getLogger(SparringBenchmarkPublisher.class);
+class SparringNotificationPublisher {
+    private static final Logger log = LoggerFactory.getLogger(SparringNotificationPublisher.class);
 
     private final JdbcTemplate jdbc;
     private final Counter published;
@@ -34,10 +33,10 @@ class SparringBenchmarkPublisher {
             Thread.ofPlatform().daemon().name("sparring-publisher").factory());
     private Set<Long> pending = new HashSet<>();
 
-    SparringBenchmarkPublisher(JdbcTemplate jdbc, MeterRegistry meters) {
+    SparringNotificationPublisher(JdbcTemplate jdbc, MeterRegistry meters) {
         this.jdbc = jdbc;
-        this.published = meters.counter("sparring.benchmark.notifications.published");
-        this.batches = meters.counter("sparring.benchmark.notifications.batches");
+        this.published = meters.counter("sparring.notifications.published");
+        this.batches = meters.counter("sparring.notifications.batches");
     }
 
     @PostConstruct
@@ -45,12 +44,12 @@ class SparringBenchmarkPublisher {
         scheduler.scheduleWithFixedDelay(this::publish, 1, 1, TimeUnit.SECONDS);
     }
 
-    @TransactionalEventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     synchronized void committed(SparringRevisionChanged change) {
         pending.add(change.topicId());
     }
 
-    private void publish() {
+    void publish() {
         Set<Long> rooms;
         synchronized (this) {
             if (pending.isEmpty()) return;
@@ -61,7 +60,7 @@ class SparringBenchmarkPublisher {
         String ids = rooms.stream().map(String::valueOf).collect(Collectors.joining(","));
         try {
             jdbc.query("""
-                    select pg_notify('sparring_benchmark_revision', room.id || ':batch')
+                    select pg_notify('sparring_revision', room.id::text)
                     from unnest(string_to_array(?, ',')::bigint[]) as room(id)
                     """, statement -> statement.setString(1, ids), result -> null);
             published.increment(rooms.size());
