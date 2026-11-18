@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.postgresql.PGConnection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -738,6 +739,41 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 .post("/sparrings")
                 .then()
                 .statusCode(400);
+    }
+
+    @Test
+    @DisplayName("기본 설정에서 투표와 의견 저장 뒤 PostgreSQL 변경 알림을 발행한다")
+    void publishesNotificationsAfterVoteAndPostByDefault() throws Exception {
+        // Given
+        String token = member("알림", "sparring-notification");
+        long id = createTopic(token);
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("LISTEN sparring_revision");
+            var postgres = connection.unwrap(PGConnection.class);
+            try {
+                // When / Then: notification publication cannot be satisfied by revision reconciliation.
+                vote(token, id, "MINT");
+                awaitNotification(postgres, id);
+                post(token, id, "알림 발행", null, UUID.randomUUID()).then().statusCode(201);
+                awaitNotification(postgres, id);
+            } finally {
+                // Do not return a listening session to the application pool.
+                statement.execute("UNLISTEN sparring_revision");
+            }
+        }
+    }
+
+    private void awaitNotification(PGConnection postgres, long topicId) throws SQLException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            var notifications = postgres.getNotifications(1000);
+            if (notifications == null) continue;
+            for (var notification : notifications) {
+                if (notification.getParameter().equals(Long.toString(topicId))) return;
+            }
+        }
+        Assertions.fail("Committed change did not publish a PostgreSQL notification");
     }
 
     @Test

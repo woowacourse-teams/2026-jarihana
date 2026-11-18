@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
@@ -43,11 +46,30 @@ class SparringStreamsTest {
         queries = mock(SparringStreamQueryService.class);
         streams = new SparringStreams(repository, queries);
         ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "ticker")).shutdownNow();
+        ((ScheduledExecutorService) ReflectionTestUtils.getField(streams, "reconciliation")).shutdownNow();
     }
 
     @AfterEach
     void tearDown() {
         streams.close();
+    }
+
+    @Test
+    @DisplayName("방 조회가 실패하면 연결을 종료하고 활성 방에서 제거한다")
+    void closesSubscribersWhenRoomReadFails() {
+        // Given
+        SseEmitter emitter = mock(SseEmitter.class);
+        attach(emitter);
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenThrow(new IllegalStateException("database unavailable"));
+
+        // When
+        streams.markChanged(1L);
+
+        // Then
+        verify(emitter, timeout(5000)).complete();
+        Map<?, ?> rooms = (Map<?, ?>) ReflectionTestUtils.getField(streams, "rooms");
+        assertTrue(rooms.isEmpty());
     }
 
     @Test
@@ -140,6 +162,166 @@ class SparringStreamsTest {
         // Then
         assertEquals(List.of("snapshot:1:0", "update:2:1"), firstMessages);
         assertEquals(List.of("snapshot:2:1"), secondMessages);
+    }
+
+    @Test
+    @DisplayName("구독자 없는 방과 변경 없는 방은 정기 작업에서 조회하지 않는다")
+    void skipsInactiveAndUnchangedRooms() throws Exception {
+        // Given
+        streams.markChanged(2L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        verifyNoInteractions(queries);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitMessages(messages, 1);
+        awaitPoll();
+
+        // When
+        streams.markChanged(2L);
+        ReflectionTestUtils.invokeMethod(streams, "tick");
+        awaitPoll();
+
+        // Then
+        verify(queries).poll(anyLong(), anyLong(), anyLong(), anyBoolean());
+        assertEquals(List.of("snapshot:1:0"), messages);
+    }
+
+    @Test
+    @DisplayName("수신 알림을 정기 작업 대기 없이 조회하여 SSE로 보내고 비활성 방은 건너뛴다")
+    void deliversNotificationWithoutWaitingForTick() throws Exception {
+        // Given
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markChanged(2L);
+        verifyNoInteractions(queries);
+        streams.markChanged(1L);
+
+        // Then
+        awaitMessages(messages, 1);
+        awaitPoll();
+        verify(queries).poll(1L, -1L, 0L, true);
+        assertEquals(List.of("snapshot:1:0"), messages);
+    }
+
+    @Test
+    @DisplayName("즉시 전송 조회 중 들어온 알림은 병합한 뒤 같은 방을 순서대로 다시 조회한다")
+    void drainsSignalsArrivingDuringImmediateQuery() throws Exception {
+        // Given
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenAnswer(invocation -> {
+                    entered.countDown();
+                    assertTrue(release.await(5, TimeUnit.SECONDS));
+                    return new SparringStreamResult(1, 0, 0, 0, List.of(), List.of());
+                })
+                .thenReturn(new SparringStreamResult(2, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markChanged(1L);
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            streams.markChanged(1L);
+            streams.markChanged(1L);
+            verify(queries).poll(anyLong(), anyLong(), anyLong(), anyBoolean());
+        } finally {
+            release.countDown();
+        }
+
+        // Then
+        awaitMessages(messages, 2);
+        awaitPoll();
+        verify(queries).poll(1L, -1L, 0L, true);
+        verify(queries).poll(1L, 1L, 0L, false);
+        assertEquals(List.of("snapshot:1:0", "update:2:0"), messages);
+    }
+
+    @Test
+    @DisplayName("LISTEN 재연결 뒤 정기 작업 대기 없이 활성 방을 다시 조회한다")
+    void recoversImmediatelyAfterReconnect() throws Exception {
+        // Given
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+
+        // When
+        streams.markAllChanged();
+
+        // Then
+        awaitMessages(messages, 1);
+        assertEquals(List.of("snapshot:1:0"), messages);
+    }
+
+    @Test
+    @DisplayName("보완 조회로 발견한 변경도 추가 대기 없이 전달한다")
+    void deliversReconciledChangesWithoutTick() throws Exception {
+        // Given
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()))
+                .thenReturn(new SparringStreamResult(2, 0, 0, 0, List.of(), List.of()));
+        streams.markChanged(1L);
+        awaitMessages(messages, 1);
+        awaitPoll();
+        var repository = (SparringQueryRepository) ReflectionTestUtils.getField(streams, "repository");
+        var revision = mock(SparringQueryRepository.TopicRevision.class);
+        when(revision.getId()).thenReturn(1L);
+        when(revision.getRevision()).thenReturn(2L);
+        when(repository.revisions(List.of(1L))).thenReturn(List.of(revision));
+
+        // When: the database revision advanced without a notification.
+        ReflectionTestUtils.invokeMethod(streams, "reconcileRevisions");
+
+        // Then
+        awaitMessages(messages, 2);
+        assertEquals(List.of("snapshot:1:0", "update:2:0"), messages);
+    }
+
+    @Test
+    @DisplayName("활성 방이 없으면 보완 조회도 DB를 사용하지 않는다")
+    void skipsReconciliationWithoutSubscribers() {
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "reconcileRevisions");
+
+        // Then
+        verifyNoInteractions(queries);
+        verifyNoInteractions(ReflectionTestUtils.getField(streams, "repository"));
+    }
+
+    @Test
+    @DisplayName("보완 조회에서 revision이 같으면 추가 조회나 SSE 갱신을 하지 않는다")
+    void skipsReconciledUnchangedRoom() throws Exception {
+        // Given
+        var messages = new CopyOnWriteArrayList<String>();
+        attach(recordingEmitter(messages));
+        when(queries.poll(anyLong(), anyLong(), anyLong(), anyBoolean()))
+                .thenReturn(new SparringStreamResult(1, 0, 0, 0, List.of(), List.of()));
+        streams.markChanged(1L);
+        awaitMessages(messages, 1);
+        awaitPoll();
+        var repository = (SparringQueryRepository) ReflectionTestUtils.getField(streams, "repository");
+        var revision = mock(SparringQueryRepository.TopicRevision.class);
+        when(revision.getId()).thenReturn(1L);
+        when(revision.getRevision()).thenReturn(1L);
+        when(repository.revisions(List.of(1L))).thenReturn(List.of(revision));
+
+        // When
+        ReflectionTestUtils.invokeMethod(streams, "reconcileRevisions");
+
+        // Then
+        verify(queries).poll(anyLong(), anyLong(), anyLong(), anyBoolean());
+        assertEquals(List.of("snapshot:1:0"), messages);
     }
 
     private SseEmitter recordingEmitter(List<String> messages) throws Exception {
