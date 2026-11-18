@@ -63,7 +63,7 @@ jobs:
         run: npm ci
 
       - name: 정적 검사
-        run: npm run typecheck
+        run: npm run lint
 
       - name: 테스트
         run: npm test -- --ci

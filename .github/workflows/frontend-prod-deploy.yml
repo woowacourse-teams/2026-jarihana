@@ -42,7 +42,7 @@ jobs:
 
       - name: 정적 검사
         run: |
-          npm run typecheck
+          npm run lint
 
       - name: 운영 환경 변수 확인
         env:
