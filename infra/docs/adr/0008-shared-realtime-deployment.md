@@ -76,11 +76,7 @@ flowchart LR
 
 ## 결정 3. develop의 관련 변경을 공용 서버에 배포한다
 
-현재 [Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 develop 대상 PR에서 카탈로그·Gradle·두 DB 격리·Alloy 설정을 검증한다. develop push에서는 검증 후 ARM64 이미지를 GHCR에 발행하고 digest로 배포한다. 수동 실행도 publish 조건이 develop으로 제한된다.
-
-push·PR에는 경로 필터가 있다. `realtime/**`, `contracts/realtime/**`, `infra/realtime/**`, `frontend/src/pages/space/**`, 지정 마이그레이션 세 개와 workflow 파일이 대상이다. 따라서 “develop에 무엇이든 머지하면 항상 재시작”하는 구성은 아니다. 현재 `frontend/src/features/group-space/realtime/**`만의 변경은 직접 포함되지 않는다. 이는 현재 설정의 한계로 남기며, 이 문서 작성에서 배포 동작을 바꾸지는 않는다.
-
-사용자가 빠른 배포·검증을 위해 공용 재시작을 선택했으므로 개발 변경도 운영의 실시간 연결과 방 메모리에 영향을 준다. 기존 backend의 Blue-Green·검증된 릴리스 승격 절차를 realtime에 그대로 복제하지 않았다. 운영 방의 독립적인 배포 시점이 필요해지면 환경별 배포 대상으로 나눈다.
+[Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 화면이나 exporter 도구만 바뀌면 계약을 검사한다. 테스트·도면 마이그레이션 변경은 서버 통합 검증까지 수행한다. 검증에 성공한 서버·운영 입력 변경과 develop 수동 실행은 ARM64 이미지를 발행한다. 새 이미지의 사전 검사가 두 환경 모두에서 성공하면 공용 컨테이너를 교체한다. 이 교체는 운영 방의 연결과 메모리 상태에도 영향을 준다. 기존 backend의 Blue-Green·검증된 릴리스 승격 절차를 realtime에 그대로 복제하지 않았다. 운영 방의 독립적인 배포 시점이 필요해지면 환경별 배포 대상으로 나눈다.
 
 ## 결정 4. workflow 안에서 헬스체크와 복구를 수행한다
 

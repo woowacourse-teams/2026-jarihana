@@ -45,14 +45,15 @@ function docker(args, options = {}) {
 }
 
 function sql(input, databaseName = environments.dev.databaseName) {
-  return docker(["exec", "-i", database, "psql", "-X", "-q", "-U", "postgres", "-d", databaseName, "-v", "ON_ERROR_STOP=1"], { input });
+  return docker(["exec", "-i", database, "psql", "-X", "-qAt", "-U", "postgres", "-d", databaseName, "-v", "ON_ERROR_STOP=1"], { input });
 }
 
-function saveLayout(groupIds = [1, 2], layout = room, layoutRevision = revision, environment = "dev") {
+function saveLayout(groupIds = [1, 2], layout = room, layoutRevision = revision, environment = "dev", blueprintVersion = layout.version) {
   const json = JSON.stringify(layout).replaceAll("'", "''");
-  sql(`INSERT INTO group_space (group_id, room_json, revision, created_at, updated_at)
-    SELECT id, '${json}', ${layoutRevision}, now(), now() FROM groups WHERE id IN (${groupIds.join(", ")})
-    ON CONFLICT (group_id) DO UPDATE SET room_json = EXCLUDED.room_json, revision = EXCLUDED.revision, updated_at = now();`,
+  sql(`INSERT INTO group_space (group_id, room_json, revision, blueprint_template_key, blueprint_version, created_at, updated_at)
+    SELECT id, '${json}', ${layoutRevision}, '${layout.template}', ${blueprintVersion}, now(), now() FROM groups WHERE id IN (${groupIds.join(", ")})
+    ON CONFLICT (group_id) DO UPDATE SET room_json = EXCLUDED.room_json, revision = EXCLUDED.revision,
+      blueprint_template_key = EXCLUDED.blueprint_template_key, blueprint_version = EXCLUDED.blueprint_version, updated_at = now();`,
   environments[environment].databaseName);
 }
 
@@ -76,7 +77,7 @@ async function startDatabase() {
   }, "PostgreSQL startup", 30000);
   const migrations = path.join(root, "backend/src/main/resources/db/migration");
   const schema = [];
-  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql"]) {
+  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql", "V45__versioned_space_blueprints.sql"]) {
     schema.push(await readFile(path.join(migrations, file), "utf8"));
   }
   for (const { databaseName, reader, password } of Object.values(environments)) {
@@ -94,7 +95,9 @@ async function startDatabase() {
       GRANT SELECT (id, status, type) ON groups TO ${reader};
       GRANT SELECT (id, crew_name, withdrawn_at) ON member TO ${reader};
       GRANT SELECT (group_id, member_id, role) ON group_member TO ${reader};
-      GRANT SELECT (group_id, room_json, revision) ON group_space TO ${reader};
+      GRANT SELECT (group_id, room_json, revision, blueprint_template_key, blueprint_version) ON group_space TO ${reader};
+      GRANT SELECT (template_key, blueprint_version, geometry_schema_version, geometry) ON space_blueprint TO ${reader};
+      GRANT SELECT (template_key, blueprint_version) ON space_blueprint_default TO ${reader};
       GRANT SELECT (${avatarColumns}) ON member_avatar TO ${reader};
     `, databaseName);
   }
@@ -126,12 +129,22 @@ async function startDatabase() {
   seedAvatar(2, "bob", "coral");
   saveLayout();
   saveLayout([1], productionRoom, productionRevision, "prod");
+  for (const [environment, { databaseName }] of Object.entries(environments)) {
+    const blueprint = environment === "dev"
+      ? `jsonb_set(geometry, '{walls}', geometry->'walls' || '[{"x":-2,"z":6.8,"width":1,"depth":1,"height":2}]'::jsonb)`
+      : "geometry";
+    sql(`INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
+        VALUES (11, now(), now(), 'Fixture', 'Blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE');
+      INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+        SELECT 'lounge', 13, 1, ${blueprint} FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 11;`, databaseName);
+    saveLayout([11], { ...room, items: [] }, 1, environment, 13);
+  }
   const dbPort = docker(["port", database, "5432/tcp"]).trim().match(/^127\.0\.0\.1:(\d+)$/)?.[1];
   assert.ok(dbPort, "PostgreSQL fixture must bind to a dynamic loopback port");
   return dbPort;
 }
 
-function startServer(dbPort) {
+function startServer(dbPort, extraArgs = []) {
   const environmentSettings = {};
   for (const [environment, { databaseName, reader, password, tokenKey }] of Object.entries(environments)) {
     const prefix = `REALTIME_${environment.toUpperCase()}`;
@@ -144,7 +157,7 @@ function startServer(dbPort) {
   if (browserPreview) allowedOrigins.push(browserPreview.originUrl);
   const child = spawn(java, ["-jar", path.join(root, "realtime/build/libs", jarName),
     "--server.port=0", "--realtime.refresh-interval-ms=200", "--realtime.reconnect-grace-ms=3000",
-    `--realtime.allowed-origins=${allowedOrigins.join(",")}`], {
+    `--realtime.allowed-origins=${allowedOrigins.join(",")}`, ...extraArgs], {
     cwd: root,
     env: { ...process.env, ...environmentSettings, REALTIME_ENABLED: "true" },
     stdio: ["ignore", "pipe", "pipe"]
@@ -219,7 +232,20 @@ try {
     browserPreview = await browser.startBrowserPreview(root);
     verifyBrowser = browser.verifyBrowser;
   }
-  server = startServer(await startDatabase());
+  const dbPort = await startDatabase();
+  async function checkBlueprints() {
+    const probe = startServer(dbPort, ["--check-blueprints"]);
+    const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "blueprint preflight", 45000);
+    return exitCode.code;
+  }
+  assert.equal(await checkBlueprints(), 0);
+  const { reader: prodReader, databaseName: prodDb } = environments.prod;
+  sql(`REVOKE SELECT (blueprint_version) ON space_blueprint_default FROM ${prodReader};`, prodDb);
+  assert.notEqual(await checkBlueprints(), 0);
+  sql(`GRANT SELECT (blueprint_version) ON space_blueprint_default TO ${prodReader};`, prodDb);
+  receipt.push("candidate image checks both blueprint catalogs and fails before deployment when production reader grants are missing");
+  serverLog = "";
+  server = startServer(dbPort);
   const port = await waitFor(() => {
     if (!server.pid || server.exitCode !== null) throw new Error(`Server exited: ${serverLog.slice(-8000)}`);
     return serverLog.match(/Tomcat started on port (\d+)/)?.[1];
@@ -240,6 +266,14 @@ try {
   receipt.push("health depends on SELECT grants in both databases");
 
   const url = `ws://127.0.0.1:${port}/ws/realtime`;
+  const devMap = await connect(url, "101", "11");
+  const prodMap = await connect(url, "101", "11", { environment: "prod" });
+  const devStart = participant(devMap, "101").position, prodStart = participant(prodMap, "101").position;
+  assert.deepEqual(prodStart, { x: -2, y: 0, z: 6.8 });
+  assert.notDeepEqual(devStart, prodStart);
+  devMap.socket.close(1000, "LEAVE");
+  prodMap.socket.close(1000, "LEAVE");
+  receipt.push("database-only lounge blueprint 13 controls collision independently in dev and prod for the same version 11 room document");
   await connect(url, "101", "3", { expectedError: "ACCESS_DENIED" });
   await connect(url, "101", "4", { expectedError: "ACCESS_DENIED" });
   await connect(url, "999", "1", { expectedError: "ACCESS_DENIED" });
@@ -402,8 +436,20 @@ try {
       items: [{ id: "camera", kind: "cameraCabinet", x: -5, z: 6.5, rotation: 0 }]
     });
     revision += 1;
-    saveLayout([10]);
-    receipt.push(...await verifyBrowser({ root, originUrl: browserPreview.originUrl, url, token, room, revision: () => revision, evidence }));
+    sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+      SELECT 'lounge', 14, 1, geometry || '{"displayName":"브라우저 검증용 복층"}'::jsonb
+      FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12;`);
+    saveLayout([10], room, revision, "dev", 14);
+    const snapshot = JSON.parse(sql(`SELECT json_build_object(
+        'room', s.room_json::json, 'revision', s.revision,
+        'blueprintRef', json_build_object('templateKey', b.template_key, 'version', b.blueprint_version),
+        'geometry', b.geometry)
+      FROM group_space s JOIN space_blueprint b
+        ON s.blueprint_template_key = b.template_key AND s.blueprint_version = b.blueprint_version
+      WHERE s.group_id = 10;`));
+    assert.equal(snapshot.room.version, 11);
+    assert.equal(snapshot.blueprintRef.version, 14);
+    receipt.push(...await verifyBrowser({ root, originUrl: browserPreview.originUrl, url, token, snapshot, evidence }));
   }
   await writeFile(path.join(evidence, "receipt.json"), JSON.stringify({ passed: receipt, recordedAt: new Date().toISOString() }, null, 2));
   process.stdout.write(JSON.stringify({ passed: receipt, evidence }, null, 2) + "\n");
