@@ -56,6 +56,15 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
     @Query("select t.revision from SparringTopic t where t.id=:id")
     Optional<Long> revision(long id);
 
+    @Query("select t.id as id, t.revision as revision from SparringTopic t where t.id in :ids")
+    List<TopicRevision> revisions(List<Long> ids);
+
+    interface TopicRevision {
+        long getId();
+
+        long getRevision();
+    }
+
     @Query("select a from MemberAvatar a where a.id in :memberIds")
     List<MemberAvatar> findAuthorAvatars(List<Long> memberIds);
 
