@@ -21,8 +21,6 @@ ADD --chmod=0644 --checksum=sha256:f787eb6c7f3d18e69a431e108a15278d25ee37f83d68b
     https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.32.0/opentelemetry-javaagent.jar \
     /opt/opentelemetry/opentelemetry-javaagent.jar
 
-ENV JAVA_TOOL_OPTIONS="-javaagent:/opt/opentelemetry/opentelemetry-javaagent.jar"
-
 RUN chmod 0755 /opt/opentelemetry && \
     yum install -y shadow-utils && \
     yum clean all
@@ -37,10 +35,10 @@ COPY --from=extractor --chown=app:app /extract/extracted/dependencies/ ./
 COPY --from=extractor --chown=app:app /extract/extracted/spring-boot-loader/ ./
 COPY --from=extractor --chown=app:app /extract/extracted/snapshot-dependencies/ ./
 COPY --from=extractor --chown=app:app /extract/extracted/application/ ./
+COPY --chmod=0555 docker-entrypoint.sh /app/docker-entrypoint.sh
 
 USER app
 
 EXPOSE 8080
 
-# 풀어낸 app.jar는 manifest의 Class-Path로 lib/의 의존성을 읽는다.
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
