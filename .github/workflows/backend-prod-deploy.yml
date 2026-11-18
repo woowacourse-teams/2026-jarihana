@@ -83,3 +83,35 @@ jobs:
       image_tag: ${{ inputs.image_tag }}
       mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit
+
+  release-summary:
+    needs: [release-enabled, blue-green]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: 준비 → 전환 → 관측 → 마무리 요약
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          gh api --paginate "$endpoint" --jq '.jobs[]' |
+            jq -sr --arg url "$run_url" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+              -f .github/scripts/production-release-summary.jq > "$RUNNER_TEMP/release-summary.md"
+          cat "$RUNNER_TEMP/release-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: 요약 조회 오류 표시
+        if: failure()
+        shell: bash
+        run: |
+          echo "운영 배포 요약을 생성하지 못했습니다. 중단 위치와 복구 여부는 [원본 실행 기록]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT)에서 확인하세요." >> "$GITHUB_STEP_SUMMARY"
