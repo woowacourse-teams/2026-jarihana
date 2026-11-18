@@ -437,7 +437,7 @@ try {
     });
     revision += 1;
     sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
-      SELECT 'lounge', 14, 1, geometry || '{"displayName":"브라우저 검증용 복층"}'::jsonb
+      SELECT 'lounge', 14, 1, geometry || '{"upperName":"브라우저 검증용 복층"}'::jsonb
       FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12;`);
     saveLayout([10], room, revision, "dev", 14);
     const snapshot = JSON.parse(sql(`SELECT json_build_object(
