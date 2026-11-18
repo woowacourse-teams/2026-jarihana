@@ -19,9 +19,9 @@ flowchart LR
   TEMPO -->|"metrics-generator · remote write"| PROM["Prometheus"]
 ```
 
-Java Agent `2.32.0`은 선택 구성에서만 사용한다. 백엔드 이미지에 Agent 파일이 포함되어 있더라도
-기본 실행에서는 `OTEL_SDK_DISABLED=true`로 Agent를 끄고 trace exporter와 Tempo 전송을 켜지 않는다.
-trace가 필요할 때만 실행 환경에서 `OTEL_SDK_DISABLED=false`와 OTLP trace 설정을 함께 지정한다.
+백엔드 이미지는 OpenTelemetry Java Agent `2.32.0`을 포함한다. 기본 실행 명령은 `java -jar app.jar`다.
+아래 Tempo 설정처럼 `OTEL_SDK_DISABLED=false`와 `OTEL_TRACES_EXPORTER=otlp`를 함께 지정하면
+시작 스크립트가 JVM에 `-javaagent`를 추가한다. 실행 중인 앱에 적용하려면 컨테이너를 재생성한다.
 IDE나 기존 `bootRun` 실행에는 자동으로 붙지 않는다. trace를 켜기 위해 업무 코드에 별도 span을 먼저 추가하지는 않는다.
 
 Agent의 메트릭·로그 exporter는 `none`이다. 기존 Micrometer → Prometheus와 Docker 로그 → Loki
@@ -86,7 +86,9 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
    기존 볼륨을 옮겨 사용하는 경우에는 소유권이 일치하는지 확인한다.
    Tempo 본체는 해당 non-root 사용자로 실행한다. 설정 파일은 읽기 전용 마운트다.
 
-2. 각 앱 EC2의 저장소 루트로 돌아온 뒤 `infra/.env`에 trace 관련 값을 추가하고 백엔드 이미지를 준비한다.
+2. dev와 기존 단일 Compose 방식의 prod에서는 앱 EC2의 저장소 루트에서 `infra/.env`에 trace 관련 값을 추가한다.
+   운영 Blue-Green은 릴리스의 앱 Compose와 별도 Alloy 프로젝트를 사용한다. 아래 명령의 적용 범위는
+   [운영 가이드의 앱 EC2 설정](OPERATIONS.md)과 같다.
    기본 모니터링 배포에는 이 변수들이 필요하지 않다. `infra/.env`만 바꾸면 안 된다. dev·prod
    Compose는 기본값으로 `OTEL_SDK_DISABLED=true`를 고정하고, 앱 Alloy도 기본 환경에는
    `TEMPO_OTLP_ENDPOINT`를 받지 않기 때문이다.
@@ -140,7 +142,7 @@ publish하지 않으며 조회 API `3200`은 호스트 loopback에만 공개한�
      up -d --no-build --force-recreate backend alloy
    ```
 
-   prod에서는 override의 `deployment.environment.name=dev`를 `deployment.environment.name=prod`로
+   기존 단일 Compose 방식의 prod에서는 override의 `deployment.environment.name=dev`를 `deployment.environment.name=prod`로
    바꾸고, 위 세 명령의 기본 파일을 `infra/docker-compose.yml`로 지정한다. 두 Compose 파일 모두
    `ghcr.io/woowacourse-teams/jarihana-backend:${BACKEND_TAG}` 이미지를 사용하므로, trace를 켤 때도
    해당 태그의 GHCR 이미지를 먼저 준비해야 한다. 로컬에서 다른 이름으로 빌드한 이미지는 이 Compose가
