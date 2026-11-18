@@ -80,6 +80,23 @@ if [[ $(uname -s) == Linux ]]; then
       bg_config "$TEST_DIR/state/config.json"
       pass "valid root example accepted ($example)"
     done
+    expected_topology=$(jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f1)
+    [[ $(bg_topology_digest) == "$expected_topology" ]] || exit 1
+    validated_config=$CONFIG
+    CONFIG=$(jq '.topology.a.upstream="10.0.0.12:8080"' <<< "$CONFIG")
+    changed_topology=$(jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f1)
+    [[ $changed_topology != "$expected_topology" && $(bg_topology_digest) == "$changed_topology" ]] || exit 1
+    CONFIG=$validated_config
+    [[ $(bg_topology_digest) == "$expected_topology" ]] || exit 1
+    pass 'validated topology reuse follows in-memory configuration changes'
+    jq '.topology.a.upstream="10.0.0.12:8080"' <<< "$CONFIG" > "$TEST_DIR/state/config.json"
+    bg_config "$TEST_DIR/state/config.json"
+    [[ $(bg_topology_digest) == "$changed_topology" ]] || exit 1
+    pass 'reloading valid configuration replaces the reused topology digest'
+    chmod 666 "$TEST_DIR/state/config.json"
+    reject bg_config "$TEST_DIR/state/config.json"
+    chmod 640 "$TEST_DIR/state/config.json"
+    pass 'configuration reuse never bypasses protected-file permission checks'
     for mutation in '.management_port=8081.5' '.app_port=.management_port' '.worker_token_file="/etc/jarihana-deploy/prod/worker-token"'; do
       jq "$mutation" "$ROOT/infra/blue-green-deploy/controller/full-app-A.example.json" > "$TEST_DIR/state/config.json"
       reject bg_config "$TEST_DIR/state/config.json"
