@@ -92,12 +92,15 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     receipt.push("UI greeting is accepted and delivered to the second browser");
     const origin = latest("2").participants.find((actor) => actor.memberId === "1").position;
     await pages[0].locator(".room-canvas").click({ position: { x: 500, y: 500 } });
+    await pages[0].locator(".room-canvas").focus();
     await pages[0].keyboard.down("KeyA");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await pages[0].keyboard.up("KeyA");
-    await until(() => frames.some(({ memberId, message }) => memberId === "2" && message.type === "MOVEMENT_FRAME" &&
-      message.participants.some((actor) => actor.memberId === "1" && actor.locomotion === "walking" &&
-        Math.hypot(actor.position.x - origin.x, actor.position.z - origin.z) > 0.1)), "movement fan-out");
+    try {
+      await until(() => frames.some(({ memberId, message }) => memberId === "2" && message.type === "MOVEMENT_FRAME" &&
+        message.participants.some((actor) => actor.memberId === "1" && actor.locomotion === "walking" &&
+          Math.hypot(actor.position.x - origin.x, actor.position.z - origin.z) > 0.1)), "movement fan-out", 35000);
+    } finally {
+      await pages[0].keyboard.up("KeyA");
+    }
     receipt.push("keyboard movement reaches the remote browser");
     await pages[0].keyboard.press("Escape");
     const movement = sent.filter((frame) => frame.memberId === "1" && frame.type === "MOVE").at(-1).payload;
