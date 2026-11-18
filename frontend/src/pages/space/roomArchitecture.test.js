@@ -1,8 +1,47 @@
+import { Box3 } from "three";
 import savedPresets from './fixtures/rooms-v10.json';
-import { getRoomLayout, PLAYER } from './roomLayout';
+import { bindRoomBlueprint, getRoomLayout, PLAYER } from './roomLayout';
 import { createInitialRoom, applyRoomTemplate, loadRoom, canPlace, placedItemElevation, validateRoom } from './roomState';
-import { moveWalker } from './roomNavigation';
+import { isWalkablePosition, moveWalker } from './roomNavigation';
 import { createRoomShell, disposeObject } from './roomModels';
+
+test("a published blueprint controls rendering, collision and placement independently of the room document version", () => {
+  const template = "study";
+  const room = { ...createInitialRoom(template), items: [] };
+  const geometry = getRoomLayout(room);
+  const blocker = { x: -2, z: 1, width: 2, depth: 2, height: 3 };
+  const changed = { ...geometry, building: { ...geometry.building, minX: geometry.building.minX - 2 },
+    island: { ...geometry.island, surface: { ...geometry.island.surface, maxX: geometry.island.surface.maxX + 6 },
+      walkable: { ...geometry.island.walkable, maxX: geometry.island.walkable.maxX + 6 } }, walls: [...geometry.walls, blocker],
+    mezzanine: { ...geometry.mezzanine, height: geometry.mezzanine.height + 1 } };
+  const pinned = bindRoomBlueprint(room, { blueprintRef: { templateKey: template, version: 13 }, geometry: changed });
+  const item = { id: "stool", kind: "stool", x: -2, z: 1, rotation: 0 };
+  expect(isWalkablePosition({ x: -2, y: 0, z: 1 }, room)).toBe(true);
+  expect(isWalkablePosition({ x: -2, y: 0, z: 1 }, pinned)).toBe(false);
+  expect(canPlace(item, [], pinned)).toBe(false);
+  expect(validateRoom({ ...pinned, items: [item] })).toBeNull();
+  expect(getRoomLayout(validateRoom(pinned))).toBe(changed);
+  expect(JSON.parse(JSON.stringify(pinned))).toEqual(room);
+  const shell = createRoomShell(pinned);
+  try {
+    const deck = shell.getObjectByName("clubhouse-mezzanine").getObjectByName("floor-slab");
+    expect(deck.position.y + 0.12).toBeCloseTo(changed.mezzanine.height);
+    const lawn = new Box3().setFromObject(shell.getObjectByName("island-lawn"));
+    expect(lawn.max.x).toBeCloseTo(changed.island.surface.maxX);
+    const spotlights = [];
+    shell.traverse(child => { if (child.name === "yard-facade-spotlight") spotlights.push(child.position.x); });
+    expect(Math.max(...spotlights)).toBeCloseTo(changed.island.walkable.maxX - 0.4);
+    const roof = new Box3().setFromObject(shell.getObjectByName("ceiling"));
+    expect(roof.min.x).toBeCloseTo(changed.building.minX);
+    expect(roof.max.x).toBeCloseTo(changed.building.maxX);
+    const walls = shell.children.filter(child => child.name === "clubhouse-wall");
+    expect(walls).toHaveLength(changed.walls.length);
+    const bounds = new Box3().setFromObject(walls.at(-1).getObjectByName("plaster-wall"));
+    expect(bounds.min.x).toBeCloseTo(blocker.x - blocker.width / 2);
+    expect(bounds.max.z).toBeCloseTo(blocker.z + blocker.depth / 2);
+    expect(bounds.max.y).toBeCloseTo(blocker.height);
+  } finally { disposeObject(shell); }
+});
 
 const templates = ['climbing', 'band', 'dining', 'boardgame', 'study', 'photo'];
 
