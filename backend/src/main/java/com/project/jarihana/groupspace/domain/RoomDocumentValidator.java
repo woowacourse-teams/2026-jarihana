@@ -56,6 +56,10 @@ public class RoomDocumentValidator {
             "photoPrintBench", "studyCabinet", "mixingDesk", "cameraCabinet", "longCredenza", "openDisplayShelf", "worktop", "wallShelf");
     private final ObjectMapper mapper;
 
+    public BlueprintRef readHistoricalRef(String document) {
+        return BlueprintRef.historical(mapper.readTree(document));
+    }
+
     public String validateAndSerialize(JsonNode room) {
         require(room != null && room.isObject());
         String document = mapper.writeValueAsString(room);

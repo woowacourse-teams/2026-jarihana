@@ -2,6 +2,7 @@ package com.project.jarihana.groupspace;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class GroupSpaceControllerTest extends IntegrationTestSupport {
@@ -80,6 +82,156 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         request(leader).post(path() + "/join-token").then().statusCode(200)
                 .body("data.token", not(emptyOrNullString()));
+    }
+
+    @Test
+    @DisplayName("공유 공간의 저장 도면과 신규 기본 도면을 구별한다")
+    void returnsPinnedAndDefaultBlueprints() {
+        // Given / When / Then
+        given().get("/group-spaces/blueprints/lounge/default").then().statusCode(200)
+                .body("data.blueprintRef.templateKey", equalTo("lounge"))
+                .body("data.blueprintRef.version", equalTo(12))
+                .body("data.geometry.stairs.steps", equalTo(26));
+        given().get(path()).then().statusCode(200)
+                .body("data.blueprintRef.version", equalTo(11)).body("data.room", nullValue());
+        save(leader, ROOM, 0).then().statusCode(200)
+                .body("data.blueprintRef.templateKey", equalTo("boardgame"))
+                .body("data.blueprintRef.version", equalTo(8));
+    }
+
+    @Test
+    @DisplayName("이전 프론트의 암시적 시설 구역을 v6~8 도면에 보존한다")
+    void legacyBlueprintsIncludeTheFixedFacilityBounds() {
+        // Given / When / Then
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM space_blueprint
+                WHERE blueprint_version IN (6, 7, 8)
+                    AND template_key IN ('lounge', 'dining', 'band', 'study', 'photo')
+                    AND geometry->'facilityWalk' = geometry->'facilityPlacement'
+                    AND geometry->'facilityWalk' = CASE WHEN template_key = 'band'
+                        THEN '[{"minX":-9.3,"maxX":2.8,"minZ":-7.8,"maxZ":-4.6}]'::jsonb
+                        ELSE '[{"minX":-9.4,"maxX":-4.2,"minZ":-7.8,"maxZ":-6.5}]'::jsonb END
+                """, Integer.class)).isEqualTo(15);
+    }
+
+    @Test
+    @DisplayName("형식 1 도면은 필수 좌표를 검사하고 새 형식 도면은 지원 전까지 읽지 않는다")
+    void rejectsInvalidGeometryAndFutureSchemas() {
+        // Given / When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO space_blueprint VALUES ('bad-building', 1, 1, '{}')
+                """)).isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE space_blueprint SET geometry=geometry WHERE template_key='lounge' AND blueprint_version=11
+                """)).isInstanceOf(DataAccessException.class);
+        jdbc.update("INSERT INTO space_blueprint VALUES ('future-schema', 1, 2, '{}') ON CONFLICT DO NOTHING");
+        jdbc.update("INSERT INTO space_blueprint_default VALUES ('future-schema', 1) ON CONFLICT DO NOTHING");
+        try {
+            given().get("/group-spaces/blueprints/future-schema/default").then().statusCode(400);
+        } finally {
+            jdbc.update("DELETE FROM space_blueprint_default WHERE template_key='future-schema'");
+        }
+    }
+
+    @Test
+    @DisplayName("모임장의 명시적인 전체 교체만 도면을 바꾸고 일반 편집은 발행 버전을 유지한다")
+    void replacementUsesDefaultAndOrdinarySaveKeepsExactPublishedVersion() {
+        // Given
+        save(leader, ROOM, 0).then().statusCode(200);
+        ObjectNode replacement = (ObjectNode) mapper.readTree(ROOM);
+        replacement.put("template", "lounge").put("version", 12);
+        int published = 13001;
+        jdbc.update("""
+                INSERT INTO space_blueprint
+                SELECT template_key, ?, geometry_schema_version, geometry
+                FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12
+                ON CONFLICT DO NOTHING
+                """, published);
+        jdbc.update("UPDATE space_blueprint_default SET blueprint_version=? WHERE template_key='lounge'", published);
+        try {
+            // When / Then
+            ObjectNode body = mapper.createObjectNode().put("expectedRevision", 1);
+            body.set("room", replacement);
+            ObjectNode ref = body.putObject("blueprintRef").put("templateKey", "lounge").put("version", published);
+            request(leader).body(body.toString()).put(path()).then().statusCode(409);
+            body.put("replaceLayout", true);
+            ref.put("version", 12);
+            request(leader).body(body.toString()).put(path()).then().statusCode(409);
+            ref.put("version", published);
+            request(leader).body(body.toString()).put(path()).then().statusCode(200)
+                    .body("data.room.version", equalTo(12)).body("data.blueprintRef.version", equalTo(published));
+
+            jdbc.update("UPDATE space_blueprint_default SET blueprint_version=12 WHERE template_key='lounge'");
+            save(leader, replacement.toString(), 2).then().statusCode(409);
+            body.put("expectedRevision", 2).put("replaceLayout", false);
+            request(leader).body(body.toString()).put(path()).then().statusCode(200)
+                    .body("data.revision", equalTo(3)).body("data.blueprintRef.version", equalTo(published));
+            request(member).get(path()).then().statusCode(200).body("data.blueprintRef.version", equalTo(published));
+        } finally {
+            jdbc.update("UPDATE space_blueprint_default SET blueprint_version=12 WHERE template_key='lounge'");
+        }
+    }
+
+    @Test
+    @DisplayName("도면 이관은 기존 저장 원문·시각·revision을 보존하고 구버전 쓰기를 연결한다")
+    void backfillPreservesStoredRoomAndTracksLegacyWriter() throws Exception {
+        // Given
+        String original = Files.readString(Path.of("src/main/resources/db/migration/V40__group_space.sql"));
+        String blueprints = Files.readString(Path.of("src/main/resources/db/migration/V45__versioned_space_blueprints.sql"));
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            try (var statement = connection.createStatement()) {
+                statement.execute("CREATE SCHEMA space_blueprint_migration_test");
+                try {
+                    statement.execute("SET search_path TO space_blueprint_migration_test");
+                    statement.execute("CREATE TABLE groups (id BIGINT PRIMARY KEY)");
+                    statement.execute(original);
+                    statement.execute("INSERT INTO groups VALUES (1), (2)");
+                    try (var insert = connection.prepareStatement("""
+                            INSERT INTO group_space (group_id,room_json,revision,created_at,updated_at)
+                            VALUES (1,?,7,'2026-01-01','2026-01-02')
+                            """)) {
+                        insert.setString(1, ROOM);
+                        insert.executeUpdate();
+                    }
+
+                    // When / Then
+                    statement.execute(blueprints);
+                    try (var rows = statement.executeQuery("""
+                            SELECT room_json,revision,updated_at::date,blueprint_template_key,blueprint_version
+                            FROM group_space
+                            """)) {
+                        assertThat(rows.next()).isTrue();
+                        assertThat(rows.getString(1)).isEqualTo(ROOM);
+                        assertThat(rows.getLong(2)).isEqualTo(7);
+                        assertThat(rows.getString(3)).isEqualTo("2026-01-02");
+                        assertThat(rows.getString(4)).isEqualTo("boardgame");
+                        assertThat(rows.getInt(5)).isEqualTo(8);
+                        assertThat(rows.next()).isFalse();
+                    }
+                    statement.execute("""
+                            UPDATE group_space SET room_json='{"template":"lounge","version":11}'
+                            WHERE group_id=1
+                            """);
+                    statement.execute("""
+                            INSERT INTO group_space(group_id,room_json,revision,created_at,updated_at)
+                            VALUES (2,'{"template":"lounge","version":12}',1,now(),now())
+                            """);
+                    try (var rows = statement.executeQuery("""
+                            SELECT blueprint_template_key, blueprint_version FROM group_space ORDER BY group_id
+                            """)) {
+                        for (int expected : List.of(11, 12)) {
+                            assertThat(rows.next()).isTrue();
+                            assertThat(rows.getString(1)).isEqualTo("lounge");
+                            assertThat(rows.getInt(2)).isEqualTo(expected);
+                        }
+                    }
+                } finally {
+                    statement.execute("SET search_path TO public");
+                    statement.execute("DROP SCHEMA space_blueprint_migration_test CASCADE");
+                }
+            }
+            return null;
+        });
     }
 
     @Test
