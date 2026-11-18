@@ -67,18 +67,7 @@ class SparringNotificationListener {
                 streams.markAllChanged();
                 log.info("Listening for sparring notifications");
                 var postgres = current.unwrap(PGConnection.class);
-                while (running) {
-                    var notifications = postgres.getNotifications(1000);
-                    if (notifications == null) continue;
-                    for (var notification : notifications) {
-                        received.increment();
-                        try {
-                            streams.markChanged(Long.parseLong(notification.getParameter()));
-                        } catch (NumberFormatException ignored) {
-                            // A malformed notification cannot interrupt the listener.
-                        }
-                    }
-                }
+                receiveNotifications(postgres);
             } catch (SQLException | RuntimeException exception) {
                 if (!running) return;
                 log.warn("Sparring notification listener disconnected", exception);
@@ -91,6 +80,21 @@ class SparringNotificationListener {
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     return;
+                }
+            }
+        }
+    }
+
+    private void receiveNotifications(PGConnection postgres) throws SQLException {
+        while (running) {
+            var notifications = postgres.getNotifications(1000);
+            if (notifications == null) continue;
+            for (var notification : notifications) {
+                received.increment();
+                try {
+                    streams.markChanged(Long.parseLong(notification.getParameter()));
+                } catch (NumberFormatException ignored) {
+                    // A malformed notification cannot interrupt the listener.
                 }
             }
         }
