@@ -149,7 +149,8 @@ public final class RoomRegistry {
             }
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room(),
+                    roomReads.geometry(identity.environment(), admission.blueprint()));
             if (peer.isClosed() || stopped) return;
             acquire(roomKey(identity), layout).join(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -215,7 +216,8 @@ public final class RoomRegistry {
             Identity identity = peer.identity();
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room(),
+                    roomReads.geometry(identity.environment(), admission.blueprint()));
             RoomRuntime room = rooms.get(roomKey(identity));
             if (room != null && !peer.isClosed()) room.renew(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -226,7 +228,7 @@ public final class RoomRegistry {
     private void refreshLayout(RoomKey key, RoomRuntime room) {
         try {
             var stored = roomReads.layout(key.environment(), key.roomId());
-            room.layout(catalog.read(stored.revision(), stored.room()));
+            room.layout(catalog.read(stored.revision(), stored.room(), roomReads.geometry(key.environment(), stored.blueprint())));
         } catch (RuleViolation error) { room.terminate(error.code()); }
         catch (RuntimeException error) { warnOnDatabaseFailure(error, key.environment(), "layout_refresh"); }
         finally { room.endRefresh(); }

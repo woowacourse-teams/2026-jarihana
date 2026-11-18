@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.JsonNode;
 
 class RoomLayoutTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -58,7 +59,7 @@ class RoomLayoutTest {
 
     @Test
     void upperFurnitureDoesNotBlockTheFloorBelow() {
-        RoomLayout layout = catalog.read(1, mapper.valueToTree(Map.of("version", 11, "template", "climbing", "items",
+        RoomLayout layout = readFixture(1, mapper.valueToTree(Map.of("version", 11, "template", "climbing", "items",
                 List.of(Map.of("id", "upper", "kind", "table", "x", 4, "z", -10, "level", 1)))));
         assertThat(layout.valid(new Vec3(4, 0, -10), false)).isTrue();
         assertThat(layout.valid(new Vec3(4, layout.geometry().path("mezzanine").path("height").asDouble(), -10), false)).isFalse();
@@ -66,8 +67,8 @@ class RoomLayoutTest {
 
     @Test
     void readsLoftGeometryOnlyForSavedVersionTwelveLounges() {
-        RoomLayout defaultLayout = catalog.read(0, null);
-        RoomLayout savedLayout = catalog.read(1, mapper.valueToTree(Map.of(
+        RoomLayout defaultLayout = readFixture(0, null);
+        RoomLayout savedLayout = readFixture(1, mapper.valueToTree(Map.of(
                 "version", 12, "template", "lounge", "items", List.of())));
 
         assertThat(defaultLayout.geometry()).isEqualTo(empty("lounge").geometry());
@@ -77,11 +78,23 @@ class RoomLayoutTest {
 
     @Test
     void legacyLayoutsRequireAnExplicitEditorSave() {
-        assertThatThrownBy(() -> catalog.read(1, mapper.valueToTree(Map.of("version", 8, "template", "lounge", "items", List.of()))))
+        assertThatThrownBy(() -> readFixture(1, mapper.valueToTree(Map.of("version", 8, "template", "lounge", "items", List.of()))))
                 .hasMessage("LAYOUT_UPGRADE_REQUIRED");
     }
 
     private RoomLayout empty(String template) {
-        return catalog.read(1, mapper.valueToTree(Map.of("version", 11, "template", template, "items", List.of())));
+        return readFixture(1, mapper.valueToTree(Map.of("version", 11, "template", template, "items", List.of())));
+    }
+
+    private RoomLayout readFixture(long revision, JsonNode room) {
+        String key = room == null ? "11:lounge" : room.path("version").asInt() + ":" + room.path("template").asString();
+        return catalog.read(revision, room, TestBlueprints.geometry(key));
+    }
+
+    @Test
+    void savedDocumentVersionDoesNotOverridePinnedGeometry() {
+        var room = mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", List.of()));
+        var loft = TestBlueprints.geometry("12:lounge");
+        assertThat(catalog.read(9, room, loft).geometry()).isEqualTo(loft);
     }
 }

@@ -1,4 +1,4 @@
-// Export the existing scene definitions for the Java server without a second geometry catalog.
+// Export shared player, asset and default furniture definitions. PostgreSQL owns floor plans.
 const { createRequire } = require("node:module");
 const { mkdtemp, readFile, writeFile, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
@@ -27,7 +27,7 @@ async function exportRuntime() {
     if (process.argv.includes("--check")) {
       if (await readFile(destination, "utf8") !== content) throw new Error("space-runtime.json is stale; run node contracts/realtime/export-runtime.cjs");
     } else await writeFile(destination, content);
-    process.stdout.write(`Space runtime: ${Object.keys(runtime.assets).length} assets, ${Object.keys(runtime.layouts).length} layouts\n`);
+    process.stdout.write(`Space runtime: ${Object.keys(runtime.assets).length} assets\n`);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

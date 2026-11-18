@@ -30,12 +30,9 @@ public final class LayoutCatalog {
         }
     }
 
-    public RoomLayout read(long revision, JsonNode source) {
+    public RoomLayout read(long revision, JsonNode source, JsonNode geometry) {
         JsonNode room = source == null || source.isNull() ? runtime.path("defaultRoom") : source;
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
-        String key = room.path("version").asInt(11) + ":" + room.path("template").asString("lounge");
-        JsonNode geometry = runtime.path("layouts").path(key);
-        if (geometry.isMissingNode()) throw new RuleViolation("UNSUPPORTED_LAYOUT");
         Map<String, JsonNode> instances = new LinkedHashMap<>();
         for (JsonNode item : room.path("items")) {
             if (instances.putIfAbsent(item.path("id").asString(), item) != null) throw new RuleViolation("INVALID_LAYOUT");

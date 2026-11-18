@@ -23,7 +23,7 @@ final class RoomDatabaseHealthIndicator implements HealthIndicator {
                 rooms.verifyReadAccess(environment);
             }
             return Health.up().build();
-        } catch (DataAccessException error) {
+        } catch (DataAccessException | IllegalStateException error) {
             return Health.down().build();
         }
     }

@@ -1,6 +1,8 @@
 package com.project.jarihana.realtime.room;
 
 import com.project.jarihana.realtime.auth.Admission;
+import com.project.jarihana.realtime.layout.BlueprintRef;
+import com.project.jarihana.realtime.layout.TestBlueprints;
 import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
 import com.project.jarihana.realtime.room.domain.RoomState;
@@ -17,7 +19,7 @@ public final class TestRooms {
     }
 
     public static Admission admission(String memberId) {
-        return new Admission("7", memberId, "사용자 " + memberId, "#536bd6", null, "MEMBER", 100000, 1, null);
+        return new Admission("7", memberId, "사용자 " + memberId, "#536bd6", null, "MEMBER", 100000, 1, null, BlueprintRef.UNSAVED_ROOM);
     }
 
     public static RoomLayout layout(long revision, double sofaX) {
@@ -28,7 +30,9 @@ public final class TestRooms {
                 Map.of("id", "table", "kind", "table", "x", 0, "z", 1, "rotation", 0),
                 Map.of("id", "machine", "kind", "cafeCounter", "x", -1, "z", 0, "rotation", 0));
         try {
-            RoomLayout source = new LayoutCatalog(mapper).read(revision, mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", items)));
+            LayoutCatalog catalog = new LayoutCatalog(mapper);
+            RoomLayout source = catalog.read(revision, mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", items)),
+                    TestBlueprints.geometry("11:lounge"));
             return new RoomLayout(revision, source.assets(), mapper.readTree("{\"building\":{\"minX\":-20,\"maxX\":20,\"minZ\":-20,\"maxZ\":20},\"walls\":[]}"), new Vec3(0, 0, 2.4), source.itemRules());
         } catch (java.io.IOException error) { throw new IllegalStateException(error); }
     }
