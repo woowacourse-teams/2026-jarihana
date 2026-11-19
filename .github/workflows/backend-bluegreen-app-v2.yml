@@ -1,0 +1,126 @@
+name: 운영 앱 서버의 배포 작업
+on:
+  workflow_call:
+    inputs:
+      slot:
+        type: string
+        required: true
+        description: 이 실행에서 작업할 앱 서버 슬롯(A 또는 B)
+      lane:
+        type: string
+        required: true
+        description: 기존 앱(old) 또는 새 앱(target)
+      digest:
+        type: string
+        required: true
+        description: 배포할 백엔드 이미지의 고정 다이제스트
+permissions:
+  contents: read
+  actions: read
+  packages: read
+jobs:
+  operation:
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.repository == 'woowacourse-teams/2026-jarihana' && github.ref == 'refs/heads/main' &&
+      github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy.yml@refs/heads/main' &&
+      (inputs.slot == 'A' || inputs.slot == 'B') && (inputs.lane == 'old' || inputs.lane == 'target')
+    name: ${{ inputs.lane == 'old' && '기존 앱 서버' || '새 앱 서버' }}
+    runs-on: [ "${{ vars[format('BLUE_GREEN_PROD_{0}_RUNNER', inputs.slot)] }}" ]
+    environment: prod
+    timeout-minutes: 120
+    env:
+      BG_ENVIRONMENT: prod
+      BG_SLOT: ${{ inputs.slot }}
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ inputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 이미지 인증 임시 경로 준비
+        if: inputs.lane == 'target'
+        shell: bash
+        run: echo "DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/bg-auth.XXXXXX")" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        if: inputs.lane == 'target'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+        name: 새 앱 이미지 저장소에 로그인
+      - name: 새 앱을 기동하고 준비 상태 확인
+        id: prepare
+        if: inputs.lane == 'target'
+        env:
+          YOUTUBE_DATA_API_KEY: ${{ secrets.YOUTUBE_DATA_API_KEY }}
+          REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
+          BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
+          RDS_URL: ${{ vars.RDS_URL }}
+          DB_USERNAME: ${{ vars.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
+          INVITATION_TOKEN_KEY_PRIMARY: ${{ secrets.INVITATION_TOKEN_KEY_PRIMARY }}
+          INVITATION_TOKEN_KEY_PREVIOUS: ${{ secrets.INVITATION_TOKEN_KEY_PREVIOUS }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+          GOMOKU_CHAT_ENABLED: ${{ vars.GOMOKU_CHAT_ENABLED || 'false' }}
+          POINTS_STARTS_AT: ${{ vars.POINTS_STARTS_AT }}
+          PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
+          PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
+          PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
+          PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+          PUSH_VAPID_SUBJECT: ${{ vars.PUSH_VAPID_SUBJECT }}
+          SENTRY_BACKEND_DSN: ${{ vars.SENTRY_BACKEND_DSN }}
+          IMAGE_S3_BUCKET: ${{ vars.IMAGE_S3_BUCKET }}
+          IMAGE_S3_REGION: ${{ vars.IMAGE_S3_REGION }}
+          IMAGE_S3_KEY_PREFIX: ${{ vars.IMAGE_S3_KEY_PREFIX }}
+          IMAGE_S3_PUBLIC_BASE_URL: ${{ vars.IMAGE_S3_PUBLIC_BASE_URL }}
+          IMAGE_CDN_DELIVERY_BASE_URL: ${{ vars.IMAGE_CDN_DELIVERY_BASE_URL }}
+          IMAGE_CLOUDFRONT_KEY_PAIR_ID: ${{ vars.IMAGE_CLOUDFRONT_KEY_PAIR_ID }}
+          IMAGE_CLOUDFRONT_PRIVATE_KEY: ${{ secrets.IMAGE_CLOUDFRONT_PRIVATE_KEY }}
+          IMAGE_CLEANUP_ENABLED: ${{ vars.IMAGE_CLEANUP_ENABLED || 'false' }}
+          IMAGE_CLEANUP_GRACE_PERIOD: P7D
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh prepare
+      - name: 이미지 인증 정보 정리
+        if: always() && env.DOCKER_CONFIG != ''
+        shell: bash
+        run: |
+          docker logout ghcr.io || true
+          rm -rf -- "$DOCKER_CONFIG"
+      - name: 기존 워커의 작업이 끝나면 권한 반납
+        id: handoff
+        if: inputs.lane == 'old'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh handoff
+      - name: 새 워커 처리 권한 활성화
+        id: activate
+        if: inputs.lane == 'target'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh activate
+      - name: 새 워커 상태를 5분간 관측
+        id: observe
+        if: inputs.lane == 'target'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh observe
+      - name: 새 앱에 배포 완료 기록
+        id: complete
+        if: inputs.lane == 'target'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh complete
+      - name: 종료 허가 확인 후 기존 앱 정상 종료
+        id: stop
+        if: inputs.lane == 'old'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh stop
+      - name: 앱 작업 실패를 배포 제어에 알리기
+        if: failure()
+        timeout-minutes: 1
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/lane.sh failed

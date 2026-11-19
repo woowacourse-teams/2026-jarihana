@@ -273,7 +273,13 @@ bg_observe() {
     (( failures<3 )) || bg_die 'Three unhealthy observation samples'
     if [[ $(jq -r '.frontend_only // false' <<<"$STATE") != true ]] && (( elapsed-jobs_checked_at>=15 )); then
       jobs=$(bg_github "/repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100") || bg_die 'Cannot verify app observation job'
-      jq -e '[.jobs[] | select(.name|contains("candidate-worker-observation")) | select(.conclusion!=null and .conclusion!="success")] | length==0' <<<"$jobs" >/dev/null || bg_die 'App observation failed'
+      if [[ ${BG_COMPACT_WORKFLOW:-false} == true ]]; then
+        jq -e '[.jobs[] | select((.name|split(" / ")|last)=="새 앱 서버")] |
+          length==1 and (.[0] | (.conclusion==null or .conclusion=="success") and
+          all(.steps[]?; .conclusion==null or .conclusion=="success" or .conclusion=="skipped"))' <<<"$jobs" >/dev/null || bg_die '새 앱 서버의 관측 상태를 확인할 수 없습니다.'
+      else
+        jq -e '[.jobs[] | select(.name|contains("candidate-worker-observation")) | select(.conclusion!=null and .conclusion!="success")] | length==0' <<<"$jobs" >/dev/null || bg_die 'App observation failed'
+      fi
       jobs_checked_at=$elapsed
     fi
     if fe_enabled && fe_changed && (( elapsed-frontend_checked_at>=30 )); then

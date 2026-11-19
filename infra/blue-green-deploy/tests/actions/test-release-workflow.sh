@@ -25,6 +25,21 @@ MODE=bootstrap; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow disabled_bootstrap_explicit_exception'
 MODE=deploy ENABLED=true; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow enabled_deploy'
+# 진입점에서 실제 사용하는 선택 스텝을 실행한다.
+extract "$ROOT/.github/workflows/backend-prod-deploy.yml" 'workflow_dispatch:V2)' "$TEST_DIR/engine.sh"
+check_engine() {
+  local event=$1 selected=$2 expected=$3
+  : > "$TEST_DIR/engine-output"
+  GITHUB_EVENT_NAME="$event" SELECTED="$selected" GITHUB_OUTPUT="$TEST_DIR/engine-output" bash "$TEST_DIR/engine.sh"
+  [[ $(cat "$TEST_DIR/engine-output") == "engine=$expected" ]]
+}
+check_engine push '' V1
+check_engine push V2 V1
+check_engine workflow_dispatch '' V1
+check_engine workflow_dispatch V1 V1
+check_engine workflow_dispatch V2 V2
+if GITHUB_EVENT_NAME=workflow_dispatch SELECTED=unknown GITHUB_OUTPUT="$TEST_DIR/engine-output" bash "$TEST_DIR/engine.sh"; then exit 1; fi
+echo 'PASS release-workflow push는 V1, 수동 선택만 V2, 잘못된 수동 선택 거부'
 mkdir -p "$TEST_DIR/source" "$TEST_DIR/bin"
 mkdir -p "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions"
 cp "$ROOT/infra/blue-green-deploy/scripts/actions/compose-preflight.sh" "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions/"
@@ -114,3 +129,29 @@ INPUT_FRONTEND_ONLY=false INPUT_TAG=1111111111111111111111111111111111111111
 if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/mismatch.log" 2>&1; then exit 1; fi
 grep -q 'must match the caller backend tree' "$TEST_DIR/mismatch.log"
 echo 'PASS release-workflow manual_backend_tag_mismatch_rejected'
+
+# 수동 V2가 운영에서 실행할 대상과 실제로 조회하는 이미지를 함께 확인한다.
+compact_resolve="$ROOT/infra/blue-green-deploy/scripts/compact/resolve.sh"
+export GITHUB_EVENT_NAME=workflow_dispatch INPUT_TAG='' CHANGE_SCOPE=both
+for scope in frontend backend both; do
+  INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false
+  case $scope in frontend) INPUT_FRONTEND_ONLY=true;; backend) INPUT_BACKEND_ONLY=true;; esac
+  : > "$GITHUB_OUTPUT"
+  : > "$DOCKER_TRACE"
+  (cd "$TEST_DIR/source" && bash "$compact_resolve")
+  grep -qx "frontend_only=$INPUT_FRONTEND_ONLY" "$GITHUB_OUTPUT"
+  grep -qx "backend_only=$INPUT_BACKEND_ONLY" "$GITHUB_OUTPUT"
+  if [[ $scope == frontend ]]; then
+    [[ ! -s $DOCKER_TRACE ]]
+  else
+    grep -q '^pull .*:tree-' "$DOCKER_TRACE"
+  fi
+  echo "PASS release-workflow manual_v2_scope_$scope"
+done
+export INPUT_FRONTEND_ONLY=true INPUT_BACKEND_ONLY=true
+if (cd "$TEST_DIR/source" && bash "$compact_resolve"); then exit 1; fi
+export GITHUB_EVENT_NAME=push INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false
+: > "$DOCKER_TRACE"
+if (cd "$TEST_DIR/source" && bash "$compact_resolve"); then exit 1; fi
+[[ ! -s $DOCKER_TRACE ]]
+echo 'PASS release-workflow manual_v2_rejects_scope_conflict_and_push'

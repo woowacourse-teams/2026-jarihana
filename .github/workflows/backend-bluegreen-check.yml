@@ -6,6 +6,7 @@ on:
       - infra/monitoring/deployment/**
       - infra/scripts/deploy/actions/**
       - infra/tests/deploy/telemetry/**
+      - .github/scripts/compact-release-summary.jq
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
@@ -36,11 +37,18 @@ jobs:
       - name: Bash 구문과 실행 오류 정적 검사
         shell: bash
         run: |
-          for file in infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/scripts/prepare-control-removal.sh infra/blue-green-deploy/tests/actions/*.sh; do
+          scripts=(
+            infra/blue-green-deploy/scripts/actions/*.sh
+            infra/blue-green-deploy/scripts/compact/*.sh
+            infra/blue-green-deploy/controller/receive-app-result.sh
+            infra/blue-green-deploy/scripts/migration-review.sh
+            infra/blue-green-deploy/scripts/prepare-control-removal.sh
+          )
+          for file in "${scripts[@]}" infra/blue-green-deploy/tests/actions/*.sh; do
             bash -n "$file"
           done
           shellcheck --severity=error --external-sources --source-path=SCRIPTDIR \
-            infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/scripts/prepare-control-removal.sh
+            "${scripts[@]}"
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
         run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
