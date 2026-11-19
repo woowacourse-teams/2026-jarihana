@@ -157,17 +157,28 @@ fi
   GITHUB_RUN_ID=100; GITHUB_RUN_ATTEMPT=1
   GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana
   GITHUB_REF=refs/heads/main
-  GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy.yml@refs/heads/main"
+  GITHUB_EVENT_NAME=workflow_dispatch
+  api_event=workflow_dispatch
+  api_file=backend-prod-deploy.yml
+  GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/$api_file@refs/heads/main"
   id() { echo jarihana-runner; }
   bg_config() { CONFIG=$(jq '.topology.environment="prod"' "$ROOT/infra/blue-green-deploy/controller/full-app-A.example.json"); }
   bg_machine() { :; }
   bg_github() {
     if [[ $1 == */workflows/* ]]; then
-      echo '{"id":9,"path":".github/workflows/backend-prod-deploy.yml","state":"active"}'
+      jq -cn --arg file "${1##*/}" '{id:9,path:(".github/workflows/"+$file),state:"active"}'
     else
-      jq -cn --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '{id:100,run_attempt:1,head_sha:$sha,head_branch:"main",workflow_id:9,path:".github/workflows/backend-prod-deploy.yml",event:"push",repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}'
+      jq -cn --arg event "$api_event" --arg file "$api_file" --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '{id:100,run_attempt:1,head_sha:$sha,head_branch:"main",workflow_id:9,path:(".github/workflows/"+$file),event:$event,repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}'
     fi
   }
+  bg_init app
+  GITHUB_EVENT_NAME=push
+  reject bg_init app
+  GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy-v2.yml@refs/heads/main"
+  reject bg_init app
+  api_file=backend-prod-deploy-v2.yml
+  reject bg_init app
+  api_event=push
   bg_init app
   echo second >"$SCRIPT_ROOT/release"; commit_fixture
   reject bg_init app

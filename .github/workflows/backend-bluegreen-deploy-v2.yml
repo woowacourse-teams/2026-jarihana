@@ -51,16 +51,21 @@ jobs:
           ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED }}
         shell: bash
         run: |-
-          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]
           [[ "$BG_ENVIRONMENT" == prod && "$GITHUB_REF" == refs/heads/main ]]
           [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana ]]
-          [[ "$GITHUB_WORKFLOW_REF" == "$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy.yml@refs/heads/main" ]]
+          case "$GITHUB_EVENT_NAME" in
+            push) caller=backend-prod-deploy-v2.yml ;;
+            workflow_dispatch) caller=backend-prod-deploy.yml ;;
+            *) exit 1 ;;
+          esac
+          [[ "$GITHUB_WORKFLOW_REF" == "$GITHUB_REPOSITORY/.github/workflows/$caller@refs/heads/main" ]]
           [[ "$MODE" == deploy || ( "$MODE" == bootstrap && "$GITHUB_EVENT_NAME" == workflow_dispatch ) ]]
           [[ "$MODE" == bootstrap || "$ENABLED" == true ]]
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           path: source
+          fetch-depth: 0
           persist-credentials: false
         name: 배포 커밋 가져오기
       - uses: docker/login-action@v3
@@ -72,6 +77,7 @@ jobs:
       - name: 검증된 이미지의 고정 digest 선택
         id: image
         env:
+          BEFORE_SHA: ${{ github.event.before }}
           INPUT_TAG: ${{ inputs.image_tag }}
           INPUT_FRONTEND_ONLY: ${{ inputs.frontend_only }}
           INPUT_BACKEND_ONLY: ${{ inputs.backend_only }}

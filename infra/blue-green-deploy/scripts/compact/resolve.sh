@@ -2,7 +2,15 @@
 set -euo pipefail
 [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana && "$GITHUB_RUN_ATTEMPT" == 1 ]]
 [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
-[[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$BG_ENVIRONMENT" == prod ]]
+[[ "$BG_ENVIRONMENT" == prod ]]
+case "$GITHUB_EVENT_NAME" in
+  push)
+    [[ "$BG_MODE" == deploy && "$BG_PROD_AUTO_ENABLED" == true ]]
+    [[ "$INPUT_FRONTEND_ONLY" == false && "$INPUT_BACKEND_ONLY" == false && -z "$INPUT_TAG" ]]
+    ;;
+  workflow_dispatch) ;;
+  *) exit 1 ;;
+esac
 [[ "$BG_MODE" == deploy || "$BG_MODE" == bootstrap ]]
 [[ "$BG_DEV_AUTO_ENABLED" == true || "$BG_DEV_AUTO_ENABLED" == false ]]
 [[ "$BG_PROD_AUTO_ENABLED" == true || "$BG_PROD_AUTO_ENABLED" == false ]]
@@ -29,6 +37,16 @@ if [[ "$BG_MODE" == deploy ]]; then
     frontend_only=true
   elif [[ "$INPUT_BACKEND_ONLY" == true ]]; then
     backend_only=true
+  elif [[ "$GITHUB_EVENT_NAME" == push && "${BEFORE_SHA:-}" =~ ^[a-f0-9]{40}$ && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]]; then
+    git cat-file -e "$BEFORE_SHA^{commit}"
+    shared=(infra .github/workflows/backend-{prod-deploy,prod-deploy-v2,bluegreen-deploy,bluegreen-deploy-v2,app-operation,bluegreen-phase,bluegreen-app-v2}.yml)
+    backend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- backend "${shared[@]}")
+    frontend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- frontend .github/workflows/frontend-prod-deploy.yml "${shared[@]}")
+    if [[ -z "$backend_changes" && -n "$frontend_changes" ]]; then
+      frontend_only=true
+    elif [[ -z "$frontend_changes" && -n "$backend_changes" ]]; then
+      backend_only=true
+    fi
   fi
 fi
 echo "frontend_only=$frontend_only" >> "$GITHUB_OUTPUT"

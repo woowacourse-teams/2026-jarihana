@@ -17,6 +17,7 @@ SCOPE=${3:-both}
 BASELINE=${4:-first}
 PREUSED=${5:-0}
 IO_SECONDS=${6:-0}
+GITHUB_EVENT_NAME=push
 API_LIMIT=1000
 bg_now() { cat "$CASE_DIR/clock"; }
 bg_uptime() { bg_now; }
@@ -43,7 +44,7 @@ api_event() {
   if (( API_LIMIT>0 && $(wc -l <"$CASE_DIR/api.tsv")>API_LIMIT )); then bg_die 'Simulated shared GitHub rate limit exhausted'; fi
 }
 run_response() {
-  jq -cn --arg sha "$GITHUB_SHA" --arg repo "$REPO" '{id:123,run_attempt:1,head_sha:$sha,head_branch:"main",workflow_id:999,path:".github/workflows/backend-prod-deploy.yml",event:"push",repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}'
+  jq -cn --arg sha "$GITHUB_SHA" --arg repo "$REPO" '{id:123,run_attempt:1,head_sha:$sha,head_branch:"main",workflow_id:999,path:".github/workflows/backend-prod-deploy-v2.yml",event:"push",repository:{id:1321030074,full_name:$repo},head_repository:{id:1321030074,full_name:$repo},status:"in_progress",conclusion:null}'
 }
 bg_github() {
   api_event "$1"
@@ -55,7 +56,7 @@ bg_github() {
   printf 'x-ratelimit-limit: 1000\nx-ratelimit-remaining: %s\nx-ratelimit-reset: 9999999999\nx-ratelimit-resource: core\n' "$remaining" >"$CASE_DIR/headers"
   if ! bg_api_budget "$CASE_DIR/headers"; then bg_die 'Simulated rate budget refused the phase'; fi
   case $1 in
-    */workflows/*) echo '{"id":999,"path":".github/workflows/backend-prod-deploy.yml","state":"active"}';;
+    */workflows/*) echo '{"id":999,"path":".github/workflows/backend-prod-deploy-v2.yml","state":"active"}';;
     */jobs*) echo '{"jobs":[{"name":"candidate-worker-observation","conclusion":null}]}';;
     *) run_response;;
   esac
@@ -67,7 +68,7 @@ bg_init() {
   BG_READ_ONLY_VERIFIED_AT=0; BG_LIVE_CACHED_AT=0
   CONFIG=$(cat "$CASE_DIR/coordinator.json")
   [[ $1 != app ]] || CONFIG=$(cat "$CASE_DIR/app-$BG_SLOT.json")
-  bg_github "/repos/$REPO/actions/workflows/backend-prod-deploy.yml" >/dev/null
+  bg_github "/repos/$REPO/actions/workflows/backend-prod-deploy-v2.yml" >/dev/null
   bg_live
 }
 bg_route() { cat "$CASE_DIR/route"; }

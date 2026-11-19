@@ -1,6 +1,8 @@
-# 운영 무중단 배포 2안
+# 운영 무중단 배포 V2
 
-`backend-bluegreen-deploy-v2.yml`은 다른 워크플로에서 호출하는 배포 엔진이다. 배포 대상 파일이 main에 푸시되면 `Production Release`는 기존 V1을 호출한다. V2는 main의 기존 진입점에서 수동으로 선택한 첫 번째 실행만 허용한다.
+배포 대상 파일이 main에 푸시되면 [Production Release V2](../../../.github/workflows/backend-prod-deploy-v2.yml)가 한 번 실행된다. 프론트 변경은 프론트만 게시하고 백엔드 변경은 기존 프론트를 재사용한다. 양쪽 코드나 공통 배포 설정이 바뀌면 함께 배포한다. 자동 실행 그래프에는 V2의 잡과 복구 분기가 표시된다.
+
+운영 승격 전 같은 커밋 `173b12a`로 공동 배포를 비교했다. [V1 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44477273481)은 21분 12초, [V2 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44480052966)은 18분 15초에 성공했다. 두 실행에서 API와 워커의 5분 관측을 통과했다.
 
 | Actions에 표시되는 잡 | 동작 |
 | --- | --- |
@@ -32,6 +34,6 @@ restrict,command="/usr/bin/timeout 15s /usr/local/libexec/jarihana-receive-prod-
 
 ## 수동 실행
 
-위 설정을 마치고 변경이 main에 반영되면 GitHub Actions에서 `Production Release → Run workflow`를 연다. 브랜치는 `main`, 배포 방식은 `V2`, 모드는 `deploy`를 고른다. 프론트 전용 또는 백엔드 전용 옵션 중 하나를 선택하거나 둘 다 해제해 공동 배포한다. 수동 실행의 기본값은 `V1`이다. V2를 실행하면 선택한 버전이 실제 운영에 배포된다. 이미 자동 배포된 main에서 실행하면 같은 버전이 한 번 더 배포된다.
+GitHub Actions에서 `Production Release → Run workflow`를 연다. 브랜치는 `main`, 배포 방식은 `V2`, 모드는 `deploy`를 고른다. 프론트 전용 또는 백엔드 전용 옵션 중 하나를 선택하거나 둘 다 해제해 공동 배포한다. 수동 실행의 기본값은 `V1`이다. V2를 실행하면 선택한 버전이 실제 운영에 배포된다. 이미 자동 배포된 main에서 실행하면 같은 버전이 한 번 더 배포된다.
 
 복구 시점과 종료 보류 기준은 [기존 복구 문서](recovery.md)를 따른다.
