@@ -6,7 +6,6 @@ on:
       - infra/monitoring/deployment/**
       - infra/scripts/deploy/actions/**
       - infra/tests/deploy/telemetry/**
-      - .github/scripts/compact-release-summary.jq
       - .github/workflows/backend-bluegreen-*.yml
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml

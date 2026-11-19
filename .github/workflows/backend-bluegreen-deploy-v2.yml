@@ -667,28 +667,3 @@ jobs:
           if [[ "$BOOTSTRAP" == success || "$DEPLOY" == success || "$FRONTEND" == success ]]; then exit 0; fi
           echo '배포 실패: 롤백 성공 여부와 Nginx 저널을 확인하세요. 미확정 작업과 두 EC2를 보존하며 같은 실행을 재실행하지 마세요.'
           exit 1
-  summary:
-    name: 배포 요약
-    needs: [ result, guardian, control ]
-    if: always()
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    timeout-minutes: 3
-    continue-on-error: true
-    steps:
-      - name: 배포 커밋 가져오기
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: 준비, 전환, 관측, 마무리와 복구 결과 표시
-        env:
-          CLEANUP_DEFERRED: ${{ needs.control.outputs.cleanup_deferred }}
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |-
-          set -euo pipefail
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' |
-            jq -sr --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" -f .github/scripts/compact-release-summary.jq >> "$GITHUB_STEP_SUMMARY"
