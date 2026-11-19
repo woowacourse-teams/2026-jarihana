@@ -6,7 +6,6 @@ import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.room.domain.AvatarAppearance;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
-import com.project.jarihana.realtime.room.persistence.BlueprintSchema.Source;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -14,7 +13,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient.StatementSpec;
 import org.springframework.stereotype.Component;
@@ -32,7 +30,6 @@ public final class RoomReadRepository {
                       AND b.geometry IS NOT NULL AND d.template_key = 'lounge' AND d.blueprint_version IS NOT NULL)
                     AS blueprint_readable
             """;
-    private static final String BUNDLED_COLUMNS = BlueprintSchema.SCHEMA_PRESENT + " AS schema_present";
     private static final String ADMISSION_SQL = """
             SELECT m.crew_name, COALESCE(gm.role, 'GUEST') AS role, s.room_json, COALESCE(s.revision, 0) AS revision,
                    %s,
@@ -44,13 +41,13 @@ public final class RoomReadRepository {
             LEFT JOIN group_space s ON s.group_id = g.id
             LEFT JOIN member_avatar a ON a.member_id = m.id
             WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """;
+            """.formatted(DATABASE_COLUMNS);
     private static final String LAYOUT_SQL = """
             SELECT s.room_json, COALESCE(s.revision, 0) AS revision, %s
             FROM groups g
             LEFT JOIN group_space s ON s.group_id = g.id
             WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """;
+            """.formatted(DATABASE_COLUMNS);
 
     private final RealtimeDatabases databases;
     private final BlueprintSchema schema;
@@ -77,43 +74,23 @@ public final class RoomReadRepository {
 
     public Admission admission(RealtimeEnvironment environment, String roomId, String memberId) {
         long member = Long.parseLong(memberId);
-        return read(environment, source -> admissionQuery(environment, source, Long.parseLong(roomId), member)
+        return admissionQuery(environment, Long.parseLong(roomId), member)
                 .query((row, index) -> new Admission(roomId, memberId, row.getString("crew_name"),
                         AVATAR_COLORS.get((int) (member % AVATAR_COLORS.size())), readAvatar(row), row.getString("role"),
                         clock.millis() + properties.leaseValidity().toMillis(), row.getLong("revision"),
-                        readRoom(row.getString("room_json")), blueprintRef(row, source)))
-                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED")));
+                        readRoom(row.getString("room_json")), blueprintRef(row)))
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
     }
 
     public StoredLayout layout(RealtimeEnvironment environment, String roomId) {
-        return read(environment, source -> databases.client(environment).sql(LAYOUT_SQL.formatted(columns(source)))
+        return databases.client(environment).sql(LAYOUT_SQL)
                 .param("roomId", Long.parseLong(roomId))
                 .query((row, index) -> new StoredLayout(row.getLong("revision"),
-                        readRoom(row.getString("room_json")), blueprintRef(row, source)))
-                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED")));
+                        readRoom(row.getString("room_json")), blueprintRef(row)))
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
     }
 
-    private <T> T read(RealtimeEnvironment environment, Function<Source, T> query) {
-        var source = schema.source(environment);
-        try {
-            return query.apply(source);
-        } catch (SchemaAppeared changed) {
-            // A V45 transaction committed between the last probe and this room read.
-            return query.apply(schema.schemaAppeared(environment));
-        }
-    }
-
-    private static String columns(Source source) {
-        return source == Source.BUNDLED ? BUNDLED_COLUMNS : DATABASE_COLUMNS;
-    }
-
-    private static final class SchemaAppeared extends RuntimeException {}
-
-    private static BlueprintRef blueprintRef(ResultSet row, Source source) throws SQLException {
-        if (source == Source.BUNDLED) {
-            if (row.getBoolean("schema_present")) throw new SchemaAppeared();
-            return null; // This schema has no stored pin; LayoutCatalog uses the document's versioned bundled geometry.
-        }
+    private static BlueprintRef blueprintRef(ResultSet row) throws SQLException {
         if (!row.getBoolean("blueprint_readable")) throw new DataRetrievalFailureException("Unreadable pinned room blueprint");
         if (row.getLong("revision") == 0) return BlueprintRef.UNSAVED_ROOM;
         return new BlueprintRef(row.getString("blueprint_template_key"), row.getInt("blueprint_version"));
@@ -139,17 +116,17 @@ public final class RoomReadRepository {
     }
 
     private void verifyReadAccess(RealtimeEnvironment environment, boolean fullCheck) {
-        var source = schema.verify(environment, fullCheck);
+        schema.verify(environment, fullCheck);
         // Zero IDs still exercise permissions on every admission and group_space column.
-        admissionQuery(environment, source, 0, 0).query((row, index) -> row.getString("crew_name")).optional();
+        admissionQuery(environment, 0, 0).query((row, index) -> row.getString("crew_name")).optional();
     }
 
     public void verifyBlueprintMigration() {
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) verifyReadAccess(environment, true);
     }
 
-    private StatementSpec admissionQuery(RealtimeEnvironment environment, Source source, long roomId, long memberId) {
-        return databases.client(environment).sql(ADMISSION_SQL.formatted(columns(source)))
+    private StatementSpec admissionQuery(RealtimeEnvironment environment, long roomId, long memberId) {
+        return databases.client(environment).sql(ADMISSION_SQL)
                 .param("roomId", roomId).param("memberId", memberId);
     }
 

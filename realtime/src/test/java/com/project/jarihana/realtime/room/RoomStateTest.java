@@ -3,13 +3,11 @@ package com.project.jarihana.realtime.room;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.room.domain.RoomState;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.node.ObjectNode;
 
 class RoomStateTest {
     @Test
@@ -78,41 +76,12 @@ class RoomStateTest {
     }
 
     @Test
-    void equivalentDatabaseLayoutTakesOverAnOccupiedRoomWithoutChangingItsSnapshot() {
-        var database = TestRooms.layout(1, 0);
-        var bundled = new RoomLayout(1, database.assets(), database.geometry(), database.arrival(), database.itemRules(),
-                RoomLayout.Origin.BUNDLED);
-        var room = new RoomState("7", bundled, 10, 100);
-        room.join(TestRooms.admission("1"), "a", 1000);
-        room.command("1", "a", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cookie"), 1100);
-        room.command("1", "a", Map.of("action", "SIT", "assetId", "sofa", "slot", 0), 1100);
-        var before = room.snapshot("ROOM_STATE", "1", "a", 1200);
+    void sameOrOlderLayoutRevisionKeepsTheCurrentLayout() {
+        var current = TestRooms.layout(2, 0);
+        var room = new RoomState("7", current, 10, 100);
 
-        assertThat(room.replaceLayout(database, 1200)).isFalse();
-        assertThat(room.layout()).isSameAs(database);
-        assertThat(room.replaceLayout(bundled, 1200)).isFalse();
-        assertThat(room.layout()).isSameAs(database);
-        assertThat(room.snapshot("ROOM_STATE", "1", "a", 1200)).isEqualTo(before);
-    }
-
-    @Test
-    void aChangedDatabaseWallReconcilesOnceAtTheSameRevisionAndOutOfOrderReadsCannotUndoIt() {
-        var previous = TestRooms.layout(1, 0);
-        var bundled = new RoomLayout(1, previous.assets(), previous.geometry(), previous.arrival(), previous.itemRules(),
-                RoomLayout.Origin.BUNDLED);
-        var room = new RoomState("7", bundled, 10, 100);
-        room.join(TestRooms.admission("1"), "a", 1000);
-        var initial = room.participants().getFirst().position();
-        ObjectNode geometry = (ObjectNode) bundled.geometry().deepCopy();
-        geometry.withArray("walls").addObject().put("x", initial.x()).put("z", initial.z()).put("width", 1).put("depth", 1);
-        var database = new RoomLayout(1, previous.assets(), geometry, previous.arrival(), previous.itemRules(),
-                RoomLayout.Origin.DATABASE);
-
-        assertThat(room.replaceLayout(database, 1200)).isTrue();
-        assertThat(room.layoutRevision()).isEqualTo(1);
-        assertThat(room.actor("1", "a", 1200).position()).isNotEqualTo(initial);
-        assertThat(room.replaceLayout(bundled, 1300)).isFalse();
-        assertThat(room.replaceLayout(database, 1300)).isFalse();
-        assertThat(room.layout()).isSameAs(database);
+        assertThat(room.replaceLayout(TestRooms.layout(2, 4), 1200)).isFalse();
+        assertThat(room.replaceLayout(TestRooms.layout(1, 4), 1300)).isFalse();
+        assertThat(room.layout()).isSameAs(current);
     }
 }
