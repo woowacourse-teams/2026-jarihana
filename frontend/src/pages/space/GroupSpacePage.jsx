@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchGroupSpace, useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
+import { fetchDefaultSpaceBlueprint, fetchGroupSpace, useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { ClubhouseSetupDialog } from "./ClubhouseSetupDialog.jsx";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
-import { LOUNGE_LOFT_VERSION } from "./roomLayout.js";
+import { ROOM_BLUEPRINT, bindRoomBlueprint, LOUNGE_LOFT_VERSION } from "./roomLayout.js";
 import { LOUNGE_LOFT_WRITES_ENABLED, createInitialRoom, readSavedRoom, validateRoom } from "./roomState.js";
 
 function SpaceError({ error, groupId, onRetry, clubhouse }) {
@@ -27,13 +27,34 @@ function canEditRoom(snapshot, room) {
   return snapshot.canEdit && (LOUNGE_LOFT_WRITES_ENABLED || room.version !== LOUNGE_LOFT_VERSION);
 }
 
+function blueprintOf(snapshot) {
+  return snapshot.blueprintRef && snapshot.geometry
+    ? { blueprintRef: snapshot.blueprintRef, geometry: snapshot.geometry } : undefined;
+}
+
+function persistedRoom(snapshot, groupName) {
+  const blueprint = blueprintOf(snapshot);
+  if (snapshot.room !== null) {
+    return readSavedRoom(bindRoomBlueprint(snapshot.room, blueprint), { preserveVersion: true });
+  }
+  return { ...createInitialRoom("lounge", { blueprint, loungeLoft: false }), name: groupName.slice(0, 30) };
+}
+
+async function defaultBlueprint(templateKey) {
+  const blueprint = await fetchDefaultSpaceBlueprint(templateKey);
+  if (blueprint.blueprintRef.templateKey !== templateKey) throw new Error("요청한 아지트 도면을 불러오지 못했어요.");
+  return blueprint;
+}
+
 function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup }) {
   const [layout, setLayout] = useState(() => ({
     room: initialRoom,
-    // Keep the live scene on the server's geometry until the migrated draft is saved.
-    sharedRoom: validateRoom(snapshot.room) ?? { ...createInitialRoom("lounge", { loungeLoft: false }), name: initialRoom.name },
+    sharedRoom: initialRoom,
     revision: snapshot.revision
   }));
+  const [firstDraft, setFirstDraft] = useState(null);
+  const [draftError, setDraftError] = useState(null);
+  const [draftAttempt, setDraftAttempt] = useState(0);
   const reloadPending = useRef(false);
   const [layoutError, setLayoutError] = useState(null);
   const [canEdit, setCanEdit] = useState(canEditRoom(snapshot, initialRoom));
@@ -54,10 +75,10 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
     reloadPending.current = true;
     try {
       const response = await fetchGroupSpace(groupId);
-      const room = response.room === null ? { ...createInitialRoom(), name: group.name.slice(0, 30) } : readSavedRoom(response.room);
+      const room = persistedRoom(response, group.name);
       if (!room) throw new Error("새 공간 배치를 읽지 못했어요.");
       setLayoutError(null);
-      if (response.revision > revision.current) acceptSnapshot(response, room, validateRoom(response.room) ?? room);
+      if (response.revision > revision.current) acceptSnapshot(response, room);
     } catch (error) {
       setLayoutError(error.message || "새 배치를 불러오지 못했어요.");
     } finally {
@@ -65,17 +86,20 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
     }
   }, [acceptSnapshot, groupId, group.name]);
 
-  async function save(room, { initialSetup = false } = {}) {
+  async function save(room, { initialSetup = false, replaceLayout = false } = {}) {
     if (!canEdit) throw new Error("모임장만 공간을 꾸밀 수 있어요.");
     if (saving.current) throw new Error("공간을 저장하고 있어요. 잠시만 기다려 주세요.");
-    const normalized = validateRoom(room);
+    const normalized = validateRoom(room, { preserveVersion: true, savedRoom: layout.revision > 0 ? layout.room : undefined });
     if (!normalized) throw new Error("공간 배치를 확인해 주세요. 저장하지 않았어요.");
     saving.current = true;
     try {
       const expectedRevision = initialSetup ? 0 : revision.current;
-      const response = await mutation.mutateAsync({ room: normalized, expectedRevision });
-      const saved = validateRoom(response.room);
-      if (!saved || response.revision <= revision.current) {
+      const blueprintRef = room[ROOM_BLUEPRINT]?.blueprintRef;
+      const response = await mutation.mutateAsync({ room: normalized, expectedRevision, ...(blueprintRef && { blueprintRef }),
+        ...(blueprintRef && replaceLayout && expectedRevision > 0 && { replaceLayout: true }) });
+      const saved = response.room && persistedRoom(response, group.name);
+      if (!saved || response.revision <= revision.current || (blueprintRef &&
+          (response.blueprintRef?.version !== blueprintRef.version || response.blueprintRef?.templateKey !== blueprintRef.templateKey))) {
         throw new Error("서버의 저장 결과를 확인하지 못했어요. 편집 내용은 그대로 있어요. 공간을 다시 열어 확인해 주세요.");
       }
       acceptSnapshot(response, saved);
@@ -96,26 +120,53 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
     }
   }
 
+  const loadBlueprint = snapshot.blueprintRef ? defaultBlueprint : undefined;
+
   async function saveInitialTemplate(template) {
-    const room = { ...createInitialRoom(template), name: layout.room.name };
+    const blueprint = loadBlueprint && await loadBlueprint(template);
+    const room = { ...createInitialRoom(template, { blueprint }), name: layout.room.name };
     try {
       await save(room, { initialSetup: true });
       return true;
     } catch (error) {
       if (error?.code !== "GROUP_SPACE_CONFLICT") throw error;
       const latest = await fetchGroupSpace(groupId);
-      const saved = latest.room && readSavedRoom(latest.room);
+      const saved = latest.room && persistedRoom(latest, group.name);
       if (!saved || latest.revision <= 0) throw error;
-      if (latest.revision > revision.current) acceptSnapshot(latest, saved, validateRoom(latest.room));
+      if (latest.revision > revision.current) acceptSnapshot(latest, saved);
       return false;
     }
   }
 
-  const needsSetup = Boolean(setup && canEdit && snapshot.room === null && layout.revision === 0);
+  const unconfigured = snapshot.room === null && layout.revision === 0;
+  const needsSetup = Boolean(setup && canEdit && unconfigured);
+  const openingEditor = canEdit && !needsSetup && unconfigured &&
+    (!clubhouse || (clubhouse.mode === "decorate" && clubhouse.presentation !== "web"));
+  useEffect(() => {
+    if (!openingEditor || firstDraft) return undefined;
+    let active = true;
+    async function prepareFirstDraft() {
+      try {
+        const blueprint = loadBlueprint && await loadBlueprint("lounge");
+        const draft = { ...createInitialRoom("lounge", { blueprint }), name: group.name.slice(0, 30) };
+        if (active) setFirstDraft(draft);
+      } catch (error) {
+        if (active) setDraftError(error);
+      }
+    }
+    void prepareFirstDraft();
+    return () => { active = false; };
+  }, [openingEditor, firstDraft, loadBlueprint, group.name, draftAttempt]);
+  if (openingEditor && !firstDraft) {
+    if (draftError) return <SpaceError groupId={groupId} clubhouse={clubhouse} error={draftError} onRetry={() => {
+      setDraftError(null); setDraftAttempt((value) => value + 1);
+    }} />;
+    return <div className="route-loading"><Skeleton aria-label="새 아지트 도면 불러오는 중" /></div>;
+  }
   const scene = clubhouse && needsSetup ? { ...clubhouse, inputBlocked: true } : clubhouse;
   return <>
-    <SpaceStudioPage clubhouse={scene} initialRoom={layout.room} sharedRoom={layout.sharedRoom} layoutRevision={layout.revision} memberId={memberId}
-      onLayoutChange={reloadLayout} layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
+    <SpaceStudioPage clubhouse={scene} initialRoom={unconfigured && firstDraft ? firstDraft : layout.room} sharedRoom={layout.sharedRoom} layoutRevision={layout.revision} memberId={memberId}
+      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
       groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
         backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
     {needsSetup && <ClubhouseSetupDialog {...setup} onSave={saveInitialTemplate} />}
@@ -126,13 +177,9 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const group = useGroup(groupId);
   const space = useGroupSpace(groupId, memberId);
-  const savedRoom = space.isFetchedAfterMount ? space.data?.room : undefined;
-  const defaultRoomName = savedRoom === null ? group.data?.name : undefined;
-  const room = useMemo(() => {
-    if (savedRoom === undefined) return null;
-    if (savedRoom !== null) return readSavedRoom(savedRoom);
-    return defaultRoomName === undefined ? null : { ...createInitialRoom(), name: defaultRoomName.slice(0, 30) };
-  }, [savedRoom, defaultRoomName]);
+  const snapshot = space.isFetchedAfterMount ? space.data : undefined;
+  const groupName = group.data?.name;
+  const room = useMemo(() => snapshot && groupName !== undefined ? persistedRoom(snapshot, groupName) : null, [snapshot, groupName]);
   const errors = [space.isError && space.error, group.isError && group.error].filter(Boolean);
   const accessError = errors.find((error) => [401, 403, 404].includes(error.status));
   const failed = Boolean(accessError || (!hasLoaded && (group.isError || space.isError)));

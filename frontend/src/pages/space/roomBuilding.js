@@ -60,10 +60,9 @@ function addSconce(kit, x, z) {
   group.add(light);
 }
 
-function addFacadeLighting(kit, building, island) {
+function addFacadeLighting(kit, building, island, walkable) {
   const { minX, maxX, minZ, maxZ, height } = building;
   const centerX = (minX + maxX) / 2;
-  const { walkable } = getIslandLayout(building);
   const lensMaterial = new THREE.MeshStandardMaterial({ color: "#fff1d4", emissive: "#ffd39a", roughness: 0.38 });
 
   function addSpot(x, z, wallX, wallZ) {
@@ -169,13 +168,13 @@ function addFrontFacade(building, palette) {
   return kit.group;
 }
 
-export function createBuildingContext(building, template, terracePlan) {
+export function createBuildingContext(building, template, terracePlan, islandPlan = getIslandLayout(building)) {
   const kit = buildingKit("building-context");
   kit.group.userData.buildingContext = true;
   kit.group.userData.entrance = true;
-  const island = createFloatingIsland(building, terracePlan);
+  const island = createFloatingIsland(building, terracePlan, islandPlan);
   kit.group.add(island);
-  addFacadeLighting(kit, building, island);
+  addFacadeLighting(kit, building, island, islandPlan.walkable);
   const facade = addFrontFacade(building, terracePlan && getClubhouseExteriorPalette(template));
   delete facade.userData.entrance;
   if (terracePlan) {

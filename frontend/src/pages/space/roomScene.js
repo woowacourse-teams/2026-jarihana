@@ -14,7 +14,7 @@ import { applyBakedFurnitureOcclusion, applyBakedWallOcclusion } from "./roomBak
 import { createRemotePlayers } from "./roomRemotePlayers.js";
 import { seatedAvatarPlacement } from "./seatedAvatar.js";
 import { createWalkthrough } from "./roomWalkthrough";
-import { getRoomLayout } from "./roomLayout";
+import { geometryVersion, getRoomLayout, ROOM_BLUEPRINT } from "./roomLayout";
 import { getDioramaBounds } from "./islandLayout";
 import { createIslandHorizon } from "./islandHorizon";
 import { createRoomSkyBackdrop, frameRoomBackdrop } from "./roomSkyBackdrop";
@@ -630,8 +630,8 @@ export function createRoomScene(container, callbacks) {
     if (shell) { scene.remove(shell); disposeObject(shell); }
     const colors = surfaceColors(nextRoom);
     shell = createRoomShell({ floorColor: colors.floor, wallColor: colors.wall,
-      template: nextRoom.template, version: nextRoom.version, atmosphere: nextRoom.atmosphere, onSurfaceReady: render, accentColor: nextRoom.accentColor, matColor: nextRoom.matColor });
-    applyBakedWallOcclusion(shell, nextRoom.template, nextRoom.version);
+      [ROOM_BLUEPRINT]: nextRoom[ROOM_BLUEPRINT], template: nextRoom.template, version: nextRoom.version, atmosphere: nextRoom.atmosphere, onSurfaceReady: render, accentColor: nextRoom.accentColor, matColor: nextRoom.matColor });
+    applyBakedWallOcclusion(shell, nextRoom.template, geometryVersion(nextRoom));
     signs = ["exterior-tenant-lettering", "entry-led-sign"].map((name) => shell.getObjectByName(name)).filter(Boolean);
     islandGround = shell.getObjectByName("floating-island");
     const layout = getRoomLayout(nextRoom);
@@ -924,12 +924,13 @@ export function createRoomScene(container, callbacks) {
       previewNavigating = false;
     }
     const roomChanged = room !== nextRoom;
-    const greetingLayoutChanged = room?.template !== nextRoom.template || room?.items !== nextRoom.items;
+    const planChanged = room?.template !== nextRoom.template || geometryVersion(room) !== geometryVersion(nextRoom);
+    const greetingLayoutChanged = planChanged || room?.items !== nextRoom.items;
     if (greetingLayoutChanged || room?.version !== nextRoom.version) itemElevations.clear();
     room = nextRoom;
     selectedId = nextSelectedId;
     const atmosphere = room.atmosphere || DEFAULT_ATMOSPHERE;
-    const themeKey = [room.template, room.version, room.accentColor, room.matColor, atmosphere.wallMaterial, atmosphere.floorMaterial, atmosphere.wallPatternScale, atmosphere.floorPatternScale].join(":");
+    const themeKey = [room.template, geometryVersion(room), room.accentColor, room.matColor, atmosphere.wallMaterial, atmosphere.floorMaterial, atmosphere.wallPatternScale, atmosphere.floorPatternScale].join(":");
     const shellChanged = lastTheme !== themeKey;
     if (shellChanged) { rebuildShell(room); lastTheme = themeKey; }
     updateSigns();
@@ -943,11 +944,11 @@ export function createRoomScene(container, callbacks) {
       lastSurfaces = surfaceKey;
     }
     let furnishingsChanged = false;
-    const avatarKey = JSON.stringify([room.template, room.version, room.avatarColor, room.items.filter((item) => ["stool", "gameChair", "roundChair", "table", "diningTable", "gameTable", "feastTable", "studyDesk", "focusDesk", "photoEditDesk", "photoPrintBench", "mixingDesk", "rehearsalStage", "crashMat", "crashMatWide"].includes(item.kind)).map(({ id, kind, x, z, level, rotation }) => [id, kind, x, z, level, rotation])]);
+    const avatarKey = JSON.stringify([room.template, geometryVersion(room), room.avatarColor, room.items.filter((item) => ["stool", "gameChair", "roundChair", "table", "diningTable", "gameTable", "feastTable", "studyDesk", "focusDesk", "photoEditDesk", "photoPrintBench", "mixingDesk", "rehearsalStage", "crashMat", "crashMatWide"].includes(item.kind)).map(({ id, kind, x, z, level, rotation }) => [id, kind, x, z, level, rotation])]);
     const avatarsChanged = lastAvatar !== avatarKey;
     if (avatarsChanged) { rebuildMascots(room); lastAvatar = avatarKey; }
     const displayRoom = activityExhibit === undefined ? room : { ...room, items: room.items.map((item) => memoryForExhibit(item, activityExhibit)) };
-    const identityKey = JSON.stringify([activityExhibitKey, room.template, room.version, room.name, room.accentColor, room.coverPhoto, room.notice,
+    const identityKey = JSON.stringify([activityExhibitKey, room.template, geometryVersion(room), room.name, room.accentColor, room.coverPhoto, room.notice,
       displayRoom.items.filter((item) => ["memory", "clubPinboard", "climbingBoard", "gameWallBoard", "activityBoard", "clubDashboard"].includes(item.kind))]);
     if (lastIdentity !== identityKey) { rebuildIdentity(displayRoom); lastIdentity = identityKey; }
     const ids = new Set(room.items.map((item) => item.id));

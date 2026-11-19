@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { SpaceStudioPage } from "./SpaceStudioPage";
 import { ATMOSPHERE_PRESETS, DEFAULT_ATMOSPHERE, STORAGE_KEY, TEMPLATE_ATMOSPHERES, THEMES, createInitialRoom } from "./roomState";
+import { bindRoomBlueprint, getRoomLayout, geometryVersion } from "./roomLayout";
 import { prepareRoomPhoto } from "./roomPhoto";
 
 let sceneProps;
@@ -288,6 +289,30 @@ test("a successful save notice dismisses itself", () => {
   } finally {
     jest.useRealTimers();
   }
+});
+
+test("explicit template replacement loads the selected default and marks only the replacement save", async () => {
+  const original = createInitialRoom("lounge", { loungeLoft: false });
+  const room = bindRoomBlueprint(original, { blueprintRef: { templateKey: "lounge", version: 11 }, geometry: getRoomLayout(original) });
+  const next = { blueprintRef: { templateKey: "climbing", version: 13 }, geometry: getRoomLayout("climbing", 11) };
+  const load = jest.fn().mockResolvedValue(next);
+  const save = jest.fn(async draft => draft);
+  render(<SpaceStudioPage initialRoom={room} onLoadBlueprint={load} onSave={save} />);
+  click("아지트");
+  click("클라이밍");
+  await act(async () => click("이 아지트로 꾸미기"));
+  expect(load).toHaveBeenCalledWith("climbing");
+  expect(sceneProps.room.version).toBe(11);
+  expect(geometryVersion(sceneProps.room)).toBe(13);
+  expect(getRoomLayout(sceneProps.room)).toBe(next.geometry);
+  expect(save).not.toHaveBeenCalled();
+  await act(async () => click("저장"));
+  expect(save.mock.calls[0][1]).toEqual({ replaceLayout: true });
+  click("내 자리");
+  fireEvent.change(screen.getByRole("textbox", { name: "공간 이름" }), { target: { value: "새 이름" } });
+  await act(async () => click("저장"));
+  expect(save.mock.calls[1]).toHaveLength(1);
+  expect(load).toHaveBeenCalledTimes(1);
 });
 
 test("the template transition shows progress and blocks edits until the new scene is drawn", () => {

@@ -186,7 +186,7 @@ class InteractionStateTest {
 
     private void replace(Map<String, RoomAsset> assets) {
         RoomLayout old = room.layout();
-        room.replaceLayout(new RoomLayout(old.revision() + 1, assets, old.geometry(), old.arrival(), old.itemRules()), 1300);
+        room.replaceLayout(new RoomLayout(old.revision() + 1, assets, old.geometry(), old.arrival(), old.itemRules(), old.origin()), 1300);
     }
 
     private static RoomAsset moved(RoomAsset asset, Vec3 position, double scaleY) {

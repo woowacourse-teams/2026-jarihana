@@ -30,7 +30,7 @@ export async function startBrowserPreview(root) {
 
 // Uses the real production bundle and WebSocket server. Existing HTTP UI fixtures
 // supply account/group data; backend authorization is tested separately.
-export async function verifyBrowser({ root, originUrl, url, token, room, revision, evidence }) {
+export async function verifyBrowser({ root, originUrl, url, token, snapshot, evidence }) {
   const require = createRequire(path.join(root, "frontend/package.json"));
   const { chromium } = require("playwright");
   const { installApiFixture, group, leader } = await import(pathToFileURL(path.join(root, "frontend/tests/e2e/api-fixture.js")));
@@ -63,7 +63,7 @@ export async function verifyBrowser({ root, originUrl, url, token, room, revisio
       await installApiFixture(page);
       const success = (data) => ({ success: true, data, error: null });
       await page.route("**/api/members/me", (route) => route.fulfill({ json: success({ member: { ...leader, id: Number(memberId), crewName: `tester-${memberId}` }, signupCompleted: true }) }));
-      await page.route(`**/api/groups/${group.id}/space`, (route) => route.fulfill({ json: success({ room, revision: revision(), canEdit: memberId === "1", updatedAt: null }) }));
+      await page.route(`**/api/groups/${group.id}/space`, (route) => route.fulfill({ json: success({ ...snapshot, canEdit: memberId === "1", updatedAt: null }) }));
       await page.route(`**/api/groups/${group.id}/space/join-token`, (route) => route.fulfill({ json: success({ token: token(memberId, String(group.id)), websocketUrl: url, expiresAt: Date.now() + 60000 }) }));
       await page.goto(`${originUrl}/groups/${group.id}`);
       await page.getByRole("button", { name: "놀러가기", exact: true }).waitFor({ timeout: 90000 });
@@ -92,12 +92,15 @@ export async function verifyBrowser({ root, originUrl, url, token, room, revisio
     receipt.push("UI greeting is accepted and delivered to the second browser");
     const origin = latest("2").participants.find((actor) => actor.memberId === "1").position;
     await pages[0].locator(".room-canvas").click({ position: { x: 500, y: 500 } });
+    await pages[0].locator(".room-canvas").focus();
     await pages[0].keyboard.down("KeyA");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await pages[0].keyboard.up("KeyA");
-    await until(() => frames.some(({ memberId, message }) => memberId === "2" && message.type === "MOVEMENT_FRAME" &&
-      message.participants.some((actor) => actor.memberId === "1" && actor.locomotion === "walking" &&
-        Math.hypot(actor.position.x - origin.x, actor.position.z - origin.z) > 0.1)), "movement fan-out");
+    try {
+      await until(() => frames.some(({ memberId, message }) => memberId === "2" && message.type === "MOVEMENT_FRAME" &&
+        message.participants.some((actor) => actor.memberId === "1" && actor.locomotion === "walking" &&
+          Math.hypot(actor.position.x - origin.x, actor.position.z - origin.z) > 0.1)), "movement fan-out", 35000);
+    } finally {
+      await pages[0].keyboard.up("KeyA");
+    }
     receipt.push("keyboard movement reaches the remote browser");
     await pages[0].keyboard.press("Escape");
     const movement = sent.filter((frame) => frame.memberId === "1" && frame.type === "MOVE").at(-1).payload;
@@ -108,7 +111,7 @@ export async function verifyBrowser({ root, originUrl, url, token, room, revisio
     await pages[0].keyboard.up("ArrowLeft");
     await pages[0].keyboard.press("KeyE");
     await pages[0].getByRole("button", { name: /카메라 꺼내기/ }).click();
-    await pages[0].getByRole("button", { name: "사진 찍기", exact: true }).click();
+    await pages[0].getByRole("button", { name: "좌클릭 · 사진 찍기", exact: true }).click();
     const photo = pages[0].getByRole("dialog", { name: "아지트 사진", exact: true });
     await photo.waitFor();
     await photo.getByAltText("방금 촬영한 아지트").evaluate((img) => img.decode());
@@ -126,6 +129,13 @@ export async function verifyBrowser({ root, originUrl, url, token, room, revisio
       await pages[index].screenshot({ path: path.join(evidence, `browser-${index + 1}.png`), fullPage: true });
       assert.equal(await pages[index].evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
+    await pages[0].bringToFront();
+    await pages[0].getByRole("button", { name: "꾸미기", exact: true }).click();
+    await pages[0].getByRole("button", { name: "시점 도구 펼치기", exact: true }).click();
+    const loft = pages[0].getByRole("button", { name: snapshot.geometry.upperName, exact: true });
+    await loft.click();
+    assert.equal(await loft.getAttribute("aria-pressed"), "true");
+    receipt.push("the editor can select the database-only loft for a version 11 room pinned to blueprint 14");
     assert.deepEqual(errors, []);
     await writeFile(path.join(evidence, "browser-receipt.json"), JSON.stringify({ passed: receipt, errors, browser: browser.version() }, null, 2));
     return receipt;

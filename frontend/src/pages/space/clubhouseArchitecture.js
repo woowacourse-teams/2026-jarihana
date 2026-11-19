@@ -58,6 +58,14 @@ export function createClubhouseArchitecture(layout, { template, floorColor, wall
         box("wall-dado", wall.width + 0.01, 1.1, wall.depth + 0.01, timber, wall.x, 0.61, wall.z, group);
     }
   }
+  const roof = new THREE.Group();
+  roof.name = "interior-ceiling";
+  roof.userData.walkthroughOnly = true;
+  roof.userData.exteriorDetail = !layout.terrace;
+  box("ceiling", width, 0.18, depth, template === "band" ? "#29272d" : "#e5ded1", (b.minX + b.maxX) / 2, b.height + 0.09, (b.minZ + b.maxZ) / 2, roof);
+  root.add(roof);
+  root.add(createBuildingContext(b, template, layout.terrace, layout.island));
+  if (!m || !s) return root;
   const deck = new THREE.Group();
   deck.name = "clubhouse-mezzanine";
   deck.userData.mezzanine = true;
@@ -114,12 +122,5 @@ export function createClubhouseArchitecture(layout, { template, floorColor, wall
       box("stair-baluster", 0.035, 1.05, 0.035, metal, x, y + 0.525, s.maxZ - run * i / 10, deck);
     }
   }
-  const roof = new THREE.Group();
-  roof.name = "interior-ceiling";
-  roof.userData.walkthroughOnly = true;
-  roof.userData.exteriorDetail = !layout.terrace;
-  box("ceiling", width, 0.18, depth, template === "band" ? "#29272d" : "#e5ded1", 0, b.height + 0.09, (b.minZ + b.maxZ) / 2, roof);
-  root.add(roof);
-  root.add(createBuildingContext(b, template, layout.terrace));
   return root;
 }

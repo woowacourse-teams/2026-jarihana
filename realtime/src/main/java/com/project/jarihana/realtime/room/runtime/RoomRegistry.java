@@ -6,6 +6,7 @@ import com.project.jarihana.realtime.auth.AdmissionTokenVerifier.Identity;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
+import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.persistence.RoomReadRepository;
@@ -16,6 +17,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
+import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -26,12 +28,14 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.CloseStatus;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
@@ -54,6 +58,8 @@ public final class RoomRegistry {
     private final ExecutorService closers;
     private final ScheduledExecutorService scheduler;
     private volatile boolean stopped;
+    private final Map<RealtimeEnvironment, AtomicBoolean> probing = new EnumMap<>(RealtimeEnvironment.class);
+    private long lastBlueprintCheck;
     private long lastRefresh;
     private long lastLayout;
 
@@ -76,12 +82,14 @@ public final class RoomRegistry {
         metrics.gauge("realtime.outbound.bytes", peers, values -> values.values().stream().mapToLong(Peer::bufferedBytes).sum());
         metrics.gauge("realtime.room.queue", rooms, values -> values.values().stream().mapToInt(RoomRuntime::queued).sum());
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) {
+            probing.put(environment, new AtomicBoolean());
             Tags tags = Tags.of("environment", environment.name().toLowerCase(Locale.ROOT));
             metrics.gauge("realtime.active.players", tags, peers, values -> values.values().stream()
                     .filter(peer -> peer.isJoined() && !peer.isClosed() && peer.identity().environment() == environment).count());
             metrics.gauge("realtime.active.rooms", tags, rooms, values -> values.entrySet().stream()
                     .filter(room -> room.getKey().environment() == environment && room.getValue().hasConnectedPlayers()).count());
         }
+        lastBlueprintCheck = clock.millis();
         scheduler.scheduleAtFixedRate(this::tickSafely, 50, 50, TimeUnit.MILLISECONDS);
     }
 
@@ -149,7 +157,7 @@ public final class RoomRegistry {
             }
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
             if (peer.isClosed() || stopped) return;
             acquire(roomKey(identity), layout).join(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -196,6 +204,16 @@ public final class RoomRegistry {
             else if (peer.stalled(now)) peer.close(4004, "SLOW_CONSUMER");
         }
         rooms.values().forEach(RoomRuntime::tick);
+        if (properties.enabled() && now - lastBlueprintCheck >= 10_000) {
+            lastBlueprintCheck = now;
+            probing.forEach((environment, pending) -> {
+                if (pending.compareAndSet(false, true)) submit(() -> {
+                    try { roomReads.verifyReadAccess(environment); }
+                    catch (RuntimeException error) { warnOnDatabaseFailure(error, environment, "blueprint_probe"); }
+                    finally { pending.set(false); }
+                }, () -> pending.set(false));
+            });
+        }
         if (now - lastRefresh >= properties.refreshIntervalMs()) {
             lastRefresh = now;
             for (Peer peer : peers.values()) if (peer.isJoined() && !peer.isClosed() && peer.beginRefresh()) {
@@ -215,7 +233,7 @@ public final class RoomRegistry {
             Identity identity = peer.identity();
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
             RoomRuntime room = rooms.get(roomKey(identity));
             if (room != null && !peer.isClosed()) room.renew(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -226,10 +244,15 @@ public final class RoomRegistry {
     private void refreshLayout(RoomKey key, RoomRuntime room) {
         try {
             var stored = roomReads.layout(key.environment(), key.roomId());
-            room.layout(catalog.read(stored.revision(), stored.room()));
+            room.layout(readLayout(key.environment(), stored.revision(), stored.room(), stored.blueprint()));
         } catch (RuleViolation error) { room.terminate(error.code()); }
         catch (RuntimeException error) { warnOnDatabaseFailure(error, key.environment(), "layout_refresh"); }
         finally { room.endRefresh(); }
+    }
+
+    private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
+        if (blueprint == null) return catalog.readBundled(revision, room);
+        return catalog.read(revision, room, roomReads.geometry(environment, blueprint));
     }
 
     private void submit(Runnable work, Runnable rejected) {
