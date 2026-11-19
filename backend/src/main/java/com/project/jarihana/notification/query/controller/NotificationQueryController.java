@@ -44,6 +44,6 @@ public class NotificationQueryController {
     public ResponseEntity<ApiResponse<NotificationUnreadCountResponse>> countUnreadNotifications(
             @LoginMember long memberId, @Validated @ModelAttribute NotificationClientRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(
-                new NotificationUnreadCountResponse(notifications.countUnreadNotifications(memberId, request.toVersion()))));
+                new NotificationUnreadCountResponse(notifications.countUnreadNotifications(memberId))));
     }
 }
