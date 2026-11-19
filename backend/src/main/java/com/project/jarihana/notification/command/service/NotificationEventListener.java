@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 public class NotificationEventListener {
 
     private static final int INSERT_BATCH_SIZE = 50;
+    private static final int CHAT_ACTIVITY_WINDOW_SECONDS = 15;
 
     private final NotificationCommandRepository notifications;
     private final NotificationDeliveryCommandRepository deliveries;
@@ -84,7 +85,8 @@ public class NotificationEventListener {
         Map<Long, List<PushSubscription>> activeByMember = new LinkedHashMap<>();
         recipients.forEach(member -> activeByMember.put(member.getId(), new ArrayList<>()));
         List<Long> recipientIds = recipients.stream().map(Member::getId).toList();
-        subscriptions.findChatCapableByMemberIds(recipientIds).forEach(subscription ->
+        LocalDateTime activityCutoff = event.occurredAt().minusSeconds(CHAT_ACTIVITY_WINDOW_SECONDS);
+        subscriptions.findChatCapableForInactiveMembers(recipientIds, activityCutoff).forEach(subscription ->
                 activeByMember.get(subscription.getMember().getId()).add(subscription));
         recordAll(recipients, "chat-message:" + event.messageId() + ":created",
                 NotificationEventType.CHAT_MESSAGE_RECEIVED, NotificationPayload.forGroup(event.groupId()),
