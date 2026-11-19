@@ -59,16 +59,22 @@ public interface PushSubscriptionCommandRepository extends Repository<PushSubscr
             """)
     List<PushSubscription> findAnnouncementCapableByMemberIds(@Param("memberIds") List<Long> memberIds);
 
-    @EntityGraph(attributePaths = "member")
-    @Query("""
-            select subscription from PushSubscription subscription
-            where subscription.member.id in :memberIds
-              and subscription.enabled = true
-              and subscription.member.withdrawnAt is null
-              and subscription.clientVersion >= 3
-            order by subscription.member.id, subscription.id
-            """)
-    List<PushSubscription> findChatCapableByMemberIds(@Param("memberIds") List<Long> memberIds);
+    @Query(value = """
+            select subscription.* from push_subscriptions subscription
+            join member on member.id = subscription.member_id
+            where subscription.member_id in (:memberIds)
+              and subscription.enabled
+              and member.withdrawn_at is null
+              and subscription.client_version >= 3
+              and not exists (
+                  select 1 from member_activity activity
+                  where activity.member_id = subscription.member_id
+                    and activity.last_active_at > :activityCutoff
+              )
+            order by subscription.member_id, subscription.id
+            """, nativeQuery = true)
+    List<PushSubscription> findChatCapableForInactiveMembers(@Param("memberIds") List<Long> memberIds,
+                                                            @Param("activityCutoff") LocalDateTime activityCutoff);
 
     @EntityGraph(attributePaths = "member")
     @Query("""
