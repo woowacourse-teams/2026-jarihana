@@ -45,7 +45,7 @@ if [[ $url != *'/attempts/1/jobs?per_page=100' ]]; then
     elif ($scenario|startswith("parent-")) then .status=($scenario|ltrimstr("parent-")) else . end' > "$output"
 else
   [[ $GUARD_CASE != query-failure ]] || exit 7
-  jq -cn --arg scenario "$GUARD_CASE" --argjson now "$(cat "$GUARD_CLOCK")" --arg sha "$GITHUB_SHA" '
+  jq -cn --arg scenario "$GUARD_CASE" --argjson now "$(cat "$GUARD_CLOCK")" --arg sha "$GITHUB_SHA" --arg terminal "${GUARD_TERMINAL:-deployment-result}" '
     {id:1,run_id:123,head_sha:$sha,name:"blue-green / prepare / operation",status:"queued",labels:["jarihana-dev-b"]} |
     if $scenario=="wrong-sha" then .head_sha="foreign" elif $scenario=="wrong-run" then .run_id=124
     elif ($scenario=="parent-transition" or ($scenario|IN("parent-queued","parent-waiting","parent-pending","parent-requested"))) then .status="in_progress"
@@ -54,7 +54,7 @@ else
     elif $scenario=="hosted" then .labels=["ubuntu-latest"] else . end |
     {total_count:1,jobs:[.]} |
     if ($scenario=="result" or (($scenario=="reset" or $scenario=="waiting" or $scenario=="hosted") and $now>=390) or (($scenario|IN("parent-queued","parent-waiting","parent-pending","parent-requested")) and $now>=60)) then
-      .jobs += [{id:2,run_id:123,head_sha:$sha,name:"blue-green / deployment-result",status:"completed",labels:["ubuntu-latest"]}] | .total_count=2
+      .jobs += [{id:2,run_id:123,head_sha:$sha,name:("blue-green / "+$terminal),status:"completed",labels:["ubuntu-latest"]}] | .total_count=2
     elif $scenario=="too-many" then .total_count=101
     elif $scenario=="fractional" then .jobs[0].id=1.5
     elif $scenario=="oversized" then .padding=("x" * 2097153) else . end' > "$output"
@@ -112,6 +112,8 @@ run_case malformed-repository 1 1
 run_case missing-conclusion 1 1
 run_case reset 0 0
 run_case result 0 0
+BG_COMPACT_WORKFLOW=true GUARD_TERMINAL="배포 결과" run_case result 0 0
+BG_COMPACT_WORKFLOW=true BG_MODE=bootstrap GUARD_TERMINAL="초기 등록 결과" run_case result 0 0
 run_case waiting 0 0
 run_case hosted 0 0
 run_case expiry 1 1
