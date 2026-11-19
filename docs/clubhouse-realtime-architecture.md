@@ -60,7 +60,7 @@ infra/realtime/                     Docker Compose, Alloy, 검증 도구
                                     검증, GHCR 발행, 설정 전달, 공용 배포
 ```
 
-저장소를 나누지 않고 빌드·프로세스·배포 단위를 나눈다. backend의 JPA 엔티티를 realtime에 공유하지 않는다. 프론트의 가구 카탈로그에서 판정용 JSON을 생성해 Java와 JavaScript가 같은 좌석·표면 정보를 사용한다. 건물 경계·벽·층·통로는 환경별 PostgreSQL의 발행된 도면에서 읽는다. 모임의 가구 배치에는 도면 참조를 함께 저장한다.
+저장소를 나누지 않고 빌드·프로세스·배포 단위를 나눈다. backend의 JPA 엔티티를 realtime에 공유하지 않는다. 프론트의 가구 카탈로그에서 판정용 JSON을 생성해 Java와 JavaScript가 같은 좌석·표면 정보를 사용한다. 건물 경계·벽·층·통로는 환경별 이관 상태에 따라 서버 내장본 또는 그 환경 PostgreSQL의 발행 도면에서 읽는다. 모임의 가구 배치에는 도면 참조를 함께 저장한다.
 
 | 데이터 | 기준을 정하는 곳 | 저장 수명 |
 | --- | --- | --- |
@@ -90,7 +90,8 @@ flowchart LR
     PLAN --> API
     API -->|도면과 가구 배치| BROWSER["브라우저 · 렌더링과 편집"]
     GROUP --> RT["공용 realtime · 이동과 충돌 판정"]
-    PLAN --> RT
+    PLAN -->|환경 전환 후| RT
+    BUILT["서버 내장 도면 43개"] -->|해당 환경 이관 전| RT
 ```
 
 | 데이터 | 버전이 바뀌는 시점 |
@@ -98,6 +99,7 @@ flowchart LR
 | `space_blueprint(template_key, blueprint_version)` | 벽·계단·층고를 수정하면 새 행을 발행한다. `geometry_schema_version`은 JSON 형식을 식별한다. |
 | `space_blueprint_default` | 새 모임 또는 사용자가 직접 선택한 템플릿 교체에 적용할 발행본을 지정한다. |
 | `group_space` | 가구 저장은 기존 도면 참조를 유지하고 `revision`을 증가시킨다. `room_json.version`은 기존 저장 문서 형식이다. |
+| `space_blueprint_migration` | V45 마지막에 버전 1 행을 넣는다. 세팅·이관·구버전 쓰기 호환을 완료한 트랜잭션이 커밋되면 realtime이 볼 수 있다. |
 
 V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
 
@@ -108,7 +110,7 @@ INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_ve
 VALUES ('lounge', 13, 1, :'geometry'::jsonb);
 ```
 
-두 환경의 API·realtime·프론트가 DB 도면을 읽는 버전이 된 뒤 신규 선택을 활성화한다. 다음 변경은 기존 12판을 쓰는 모임의 FK에 영향을 주지 않는다.
+realtime은 개발과 운영을 각각 확인한다. 이관 전에는 기존 조회로 가구를 읽어 내장 도면에 배치한다. 완료 표시를 확인하고 서버 계정으로 발행 도면을 읽으면 해당 환경만 DB 경로로 바뀐다. DB 권한·연결 오류가 나면 오류로 처리하며, 정상화되면 DB 조회를 재시도한다. 해당 환경의 API·realtime·프론트에서 DB 도면으로 기존 방이 정상 동작하는 것을 확인한 뒤 신규 선택을 활성화한다. 다음 변경은 기존 12판을 쓰는 모임의 FK에 영향을 주지 않는다.
 
 ```sql
 UPDATE space_blueprint_default SET blueprint_version = 13

@@ -27,6 +27,15 @@ Access Token을 realtime 입장 토큰으로 재사용하지 않는다.
 
 ## 접속 후 권한과 배치 갱신
 
+백엔드는 환경별 DB에서 Flyway V45로 도면을 등록하고 기존 모임에 도면 버전을 연결한다.
+구버전 쓰기 호환 트리거와 제약까지 적용한 뒤 같은 트랜잭션의 마지막에
+`space_blueprint_migration` 테이블을 만들고 `version = 1` 한 행을 기록한다.
+이관에 실패하면 기존 배치와 revision은 보존되고 완료 표시는 생기지 않는다.
+
+realtime은 각 환경의 읽기 전용 연결로 완료 표시를 다시 조회하므로 백엔드 이관 후
+realtime을 재시작할 필요가 없다. 별도 조회 계정에는 해당 환경에서
+`space_blueprint_migration.version`의 `SELECT` 권한을 부여한다.
+
 realtime은 읽기 전용 DB 연결로 접속 중 역할과 배치 버전을 주기적으로 조회한다.
 기존 접속자가 새 버전을 받으면 브라우저에서 [모임 공간 API](group-space.md)로 배치를
 다시 조회한다. DB 연결 설정과 반영 주기는 [realtime 배포 문서](../../../../../infra/realtime/README.md)를 따른다.

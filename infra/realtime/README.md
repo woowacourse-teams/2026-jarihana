@@ -19,7 +19,7 @@
 
 서버는 정확히 `/ws/realtime`에 연결을 받는다. `/ws/realtime/*`만 등록하면 끝에 `/`가 없는 이 주소와 일치하지 않으므로 정확한 경로의 Behavior가 필요하다. 기존 프론트 배포의 CDN 사전 검사는 정확한 경로와 기존 wildcard 경로를 모두 허용하지만, 이 검사를 통과했다고 실제 WebSocket 연결까지 확인한 것은 아니다.
 
-배포 잡은 새 이미지로 두 환경의 DB 도면과 조회 권한을 먼저 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
+배포 잡은 새 이미지로 각 환경에서 현재 필요한 스키마와 읽기 권한을 검사한다. 예를 들어 개발이 V45, 운영이 V40이면 개발에서는 DB 도면 조회를, 운영에서는 기존 가구·입장 정보 조회를 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
 
 준비 잡은 설정을 EC2의 메모리 파일시스템 `/dev/shm`에 실행 번호와 시도 번호별로 저장한다. 배포 잡이 끝날 때 삭제하며, 강제 종료로 남은 설정은 다음 준비 잡이 1시간 경과 후 정리한다. 재시도할 때는 **Re-run all jobs**를 선택해 이번 시도의 설정을 다시 준비한다.
 
@@ -44,7 +44,11 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 `RDS_URL`에 등록된 호스트의 5432 포트로 연결한다. 개발은 `jarihana_dev`, 운영은 `jarihana_prod`를 사용하며 기존 API의 DB 계정으로 접속한다. PostgreSQL이 RDS라면 DB 보안 그룹의 TCP 5432 인바운드 소스를 realtime EC2의 보안 그룹으로 지정하고, EC2에서 DB의 사설 엔드포인트를 쓸 수 있는지 확인한다. 가구·아바타 저장과 스키마 변경은 기존 백엔드가 담당한다.
 
-첫 배포 전에 개발·운영 백엔드의 Flyway가 두 DB에 `V39__member_avatar.sql`, `V40__group_space.sql`, `V45__versioned_space_blueprints.sql`을 적용했는지 확인한다. 백엔드 배포와 realtime 배포가 동시에 시작되면 마이그레이션이 끝나기 전에 realtime 헬스체크가 실패할 수 있다. 이때 두 DB의 마이그레이션이 끝난 뒤 realtime 실행의 **Re-run all jobs**를 선택한다. 별도 조회 계정을 사용한다면 두 DB에서 `space_blueprint`와 `space_blueprint_default`, `group_space`의 두 도면 참조 컬럼, `member_avatar`의 `member_id`와 외형 컬럼에 대한 `SELECT` 권한이 필요하다.
+호환 버전의 공용 realtime 서버는 V39 아바타·V40 모임 공간 스키마를 읽을 수 있으면 V45 적용 전에 배포할 수 있다. 가구는 각 환경 DB에서 계속 조회하고, 도면은 처음에는 내장본을 사용한다.
+
+1. 개발 또는 운영 백엔드가 V45를 적용한다. 도면 43개와 모임별 도면 참조, 이전 백엔드 쓰기 호환 트리거를 같은 트랜잭션에 넣고 마지막에 `space_blueprint_migration(version=1)`을 기록한다.
+2. 공용 서버가 접속자 수와 관계없이 10초마다 환경별 완료 표시를 확인하고 자신의 계정으로 이관한 도면을 읽으면 그 환경의 읽기 경로가 전환된다. DB 연결·권한 오류는 장애로 처리한다. 환경별 전환에는 컨테이너 재시작이나 워크플로 재실행이 필요하지 않다. 전용 읽기 계정에는 기존 권한에 더해 `space_blueprint_migration`, `space_blueprint`, `space_blueprint_default` 및 `group_space`의 두 도면 참조 열을 읽을 권한을 부여한다.
+3. 서버 로그의 `Realtime blueprint source environment=DEV source=DATABASE`와 `environment=PROD source=DATABASE`를 환경별로 확인하고, 해당 환경에서 기존 방 입장·이동을 확인한다. 해당 환경의 API·프론트도 준비되면 DB 전용 도면을 새 모임에 배정할 수 있다. 개발과 운영 모두 정상 동작한 기록을 확보한 뒤 후속 PR에서 내장 도면과 전환 검사를 제거한다.
 
 이미 이전 입장 토큰 형식으로 서비스 중이라면 API의 발급 방식과 realtime의 검증 방식이 모두 전환된 뒤 새 토큰으로 접속할 수 있다. 전환 시간을 잡고 기존 환경값을 보관한다. 이전 컨테이너로 돌아갈 경우 해당 API의 토큰 발급 버전도 함께 복원한다.
 

@@ -30,7 +30,20 @@ public final class LayoutCatalog {
         }
     }
 
+    public RoomLayout readBundled(long revision, JsonNode source) {
+        JsonNode room = source == null || source.isNull() ? runtime.path("defaultRoom") : source;
+        if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
+        String key = room.path("version").asInt() + ":" + room.path("template").asString("lounge");
+        JsonNode geometry = runtime.path("layouts").path(key);
+        if (geometry.isMissingNode()) throw new RuleViolation("UNSUPPORTED_LAYOUT");
+        return read(revision, room, geometry, RoomLayout.Origin.BUNDLED);
+    }
+
     public RoomLayout read(long revision, JsonNode source, JsonNode geometry) {
+        return read(revision, source, geometry, RoomLayout.Origin.DATABASE);
+    }
+
+    private RoomLayout read(long revision, JsonNode source, JsonNode geometry, RoomLayout.Origin origin) {
         JsonNode room = source == null || source.isNull() ? runtime.path("defaultRoom") : source;
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
         Map<String, JsonNode> instances = new LinkedHashMap<>();
@@ -49,7 +62,8 @@ public final class LayoutCatalog {
                 false, 0, List.of(), 0, 0, 0);
         assets.put(light.id(), light);
         JsonNode spawn = runtime.path("player").path("spawn");
-        return new RoomLayout(revision, assets, geometry, new Vec3(spawn.path("x").asDouble(), 0, spawn.path("z").asDouble()), capabilities.path("items"));
+        return new RoomLayout(revision, assets, geometry, new Vec3(spawn.path("x").asDouble(), 0, spawn.path("z").asDouble()),
+                capabilities.path("items"), origin);
     }
 
     private RoomAsset asset(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances) {

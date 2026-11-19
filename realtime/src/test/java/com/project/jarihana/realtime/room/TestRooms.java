@@ -33,7 +33,7 @@ public final class TestRooms {
             LayoutCatalog catalog = new LayoutCatalog(mapper);
             RoomLayout source = catalog.read(revision, mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", items)),
                     TestBlueprints.geometry("11:lounge"));
-            return new RoomLayout(revision, source.assets(), mapper.readTree("{\"building\":{\"minX\":-20,\"maxX\":20,\"minZ\":-20,\"maxZ\":20},\"walls\":[]}"), new Vec3(0, 0, 2.4), source.itemRules());
+            return new RoomLayout(revision, source.assets(), mapper.readTree("{\"building\":{\"minX\":-20,\"maxX\":20,\"minZ\":-20,\"maxZ\":20},\"walls\":[]}"), new Vec3(0, 0, 2.4), source.itemRules(), source.origin());
         } catch (java.io.IOException error) { throw new IllegalStateException(error); }
     }
 }

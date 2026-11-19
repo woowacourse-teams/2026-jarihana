@@ -1,7 +1,7 @@
 // Runs one Spring server against isolated development and production databases.
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,9 @@ const runtime = JSON.parse(await readFile(path.join(root, "contracts/realtime/v1
 const jarName = (await readdir(path.join(root, "realtime/build/libs"))).find((name) => name.endsWith(".jar") && !name.endsWith("-plain.jar"));
 assert.ok(jarName, "Run realtime ./gradlew bootJar before verification");
 const evidence = await mkdtemp(path.join(tmpdir(), "jarihana-realtime-protocol-"));
+// Preflight processes and the live JVM must test the same artifact throughout a local rebuild.
+const candidateJar = path.join(evidence, jarName);
+await copyFile(path.join(root, "realtime/build/libs", jarName), candidateJar);
 const database = `jarihana-realtime-test-${randomUUID()}`;
 const databasePassword = randomUUID();
 const environments = Object.fromEntries(["dev", "prod"].map((environment) => [environment, {
@@ -48,12 +51,13 @@ function sql(input, databaseName = environments.dev.databaseName) {
   return docker(["exec", "-i", database, "psql", "-X", "-qAt", "-U", "postgres", "-d", databaseName, "-v", "ON_ERROR_STOP=1"], { input });
 }
 
-function saveLayout(groupIds = [1, 2], layout = room, layoutRevision = revision, environment = "dev", blueprintVersion = layout.version) {
+function saveLayout(groupIds = [1, 2], layout = room, layoutRevision = revision, environment = "dev", blueprintVersion) {
   const json = JSON.stringify(layout).replaceAll("'", "''");
-  sql(`INSERT INTO group_space (group_id, room_json, revision, blueprint_template_key, blueprint_version, created_at, updated_at)
-    SELECT id, '${json}', ${layoutRevision}, '${layout.template}', ${blueprintVersion}, now(), now() FROM groups WHERE id IN (${groupIds.join(", ")})
-    ON CONFLICT (group_id) DO UPDATE SET room_json = EXCLUDED.room_json, revision = EXCLUDED.revision,
-      blueprint_template_key = EXCLUDED.blueprint_template_key, blueprint_version = EXCLUDED.blueprint_version, updated_at = now();`,
+  const ref = blueprintVersion !== undefined;
+  sql(`INSERT INTO group_space (group_id, room_json, revision, created_at, updated_at${ref ? ", blueprint_template_key, blueprint_version" : ""})
+    SELECT id, '${json}', ${layoutRevision}, now(), now()${ref ? `, '${layout.template}', ${blueprintVersion}` : ""} FROM groups WHERE id IN (${groupIds.join(", ")})
+    ON CONFLICT (group_id) DO UPDATE SET room_json = EXCLUDED.room_json, revision = EXCLUDED.revision, updated_at = now()
+      ${ref ? ", blueprint_template_key = EXCLUDED.blueprint_template_key, blueprint_version = EXCLUDED.blueprint_version" : ""};`,
   environments[environment].databaseName);
 }
 
@@ -77,7 +81,7 @@ async function startDatabase() {
   }, "PostgreSQL startup", 30000);
   const migrations = path.join(root, "backend/src/main/resources/db/migration");
   const schema = [];
-  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql", "V45__versioned_space_blueprints.sql"]) {
+  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql"]) {
     schema.push(await readFile(path.join(migrations, file), "utf8"));
   }
   for (const { databaseName, reader, password } of Object.values(environments)) {
@@ -95,9 +99,7 @@ async function startDatabase() {
       GRANT SELECT (id, status, type) ON groups TO ${reader};
       GRANT SELECT (id, crew_name, withdrawn_at) ON member TO ${reader};
       GRANT SELECT (group_id, member_id, role) ON group_member TO ${reader};
-      GRANT SELECT (group_id, room_json, revision, blueprint_template_key, blueprint_version) ON group_space TO ${reader};
-      GRANT SELECT (template_key, blueprint_version, geometry_schema_version, geometry) ON space_blueprint TO ${reader};
-      GRANT SELECT (template_key, blueprint_version) ON space_blueprint_default TO ${reader};
+      GRANT SELECT (group_id, room_json, revision) ON group_space TO ${reader};
       GRANT SELECT (${avatarColumns}) ON member_avatar TO ${reader};
     `, databaseName);
   }
@@ -130,18 +132,61 @@ async function startDatabase() {
   saveLayout();
   saveLayout([1], productionRoom, productionRevision, "prod");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
-    const blueprint = environment === "dev"
-      ? `jsonb_set(geometry, '{walls}', geometry->'walls' || '[{"x":-2,"z":6.8,"width":1,"depth":1,"height":2}]'::jsonb)`
-      : "geometry";
     sql(`INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
-        VALUES (11, now(), now(), 'Fixture', 'Blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE');
-      INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
-        SELECT 'lounge', 13, 1, ${blueprint} FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 11;`, databaseName);
-    saveLayout([11], { ...room, items: [] }, 1, environment, 13);
+        VALUES (11, now(), now(), 'Fixture', 'Cutover room', 'ACTIVE', 'CLUB', 'OFFLINE'),
+               (12, now(), now(), 'Fixture', 'Cold blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE');`, databaseName);
+    saveLayout([11, 12], { ...room, items: [] }, 1, environment);
   }
+  sql(`INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
+    VALUES (13, now(), now(), 'Fixture', 'Same revision room', 'ACTIVE', 'CLUB', 'OFFLINE');`);
+  saveLayout([13], { ...room, items: [{ id: "kept-sofa", kind: "sofa", x: 3, z: 0, rotation: 1 }] }, 1);
   const dbPort = docker(["port", database, "5432/tcp"]).trim().match(/^127\.0\.0\.1:(\d+)$/)?.[1];
   assert.ok(dbPort, "PostgreSQL fixture must bind to a dynamic loopback port");
   return dbPort;
+}
+
+async function migrateBlueprints(environment, wallWidth) {
+  const { databaseName, reader } = environments[environment];
+  const migration = await readFile(path.join(root, "backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql"), "utf8");
+  // Only this test room gets a different wall at cutover. The real migration runs unchanged;
+  // its seeded geometry normally matches the bundled layout, so it would not expose a skipped refresh.
+  const sameRevisionFixture = environment === "dev" ? `
+    INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+      SELECT 'lounge', 16, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '[{"x":-2,"z":6.8,"width":1,"depth":1,"height":2}]'::jsonb)
+      FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 11;
+    UPDATE group_space SET blueprint_version = 16 WHERE group_id = 13;` : "";
+  const start = serverLog.length;
+  sql(`BEGIN;
+    ${migration}
+    ${sameRevisionFixture}
+    GRANT SELECT (blueprint_template_key, blueprint_version) ON group_space TO ${reader};
+    GRANT SELECT (template_key, blueprint_version, geometry_schema_version, geometry) ON space_blueprint TO ${reader};
+    GRANT SELECT (template_key, blueprint_version) ON space_blueprint_default TO ${reader};
+    GRANT SELECT (version) ON space_blueprint_migration TO ${reader};
+    COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_blueprint_migration;", databaseName).trim(), "1");
+  assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 11;", databaseName).trim(), "lounge:11");
+  // The JVM must observe the committed marker before any readiness call, user traffic, or room revision change.
+  const switched = `Realtime blueprint source environment=${environment.toUpperCase()} source=DATABASE`;
+  await waitFor(() => serverLog.slice(start).includes(switched), `${environment} switched without incoming requests`, 25000);
+  const blocker = JSON.stringify([{ x: -2, z: 6.8, width: wallWidth, depth: wallWidth, height: 2 }]);
+  sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+    SELECT 'lounge', version, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '${blocker}'::jsonb)
+    FROM space_blueprint CROSS JOIN (VALUES (13), (15)) AS published(version)
+    WHERE template_key = 'lounge' AND blueprint_version = 11;`, databaseName);
+  saveLayout([11], { ...room, items: [] }, 2, environment, 13);
+  saveLayout([12], { ...room, items: [] }, 2, environment, 15);
+}
+
+function assertLegacySchema(environment) {
+  const { databaseName } = environments[environment];
+  const shape = sql(`SELECT
+    to_regclass('public.space_blueprint_migration') IS NULL AND
+    to_regclass('public.space_blueprint') IS NULL AND
+    to_regclass('public.space_blueprint_default') IS NULL AND NOT EXISTS (
+      SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'group_space'
+        AND column_name IN ('blueprint_template_key', 'blueprint_version'));`, databaseName);
+  assert.equal(shape.trim(), "t");
 }
 
 function startServer(dbPort, extraArgs = []) {
@@ -155,7 +200,7 @@ function startServer(dbPort, extraArgs = []) {
   }
   const allowedOrigins = ["http://localhost:5193", "http://127.0.0.1:5193"];
   if (browserPreview) allowedOrigins.push(browserPreview.originUrl);
-  const child = spawn(java, ["-jar", path.join(root, "realtime/build/libs", jarName),
+  const child = spawn(java, ["-jar", candidateJar,
     "--server.port=0", "--realtime.refresh-interval-ms=200", "--realtime.reconnect-grace-ms=3000",
     `--realtime.allowed-origins=${allowedOrigins.join(",")}`, ...extraArgs], {
     cwd: root,
@@ -202,7 +247,8 @@ async function connect(url, memberId, roomId = "1", options = {}) {
   socket.send(JSON.stringify({ type: "AUTH_JOIN", protocolVersion: 1, token: token(memberId, roomId, options) }));
   if (options.expectedError) {
     await waitFor(() => client.close || client.state, "access denied closes connection");
-    assert.deepEqual(client.close, { code: 4001, reason: options.expectedError });
+    assert.deepEqual(client.close, { code: options.expectedCloseCode ?? 4001, reason: options.expectedError });
+    assert.equal(client.state, null);
     return client;
   }
   await waitFor(() => client.state || client.closed || client.messages.find((message) => message.type === "ERROR"), "initial snapshot");
@@ -216,6 +262,17 @@ function context(client) {
 
 function participant(client, memberId) {
   return client.state.participants.find((entry) => entry.memberId === memberId);
+}
+
+async function checkLiveRoom(client, initial, revision) {
+  await waitFor(() => client.state.layoutRevision === revision, `layout revision ${revision} on the original socket`);
+  const start = client.messages.length;
+  client.socket.send(JSON.stringify({ type: "RESYNC", ...context(client) }));
+  const snapshot = await waitFor(() => client.messages.slice(start).find(message => message.type === "ROOM_SNAPSHOT"), "fresh snapshot on the original socket");
+  assert.equal(snapshot.roomEpoch, initial.roomEpoch);
+  assert.equal(snapshot.connectionGeneration, initial.connectionGeneration);
+  assert.equal(snapshot.layoutRevision, revision);
+  return snapshot.participants.find(actor => actor.memberId === "101").position;
 }
 
 async function command(client, payload, extra = {}) {
@@ -238,12 +295,10 @@ try {
     const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "blueprint preflight", 45000);
     return exitCode.code;
   }
+  assertLegacySchema("dev");
+  assertLegacySchema("prod");
   assert.equal(await checkBlueprints(), 0);
-  const { reader: prodReader, databaseName: prodDb } = environments.prod;
-  sql(`REVOKE SELECT (blueprint_version) ON space_blueprint_default FROM ${prodReader};`, prodDb);
-  assert.notEqual(await checkBlueprints(), 0);
-  sql(`GRANT SELECT (blueprint_version) ON space_blueprint_default TO ${prodReader};`, prodDb);
-  receipt.push("candidate image checks both blueprint catalogs and fails before deployment when production reader grants are missing");
+  receipt.push("the candidate preflight accepts two pre-V45 databases without blueprint tables or room reference columns");
   serverLog = "";
   server = startServer(dbPort);
   const port = await waitFor(() => {
@@ -268,12 +323,81 @@ try {
   const url = `ws://127.0.0.1:${port}/ws/realtime`;
   const devMap = await connect(url, "101", "11");
   const prodMap = await connect(url, "101", "11", { environment: "prod" });
-  const devStart = participant(devMap, "101").position, prodStart = participant(prodMap, "101").position;
-  assert.deepEqual(prodStart, { x: -2, y: 0, z: 6.8 });
-  assert.notDeepEqual(devStart, prodStart);
+  const pid = server.pid, devInitial = context(devMap), prodInitial = context(prodMap);
+  const legacySpawn = { x: -2, y: 0, z: 6.8 };
+  assert.deepEqual(await checkLiveRoom(devMap, devInitial, 1), legacySpawn);
+  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
+  receipt.push("development and production join with bundled lounge geometry and the old group_space schema");
+
+  const stable = await connect(url, "101", "13");
+  const stableInitial = context(stable);
+  assert.deepEqual(await checkLiveRoom(stable, stableInitial, 1), legacySpawn);
+  const originalRow = sql("SELECT revision, room_json FROM group_space WHERE group_id = 13;");
+  await migrateBlueprints("dev", 1);
+  await waitFor(() => participant(stable, "101").position.x !== legacySpawn.x ||
+    participant(stable, "101").position.z !== legacySpawn.z, "active room adopts DB geometry with unchanged revision");
+  assert.notDeepEqual(await checkLiveRoom(stable, stableInitial, 1), legacySpawn);
+  assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 13;"), originalRow);
+  stable.socket.close(1000, "LEAVE");
+  receipt.push("an active development socket adopts a test-only DB wall and keeps its room epoch, connection, revision and exact saved furniture JSON");
+  assertLegacySchema("prod");
+  const devStart = await checkLiveRoom(devMap, devInitial, 2);
+  assert.equal((await checkHealth()).status, 200);
+  assert.notDeepEqual(devStart, legacySpawn);
+  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
+  assert.equal(await checkBlueprints(), 0);
+  receipt.push("only development switches to its published colliding wall, production keeps its bundled layout and both sockets keep their identity");
+
+  const { databaseName: devDb, reader: devReader } = environments.dev;
+  sql(`REVOKE SELECT (geometry) ON space_blueprint FROM ${devReader};`, devDb);
+  assert.equal((await checkHealth()).status, 503);
+  await connect(url, "101", "12", { expectedError: "BACKEND_UNAVAILABLE", expectedCloseCode: 4004 });
+  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
+  sql(`GRANT SELECT (geometry) ON space_blueprint TO ${devReader};`, devDb);
+  assert.equal((await checkHealth()).status, 200);
+  const recovered = await connect(url, "101", "12");
+  assert.deepEqual(participant(recovered, "101").position, devStart);
+  recovered.socket.close(1000, "LEAVE");
+  receipt.push("a migrated development reader denied geometry cannot join a cold room through the bundled layout and recovers on grant restoration");
+
+  await migrateBlueprints("prod", 3);
+  const prodStart = await checkLiveRoom(prodMap, prodInitial, 2);
+  assert.equal((await checkHealth()).status, 200);
+  assert.notDeepEqual(prodStart, legacySpawn);
+  assert.notDeepEqual(prodStart, devStart);
+  assert.deepEqual(await checkLiveRoom(devMap, devInitial, 2), devStart);
+  assert.equal(server.pid, pid);
+  assert.equal(server.exitCode, null);
+  receipt.push("production switches later to its own geometry with the same key and version, on the same server process and original WebSockets");
+
+  const { reader: prodReader, databaseName: prodDb } = environments.prod;
+  sql(`REVOKE SELECT (blueprint_version) ON space_blueprint_default FROM ${prodReader};`, prodDb);
+  assert.notEqual(await checkBlueprints(), 0);
+  sql(`GRANT SELECT (blueprint_version) ON space_blueprint_default TO ${prodReader};`, prodDb);
+  // Terminate only the production reader's connections, and prevent Hikari from immediately opening new ones.
+  sql(`ALTER DATABASE ${prodDb} ALLOW_CONNECTIONS false;
+    SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${prodDb}' AND usename = '${prodReader}';`, "postgres");
+  try {
+    const [unaffected, , failedHealth] = await Promise.all([
+      connect(url, "102", "11"), connect(url, "101", "12", { environment: "prod", expectedError: "BACKEND_UNAVAILABLE", expectedCloseCode: 4004 }),
+      checkHealth()
+    ]);
+    assert.equal(failedHealth.status, 503);
+    assert.equal(unaffected.state.layoutRevision, 2);
+    assert.deepEqual(participant(unaffected, "101").position, devStart);
+    assert.deepEqual(await checkLiveRoom(devMap, devInitial, 2), devStart);
+    unaffected.socket.close(1000, "LEAVE");
+  } finally {
+    sql(`ALTER DATABASE ${prodDb} ALLOW_CONNECTIONS true;`, "postgres");
+  }
+  assert.equal(await checkBlueprints(), 0);
+  assert.equal((await checkHealth()).status, 200);
+  const restored = await connect(url, "101", "12", { environment: "prod" });
+  assert.deepEqual(participant(restored, "101").position, prodStart);
+  restored.socket.close(1000, "LEAVE");
   devMap.socket.close(1000, "LEAVE");
   prodMap.socket.close(1000, "LEAVE");
-  receipt.push("database-only lounge blueprint 13 controls collision independently in dev and prod for the same version 11 room document");
+  receipt.push("a production PostgreSQL disconnection after cutover refuses a new production admission while a new development admission succeeds, and the same JVM recovers when production reconnects");
   await connect(url, "101", "3", { expectedError: "ACCESS_DENIED" });
   await connect(url, "101", "4", { expectedError: "ACCESS_DENIED" });
   await connect(url, "999", "1", { expectedError: "ACCESS_DENIED" });
@@ -471,4 +595,5 @@ try {
   }
   await writeFile(path.join(evidence, "server.log"), serverLog);
   if (databaseStarted) docker(["rm", "-f", database]);
+  await unlink(candidateJar);
 }

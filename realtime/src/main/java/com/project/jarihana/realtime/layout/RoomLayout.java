@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.Map;
 import tools.jackson.databind.JsonNode;
 
-public record RoomLayout(long revision, Map<String, RoomAsset> assets, JsonNode geometry, Vec3 arrival, JsonNode itemRules) {
+public record RoomLayout(long revision, Map<String, RoomAsset> assets, JsonNode geometry, Vec3 arrival, JsonNode itemRules,
+        Origin origin) {
+    public enum Origin { BUNDLED, DATABASE }
+
     public RoomLayout { assets = Map.copyOf(assets); }
 
     public boolean itemCapability(String kind, String capability) { return itemRules.path(kind).path(capability).asBoolean(false); }

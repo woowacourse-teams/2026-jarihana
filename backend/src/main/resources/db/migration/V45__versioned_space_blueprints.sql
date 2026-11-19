@@ -144,3 +144,9 @@ ON group_space FOR EACH ROW EXECUTE FUNCTION match_legacy_space_blueprint();
 ALTER TABLE group_space
     ALTER COLUMN blueprint_template_key SET NOT NULL,
     ALTER COLUMN blueprint_version SET NOT NULL;
+
+-- Realtime readers switch this database only after the whole Flyway transaction commits.
+CREATE TABLE space_blueprint_migration (
+    version INTEGER PRIMARY KEY CHECK (version = 1)
+);
+INSERT INTO space_blueprint_migration (version) VALUES (1);

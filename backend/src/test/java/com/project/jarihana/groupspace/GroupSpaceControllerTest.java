@@ -22,6 +22,7 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.specification.RequestSpecification;
+import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.Set;
@@ -194,8 +195,33 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                         insert.executeUpdate();
                     }
 
-                    // When / Then
-                    statement.execute(blueprints);
+                    // An unmapped historical room rolls back V45, including its readiness marker.
+                    statement.execute("""
+                            INSERT INTO group_space (group_id, room_json, revision, created_at, updated_at)
+                            VALUES (2, '{"template":"lounge","version":999}', 1, now(), now())
+                            """);
+                    assertThatThrownBy(() -> statement.execute(blueprints))
+                            .isInstanceOfSatisfying(SQLException.class,
+                                    exception -> assertThat(exception.getSQLState()).isEqualTo("23503"));
+                    String markerMissing = """
+                            SELECT to_regclass('space_blueprint_migration_test.space_blueprint_migration') IS NULL
+                            """;
+                    assertThat(jdbc.queryForObject(markerMissing, Boolean.class)).isTrue();
+                    statement.execute("DELETE FROM group_space WHERE group_id = 2");
+
+                    // When / Then: another session sees the marker only after the entire migration commits.
+                    connection.setAutoCommit(false);
+                    try {
+                        statement.execute(blueprints);
+                        assertThat(jdbc.queryForObject(markerMissing, Boolean.class)).isTrue();
+                        connection.commit();
+                    } finally {
+                        connection.rollback();
+                        connection.setAutoCommit(true);
+                    }
+                    assertThat(jdbc.queryForList("""
+                            SELECT version FROM space_blueprint_migration_test.space_blueprint_migration
+                            """, Integer.class)).containsExactly(1);
                     try (var rows = statement.executeQuery("""
                             SELECT room_json,revision,updated_at::date,blueprint_template_key,blueprint_version
                             FROM group_space

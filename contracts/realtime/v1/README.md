@@ -94,7 +94,7 @@ participant.position은 착석 시 seat.position과 같다. seat.approach는 일
 - asset-capabilities.json은 종류별 capability·로컬 앵커 설정이다. 같은 종류도 배치 인스턴스 ID는 다르다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
 - 좌석 y는 좌판 높이이며 avatarOffsetY는 캐릭터 원점 보정이다. 서버 좌석의 worldY는 배치 elevation + y*scaleY + avatarOffsetY로 계산한다. 화면에서는 `seatFit`으로 좌판 앞쪽과 팔걸이 간격에 맞춰 착석 위치를 보정한다. 좁거나 낮은 가구에서는 앉아 있는 동안만 캐릭터를 줄인다.
-- `space-runtime.json`은 플레이어·가구 규격과 미저장 기본 배치를 제공한다. 벽·층·통로는 환경 DB에서 모임이 참조하는 불변 도면 버전을 읽는다. 미저장 방문자는 단층 기본 도면 `lounge:11`을 사용한다. 서버가 브라우저가 보낸 앵커나 capability를 신뢰하지 않는다.
+- `space-runtime.json`은 플레이어·가구 규격과 미저장 기본 배치를 제공한다. 아직 이관 전인 환경의 벽·층·통로는 같은 파일의 `layouts`에서 기존 문서 버전으로 읽는다. 환경 DB에 완료 표시가 있고 서버 계정으로 도면을 읽으면 해당 환경은 모임에 연결된 불변 DB 도면을 사용한다. 미저장 방문자는 단층 기본 도면 `lounge:11`을 사용한다. 서버가 브라우저가 보낸 앵커나 capability를 신뢰하지 않는다.
 - 좌석을 옮기거나 삭제·종류 변경하면 점유를 해제하고 유효한 위치로 보정한다.
 - surface slot은 `surface-anchors.json`에 있는 종류별 로컬 x·y·z 배열의 인덱스이며 한 위치에 하나의 물건을 둔다. 좌표는 소품 밑면을 받치는 위치다. 가구 이동·회전·크기 변경 뒤 같은 종류·슬롯이 남으면 새 월드 좌표로 옮긴다. 삭제/종류 변경/기능 제거 시 안전한 바닥으로 옮긴다. storage 용량과 편집기에서 저장한 장식의 높이 배열은 별개다.
 - 선반에 놓인 소품은 같은 층에서 가구에 다가가 집을 수 있다. 높은 선반은 가구 메뉴에서도 소품을 집을 수 있다. 카페 음료 생성도 동일한 배치 좌표를 사용한다.
