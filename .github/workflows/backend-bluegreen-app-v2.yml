@@ -21,8 +21,9 @@ permissions:
 jobs:
   operation:
     if: >-
-      github.event_name == 'workflow_dispatch' && github.repository == 'woowacourse-teams/2026-jarihana' && github.ref == 'refs/heads/main' &&
-      github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy.yml@refs/heads/main' &&
+      github.repository == 'woowacourse-teams/2026-jarihana' && github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'push' && github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy-v2.yml@refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy.yml@refs/heads/main')) &&
       (inputs.slot == 'A' || inputs.slot == 'B') && (inputs.lane == 'old' || inputs.lane == 'target')
     name: ${{ inputs.lane == 'old' && '기존 앱 서버' || '새 앱 서버' }}
     runs-on: [ "${{ vars[format('BLUE_GREEN_PROD_{0}_RUNNER', inputs.slot)] }}" ]

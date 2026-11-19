@@ -12,6 +12,7 @@
 ## 실제 실행과 저널
 
 ```sh
+gh run list --workflow backend-prod-deploy-v2.yml --branch main --limit 5
 gh run list --workflow backend-prod-deploy.yml --branch main --limit 5
 # 실제 실행 번호를 입력한다.
 read -r RUN_ID
