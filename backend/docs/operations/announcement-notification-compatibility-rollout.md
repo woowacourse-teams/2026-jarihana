@@ -1,5 +1,9 @@
 # 공지 알림 호환성 전환
 
+이 문서는 공지 알림 도입 당시의 선행 배포 절차를 기록한다. 후속 버전에서는 종 알림함의
+목록·안 읽은 수·전체 읽음에 공지 알림을 기본으로 포함한다. 개별 알림 상세와 푸시에는
+클라이언트 버전 조건을 적용한다. [현재 알림 API 계약](../context/api/endpoints/notifications.md)을 따른다.
+
 ## Flyway 순서
 
 회원 소속 확장 PR [#481](https://github.com/woowacourse-teams/2026-jarihana/pull/481)의 V11을 먼저 반영합니다. #484는 이미 #481 브랜치에 병합되어 있으며 별도 migration을 추가하지 않습니다. 이후 선행 호환성 PR [#490](https://github.com/woowacourse-teams/2026-jarihana/pull/490)의 V12 구독 지원 버전과 후속 공지 기능 PR [#459](https://github.com/woowacourse-teams/2026-jarihana/pull/459)의 V13 공지 스키마를 순서대로 반영합니다. **#481 V11 → #490 V12 → #459 V13** 순서를 지킵니다.
@@ -28,7 +32,7 @@
 과거 태그를 지정하는 수동 배포도 같은 제한을 따른다. 이 문서는 배포를 자동 실행하거나
 공유 환경의 값을 바꾸지 않는다.
 
-## 브라우저와 Service Worker
+## 도입 당시 브라우저와 Service Worker
 
 - 알림 목록·상세·안 읽은 수·푸시 내용 조회와 전체 읽음의 `clientVersion`은 기본 1, 지원 값은 1과 2다.
 - 새 프론트와 SW는 2를 요청한다. 서버는 enum·payload를 해석하고 공지 target을 반환한다.
@@ -45,7 +49,7 @@
 `clientVersion`은 인증이나 권한이 아니다. 본인 알림과 활성 구독의 회원·generation
 검증을 유지하고, 공지 제목·본문을 알림 payload에 넣지 않는다.
 
-## 검증
+## 도입 당시 검증
 
 `AnnouncementReadCompatibilityAcceptanceTest`는 테스트 전용 위치의 후속 V13 SQL로
 실제 PostgreSQL 스키마를 먼저 준비한다. 이후 호환 앱의 원래 migration 위치·기본

@@ -41,7 +41,6 @@ public class NotificationQueryService {
         Cursor cursor = decode(query.cursor());
         Slice<NotificationProjection> page = notifications.findPage(memberId,
                 cursor == null ? null : cursor.createdAt(), cursor == null ? null : cursor.id(),
-                query.clientVersion().includesAnnouncements(),
                 PageRequest.of(0, query.size()));
         List<NotificationProjection> items = page.getContent();
         String next = page.hasNext() ? encode(items.getLast()) : null;
@@ -96,9 +95,9 @@ public class NotificationQueryService {
                 .collect(Collectors.toMap(NotificationGroupProjection::id, NotificationGroupProjection::name));
     }
 
-    public long countUnreadNotifications(long memberId, NotificationClientVersion clientVersion) {
+    public long countUnreadNotifications(long memberId) {
         requireMember(memberId);
-        return notifications.countUnread(memberId, clientVersion.includesAnnouncements());
+        return notifications.countUnread(memberId);
     }
 
     private void requireMember(long memberId) {
