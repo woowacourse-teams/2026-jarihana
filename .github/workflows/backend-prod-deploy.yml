@@ -92,7 +92,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
       needs.release-enabled.outputs.engine == 'V2' &&
-      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')
+      inputs.blue_green_mode == 'deploy'
     permissions:
       contents: read
       packages: read
@@ -103,8 +103,24 @@ jobs:
       frontend_only: ${{ inputs.frontend_only || false }}
       backend_only: ${{ inputs.backend_only || false }}
       image_tag: ${{ inputs.image_tag }}
-      mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit
+
+  bootstrap-v2:
+    name: 수동 V2 최초 등록
+    needs: release-enabled
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
+      needs.release-enabled.outputs.engine == 'V2' &&
+      inputs.blue_green_mode == 'bootstrap'
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-bootstrap-v2.yml
+    with:
+      frontend_only: ${{ inputs.frontend_only || false }}
+      backend_only: ${{ inputs.backend_only || false }}
+      image_tag: ${{ inputs.image_tag }}
 
   release-summary:
     needs: [release-enabled, blue-green]

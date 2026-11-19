@@ -46,7 +46,7 @@ check_engine workflow_dispatch V1 V1
 check_engine workflow_dispatch V2 V2
 if GITHUB_EVENT_NAME=workflow_dispatch SELECTED=unknown GITHUB_OUTPUT="$TEST_DIR/engine-output" bash "$TEST_DIR/engine.sh"; then exit 1; fi
 echo 'PASS release-workflow main 자동 배포는 V2 한 번, 수동 배포는 V1 또는 V2'
-extract "$ROOT/.github/workflows/backend-bluegreen-deploy-v2.yml" '"$GITHUB_WORKFLOW_REF"' "$TEST_DIR/v2-gate.sh"
+extract "$ROOT/.github/workflows/backend-bluegreen-prepare-v2.yml" '"$GITHUB_WORKFLOW_REF"' "$TEST_DIR/v2-gate.sh"
 (
   export GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana GITHUB_REF=refs/heads/main BG_ENVIRONMENT=prod
   export GITHUB_EVENT_NAME=push MODE=deploy ENABLED=true
@@ -59,8 +59,11 @@ extract "$ROOT/.github/workflows/backend-bluegreen-deploy-v2.yml" '"$GITHUB_WORK
   GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy.yml@refs/heads/main"
   if bash -e "$TEST_DIR/v2-gate.sh"; then exit 1; fi
   GITHUB_EVENT_NAME=workflow_dispatch
+  export REQUESTED_MODE=deploy
   bash -e "$TEST_DIR/v2-gate.sh"
   MODE=bootstrap ENABLED=false
+  if bash -e "$TEST_DIR/v2-gate.sh"; then exit 1; fi
+  export REQUESTED_MODE=bootstrap
   bash -e "$TEST_DIR/v2-gate.sh"
 )
 echo 'PASS release-workflow V2 호출 파일, 이벤트, 운영 허용 여부 확인'

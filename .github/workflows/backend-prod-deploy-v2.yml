@@ -22,6 +22,7 @@ on:
       - ".github/workflows/backend-prod-deploy-v2.yml"
       - ".github/workflows/backend-bluegreen-deploy-v2.yml"
       - ".github/workflows/backend-bluegreen-app-v2.yml"
+      - ".github/workflows/backend-bluegreen-prepare-v2.yml"
 
 permissions:
   contents: read
@@ -40,5 +41,4 @@ jobs:
     uses: ./.github/workflows/backend-bluegreen-deploy-v2.yml
     with:
       environment: prod
-      mode: deploy
     secrets: inherit

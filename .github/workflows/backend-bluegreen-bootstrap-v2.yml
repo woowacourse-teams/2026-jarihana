@@ -1,0 +1,129 @@
+name: 수동 운영 워커 최초 등록
+on:
+  workflow_call:
+    inputs:
+      frontend_only:
+        type: boolean
+        default: false
+        description: 현재 백엔드를 유지하고 프론트만 배포
+      backend_only:
+        type: boolean
+        default: false
+        description: 현재 프론트를 유지하고 백엔드만 배포
+      image_tag:
+        type: string
+        default: ""
+        description: 운영 커밋의 백엔드 트리와 대조할 이미지 태그
+permissions:
+  contents: read
+  actions: read
+  packages: read
+concurrency:
+  group: jarihana-observed-deployment
+  cancel-in-progress: false
+  queue: max
+jobs:
+  prepare:
+    name: 배포 준비
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event.inputs.blue_green_mode == 'bootstrap'
+    uses: ./.github/workflows/backend-bluegreen-prepare-v2.yml
+    with:
+      environment: prod
+      mode: bootstrap
+      frontend_only: ${{ inputs.frontend_only }}
+      backend_only: ${{ inputs.backend_only }}
+      image_tag: ${{ inputs.image_tag }}
+  guardian:
+    name: 러너 대기 감시
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BG_COMPACT_WORKFLOW: "true"
+      BG_MODE: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+        name: 배포 커밋 가져오기
+      - name: 전용 runner queue와 전체 실행 기한 감시
+        shell: bash
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/queue-guard.sh
+          exec bash "$script"
+  plan:
+    name: 최초 등록 계획
+    needs: prepare
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    with:
+      environment: prod
+      mode: bootstrap
+      phase: plan
+      digest: ${{ needs.prepare.outputs.digest }}
+  bootstrap:
+    name: 기존 앱 초기 등록
+    needs: [ prepare, plan ]
+    runs-on: [ "${{ vars[format('BLUE_GREEN_PROD_{0}_RUNNER', needs.plan.outputs.old)] }}" ]
+    environment: prod
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    outputs:
+      result: ${{ steps.operation.outputs.result }}
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: bootstrap
+      BG_SLOT: ${{ needs.plan.outputs.old }}
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 기존 앱 초기 등록 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/app.sh bootstrap
+        id: operation
+  finish-bootstrap:
+    name: 초기 등록 확정
+    needs: [ prepare, plan, bootstrap ]
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    with:
+      environment: prod
+      mode: bootstrap
+      phase: finish-bootstrap
+      digest: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      app_result: ${{ needs.bootstrap.outputs.result }}
+  interrupt:
+    name: 중단 상태 보존
+    needs: [ prepare, plan, finish-bootstrap ]
+    if: always() && needs.plan.result == 'success' && needs.finish-bootstrap.result != 'success'
+    uses: ./.github/workflows/backend-bluegreen-phase.yml
+    with:
+      environment: prod
+      mode: bootstrap
+      phase: interrupt
+      digest: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+  result:
+    name: 초기 등록 결과
+    if: always()
+    needs: [ finish-bootstrap, interrupt ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: 최초 등록 확정 여부 기록
+        shell: bash
+        env:
+          CONFIRMED: ${{ needs.finish-bootstrap.result }}
+        run: |
+          echo "기존 앱의 워커 권한 최초 등록 결과는 $CONFIRMED 입니다." >> "$GITHUB_STEP_SUMMARY"
+          test "$CONFIRMED" = success

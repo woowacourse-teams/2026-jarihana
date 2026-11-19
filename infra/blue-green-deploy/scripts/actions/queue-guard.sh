@@ -35,7 +35,10 @@ main() {
      ${GITHUB_RUN_ATTEMPT:-} == 1 && ${GITHUB_SHA:-} =~ ^[a-f0-9]{40}$ &&
      ${GH_TOKEN:-} =~ ^[A-Za-z0-9_.-]+$ ]] || { echo 'Invalid guardian context' >&2; return 1; }
   local terminal=deployment-result
-  [[ ${BG_COMPACT_WORKFLOW:-false} != true ]] || terminal="배포 결과"
+  if [[ ${BG_COMPACT_WORKFLOW:-false} == true ]]; then
+    terminal="배포 결과"
+    [[ ${BG_MODE:-deploy} != bootstrap ]] || terminal="초기 등록 결과"
+  fi
   local run jobs now started previous id label terminal_count identity_errors
   declare -A first_seen=() queued=()
   started=$(q_now); previous=$started
