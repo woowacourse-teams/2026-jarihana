@@ -14,13 +14,13 @@ final class BlueprintSchema {
     enum Source { BUNDLED, DATABASE, UNAVAILABLE }
 
     // The legacy SELECT checks the same MVCC snapshot as the saved room.
-    // pg_attribute also sees pins for which the reader has not received grants yet.
+    // group_space is mandatory even before V45. A missing/inaccessible schema must fail this probe.
     static final String SCHEMA_PRESENT = """
             (to_regclass('space_blueprint_migration') IS NOT NULL
              OR to_regclass('space_blueprint') IS NOT NULL
              OR to_regclass('space_blueprint_default') IS NOT NULL
              OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute
-                        WHERE attrelid = to_regclass('group_space') AND NOT attisdropped
+                        WHERE attrelid = 'group_space'::regclass AND NOT attisdropped
                           AND attname IN ('blueprint_template_key', 'blueprint_version')))
             """;
     private static final String READ_DATABASE = """
@@ -72,6 +72,18 @@ final class BlueprintSchema {
         }
         if (current == Source.UNAVAILABLE) throw new DataRetrievalFailureException("Blueprint source unavailable for " + environment);
         return current;
+    }
+
+    Source schemaAppeared(RealtimeEnvironment environment) {
+        var state = states.get(environment);
+        synchronized (state) {
+            // Concurrent joins that saw the same migration share its first complete validation.
+            if (state.source == Source.BUNDLED) {
+                state.databaseObserved = true;
+                return verify(environment, false);
+            }
+            return source(environment);
+        }
     }
 
     Source verify(RealtimeEnvironment environment, boolean fullCheck) {

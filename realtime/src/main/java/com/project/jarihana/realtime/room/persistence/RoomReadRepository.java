@@ -99,7 +99,7 @@ public final class RoomReadRepository {
             return query.apply(source);
         } catch (SchemaAppeared changed) {
             // A V45 transaction committed between the last probe and this room read.
-            return query.apply(schema.verify(environment, false));
+            return query.apply(schema.schemaAppeared(environment));
         }
     }
 

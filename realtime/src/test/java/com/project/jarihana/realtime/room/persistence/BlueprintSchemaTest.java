@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CountDownLatch;
@@ -73,5 +75,22 @@ class BlueprintSchemaTest {
             }
             assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(BUNDLED);
         }
+    }
+
+    @Test
+    void roomReadsThatDetectedTheSameMigrationShareItsValidation() {
+        when(dev.sql(contains("to_regclass")).query(Boolean.class).single()).thenReturn(false);
+        var marker = mock(JdbcClient.StatementSpec.class, RETURNS_DEEP_STUBS);
+        var catalog = mock(JdbcClient.StatementSpec.class, RETURNS_DEEP_STUBS);
+        when(dev.sql(contains("FROM space_blueprint_migration"))).thenReturn(marker);
+        when(dev.sql(contains("WITH templates"))).thenReturn(catalog);
+        when(marker.query(Boolean.class).single()).thenReturn(true);
+        when(catalog.query(Boolean.class).single()).thenReturn(true);
+
+        assertThat(schema.source(DEV)).isEqualTo(BUNDLED);
+        assertThat(schema.schemaAppeared(DEV)).isEqualTo(DATABASE);
+        assertThat(schema.schemaAppeared(DEV)).isEqualTo(DATABASE);
+        verify(marker.query(Boolean.class), times(1)).single();
+        verify(catalog.query(Boolean.class), times(1)).single();
     }
 }
