@@ -1,0 +1,172 @@
+name: 운영 배포 대상과 빌드 준비
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: 운영 환경 이름(prod)
+      frontend_only:
+        type: boolean
+        default: false
+        description: 현재 백엔드를 유지하고 프론트만 배포
+      backend_only:
+        type: boolean
+        default: false
+        description: 현재 프론트를 유지하고 백엔드만 배포
+      image_tag:
+        type: string
+        default: ""
+        description: 운영 커밋의 백엔드 트리와 대조할 이미지 태그
+      mode:
+        type: string
+        default: deploy
+        description: 일반 배포(deploy) 또는 최초 등록(bootstrap)
+    outputs:
+      digest:
+        value: ${{ jobs.prepare.outputs.digest }}
+      frontend_only:
+        value: ${{ jobs.prepare.outputs.frontend_only }}
+      backend_only:
+        value: ${{ jobs.prepare.outputs.backend_only }}
+      artifact_id:
+        value: ${{ jobs.prepare.outputs.artifact_id }}
+permissions:
+  contents: read
+  packages: read
+jobs:
+  prepare:
+    name: 배포 대상 확인과 빌드
+    runs-on: ubuntu-24.04-arm
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
+      digest: ${{ steps.image.outputs.digest }}
+      frontend_only: ${{ steps.image.outputs.frontend_only }}
+      backend_only: ${{ steps.image.outputs.backend_only }}
+    steps:
+      - name: 운영 배포 허용 여부와 실행 경로 확인
+        env:
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          MODE: ${{ inputs.mode }}
+          REQUESTED_MODE: ${{ github.event.inputs.blue_green_mode }}
+          ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED }}
+        shell: bash
+        run: |-
+          [[ "$BG_ENVIRONMENT" == prod && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana ]]
+          case "$GITHUB_EVENT_NAME" in
+            push) caller=backend-prod-deploy-v2.yml ;;
+            workflow_dispatch)
+              [[ "$MODE" == "$REQUESTED_MODE" ]]
+              caller=backend-prod-deploy.yml
+              ;;
+            *) exit 1 ;;
+          esac
+          [[ "$GITHUB_WORKFLOW_REF" == "$GITHUB_REPOSITORY/.github/workflows/$caller@refs/heads/main" ]]
+          [[ "$MODE" == deploy || ( "$MODE" == bootstrap && "$GITHUB_EVENT_NAME" == workflow_dispatch ) ]]
+          [[ "$MODE" == bootstrap || "$ENABLED" == true ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+        name: 배포 커밋 가져오기
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/release-registry
+        name: 검증된 백엔드 이미지 저장소에 로그인
+      - name: 검증된 이미지의 고정 digest 선택
+        id: image
+        timeout-minutes: 10
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          DOCKER_CONFIG: ${{ runner.temp }}/release-registry
+          INPUT_TAG: ${{ inputs.image_tag }}
+          INPUT_FRONTEND_ONLY: ${{ inputs.frontend_only }}
+          INPUT_BACKEND_ONLY: ${{ inputs.backend_only }}
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          BG_MODE: ${{ inputs.mode }}
+          BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          RDS_URL: ${{ vars.RDS_URL }}
+          BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
+          BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/resolve.sh
+      - name: 프론트 도구 실행 전 이미지 저장소 인증 정리
+        if: always()
+        shell: bash
+        run: rm -rf -- "$RUNNER_TEMP/release-registry"
+      - name: Node.js 설정
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: 의존성 설치
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        working-directory: frontend
+        shell: bash
+        run: npm ci
+      - name: 정적 검사
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        working-directory: frontend
+        shell: bash
+        run: |
+          npm run lint
+      - name: 운영 환경 변수 확인
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        env:
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${APP_GITHUB_CLIENT_ID}"
+          test -n "${APP_GITHUB_REDIRECT_URI}"
+      - name: 프론트엔드 빌드
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        env:
+          APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+          APP_SENTRY_DSN: ${{ vars.SENTRY_FRONTEND_DSN }}
+          APP_SENTRY_RELEASE: ${{ github.sha }}
+          APP_OAUTH_COOKIE_NAME: oauthState
+          DISABLE_REACT_DEVTOOLS: "1"
+          APP_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+          APP_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          APP_ANALYTICS_ENABLED: ${{ vars.ANALYTICS_ENABLED || 'false' }}
+          APP_DEPLOY_ENV: production
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          npm run clean:sourcemaps
+          test -f dist/index.html
+          test -d dist/assets
+          test -s dist/sw.js
+          test -s dist/manifest.webmanifest
+          test -s dist/icons/pwa-192.png
+          test -s dist/icons/pwa-512.png
+      - name: 빌드 결과 올리기
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only != 'true'
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-release-${{ github.sha }}-${{ github.run_id }}
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 7
