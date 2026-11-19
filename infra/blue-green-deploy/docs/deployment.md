@@ -33,9 +33,8 @@
 
 ## 배포 실행
 
-운영 진입점은 [Production Release](../../../.github/workflows/backend-prod-deploy.yml)다.
-배포 대상 경로가 변경된 main push 또는 main의 수동 실행으로
-[공통 배포 workflow](../../../.github/workflows/backend-bluegreen-deploy.yml)를 호출한다.
+배포 대상 경로가 main에 반영되면 [Production Release V2](../../../.github/workflows/backend-prod-deploy-v2.yml)가 자동으로 실행된다.
+수동 배포는 [Production Release](../../../.github/workflows/backend-prod-deploy.yml)에서 V1 또는 V2를 선택한다. 기본값은 V1이다. 두 진입점은 같은 운영 배포 대기열을 사용한다.
 `BLUE_GREEN_PROD_ENABLED=true`여야 새 운영 배포를 진행한다. false 또는 미설정이면
 현재 서비스를 유지한 채 새 deploy를 차단한다. 기존 Recreate 배포로 자동 전환하지 않는다.
 명시적인 최초 `bootstrap`만 비활성 상태에서 허용한다. 준비 조건은 [최초 worker 등록](server-setup/README.md#최초-worker-등록)을 따른다.
