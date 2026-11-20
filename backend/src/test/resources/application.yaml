@@ -47,6 +47,7 @@ jarihana:
     frontend-origin: http://localhost:5173
     oauth-state-cookie-name: oauthState
     refresh-token-validity: P14D
+    refresh-token-reuse-grace: PT10S
     cookie:
       secure: false
       access-token-name: accessToken
