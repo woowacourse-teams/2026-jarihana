@@ -16,6 +16,7 @@ class AuthPropertiesTest {
     private static final String ORIGIN = "http://localhost:5173";
     private static final String STATE_COOKIE_NAME = "oauthState";
     private static final Duration VALIDITY = Duration.ofDays(14);
+    private static final Duration REUSE_GRACE = Duration.ofSeconds(10);
 
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -23,7 +24,7 @@ class AuthPropertiesTest {
     @Test
     void acceptCompleteProperties() {
         // Given
-        AuthProperties properties = new AuthProperties(ORIGIN, STATE_COOKIE_NAME, VALIDITY);
+        AuthProperties properties = new AuthProperties(ORIGIN, STATE_COOKIE_NAME, VALIDITY, REUSE_GRACE);
 
         // When
         Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);
@@ -36,7 +37,7 @@ class AuthPropertiesTest {
     @Test
     void rejectMissingRefreshTokenValidity() {
         // Given
-        AuthProperties properties = new AuthProperties(ORIGIN, STATE_COOKIE_NAME, null);
+        AuthProperties properties = new AuthProperties(ORIGIN, STATE_COOKIE_NAME, null, REUSE_GRACE);
 
         // When
         Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);
@@ -47,11 +48,26 @@ class AuthPropertiesTest {
                 .containsExactly("refreshTokenValidity");
     }
 
+    @DisplayName("Refresh Token 재사용 유예 시간이 없으면 위반으로 잡는다.")
+    @Test
+    void rejectMissingRefreshTokenReuseGrace() {
+        // Given
+        AuthProperties properties = new AuthProperties(ORIGIN, STATE_COOKIE_NAME, VALIDITY, null);
+
+        // When
+        Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);
+
+        // Then
+        assertThat(violations)
+                .extracting(violation -> violation.getPropertyPath().toString())
+                .containsExactly("refreshTokenReuseGrace");
+    }
+
     @DisplayName("state 쿠키 이름이 비면 위반으로 잡는다.")
     @Test
     void rejectBlankStateCookieName() {
         // Given
-        AuthProperties properties = new AuthProperties(ORIGIN, " ", VALIDITY);
+        AuthProperties properties = new AuthProperties(ORIGIN, " ", VALIDITY, REUSE_GRACE);
 
         // When
         Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);
@@ -69,7 +85,7 @@ class AuthPropertiesTest {
     @Test
     void rejectOriginWithoutScheme() {
         // Given
-        AuthProperties properties = new AuthProperties("localhost:5173", STATE_COOKIE_NAME, VALIDITY);
+        AuthProperties properties = new AuthProperties("localhost:5173", STATE_COOKIE_NAME, VALIDITY, REUSE_GRACE);
 
         // When
         Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);
@@ -87,7 +103,7 @@ class AuthPropertiesTest {
     @Test
     void rejectOriginWithTrailingSlash() {
         // Given
-        AuthProperties properties = new AuthProperties(ORIGIN + "/", STATE_COOKIE_NAME, VALIDITY);
+        AuthProperties properties = new AuthProperties(ORIGIN + "/", STATE_COOKIE_NAME, VALIDITY, REUSE_GRACE);
 
         // When
         Set<ConstraintViolation<AuthProperties>> violations = validator.validate(properties);

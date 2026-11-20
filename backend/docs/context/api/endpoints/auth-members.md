@@ -15,7 +15,7 @@ JSON 본문 `{ "pushSubscriptionId": 81, "generation": 1 }`을 전달한다.
 
 #### 부수 효과
 - 가입 전 사용자라면 가입 세션을 무효화한다.
-- 가입 회원이라면 Refresh Token을 폐기한다.
+- 가입 회원이라면 Refresh Token을 폐기한다. 회전된 이전 토큰까지 같은 로그인에서 이어진 토큰을 모두 지우고, 로그인 단위 패밀리에 로그아웃으로 폐기했다고 기록한다.
 - 선택적 푸시 본문이 있으면 현재 연결 버전을 검증하고 구독 해제·미완료 전송 취소·토큰 폐기를 같은 TX로 처리한다.
 
 #### 예외
@@ -49,14 +49,17 @@ Refresh Token을 인증 계약에서 확정한 위치로 전달한다. Request B
 
 #### 부수 효과
 - 새 Access Token을 `accessToken` HttpOnly 쿠키로 전달한다.
-- Refresh Token은 회전하지 않으며 기존 토큰을 유지한다.
+- Refresh Token을 회전한다. 새 Refresh Token을 `refreshToken` HttpOnly 쿠키로 함께 내리고, 요청에 쓴 토큰은 회전된 토큰으로 기록한다. 새 토큰의 만료는 로그인 때 정한 절대 만료(로그인 후 `refresh-token-validity`)를 그대로 물려받으며, 쿠키 `Max-Age`는 그때까지 남은 시간이다.
+- 회전된 토큰이 회전 후 `refresh-token-reuse-grace`(기본 10초) 안에 다시 오면 Access Token 쿠키만 내리고 Refresh Token 쿠키는 건드리지 않는다. 탭 여러 개가 같은 쿠키로 거의 동시에 갱신하는 경우다.
+- 회전된 토큰이 유예 시간 뒤에 다시 오면 사본이 있다는 증거로 보고, 최신 토큰까지 같은 로그인의 토큰을 모두 폐기한다. 응답은 아래 `REFRESH_TOKEN_INVALID`와 같으며 재사용을 감지했다는 사실은 드러내지 않는다.
+- 실패하면 Access Token과 Refresh Token 쿠키를 모두 만료시킨다.
 
 #### 예외
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | Refresh Token 없음 | `REFRESH_TOKEN_REQUIRED` | 401 |
-| Refresh Token 만료·위조 | `REFRESH_TOKEN_INVALID` | 401 |
+| Refresh Token 만료, 위조, 폐기 또는 유예 뒤 재사용 | `REFRESH_TOKEN_INVALID` | 401 |
 | 탈퇴 또는 존재하지 않는 회원 | `MEMBER_NOT_FOUND` | 404 |
 
 ### `POST /api/members`
