@@ -17,17 +17,13 @@ public interface GroupMemberListJpaRepository extends JpaRepository<GroupMember,
             select groupMember
             from GroupMember groupMember
             where groupMember.group.id = :groupId
-              and (
-                  cast(:cursorJoinedAt as LocalDateTime) is null
-                  or groupMember.joinedAt < :cursorJoinedAt
-                  or (groupMember.joinedAt = :cursorJoinedAt and groupMember.id < :cursorId)
-              )
+              and (groupMember.joinedAt, groupMember.id) < (:cursorJoinedAt, :cursorId)
             order by groupMember.joinedAt desc, groupMember.id desc
             """)
     Slice<GroupMember> findPage(
             @Param("groupId") Long groupId,
             @Param("cursorJoinedAt") LocalDateTime cursorJoinedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 }

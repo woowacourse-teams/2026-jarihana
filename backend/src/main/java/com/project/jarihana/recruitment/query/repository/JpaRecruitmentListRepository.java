@@ -1,5 +1,6 @@
 package com.project.jarihana.recruitment.query.repository;
 
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository.ApprovedRegistrationCount;
@@ -41,8 +42,8 @@ public class JpaRecruitmentListRepository implements RecruitmentListRepository {
     public RecruitmentListPage findPage(RecruitmentListSearchCriteria criteria, int size) {
         Slice<GroupRecruitment> recruitments = recruitmentRepository.findPageByGroupId(
                 criteria.groupId(),
-                criteria.cursorCreatedAt(),
-                criteria.cursorId(),
+                criteria.cursorCreatedAt() == null ? CursorBounds.LATEST_TIME : criteria.cursorCreatedAt(),
+                criteria.cursorCreatedAt() == null ? CursorBounds.LAST_ID : criteria.cursorId(),
                 Pageable.ofSize(size)
         );
         if (recruitments.isEmpty()) {

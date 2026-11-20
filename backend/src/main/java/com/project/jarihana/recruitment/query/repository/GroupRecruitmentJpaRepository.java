@@ -18,17 +18,13 @@ public interface GroupRecruitmentJpaRepository extends JpaRepository<GroupRecrui
             select recruitment
             from GroupRecruitment recruitment
             where recruitment.group.id = :groupId
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or recruitment.createdAt < :cursorCreatedAt
-                  or (recruitment.createdAt = :cursorCreatedAt and recruitment.id < :cursorId)
-              )
+              and (recruitment.createdAt, recruitment.id) < (:cursorCreatedAt, :cursorId)
             order by recruitment.createdAt desc, recruitment.id desc
             """)
     Slice<GroupRecruitment> findPageByGroupId(
             @Param("groupId") Long groupId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 

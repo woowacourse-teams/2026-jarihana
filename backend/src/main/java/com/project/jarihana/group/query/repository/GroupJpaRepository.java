@@ -27,11 +27,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                   or lower(g.name) like lower(concat('%', cast(:keyword as String), '%'))
                   or lower(g.introduction) like lower(concat('%', cast(:keyword as String), '%'))
               )
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or g.createdAt < :cursorCreatedAt
-                  or (g.createdAt = :cursorCreatedAt and g.id < :cursorId)
-              )
+              and (g.createdAt, g.id) < (:cursorCreatedAt, :cursorId)
               and (
                   :joinedOnly = false
                   or exists (
@@ -91,7 +87,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             @Param("sessionDate") LocalDate sessionDate,
             @Param("keyword") String keyword,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             @Param("joinedOnly") boolean joinedOnly,
             @Param("role") GroupMemberRole role,
             @Param("currentMemberId") Long currentMemberId,

@@ -45,18 +45,14 @@ public interface ActivityPostReactionQueryRepository extends JpaRepository<Activ
             join reaction.member member
             where reaction.post.id = :postId
               and reaction.emoji = :emoji
-              and (
-                  cast(:cursorReactedAt as LocalDateTime) is null
-                  or reaction.createdAt > :cursorReactedAt
-                  or (reaction.createdAt = :cursorReactedAt and reaction.id > :cursorId)
-              )
+              and (reaction.createdAt, reaction.id) > (:cursorReactedAt, :cursorId)
             order by reaction.createdAt asc, reaction.id asc
             """)
     List<ReactorProjection> findReactors(
             @Param("postId") long postId,
             @Param("emoji") ReactionEmoji emoji,
             @Param("cursorReactedAt") LocalDateTime cursorReactedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 
