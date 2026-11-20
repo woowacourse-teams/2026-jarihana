@@ -116,7 +116,7 @@ public class AuthCommandService {
      *
      * <p>유효 기간이 지난 토큰은 거부만 하고 지우지 않는다. 실패 응답과 함께 삭제하려면 예외로
      * 트랜잭션이 되돌아가는 것을 우회해야 하는데, 만료된 토큰은 더 이상 인증에 쓰이지 못하므로
-     * 급하지 않다. 정리 방법은 ADR 0001의 후속 작업으로 남아 있다.
+     * 급하지 않다. 만료된 행은 {@link RefreshTokenCleaner}가 주기적으로 지운다.
      */
     @Transactional
     public RefreshResult refresh(RefreshCommand command) {

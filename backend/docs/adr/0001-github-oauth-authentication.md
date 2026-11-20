@@ -9,6 +9,9 @@
   [ADR 0009](0009-aws-deployment-topology.md)가 단일 오리진 구성을 확정하면서 닫혔다.
 - 개정: 2026-09-02. 후속 작업 중 구현이 끝난 항목과 다른 ADR이 가져간 항목을 닫는다. 남은 것은
   만료 Refresh Token 정리뿐이다.
+- 개정: 2026-11-20. 마지막 후속 작업인 만료 Refresh Token 정리를 닫는다.
+  [백엔드 ADR 0031](0031-refresh-token-rotation-and-reuse-detection.md)이 갱신마다 회전하고 회전된 행을
+  남기기로 하면서 행이 갱신마다 늘어 정리가 필수가 되었다. 정리 방식은 후속 작업 항목에 적는다.
 
 ## 배경
 
@@ -51,8 +54,21 @@
 
 - ~~`POST /api/auth/refresh`와 `POST /api/auth/logout`은 이 저장소를 사용해 검증, 회전, 폐기를
   구현한다.~~ 완료. 두 엔드포인트 모두 `AuthCommandController`에 있다.
-- 만료된 Refresh Token을 정리하는 방법을 정한다. **아직 열려 있다.** 정리를 수행하는 코드가 없어
-  폐기된 토큰이 계속 쌓인다.
+- ~~만료된 Refresh Token을 정리하는 방법을 정한다.~~ **닫힘(2026-11-20).**
+  [`RefreshTokenCleaner`](../../src/main/java/com/project/jarihana/auth/command/service/RefreshTokenCleaner.java)가
+  1시간마다 다음 행을 지운다.
+  - 절대 만료(`absolute_expires_at`)에서 하루가 지난 패밀리와 그 패밀리의 토큰. 폐기된 패밀리도 같은
+    기준으로 지우므로 폐기 사유는 절대 만료 뒤 하루까지 남는다.
+  - 패밀리 없이 저장된 이전 행 중 `expires_at`에서 하루가 지난 행
+
+  살아 있는 패밀리의 회전된 토큰은 자기 `expires_at`이 지나도 재사용 감지에 쓰이므로 남긴다. 하루의
+  여유는 만료 직전에 시작한 갱신 요청이나 앱 사이의 시계 차이와 겹치지 않게 둔다. 패밀리와 이전 행을
+  한 트랜잭션에서 각각 최대 100개씩 지우고, 남은 대상은 같은 실행 안에서 새 트랜잭션으로 이어서
+  지운다. Blue와 Green이 함께 떠 있으면 양쪽에서 실행되지만 대상을 `FOR UPDATE SKIP LOCKED`로 잠가
+  나누므로 서로 기다리거나 같은 행을 두 번 지우지 않는다. 지우기만 하는 작업이라 푸시 워커 같은 처리
+  권한(`worker_authority`)은 쓰지 않는다.
+  주기, 여유 시간과 묶음 크기는 `jarihana.auth.refresh-token-cleanup` 설정을 따르며, 여러 컨텍스트가
+  DB를 함께 쓰는 테스트에서는 `enabled: false`로 끈다.
 - ~~운영 환경의 쿠키 도메인과 `Secure` 적용 범위를 배포 구성과 함께 확정한다.~~
   **닫힘(2026-08-27).** [ADR 0009](0009-aws-deployment-topology.md)가 CloudFront 단일 진입점을
   확정하면서 프론트엔드와 API가 같은 오리진이 됐다. 쿠키에 도메인을 지정하지 않고(host-only)
