@@ -8,6 +8,7 @@ on:
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/frontend-prod-deploy.yml"
+      - ".github/scripts/production-frontend-build.cjs"
       - "infra/docker-compose.yml"
       - "infra/monitoring/alloy/config.alloy"
       - "infra/monitoring/alloy/postgres-queries.yaml"

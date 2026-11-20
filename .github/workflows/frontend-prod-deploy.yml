@@ -1,5 +1,11 @@
 name: Frontend Production Build
 on:
+  workflow_dispatch:
+    inputs:
+      parent_run_id:
+        description: 이 빌드를 요청한 운영 배포 실행 ID
+        type: string
+        required: true
   workflow_call:
     inputs:
       source_sha:
@@ -10,24 +16,44 @@ on:
         value: ${{ jobs.build.outputs.artifact_id }}
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
     if: github.ref == 'refs/heads/main'
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     environment: prod
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ${{ inputs.source_sha && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: ${{ inputs.source_sha && 15 || 25 }}
     defaults:
       run:
         shell: bash
         working-directory: frontend
 
     steps:
-      - name: Checkout
+      - name: 배포 소스 가져오기
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
+
+      - name: 운영 배포가 검증한 소스 커밋 확인
+        if: inputs.source_sha == ''
+        id: parent
+        uses: actions/github-script@v7
+        env:
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+        with:
+          script: |
+            const { parentSourceSha } = require(process.env.GITHUB_WORKSPACE + '/.github/scripts/production-frontend-build.cjs');
+            const sha = await parentSourceSha({ github, context, parentRunId: process.env.PARENT_RUN_ID });
+            core.setOutput('source_sha', sha);
+
+      - name: 빌드 대기 중 main이 바뀌면 부모 배포 커밋 가져오기
+        if: steps.parent.outputs.source_sha != '' && steps.parent.outputs.source_sha != github.sha
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.parent.outputs.source_sha }}
           persist-credentials: false
 
       - name: Node.js 설정
@@ -58,7 +84,7 @@ jobs:
           APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
           APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
           APP_SENTRY_DSN: ${{ vars.SENTRY_FRONTEND_DSN }}
-          APP_SENTRY_RELEASE: ${{ inputs.source_sha }}
+          APP_SENTRY_RELEASE: ${{ steps.parent.outputs.source_sha || inputs.source_sha }}
           APP_OAUTH_COOKIE_NAME: oauthState
           DISABLE_REACT_DEVTOOLS: "1"
           APP_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
@@ -81,7 +107,7 @@ jobs:
         id: artifact
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-release-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: frontend-release-${{ steps.parent.outputs.source_sha || inputs.source_sha }}-${{ inputs.parent_run_id || github.run_id }}
           path: frontend/dist
           if-no-files-found: error
           retention-days: 7
