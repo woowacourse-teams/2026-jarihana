@@ -2,19 +2,14 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
-export const REFERENCE_FURNISHINGS = Object.freeze([
-  { kind: "coffeeTable", name: "낮은 원목 커피 테이블", width: 2.4, depth: 1.3, height: 0.76 },
-  { kind: "cafeTable", name: "테라스 원형 테이블", width: 1.3, depth: 1.3, height: 1 },
-  { kind: "leafyPlant", name: "풍성한 실내 나무", width: 1.3, depth: 1.3, height: 2.25 },
-  { kind: "vinePlanter", name: "늘어지는 벽 화분", width: 1.5, depth: 0.8, height: 3.3, mount: "wall" },
-  { kind: "galleryWall", name: "높은 벽 사진 전시", width: 4.4, depth: 0.24, height: 6.8, mount: "wall", collection: "photo" },
-  { kind: "posterWall", name: "연습실 포스터 벽", width: 4.4, depth: 0.24, height: 3.9, mount: "wall", collection: "band" },
-  ...["band", "dining", "study", "photo"].map((theme) => ({ kind: `${theme}Neon`, name: ({ band: "Play 네온", dining: "Good Food 사인", study: "Better Together 사인", photo: "Capture Together 사인" })[theme], width: 3.8, depth: 0.35, height: theme === "photo" ? 7.2 : 3.9, mount: "wall", collection: theme }))
-].map((asset) => Object.freeze({ category: "furniture", collection: "common", ...asset })));
+export const REFERENCE_KINDS = Object.freeze([
+  "coffeeTable", "cafeTable", "leafyPlant", "vinePlanter", "galleryWall", "posterWall",
+  "bandNeon", "diningNeon", "studyNeon", "photoNeon"
+]);
 
 // Each furnishing owns its buffers and materials; edits/deletions cannot invalidate another copy.
 export function createReferenceFurnishing(kind, { color } = {}) {
-  if (!REFERENCE_FURNISHINGS.some((asset) => asset.kind === kind)) return null;
+  if (!REFERENCE_KINDS.includes(kind)) return null;
   const group = new THREE.Group();
   group.name = kind;
   group.userData.assetKind = kind;

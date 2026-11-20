@@ -1,3 +1,20 @@
+// Unit tests without HTTP use the same initial document as the database-backed editor.
+jest.mock("../src/pages/space/roomLayout.js", () => {
+  const layout = jest.requireActual("../src/pages/space/roomLayout.js");
+  return { ...layout, initialRoomDocument: (template, options = {}) => {
+    const blueprint = options.blueprint ?? require("./fixtures/clubhouse-seeds.cjs")
+      .blueprint(template, template === "lounge" && options.loungeLoft === false ? 11 : undefined);
+    return layout.initialRoomDocument(template, { blueprint });
+  } };
+});
+
+// Low-level room tests use the catalog that a freshly migrated database would serve.
+jest.mock("../src/features/group-space/furnitureCatalog.js", () => {
+  const catalog = jest.requireActual("../src/features/group-space/furnitureCatalog.js");
+  catalog.installFurnitureCatalog(require("./fixtures/clubhouse-seeds.cjs").furnitureCatalog);
+  return catalog;
+});
+
 require("@testing-library/jest-dom");
 
 const { TextDecoder, TextEncoder } = require("node:util");

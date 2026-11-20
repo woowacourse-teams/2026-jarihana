@@ -4,6 +4,7 @@ import { applyAssetAppearance } from "./assetAppearance";
 import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
 import * as THREE from "three";
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { ACCENT_COLORS, CATALOG, placedItemElevation, DEFAULT_ATMOSPHERE, THEMES, canPlace, footprint, snapPosition } from "./roomState";
 import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, disposeObject } from "./roomModels";
 import { createRoomLighting } from "./roomLighting";
@@ -60,7 +61,7 @@ function labelTexture(text, background = "#f5ddb0", color = "#604431") {
 }
 
 function furnitureContactShadow(kind) {
-  const type = CATALOG.find((entry) => entry.kind === kind);
+  const type = furnitureType(kind);
   const size = 32;
   const pixels = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
@@ -981,8 +982,8 @@ export function createRoomScene(container, callbacks) {
         applyAssetAppearance(object, { ...item, color: item.kind === "lowEdgeLight" ? undefined : color });
         applyBakedFurnitureOcclusion(object, item.kind);
         const common = commonFunctionForItem(item);
-        if (common) object.add(commonFunctionMarker(common, CATALOG.find((entry) => entry.kind === item.kind).height));
-        if (!CATALOG.find((entry) => entry.kind === item.kind)?.mount && !["rug", "loungeRug"].includes(item.kind)) object.add(furnitureContactShadow(item.kind));
+        if (common) object.add(commonFunctionMarker(common, furnitureType(item.kind).height));
+        if (!furnitureType(item.kind)?.mount && !["rug", "loungeRug"].includes(item.kind)) object.add(furnitureContactShadow(item.kind));
         object.userData.modelKey = modelKey;
         object.userData.itemId = item.id;
         objectLayer.add(object);
@@ -1418,7 +1419,7 @@ export function createRoomScene(container, callbacks) {
 const furnitureThumbnailCache = new Map();
 
 export async function createFurnitureThumbnails(signal) {
-  const missingKinds = CATALOG.filter(({ kind }) => !furnitureThumbnailCache.has(kind));
+  const missingKinds = CATALOG.filter(({ kind, placeable }) => placeable && !furnitureThumbnailCache.has(kind));
   if (signal?.aborted || missingKinds.length === 0) return Object.fromEntries(furnitureThumbnailCache);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(180, 140);

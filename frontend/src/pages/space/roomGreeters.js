@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { getDioramaBounds } from "./islandLayout";
-import { getRoomLayout, PLAYER } from "./roomLayout";
+import { getRoomLayout, roomSpawn } from "./roomLayout";
 import { createMascot } from "./roomModels";
 import { isWalkablePosition } from "./roomNavigation";
 
@@ -15,6 +15,7 @@ function defaultOutfit(memberId) {
 export function placeYardGreeters(room, memberIds) {
   if (!memberIds.length) return [];
   const { building, island } = getRoomLayout(room);
+  const spawn = roomSpawn(room);
   const yard = island.entrance;
   const display = getDioramaBounds(building);
   let positions = [];
@@ -27,7 +28,7 @@ export function placeYardGreeters(room, memberIds) {
       const firstOffset = PATH_HALF_WIDTH + radius + 0.12;
       for (let offset = firstOffset; offset <= yard.maxX - yard.minX; offset += spacing) {
         for (const side of [1, -1]) {
-          const x = PLAYER.spawn.x + side * offset;
+          const x = spawn.x + side * offset;
           if (x < yard.minX + radius || x > yard.maxX - radius || !isWalkablePosition({ x, z }, room, radius)) continue;
           const inDiorama = x >= display.minX + radius && x <= display.maxX - radius && z <= display.maxZ - radius;
           (inDiorama ? visible : overflow).push({ x, z, scale, inDiorama });

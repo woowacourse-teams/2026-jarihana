@@ -1,9 +1,24 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { fetchGroupSpace, saveGroupSpace } from "./api.js";
+import { installFurnitureCatalog } from "./furnitureCatalog.js";
+import { fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "./api.js";
 
 export const groupSpaceKeys = {
   detail: (groupId, memberId) => ["group-space", String(groupId), memberId]
 };
+
+export const furnitureCatalogQuery = {
+  queryKey: ["space-furniture-catalog"],
+  queryFn: async () => installFurnitureCatalog((await fetchFurnitureCatalog()).items),
+  staleTime: 0,
+  refetchOnMount: "always",
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  retry: false
+};
+
+export function useFurnitureCatalog() {
+  return useQuery(furnitureCatalogQuery);
+}
 
 export function useGroupSpace(groupId, memberId) {
   return useQuery({
@@ -19,8 +34,8 @@ export function useGroupSpace(groupId, memberId) {
   });
 }
 
-export function useSaveGroupSpace(groupId) {
+export function useSaveGroupSpace(groupId, previousRoom) {
   return useMutation({
-    mutationFn: (values) => saveGroupSpace(groupId, values)
+    mutationFn: (values) => saveGroupSpace(groupId, values, previousRoom)
   });
 }

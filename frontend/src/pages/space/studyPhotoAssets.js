@@ -8,25 +8,11 @@ const CHARCOAL = "#343a40";
 const IVORY = "#ede9df";
 const ACCENTS = ["#758ca5", "#b47a54", "#90a088", "#d5b679", "#888395"];
 
-export const STUDY_PHOTO_ASSETS = Object.freeze([
-  { kind: "studyDesk", name: "네 사람이 함께 쓰는 개발 데스크", width: 4.4, depth: 2, height: 1.63, collection: "study" },
-  { kind: "focusDesk", name: "개인 집중 데스크", width: 2.2, depth: 1.1, height: 1.65, collection: "study" },
-  { kind: "whiteboard", name: "바퀴 달린 스프린트 보드", width: 2.6, depth: 0.7, height: 2.35, collection: "study" },
-  { kind: "projectScreen", name: "발표용 프로젝션 스크린", width: 3.6, depth: 0.7, height: 2.8, collection: "study" },
-  { kind: "serverRack", name: "프로젝트 서버 랙", width: 1, depth: 1, height: 2.25, collection: "study" },
-  { kind: "projectShelf", name: "개발 서적과 프로젝트 선반", width: 2.6, depth: 0.6, height: 2.65, collection: "study" },
-  { kind: "studyCabinet", name: "공용 문구 수납장", width: 2.4, depth: 0.65, height: 1.18, collection: "study" },
-  { kind: "projectDisplay", name: "프로젝트 전시 스크린", width: 3, depth: 0.7, height: 2.4, collection: "study" },
-  { kind: "photoBackdrop", name: "곡면 배경지 촬영 부스", width: 4.8, depth: 2.8, height: 3.24, collection: "photo" },
-  { kind: "softbox", name: "팔각 소프트박스", width: 1.4, depth: 1.4, height: 2.7, collection: "photo" },
-  { kind: "photoTripod", name: "카메라와 삼각대", width: 1, depth: 1, height: 1.7, collection: "photo" },
-  { kind: "cameraCabinet", name: "카메라·렌즈 전시 수납장", width: 2.8, depth: 0.65, height: 2.7, collection: "photo" },
-  { kind: "photoEditDesk", name: "사진 보정 워크스테이션", width: 2.8, depth: 1.1, height: 1.7, collection: "photo" },
-  { kind: "photoPrintBench", name: "인화·포트폴리오 작업대", width: 3, depth: 1.1, height: 1.4, collection: "photo" },
-  { kind: "galleryPartition", name: "이동식 사진 갤러리 벽", width: 3.2, depth: 0.5, height: 2.9, collection: "photo" },
-  { kind: "photoEquipmentCase", name: "촬영 장비 하드 케이스", width: 1.2, depth: 0.8, height: 0.8, collection: "photo" },
-  { kind: "photoReflector", name: "스탠드 반사판", width: 1.2, depth: 0.7, height: 2.05, collection: "photo" }
-].map((asset) => Object.freeze({ ...asset, category: "furniture" })));
+export const STUDY_PHOTO_KINDS = Object.freeze([
+  "studyDesk", "focusDesk", "whiteboard", "projectScreen", "serverRack", "projectShelf",
+  "studyCabinet", "projectDisplay", "photoBackdrop", "softbox", "photoTripod", "cameraCabinet",
+  "photoEditDesk", "photoPrintBench", "galleryPartition", "photoEquipmentCase", "photoReflector"
+]);
 
 // Textures and materials belong to a single asset, so deleting it cannot damage another copy.
 function grainTexture() { return createWoodGrain(); }
@@ -413,7 +399,7 @@ function equipmentCase(target, color) {
 }
 
 export function createStudyPhotoAsset(kind, { color } = {}) {
-  if (!STUDY_PHOTO_ASSETS.some((asset) => asset.kind === kind)) return null;
+  if (!STUDY_PHOTO_KINDS.includes(kind)) return null;
   const target = kit(`asset-${kind}`);
   if (["studyDesk", "focusDesk", "photoEditDesk"].includes(kind)) desk(target, kind, color || OAK);
   else if (["whiteboard", "projectScreen", "projectDisplay"].includes(kind)) board(target, kind, color);
@@ -518,75 +504,3 @@ export const STUDY_PHOTO_LAYOUTS = Object.freeze({
     ]
   }
 });
-
-export function createStudyPhotoPresetItems(template) {
-  const item = (id, kind, x, z, rotation = 0, color) => ({ id, kind, x, z, rotation,
-    ...(color || kind === "gameChair" ? { color: color || (template === "study" ? "#56666f" : "#6d726b") } : {}) });
-  const upper = (items) => items.map((entry) => ({ ...entry, level: 1 }));
-  const entrance = [item("entrance-bench", "bench", -6, 6.1), item("entrance-plant", "plant", -8, 6.1), item("entrance-plant2", "plant", 6.8, 6.1)];
-  if (template === "study") return [
-    ...entrance,
-    item("study-team-desk1", "studyDesk", -6.3, -2.7),
-    item("study-team-desk2", "studyDesk", 3.3, -0.8),
-    ...[-7.5, -5.1].flatMap((x, index) => [item(`study-seat-a${index}`, "gameChair", x, -4.4), item(`study-seat-b${index}`, "gameChair", x, -1, 2)]),
-    ...[2.1, 4.5].flatMap((x, index) => [item(`study-seat-c${index}`, "gameChair", x, -2.5), item(`study-seat-d${index}`, "gameChair", x, 0.9, 2)]),
-    item("study-sprint-board", "whiteboard", -6.6, -7.4),
-    item("study-presentation", "projectScreen", 2.9, -7.5),
-    item("study-server", "serverRack", 7, -7.5),
-    item("study-reference-shelf", "projectShelf", -9.8, -9.6, 1),
-    item("study-stationery", "studyCabinet", -5, -10.8),
-    item("study-focus-desk", "focusDesk", 2, -10.5),
-    item("study-focus-chair", "gameChair", 2, -8.9, 2),
-    item("study-sofa", "clubSofa", -7.5, 2.7, 0, "#687784"),
-    item("study-sofa-table", "table", -7.5, 0.7),
-    item("study-round-chair", "roundChair", -4.7, 1.8, 3, "#9baf9f"),
-    item("study-project-shelf", "projectShelf", 6.7, 1.9),
-    item("study-demo-display", "projectDisplay", 2.7, -4.8),
-    item("study-plant1", "plant", -9.8, 2.5), item("study-plant2", "plant", 7.1, 3),
-    item("study-club-board", "clubPinboard", -10.75, -0.8, 1),
-    item("music-console", "musicConsole", 0.5, 2.8),
-    ...upper([
-      ...[-8.4, -4.5, -0.6, 3.3, 7.2].flatMap((x, index) => [
-        item(`study-upper-desk${index}`, "focusDesk", x, -10.8),
-        item(`study-upper-chair${index}`, "gameChair", x, -9.2, 2)
-      ]),
-      item("study-upper-library", "projectShelf", 10, -10.3, 3),
-      item("study-upper-plant", "plant", -10.4, -11.1),
-      ...[-7.3, -2, 3.3].map((x, index) => item(`study-upper-art${index}`, "gameWallArt", x, -11.75)),
-      item("study-upper-greenery1", "plant", -6.45, -9.8), item("study-upper-greenery2", "plant", 1.35, -9.8)
-    ])
-  ];
-  if (template === "photo") return [
-    ...entrance,
-    item("photo-backdrop", "photoBackdrop", 5.5, -10.8),
-    item("photo-key-light", "softbox", 3.3, -8.1, 2), item("photo-fill-light", "softbox", 7.6, -8.1, 2),
-    item("photo-camera", "photoTripod", 5.5, -7.7, 2), item("photo-reflector", "photoReflector", 8.35, -10.8, 1),
-    item("photo-camera-library", "cameraCabinet", -3.8, -9.8),
-    item("photo-equipment", "photoEquipmentCase", -0.8, -11.8),
-    item("photo-edit-station", "photoEditDesk", 0.2, -9.4),
-    item("photo-edit-seat", "gameChair", 0.2, -7.8, 2),
-    item("photo-print-bench", "photoPrintBench", 3.3, -2.8),
-    item("photo-print-seat1", "gameChair", 2.5, -1.3, 2), item("photo-print-seat2", "gameChair", 4.1, -1.3, 2),
-    item("photo-review-desk", "photoEditDesk", 3.2, 1.8),
-    item("photo-review-chair", "gameChair", 3.2, 3, 2),
-    item("photo-gallery", "galleryPartition", 7.7, -2.5, 3),
-    item("photo-club-board", "clubPinboard", -8.75, -0.5, 1),
-    item("photo-gallery2", "galleryPartition", 7.7, 1.3, 3),
-    item("photo-lounge-sofa", "sofa", -4.9, 0.3, 2, "#8b6b55"),
-    item("photo-lounge-table", "table", -4.9, -2.2),
-    item("photo-lounge-chair", "roundChair", -4.9, -4.2, 0, "#8a9391"),
-    item("photo-lounge-rug", "rug", -4.9, -1.5),
-    item("photo-plant1", "plant", -5.4, 2.8), item("photo-plant2", "plant", 6.4, 3),
-    item("music-console", "musicConsole", 0.3, 2.8),
-    ...upper([
-      item("photo-upper-desk1", "focusDesk", -4.8, -11.3), item("photo-upper-chair1", "gameChair", -4.8, -9.6, 2),
-      item("photo-upper-desk2", "focusDesk", -0.2, -10.8), item("photo-upper-chair2", "gameChair", -0.2, -9.2, 2),
-      item("photo-upper-cabinet", "cameraCabinet", -0.2, -12.4),
-      item("photo-upper-lounge", "roundChair", -7.8, -11.4, 1, "#726b64"),
-      item("photo-upper-light", "floorLamp", -7.8, -9.6),
-      item("photo-upper-plant", "plant", 1.6, -11.5),
-      item("photo-upper-art", "gameWallArt", -8.75, -10.5, 1)
-    ])
-  ];
-  return [];
-}

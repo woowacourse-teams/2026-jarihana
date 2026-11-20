@@ -3,7 +3,7 @@ WORKDIR /workspace
 COPY realtime/gradlew realtime/settings.gradle realtime/build.gradle ./realtime/
 COPY realtime/gradle ./realtime/gradle
 COPY realtime/src ./realtime/src
-COPY contracts/realtime/v1 ./contracts/realtime/v1
+COPY contracts/realtime/v1/asset-capabilities.json contracts/realtime/v1/surface-anchors.json ./contracts/realtime/v1/
 WORKDIR /workspace/realtime
 RUN chmod +x gradlew && ./gradlew bootJar --no-daemon
 

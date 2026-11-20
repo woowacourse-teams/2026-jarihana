@@ -1,5 +1,6 @@
 package com.project.jarihana.realtime.layout;
 
+import com.project.jarihana.realtime.room.domain.Vec3;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -13,6 +14,36 @@ import tools.jackson.databind.json.JsonMapper;
 
 public final class TestBlueprints {
     private static final Map<String, JsonNode> SEED = loadSeed();
+
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
+    public static final JsonNode FURNITURE = furniture();
+    private static final JsonNode DEFAULTS = seedArray("V47__space_blueprint_runtime.sql", "$defaults$");
+
+    public static BlueprintRuntime runtime(String key) {
+        JsonNode defaultRoom = null;
+        for (JsonNode room : DEFAULTS) {
+            if (key.equals(room.path("version").asInt() + ":" + room.path("template").asString())) defaultRoom = room;
+        }
+        return new BlueprintRuntime(geometry(key), new Vec3(-2, 0, 6.8), defaultRoom);
+    }
+
+    private static JsonNode furniture() {
+        var definitions = MAPPER.createObjectNode();
+        for (JsonNode item : seedArray("V46__space_furniture_catalog.sql", "$catalog$")) {
+            definitions.set(item.path("kind").asString(), item);
+        }
+        return definitions;
+    }
+
+    private static JsonNode seedArray(String migration, String delimiter) {
+        try {
+            String sql = new ClassPathResource(migration).getContentAsString(StandardCharsets.UTF_8);
+            int start = sql.indexOf(delimiter) + delimiter.length();
+            return MAPPER.readTree(sql.substring(start, sql.indexOf(delimiter, start)));
+        } catch (IOException error) {
+            throw new IllegalStateException(error);
+        }
+    }
 
     private TestBlueprints() {}
 

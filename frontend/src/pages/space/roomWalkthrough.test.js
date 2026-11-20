@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { AVATAR_BASIC_APPEARANCE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkthrough } from "./roomWalkthrough";
 import { createInitialRoom } from "./roomState";
-import { getRoomLayout, PLAYER } from "./roomLayout";
+import { bindRoomBlueprint, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition } from "./roomNavigation";
 import { itemInteraction, lightInteraction } from "./walkInteractions";
 
@@ -96,10 +96,13 @@ test("applying a new architecture revision in the same theme returns the walker 
     walk.update("firstPerson", room.avatarColor);
     walk.command("forward");
     expect(walk.camera.position.z).toBeLessThan(PLAYER.spawn.z);
-    room = { ...room, version: 11 };
+    const spawn = { x: -1.5, z: 7.2 };
+    room = bindRoomBlueprint({ ...room, version: 11 }, {
+      blueprintRef: { templateKey: "band", version: 13 }, geometry: getRoomLayout("band", 11), spawn
+    });
     walk.update("firstPerson", room.avatarColor);
-    expect(walk.camera.position.x).toBe(PLAYER.spawn.x);
-    expect(walk.camera.position.z).toBe(PLAYER.spawn.z);
+    expect(walk.camera.position.x).toBe(spawn.x);
+    expect(walk.camera.position.z).toBe(spawn.z);
   } finally { walk.dispose(); }
 });
 

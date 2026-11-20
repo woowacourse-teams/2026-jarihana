@@ -298,6 +298,15 @@ export const BOARDGAME = Object.freeze({
 // The symbol follows copies without putting the server's geometry in JSON or PUT bodies.
 export const ROOM_BLUEPRINT = Symbol("roomBlueprint");
 
+export function initialRoomDocument(template, { blueprint } = {}) {
+  if (!blueprint?.defaultRoom || blueprint.defaultRoom.template !== template) throw new Error("도면의 초기 배치를 불러오지 못했어요.");
+  return blueprint.defaultRoom;
+}
+
+export function roomSpawn(room) {
+  return room?.[ROOM_BLUEPRINT]?.spawn ?? PLAYER.spawn;
+}
+
 export function bindRoomBlueprint(room, blueprint) {
   return blueprint && room ? { ...room, [ROOM_BLUEPRINT]: blueprint } : room;
 }

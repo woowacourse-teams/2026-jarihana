@@ -6,8 +6,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -23,44 +24,13 @@ public class RoomDocumentValidator {
     private static final Pattern COLOR = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern PHOTO = Pattern.compile("data:image/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}");
     private static final Set<String> COLORS = Set.of("#536bd6", "#7b9b6d", "#d99559", "#c991ba", "#7d8b9d");
-    private static final Set<String> LEGACY_KINDS = Set.of("sofa", "armchair", "table", "bookshelf", "plant", "rug", "stool",
-            "bench", "beanbag", "diningTable", "gameTable", "roundChair", "clubSofa", "gameCredenza", "loungeRug",
-            "gameShelf", "gameChair", "floorLamp", "memory", "musicConsole");
-    private static final Set<String> KINDS = Set.of(
-            "sofa", "armchair", "table", "bookshelf", "plant",
-            "rug", "stool", "bench", "beanbag", "diningTable",
-            "gameTable", "roundChair", "clubSofa", "gameCredenza", "loungeRug",
-            "gameShelf", "gameChair", "floorLamp", "memory", "musicConsole",
-            "libraryShelfWood", "libraryShelfDisplay", "libraryShelfDark", "gameWallBoard", "gameWallArt",
-            "gameNeon", "pendantLight", "pendantBulb", "loftPendant", "shelfPendant",
-            "climbingWallWide", "climbingWallOverhang", "climbingWallNarrow", "crashMat", "crashMatWide",
-            "climbingShoeShelf", "climbingHelmetShelf", "climbingGearShelf", "ropeRack", "climbingPlant",
-            "climbingSign", "climbingBoard", "clubPinboard", "cafeCounter", "cafeFridge",
-            "kitchenCounter", "kitchenIsland", "kitchenRange", "kitchenFridge", "pantryShelf",
-            "cafeCabinet", "feastTable", "menuBoard", "foodMap", "drumKit",
-            "guitarRack", "rehearsalKeyboard", "amplifier", "microphoneStand", "mixingDesk",
-            "acousticPanel", "bandPoster", "rehearsalStage", "stageLight", "studyDesk",
-            "focusDesk", "whiteboard", "projectScreen", "serverRack", "projectShelf",
-            "studyCabinet", "projectDisplay", "photoBackdrop", "softbox", "photoTripod",
-            "cameraCabinet", "photoEditDesk", "photoPrintBench", "galleryPartition", "photoEquipmentCase",
-            "photoReflector", "activityBoard", "clubDashboard",
-            "coffeeTable", "cafeTable", "leafyPlant", "vinePlanter",
-            "bandNeon", "diningNeon", "studyNeon", "photoNeon", "galleryWall", "posterWall",
-            "longCredenza", "worktop", "openDisplayShelf", "wallShelf", "propBooks", "propBookRow", "propBottle", "propCup",
-            "propPlant", "propPlates", "propGameBox", "propCamera", "propLaptop", "propFrame", "propLamp",
-            "propGameBoard", "propMonitor", "propCanisters", "propPedals", "hangingLamp", "trackLight", "ceilingBeam", "acousticCloud",
-            "wallPrint", "acousticTile", "pictureLight", "loftPartition", "loftGlassPartition", "lowEdgeLight");
-    private static final Set<String> SURFACES = Set.of("table", "diningTable", "feastTable", "gameTable", "coffeeTable",
-            "cafeTable", "kitchenIsland", "kitchenCounter", "cafeCabinet", "gameCredenza", "bookshelf", "pantryShelf",
-            "libraryShelfWood", "libraryShelfDark", "libraryShelfDisplay", "studyDesk", "focusDesk", "photoEditDesk",
-            "photoPrintBench", "studyCabinet", "mixingDesk", "cameraCabinet", "longCredenza", "openDisplayShelf", "worktop", "wallShelf");
     private final ObjectMapper mapper;
 
-    public BlueprintRef readHistoricalRef(String document) {
-        return BlueprintRef.historical(mapper.readTree(document));
+    public JsonNode readRoom(String document) {
+        return mapper.readTree(document);
     }
 
-    public String validateAndSerialize(JsonNode room) {
+    public String validateAndSerialize(JsonNode room, JsonNode previousRoom, List<FurnitureType> catalog) {
         require(room != null && room.isObject());
         String document = mapper.writeValueAsString(room);
         if (document.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
@@ -89,6 +59,14 @@ public class RoomDocumentValidator {
         require(items != null && items.isArray() && items.size() <= (version >= 10 ? 400 : version == 9 ? 160 : 64));
         Set<String> ids = new HashSet<>();
         Map<String, JsonNode> byId = new HashMap<>();
+        Map<String, FurnitureType> types = new HashMap<>();
+        catalog.forEach(type -> types.put(type.kind(), type));
+        Map<String, String> previousKinds = new HashMap<>();
+        if (previousRoom != null) {
+            for (JsonNode item : previousRoom.path("items")) {
+                previousKinds.put(item.path("id").asString(), item.path("kind").asString());
+            }
+        }
         boolean mezzanine = template.equals("lounge") ? version == LOUNGE_LOFT_VERSION
                 : version >= 9 || Set.of("climbing", "boardgame").contains(template);
         for (JsonNode item : items) {
@@ -97,7 +75,10 @@ public class RoomDocumentValidator {
             String id = text(item.get("id"), 80);
             require(!id.isEmpty() && ids.add(id));
             byId.put(id, item);
-            String kind = choice(item.get("kind"), version >= 9 ? KINDS : LEGACY_KINDS);
+            String kind = text(item.get("kind"), 80);
+            FurnitureType type = types.get(kind);
+            require(type != null && version >= type.minRoomVersion());
+            require(type.placeable() || kind.equals(previousKinds.get(id)));
             number(item.get("x"), -64, 64);
             number(item.get("z"), -64, 64);
             integer(item.get("rotation"), 0, 3);
@@ -108,8 +89,8 @@ public class RoomDocumentValidator {
             if (item.has("elevation")) number(item.get("elevation"), 0, 14);
             if (item.has("variant")) integer(item.get("variant"), 0, 5);
             if (item.has("finish")) choice(item.get("finish"), Set.of("auto", "oak", "walnut", "stone", "fabric", "metal"));
-            if (item.has("parentId")) require(!text(item.get("parentId"), 80).equals(id) && kind.startsWith("prop"));
-            if (item.has("surfaceIndex")) { require(item.has("parentId")); integer(item.get("surfaceIndex"), 0, 4); }
+            if (item.has("parentId")) require(!text(item.get("parentId"), 80).equals(id) && type.isProp());
+            if (item.has("surfaceIndex")) require(item.has("parentId"));
             if (item.has("color")) color(item.get("color"), false);
             if (item.has("title")) text(item.get("title"), 40);
             if (item.has("note")) text(item.get("note"), 500);
@@ -119,13 +100,12 @@ public class RoomDocumentValidator {
         for (JsonNode item : items) {
             if (!item.has("parentId")) continue;
             JsonNode parent = byId.get(item.get("parentId").asString());
-            require(parent != null && !parent.has("parentId") && SURFACES.contains(parent.get("kind").asString()));
+            require(parent != null && !parent.has("parentId"));
+            int slots = types.get(parent.get("kind").asString()).surfaceCount();
+            require(slots > 0);
             int level = item.has("level") ? item.get("level").intValue() : 0;
             int parentLevel = parent.has("level") ? parent.get("level").intValue() : 0;
             require(level == parentLevel && (!item.has("elevation") || item.get("elevation").doubleValue() == 0));
-            int slots = Set.of("bookshelf", "pantryShelf").contains(parent.get("kind").asString()) ? 4
-                    : parent.get("kind").asString().equals("openDisplayShelf") ? 5
-                    : parent.get("kind").asString().equals("kitchenCounter") ? 3 : 1;
             if (item.has("surfaceIndex")) integer(item.get("surfaceIndex"), 0, slots - 1);
         }
         return document;

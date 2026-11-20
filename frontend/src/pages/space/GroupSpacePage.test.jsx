@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchDefaultSpaceBlueprint, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
+import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
 import { groupSpaceKeys } from "../../features/group-space/hooks.js";
 import { routeRegistry } from "../../app/routes.js";
 import { GroupSpacePage } from "./GroupSpacePage.jsx";
@@ -18,7 +18,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
-jest.mock("../../features/group-space/api.js", () => ({ fetchDefaultSpaceBlueprint: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
+jest.mock("../../features/group-space/api.js", () => ({ fetchDefaultSpaceBlueprint: jest.fn(), fetchFurnitureCatalog: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
 jest.mock("./roomState.js", () => {
   const actual = jest.requireActual("./roomState.js");
   return { ...actual, readSavedRoom: jest.fn(actual.readSavedRoom) };
@@ -45,7 +45,8 @@ function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayou
   </section>;
 }
 
-const snapshot = (room = null, extra = {}) => ({ room, revision: room ? 3 : 0,
+const seeded = require("../../../tests/fixtures/clubhouse-seeds.cjs").blueprint;
+const snapshot = (room = null, extra = {}) => ({ ...(room === null && seeded("lounge", 11)), room, revision: room ? 3 : 0,
   canEdit: true, updatedAt: room ? "2026-11-09T14:00:00" : null, ...extra });
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
 function setup({ path = "/groups/41/space", client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }) } = {}) {
@@ -59,8 +60,10 @@ const save = () => fireEvent.click(screen.getByRole("button", { name: "테스트
 
 beforeEach(() => {
   jest.clearAllMocks();
+  fetchFurnitureCatalog.mockResolvedValue({ items: require("../../../tests/fixtures/clubhouse-seeds.cjs").furnitureCatalog });
   useAuth.mockReturnValue({ member: { id: 7 } });
   useGroup.mockImplementation((id) => ({ data: { id: Number(id), name: `모임 ${id}`, memberCount: 6 }, refetch: jest.fn() }));
+  fetchDefaultSpaceBlueprint.mockImplementation(template => Promise.resolve(seeded(template)));
   fetchGroupSpace.mockResolvedValue(snapshot());
 });
 
@@ -101,7 +104,7 @@ test("the leader can submit edits to a saved loft", async () => {
   setup();
   await screen.findByDisplayValue(room.name);
   save();
-  await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", { room, expectedRevision: 3 }));
+  await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", { room, expectedRevision: 3 }, room));
 });
 
 test("renaming a pinned room keeps the furniture coordinates, document version and blueprint reference", async () => {
@@ -122,7 +125,7 @@ test("renaming a pinned room keeps the furniture coordinates, document version a
 test("an unsaved first edit uses the published default while the shared visitor room stays on lounge v11", async () => {
   const flat = createInitialRoom("lounge", { loungeLoft: false });
   const loft = createInitialRoom();
-  const blueprint = { blueprintRef: { templateKey: "lounge", version: 13 }, geometry: getRoomLayout(loft) };
+  const blueprint = { ...seeded("lounge"), defaultRoom: { ...loft, notice: "DB에서 발행한 복층" }, blueprintRef: { templateKey: "lounge", version: 13 }, geometry: getRoomLayout(loft) };
   fetchGroupSpace.mockResolvedValue(snapshot(null, { blueprintRef: { templateKey: "lounge", version: 11 }, geometry: getRoomLayout(flat) }));
   fetchDefaultSpaceBlueprint.mockResolvedValue(blueprint);
   saveGroupSpace.mockImplementation((id, { room }) => Promise.resolve(snapshot(room, { ...blueprint, revision: 1 })));
@@ -131,8 +134,8 @@ test("an unsaved first edit uses the published default while the shared visitor 
   expect(fetchDefaultSpaceBlueprint).toHaveBeenCalledWith("lounge");
   save();
   await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", {
-    room: expect.objectContaining({ version: 12 }), blueprintRef: blueprint.blueprintRef, expectedRevision: 0
-  }));
+    room: expect.objectContaining({ version: 12, notice: "DB에서 발행한 복층" }), blueprintRef: blueprint.blueprintRef, expectedRevision: 0
+  }, undefined));
 });
 
 test("the shared scene uses the persisted geometry until the loft is saved", async () => {
@@ -239,7 +242,7 @@ test("switching groups never carries the previous draft or revision into the nex
   await screen.findByDisplayValue("서버 42");
   save();
   await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledTimes(1));
-  expect(saveGroupSpace).toHaveBeenCalledWith("42", expect.objectContaining({ expectedRevision: 42, room: expect.objectContaining({ name: "서버 42" }) }));
+  expect(saveGroupSpace).toHaveBeenCalledWith("42", expect.objectContaining({ expectedRevision: 42, room: expect.objectContaining({ name: "서버 42" }) }), expect.objectContaining({ name: "서버 42" }));
 });
 
 test("a cached leader capability is not shown before a fresh membership response", async () => {
@@ -341,4 +344,17 @@ test("an explicit access denial during refetch removes the no-longer-authorized 
   await act(async () => { await client.refetchQueries({ queryKey: groupSpaceKeys.detail(41, 7) }); });
   expect(await screen.findByRole("heading", { name: "모임원만 들어갈 수 있어요" })).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "공간 편집기" })).not.toBeInTheDocument();
+});
+
+test("catalog errors keep the saved room closed and retry the catalog before editing", async () => {
+  const old = createInitialRoom();
+  fetchGroupSpace.mockResolvedValue(snapshot(old));
+  fetchFurnitureCatalog.mockRejectedValueOnce(new Error("catalog offline"));
+  setup();
+  expect(await screen.findByText("공간을 불러오지 못했어요")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "공간 편집기" })).not.toBeInTheDocument();
+  expect(saveGroupSpace).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(await screen.findByDisplayValue(old.name)).toBeInTheDocument();
+  expect(fetchFurnitureCatalog).toHaveBeenCalledTimes(2);
 });

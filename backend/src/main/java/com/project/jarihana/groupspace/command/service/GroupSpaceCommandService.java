@@ -12,14 +12,16 @@ import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceCommand
 import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceResult;
 import com.project.jarihana.groupspace.domain.BlueprintRef;
 import com.project.jarihana.groupspace.domain.GroupSpace;
-import com.project.jarihana.groupspace.domain.SpaceBlueprint;
-import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.groupspace.domain.RoomDocumentValidator;
+import com.project.jarihana.groupspace.domain.SpaceBlueprint;
+import com.project.jarihana.groupspace.query.repository.FurnitureCatalogRepository;
+import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class GroupSpaceCommandService {
     private final GroupMemberCommandRepository members;
     private final GroupSpaceCommandRepository spaces;
     private final SpaceBlueprintRepository blueprints;
+    private final FurnitureCatalogRepository furniture;
     private final RoomDocumentValidator validator;
     private final Clock clock;
 
@@ -46,13 +49,14 @@ public class GroupSpaceCommandService {
         if (!group.isActive()) {
             throw new BusinessException(ErrorCode.GROUP_ENDED, "종료된 모임의 공간은 변경할 수 없습니다.");
         }
-        String roomJson = validator.validateAndSerialize(command.room());
         GroupSpace current = spaces.findByGroupId(groupId).orElse(null);
         long revision = current == null ? 0 : current.getRevision();
         if (command.expectedRevision() != revision) {
             throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "다른 곳에서 공간이 변경되었습니다. 최신 공간을 불러온 뒤 다시 저장해 주세요.");
         }
-        var blueprint = selectBlueprint(current, command);
+        JsonNode previousRoom = current == null ? null : validator.readRoom(current.getRoomJson());
+        String roomJson = validator.validateAndSerialize(command.room(), previousRoom, furniture.findAll());
+        var blueprint = selectBlueprint(current, previousRoom, command);
         if (!blueprint.geometry().hasNonNull("mezzanine")) {
             for (var item : command.room().path("items")) {
                 if (item.path("level").asInt(0) == 1) {
@@ -64,10 +68,10 @@ public class GroupSpaceCommandService {
                 ? GroupSpace.create(group, roomJson, blueprint.ref(), LocalDateTime.now(clock))
                 : current.replaceRoom(roomJson, blueprint.ref()));
         return new SaveGroupSpaceResult(command.room(), saved.getRevision(), true, saved.getUpdatedAt(),
-                blueprint.ref(), blueprint.geometry());
+                blueprint.ref(), blueprint.geometry(), blueprint.spawn());
     }
 
-    private SpaceBlueprint selectBlueprint(GroupSpace current, SaveGroupSpaceCommand command) {
+    private SpaceBlueprint selectBlueprint(GroupSpace current, JsonNode previousRoom, SaveGroupSpaceCommand command) {
         var historical = BlueprintRef.historical(command.room());
         var requested = command.blueprintRef();
         if (requested != null && !historical.templateKey().equals(requested.templateKey())) {
@@ -86,7 +90,7 @@ public class GroupSpaceCommandService {
         }
         if (current == null) return blueprints.get(historical);
 
-        var previous = validator.readHistoricalRef(current.getRoomJson());
+        var previous = BlueprintRef.historical(previousRoom);
         if (requested == null) {
             if (!current.blueprintRef().equals(previous)) {
                 throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "현재 도면을 지원하는 편집기로 다시 열어 주세요.");

@@ -1,3 +1,8 @@
+import { canAddFurniture, furnitureType } from "../../features/group-space/furnitureCatalog.js";
+import { useQuery } from "@tanstack/react-query";
+import { fetchDefaultSpaceBlueprint } from "../../features/group-space/api.js";
+import { useFurnitureCatalog } from "../../features/group-space/hooks.js";
+import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { useRoomRealtime } from "../../features/group-space/realtime/useRoomRealtime.js";
 import { RoomPhotoDialog } from "./RoomPhotoDialog.jsx";
 import { RoomConnectionToast } from "./RoomConnectionToast.jsx";
@@ -12,7 +17,7 @@ import {
 
 import ClubhousePlayHud from "./ClubhousePlayHud.jsx";
 import { AssetInspector } from "./AssetInspector.jsx";
-import { ASSET_SURFACES, surfaceFootprint, transformAttachedItems } from "./assetCustomization";
+import { surfaceFootprint, transformAttachedItems } from "./assetCustomization";
 import { FLOOR_MATERIALS, WALL_MATERIALS } from "./surfaceCatalog";
 import { RoomCanvas } from "./RoomCanvas";
 import { RoomSky, roomSkyColor } from "./RoomSky.jsx";
@@ -26,7 +31,7 @@ import {
   applyRoomTemplate, canPlace, createInitialRoom, findOpenPosition, historyReducer,
   isSafeRecordLink, loadRoom, readSavedRoom, restoreCommonFunctionAssets, sameRoom, saveRoom, snapPosition, validateRoom
 } from "./roomState";
-import { geometryVersion, getRoomLayout } from "./roomLayout";
+import { geometryVersion, getRoomLayout, ROOM_BLUEPRINT } from "./roomLayout";
 import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } from "./clubhouseInteractions";
 import { commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
 import { prepareRoomPhoto } from "./roomPhoto";
@@ -56,9 +61,9 @@ const ATMOSPHERE_RANGES = [
   { field: "shadowSoftness", label: "그림자 부드러움", max: 100, step: 5, unit: "%", action: "space_shadow_softness_change" }
 ];
 
-function readInitialRoom() {
-  try { return loadRoom(window.localStorage); }
-  catch { return { room: createInitialRoom(), warning: "브라우저 저장소를 사용할 수 없어요." }; }
+function readInitialRoom(blueprint) {
+  try { return loadRoom(window.localStorage, blueprint); }
+  catch { return { room: createInitialRoom("lounge", { blueprint }), warning: "브라우저 저장소를 사용할 수 없어요." }; }
 }
 
 function IconButton({ label, action, children, className = "", ...props }) {
@@ -168,7 +173,18 @@ function AtmosphereColor({ field, label, value, action, codeAction, onStart, onP
   </div>;
 }
 
-export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function StandaloneSpaceStudioPage() {
+  const catalog = useFurnitureCatalog();
+  const blueprint = useQuery({ queryKey: ["space-blueprint-default", "lounge"], queryFn: () => fetchDefaultSpaceBlueprint("lounge"), retry: false });
+  if (blueprint.isError) return <ErrorState title="기본 아지트 도면을 불러오지 못했어요"
+    action={<Button data-ph-capture-attribute-action="group_space_retry" onClick={() => blueprint.refetch()}>다시 시도</Button>} />;
+  if (catalog.isError) return <ErrorState title="가구 목록을 불러오지 못했어요"
+    action={<Button data-ph-capture-attribute-action="space_catalog_retry" onClick={() => catalog.refetch()}>다시 시도</Button>} />;
+  if (!catalog.isFetchedAfterMount || !blueprint.data) return <div className="route-loading"><Skeleton aria-label="가구 목록 불러오는 중" /></div>;
+  return <SpaceStudioPage initialBlueprint={blueprint.data} onLoadBlueprint={fetchDefaultSpaceBlueprint} />;
+}
+
+export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
@@ -178,7 +194,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const shared = sharedRequested && realtimeStatus.error?.code !== "REALTIME_DISABLED";
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const { openMusic } = useGroupMusic();
-  const [initial] = useState(() => initialRoom ? { room: initialRoom, warning: "" } : readInitialRoom());
+  const [initial] = useState(() => initialRoom ? { room: initialRoom, warning: "" } : readInitialRoom(initialBlueprint));
   const [history, dispatch] = useReducer(historyReducer, { past: [], present: initial.room, future: [] });
   const [savedRoom, setSavedRoom] = useState(initial.room);
   const [pendingLayout, setPendingLayout] = useState(null);
@@ -278,7 +294,9 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const template = ROOM_TEMPLATES.find((entry) => entry.id === room.template) || ROOM_TEMPLATES[0];
   const surfaceTheme = THEMES.find((entry) => entry.id === room.theme) || THEMES[0];
   const selected = room.items.find((item) => item.id === selectedId);
-  const selectedType = CATALOG.find((item) => item.kind === selected?.kind);
+  const selectedType = furnitureType(selected?.kind);
+  const canDuplicate = Boolean(selected && canAddFurniture(selected.kind, room.version) &&
+    room.items.every(item => item.parentId !== selected.id || canAddFurniture(item.kind, room.version)));
   const dirty = !sameRoom(room, savedRoom);
   const [receivedRoom, setReceivedRoom] = useState(initialRoom);
   if (initialRoom && initialRoom !== receivedRoom) {
@@ -294,7 +312,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const onHudHiddenChange = clubhouse?.onHudHiddenChange;
   useEffect(() => { onHudHiddenChange?.(hudHidden); }, [hudHidden, onHudHiddenChange]);
   useEffect(() => { if (hudHidden) hudToggle.current?.focus(); }, [hudHidden]);
-  const commonAssets = commonAssetStatus(room.items);
+  const commonAssets = commonAssetStatus(room.items).filter(asset => asset.items.length || canAddFurniture(asset.kind, room.version));
   const missingCommonAssets = commonAssets.filter((entry) => !entry.items.length);
 
   const editNoticeRequest = clubhouse?.editNoticeRequest;
@@ -355,6 +373,11 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
     if (!displayRequest || !canEdit || saving || displayedRequest.current === displayRequest.requestId) return;
     displayedRequest.current = displayRequest.requestId;
     const latest = currentRoom.current;
+    if (!canAddFurniture("memory", latest.version)) {
+      announce("지금은 새 추억 액자를 놓을 수 없어요.", true);
+      onRecordDisplayed?.(displayRequest.requestId);
+      return;
+    }
     const position = latest.items.length < MAX_ITEMS && findOpenPosition("memory", latest.items, latest, "building");
     if (!position) {
       announce("액자를 놓을 빈자리가 부족해요. 활동 기록은 그대로 있어요.", true);
@@ -570,9 +593,10 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   }
 
   function addItem(kind) {
+    if (!canAddFurniture(kind, room.version)) return;
     if (room.items.length >= MAX_ITEMS) { announce(`가구는 ${MAX_ITEMS}개까지 놓을 수 있어요.`, true); return; }
     const area = kind === "memory" ? (activeFloorView === "mezzanine" ? "mezzanine" : "building") : activePlacementArea;
-    const selectedSurface = CATALOG.find((entry) => entry.kind === kind)?.prop && selected && ASSET_SURFACES[selected.kind] ? selected : null;
+    const selectedSurface = furnitureType(kind)?.prop && selected && furnitureType(selected.kind)?.surfaces.length ? selected : null;
     const attached = selectedSurface ? findSurfacePosition(kind, selectedSurface) : null;
     const position = attached || findOpenPosition(kind, room.items, room, area);
     if (!position) { announce("빈자리가 부족해요. 가구를 옮기거나 정리해 주세요.", true); return; }
@@ -585,10 +609,10 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   }
 
   function findSurfacePosition(kind, parent, existingId, customization) {
-    if (!parent || !ASSET_SURFACES[parent.kind]) return null;
-    const type = CATALOG.find((entry) => entry.kind === parent.kind);
+    if (!parent || !furnitureType(parent.kind)?.surfaces.length) return null;
+    const type = furnitureType(parent.kind);
     const original = customization || room.items.find(item => item.id === existingId);
-    for (let surfaceIndex = 0; surfaceIndex < ASSET_SURFACES[parent.kind].length; surfaceIndex++) {
+    for (let surfaceIndex = 0; surfaceIndex < type.surfaces.length; surfaceIndex++) {
       const area = surfaceFootprint(parent, surfaceIndex, type);
       for (let z = area.z - area.depth / 2 + 0.12; z < area.z + area.depth / 2; z += 0.15)
         for (let x = area.x - area.width / 2 + 0.12; x < area.x + area.width / 2; x += 0.15) {
@@ -615,7 +639,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   }
 
   function duplicateSelected() {
-    if (!selected) return;
+    if (!canDuplicate) return;
     const contents = room.items.filter(item => item.parentId === selected.id);
     if (room.items.length + contents.length + 1 > MAX_ITEMS) { announce(`가구는 ${MAX_ITEMS}개까지 놓을 수 있어요.`, true); return; }
     const position = selected.parentId ? findSurfacePosition(selected.kind, room.items.find(item => item.id === selected.parentId), undefined, selected) :
@@ -654,7 +678,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
       return;
     }
     try {
-      const draft = validateRoom({ ...room, name: room.name.trim() }, { preserveVersion: Boolean(onSave), savedRoom: onSave ? savedRoom : undefined });
+      const draft = validateRoom({ ...room, name: room.name.trim() }, { preserveVersion: Boolean(onSave || room[ROOM_BLUEPRINT]), savedRoom });
       if (!draft) throw new Error("공간 배치를 확인해 주세요. 편집 내용은 그대로 있어요.");
       let normalized;
       if (onSave) {
@@ -664,7 +688,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
         normalized = replaceLayout ? await onSave(draft, { replaceLayout: true }) : await onSave(draft);
         normalized = readSavedRoom(normalized, { preserveVersion: true });
         if (!normalized) throw new Error("저장 응답을 확인하지 못했어요. 편집 내용은 그대로 있어요.");
-      } else normalized = saveRoom(window.localStorage, draft);
+      } else normalized = saveRoom(window.localStorage, draft, savedRoom);
       setSavedRoom(normalized); setPendingLayout(null);
       currentRoom.current = normalized;
       dispatch({ type: "reset", room: normalized });
@@ -1013,7 +1037,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
             {room.items.map((item, index) => (
               <button aria-pressed={item.id === selectedId} key={item.id} type="button"
                 data-ph-capture-attribute-action="space_item_select" onClick={() => selectItem(item.id)}>
-                <span>{item.kind === "memory" ? item.title : `${CATALOG.find((entry) => entry.kind === item.kind)?.name} ${index + 1}`}</span>
+                <span>{item.kind === "memory" ? item.title : `${furnitureType(item.kind)?.name} ${index + 1}`}</span>
                 {item.id === selectedId && <Check aria-hidden="true" size={16} />}
               </button>
             ))}
@@ -1040,7 +1064,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
               <IconButton label="가구 삭제" action="space_item_delete" className="space-icon-button--danger" onClick={deleteSelected}><Trash2 size={18} /></IconButton>
             </div>
             <AssetInspector item={selected} items={room.items} onChange={(patch) => changeItem(selected.id, patch)}
-              onAttach={attachSelected} onDuplicate={duplicateSelected} />
+              onAttach={attachSelected} onDuplicate={canDuplicate ? duplicateSelected : undefined} />
           </div>
         )}
 
@@ -1054,13 +1078,13 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
             {commonAssets.map((asset) => {
               const Icon = FUNCTION_ICONS[asset.feature];
               return <section className="space-studio__essential-card" key={asset.kind} style={{ "--function-color": asset.color }}>
-                <div className="space-studio__essential-title"><Icon size={23} aria-hidden="true" /><h3>{asset.name}</h3>
+                <div className="space-studio__essential-title"><Icon size={23} aria-hidden="true" /><h3>{furnitureType(asset.kind)?.name}</h3>
                   <span>{asset.items.length ? `${asset.items.length}개 배치` : "미배치"}</span></div>
                 <p>{asset.description}</p>
                 <div className="space-studio__essential-actions">
                   {asset.items.length > 0 && <button type="button" className="space-button" data-ph-capture-attribute-action="space_common_asset_select"
                     onClick={() => selectItem(asset.items[0].id)}>선택</button>}
-                  <button type="button" className="space-button" data-ph-capture-attribute-action="space_item_add" onClick={() => addItem(asset.kind)}><Plus size={16} aria-hidden="true" />추가</button>
+                  {canAddFurniture(asset.kind, room.version) && <button type="button" className="space-button" data-ph-capture-attribute-action="space_item_add" onClick={() => addItem(asset.kind)}><Plus size={16} aria-hidden="true" />추가</button>}
                   {!clubhouse && groupContext && asset.feature === "music" && <button type="button" className="space-button" data-ph-capture-attribute-action={asset.action}
                     onClick={() => openItemFeature({ kind: asset.kind })}>열기<ExternalLink size={15} aria-hidden="true" /></button>}
                 </div>
@@ -1294,7 +1318,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
             <button type="button" aria-pressed={activePlacementArea === "yard"} data-ph-capture-attribute-action="space_place_yard"
               onClick={() => changePlacementArea("yard")}>마당에 놓기</button>
           </div>}
-          {(category === "furniture" || category === "memories") && CATALOG.filter((item) => item.category === category &&
+          {(category === "furniture" || category === "memories") && CATALOG.filter((item) => canAddFurniture(item.kind, room.version) && item.category === category &&
             (category !== "furniture" || (assetCollection === "all" || (item.collection || "common") === assetCollection) &&
               item.name.includes(assetSearch.trim()))).map((item) => {
             const Icon = ITEM_ICONS[item.kind] || Box;

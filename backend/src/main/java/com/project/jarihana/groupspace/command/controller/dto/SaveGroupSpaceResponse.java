@@ -6,9 +6,9 @@ import java.time.LocalDateTime;
 import tools.jackson.databind.JsonNode;
 
 public record SaveGroupSpaceResponse(JsonNode room, long revision, boolean canEdit, LocalDateTime updatedAt,
-                                BlueprintRef blueprintRef, JsonNode geometry) {
+                                BlueprintRef blueprintRef, JsonNode geometry, JsonNode spawn) {
     public static SaveGroupSpaceResponse from(SaveGroupSpaceResult result) {
         return new SaveGroupSpaceResponse(result.room(), result.revision(), result.canEdit(), result.updatedAt(),
-                result.blueprintRef(), result.geometry());
+                result.blueprintRef(), result.geometry(), result.spawn());
     }
 }

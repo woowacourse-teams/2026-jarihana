@@ -143,16 +143,7 @@ public final class RoomState {
     }
 
     public boolean replaceLayout(RoomLayout next, long now) {
-        if (next.revision() < layout.revision()) return false;
-        if (layout.origin() == RoomLayout.Origin.DATABASE && next.origin() == RoomLayout.Origin.BUNDLED) return false;
-        if (next.revision() == layout.revision()) {
-            if (next.origin() == layout.origin()) return false;
-            // Hand over equal geometry without changing a live player's position, seat, items or control sequence.
-            if (next.geometry().equals(layout.geometry()) && next.assets().equals(layout.assets())) {
-                layout = next;
-                return false;
-            }
-        }
+        if (next.revision() <= layout.revision()) return false;
         new LayoutReconciliation().apply(this, next, now);
         layout = next;
         controlSeq++;

@@ -13,13 +13,13 @@ if [[ "$event" == pull_request || "$event" == push ]] &&
   paths=$(mktemp)
   trap 'rm -f "$paths"' EXIT
   if git diff --no-renames --name-only -z "$range" -- > "$paths"; then
-    scope=contract
+    scope=none
     while IFS= read -r -d '' path; do
       case "$path" in
         *.md|*/.gitignore|infra/realtime/.env.example) ;;
-        realtime/src/test/*|infra/realtime/verify-*.mjs|backend/src/main/resources/db/migration/*)
+        realtime/src/test/*|.github/scripts/realtime-deploy.test.cjs|infra/realtime/verify-*.mjs|backend/src/main/resources/db/migration/*)
           scope=server-tests ;;
-        realtime/*|contracts/realtime/v1/*.json|infra/realtime/*|.github/workflows/realtime-deploy.yml)
+        realtime/*|contracts/realtime/v1/asset-capabilities.json|contracts/realtime/v1/surface-anchors.json|infra/realtime/*|.github/workflows/realtime-deploy.yml)
           scope=deploy
           break ;;
       esac

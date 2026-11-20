@@ -1,5 +1,5 @@
-import { ASSET_FINISHES, ASSET_SURFACES } from './assetCustomization';
-import { CATALOG, assetType } from './roomState';
+import { ASSET_FINISHES } from './assetCustomization';
+import { assetType } from './roomState';
 
 export function AssetInspector({ item, items, onChange, onAttach, onDuplicate }) {
   const type=assetType(item);
@@ -18,10 +18,10 @@ export function AssetInspector({ item, items, onChange, onAttach, onDuplicate })
       {type?.mount&&<label>설치 높이 (m)<input aria-label="설치 높이" type="number" min="0" max="14" step="0.1" value={item.elevation||0}
         data-ph-capture-attribute-action="space_asset_elevation" onChange={event=>onChange({elevation:Number(event.target.value)})}/></label>}
       {type?.prop&&<><label className="space-studio__asset-support">놓을 가구<select aria-label="소품을 놓을 가구" value={item.parentId||''} data-ph-capture-attribute-action="space_asset_attach" onChange={event=>onAttach(event.target.value)}>
-        <option value="">바닥에 놓기</option>{items.filter(entry=>ASSET_SURFACES[entry.kind]&&!entry.parentId).map((entry,index)=><option key={entry.id} value={entry.id}>{CATALOG.find(type=>type.kind===entry.kind)?.name} · {(entry.level||0)===1?'중층':'1층'} #{index+1}</option>)}</select></label>
+        <option value="">바닥에 놓기</option>{items.filter(entry=>assetType(entry)?.surfaces.length&&!entry.parentId).map((entry,index)=><option key={entry.id} value={entry.id}>{assetType(entry)?.name} · {(entry.level||0)===1?'중층':'1층'} #{index+1}</option>)}</select></label>
         {parent&&<label>선반 단<select aria-label="선반 단" value={item.surfaceIndex||0} data-ph-capture-attribute-action="space_asset_surface" onChange={event=>onChange({surfaceIndex:Number(event.target.value)})}>
-          {ASSET_SURFACES[parent.kind].map((height,i)=><option key={i} value={i}>{i+1}단 · {(height*(parent.scaleY||1)).toFixed(2)}m</option>)}</select></label>}</>}
-      <button type="button" data-ph-capture-attribute-action="space_asset_duplicate" onClick={onDuplicate}>복제하기</button>
+          {assetType(parent).surfaces.map((height,i)=><option key={i} value={i}>{i+1}단 · {(height*(parent.scaleY||1)).toFixed(2)}m</option>)}</select></label>}</>}
+      {onDuplicate && <button type="button" data-ph-capture-attribute-action="space_asset_duplicate" onClick={onDuplicate}>복제하기</button>}
     </div>
     {parent&&<p>가구와 함께 이동해요. 소품을 끌어서 상판 위 위치를 바꿀 수 있어요.</p>}
   </details>;

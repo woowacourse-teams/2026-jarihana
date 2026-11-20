@@ -7,9 +7,7 @@ import java.util.List;
 import java.util.Map;
 import tools.jackson.databind.JsonNode;
 
-public record RoomLayout(long revision, Map<String, RoomAsset> assets, JsonNode geometry, Vec3 arrival, JsonNode itemRules,
-        Origin origin) {
-    public enum Origin { BUNDLED, DATABASE }
+public record RoomLayout(long revision, Map<String, RoomAsset> assets, JsonNode geometry, Vec3 arrival, JsonNode itemRules) {
 
     public RoomLayout { assets = Map.copyOf(assets); }
 

@@ -1,8 +1,9 @@
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import * as THREE from "three";
 import backendCatalog from "../../../../backend/src/test/resources/group-space-v9-catalog.json";
 import { CATALOG, ROOM_TEMPLATES } from "./roomState";
 import { createFurniture, createRoomShell, disposeObject } from "./roomModels";
-import { LEGACY_FACILITY_ASSETS, createLegacyFacilityItems } from "./legacyFacilityCatalog";
+import { LEGACY_FACILITY_KINDS, createLegacyFacilityItems } from "./legacyFacilityCatalog";
 
 function allResources(group) {
   const resources = new Set();
@@ -16,7 +17,7 @@ function allResources(group) {
   return resources;
 }
 
-test.each(LEGACY_FACILITY_ASSETS)("$kind is independently owned and fits its catalog bounds", (asset) => {
+test.each(LEGACY_FACILITY_KINDS.map(furnitureType))("$kind is independently owned and fits its catalog bounds", (asset) => {
   const model = createFurniture(asset.kind);
   const second = createFurniture(asset.kind);
   try {
@@ -39,7 +40,7 @@ test("the shell contains no preset shelves, climbing panels or cafe furnishings"
       const items = createLegacyFacilityItems(template);
       expect(items.length).toBeGreaterThan(0);
       expect(new Set(items.map(({ id }) => id)).size).toBe(items.length);
-      expect(items.every(({ kind }) => LEGACY_FACILITY_ASSETS.some((asset) => asset.kind === kind))).toBe(true);
+      expect(items.every(({ kind }) => LEGACY_FACILITY_KINDS.includes(kind))).toBe(true);
     } finally { disposeObject(shell); }
   }
 });
@@ -51,13 +52,15 @@ test("each climbing mat preserves a 35cm walking surface", () => {
       const bounds = new THREE.Box3().setFromObject(model.getObjectByName("crash-mat"));
       expect(bounds.min.y).toBeCloseTo(0);
       expect(bounds.max.y).toBeCloseTo(0.35);
-      expect(LEGACY_FACILITY_ASSETS.find((asset) => asset.kind === kind).walkableHeight).toBe(0.35);
+      expect(furnitureType(kind).walkableHeight).toBe(0.35);
     } finally { disposeObject(model); }
   }
 });
 
 
 test("frontend catalog retains every reusable kind and template accepted by server v9", () => {
+  expect(backendCatalog.kinds).toHaveLength(93);
+  expect(backendCatalog.templates).toHaveLength(7);
   expect(CATALOG.map(({ kind }) => kind).sort()).toEqual(expect.arrayContaining([...backendCatalog.kinds].sort()));
   expect(ROOM_TEMPLATES.map(({ id }) => id).sort()).toEqual([...backendCatalog.templates].sort());
 });

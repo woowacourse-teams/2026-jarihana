@@ -111,7 +111,7 @@ export const lazyPageRegistry = Object.freeze({
   SparringDetailPage: lazyNamed(() => import("../pages/sparring/SparringDetailPage.jsx"), "SparringDetailPage"),
   SparringPage: lazy(() => import("../pages/sparring/SparringPage.jsx")),
   SignupPage: lazyNamed(loadAccountPages, "SignupPage"),
-  SpaceStudioPage: lazyNamed(() => import("../pages/space/SpaceStudioPage.jsx"), "SpaceStudioPage")
+  SpaceStudioPage: lazyNamed(() => import("../pages/space/SpaceStudioPage.jsx"), "StandaloneSpaceStudioPage")
 });
 
 function PageLoading() {

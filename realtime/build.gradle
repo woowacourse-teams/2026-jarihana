@@ -33,11 +33,13 @@ tasks.named('test') {
 
 tasks.named('processResources') {
     from('../contracts/realtime/v1') {
-        include '*.json'
+        include 'asset-capabilities.json', 'surface-anchors.json'
         into 'contracts'
     }
 }
 
 tasks.named('processTestResources') {
-    from('../backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql')
+    from('../backend/src/main/resources/db/migration') {
+        include 'V45__versioned_space_blueprints.sql', 'V46__space_furniture_catalog.sql', 'V47__*.sql'
+    }
 }
