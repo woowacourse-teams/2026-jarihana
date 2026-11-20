@@ -116,7 +116,8 @@ expires_at 경과                           REFRESH_TOKEN_INVALID  (401)
   401을 받으면 각 탭이 같은 Refresh Token 쿠키로 갱신을 요청한다. 탭 안의 요청은
   [`refreshOnce`](../../../frontend/src/shared/api/client.js)가 하나로 묶지만 탭 사이에는 묶는 장치가 없다.
 - 앱을 시작할 때 [`bootstrapAuth`](../../../frontend/src/features/auth/bootstrap.js)는 `client.refresh()`를
-  바로 호출하므로 `refreshOnce`를 거치지 않는다. 탭 여러 개를 한꺼번에 다시 열면 두 경로가 겹친다.
+  바로 호출하므로 `refreshOnce`를 거치지 않는다. 뒤로 가기로 bfcache에서 복원된 페이지도 `pageshow`에서 같은
+  경로를 다시 부른다. 탭 여러 개를 한꺼번에 다시 열면 이 경로들이 겹친다.
 
 이런 재제출은 첫 회전 뒤 수십 밀리초에서 몇 초 안에 도착하고, 유출된 사본은 대개 그보다 훨씬 뒤에 쓰인다.
 이 시간 차이를 이용해 짧은 유예 안의 재제출은 폐기하지 않는다. 유예 안의 요청에 무엇을 돌려줄지는 다음
