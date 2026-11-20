@@ -1,6 +1,7 @@
 package com.project.jarihana.pushsubscription.query.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.pushsubscription.query.repository.PushSubscriptionQueryRepository;
 import com.project.jarihana.pushsubscription.query.service.dto.PushSubscriptionListQuery;
@@ -33,8 +34,8 @@ public class PushSubscriptionQueryService {
         members.findById(memberId).orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
         if (query.size() < 1 || query.size() > 100) { throw invalid(); }
         Cursor cursor = decode(query.cursor());
-        var page = subscriptions.findPage(memberId, cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(), PageRequest.of(0, query.size()));
+        var page = subscriptions.findPage(memberId, cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(), PageRequest.of(0, query.size()));
         var items = page.getContent();
         String next = null;
         if (page.hasNext()) {

@@ -20,18 +20,14 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             from Registration registration
             where registration.recruitment.id = :recruitmentId
               and (cast(:status as String) is null or registration.status = :status)
-              and (
-                  cast(:cursorRegisteredAt as LocalDateTime) is null
-                  or registration.registeredAt < :cursorRegisteredAt
-                  or (registration.registeredAt = :cursorRegisteredAt and registration.id < :cursorId)
-              )
+              and (registration.registeredAt, registration.id) < (:cursorRegisteredAt, :cursorId)
             order by registration.registeredAt desc, registration.id desc
             """)
     Slice<Registration> findPage(
             @Param("recruitmentId") Long recruitmentId,
             @Param("status") RegistrationStatus status,
             @Param("cursorRegisteredAt") LocalDateTime cursorRegisteredAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 
@@ -41,18 +37,14 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             from Registration registration
             where registration.member.id = :memberId
               and (cast(:status as String) is null or registration.status = :status)
-              and (
-                  cast(:cursorRegisteredAt as LocalDateTime) is null
-                  or registration.registeredAt < :cursorRegisteredAt
-                  or (registration.registeredAt = :cursorRegisteredAt and registration.id < :cursorId)
-              )
+              and (registration.registeredAt, registration.id) < (:cursorRegisteredAt, :cursorId)
             order by registration.registeredAt desc, registration.id desc
             """)
     Slice<Registration> findMyPage(
             @Param("memberId") Long memberId,
             @Param("status") RegistrationStatus status,
             @Param("cursorRegisteredAt") LocalDateTime cursorRegisteredAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 

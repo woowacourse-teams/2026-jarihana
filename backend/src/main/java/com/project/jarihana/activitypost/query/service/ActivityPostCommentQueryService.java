@@ -9,6 +9,7 @@ import com.project.jarihana.activitypost.query.service.dto.ActivityPostCommentLi
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
+import com.project.jarihana.common.pagination.CursorBounds;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -43,8 +44,8 @@ public class ActivityPostCommentQueryService {
         List<ActivityPostCommentProjection> candidates = activityPostCommentQueryRepository.findPage(
                 postId,
                 memberId,
-                cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(),
+                cursor == null ? CursorBounds.EARLIEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.FIRST_ID : cursor.id(),
                 Pageable.ofSize(query.size() + 1)
         );
         boolean hasNext = candidates.size() > query.size();

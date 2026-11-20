@@ -14,12 +14,11 @@ public interface PushSubscriptionQueryRepository extends Repository<PushSubscrip
             select new com.project.jarihana.pushsubscription.query.repository.dto.PushSubscriptionProjection(
                 s.id, s.generation, s.enabled, s.lastSeenAt, s.createdAt)
             from PushSubscription s where s.member.id = :memberId
-              and (cast(:createdAt as LocalDateTime) is null or s.createdAt < :createdAt
-                   or (s.createdAt = :createdAt and s.id < :id))
+              and (s.createdAt, s.id) < (:createdAt, :id)
             order by s.createdAt desc, s.id desc
             """)
     Slice<PushSubscriptionProjection> findPage(@Param("memberId") long memberId, @Param("createdAt") LocalDateTime createdAt,
-                                              @Param("id") Long id, Pageable pageable);
+                                              @Param("id") long id, Pageable pageable);
 
     @Query("""
             select new com.project.jarihana.pushsubscription.query.repository.dto.PushSubscriptionProjection(

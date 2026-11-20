@@ -1,5 +1,6 @@
 package com.project.jarihana.groupmember.query.repository;
 
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListPage;
 import com.project.jarihana.groupmember.query.repository.dto.GroupMemberListProjection;
@@ -33,8 +34,8 @@ public class JpaGroupMemberListRepository implements GroupMemberListRepository {
     public GroupMemberListPage findPage(GroupMemberListSearchCriteria criteria, int size) {
         Slice<GroupMember> members = groupMemberRepository.findPage(
                 criteria.groupId(),
-                criteria.cursorJoinedAt(),
-                criteria.cursorId(),
+                criteria.cursorJoinedAt() == null ? CursorBounds.LATEST_TIME : criteria.cursorJoinedAt(),
+                criteria.cursorJoinedAt() == null ? CursorBounds.LAST_ID : criteria.cursorId(),
                 Pageable.ofSize(size)
         );
         List<GroupMemberListProjection> projections = members.getContent().stream()
