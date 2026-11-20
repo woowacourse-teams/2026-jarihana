@@ -133,13 +133,10 @@ async function startDatabase() {
   saveLayout([1], productionRoom, productionRevision, "prod");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
     sql(`INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
-        VALUES (11, now(), now(), 'Fixture', 'Cutover room', 'ACTIVE', 'CLUB', 'OFFLINE'),
+        VALUES (11, now(), now(), 'Fixture', 'Published blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE'),
                (12, now(), now(), 'Fixture', 'Cold blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE');`, databaseName);
     saveLayout([11, 12], { ...room, items: [] }, 1, environment);
   }
-  sql(`INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
-    VALUES (13, now(), now(), 'Fixture', 'Same revision room', 'ACTIVE', 'CLUB', 'OFFLINE');`);
-  saveLayout([13], { ...room, items: [{ id: "kept-sofa", kind: "sofa", x: 3, z: 0, rotation: 1 }] }, 1);
   const dbPort = docker(["port", database, "5432/tcp"]).trim().match(/^127\.0\.0\.1:(\d+)$/)?.[1];
   assert.ok(dbPort, "PostgreSQL fixture must bind to a dynamic loopback port");
   return dbPort;
@@ -148,17 +145,8 @@ async function startDatabase() {
 async function migrateBlueprints(environment, wallWidth) {
   const { databaseName, reader } = environments[environment];
   const migration = await readFile(path.join(root, "backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql"), "utf8");
-  // Only this test room gets a different wall at cutover. The real migration runs unchanged;
-  // its seeded geometry normally matches the bundled layout, so it would not expose a skipped refresh.
-  const sameRevisionFixture = environment === "dev" ? `
-    INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
-      SELECT 'lounge', 16, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '[{"x":-2,"z":6.8,"width":1,"depth":1,"height":2}]'::jsonb)
-      FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 11;
-    UPDATE group_space SET blueprint_version = 16 WHERE group_id = 13;` : "";
-  const start = serverLog.length;
   sql(`BEGIN;
     ${migration}
-    ${sameRevisionFixture}
     GRANT SELECT (blueprint_template_key, blueprint_version) ON group_space TO ${reader};
     GRANT SELECT (template_key, blueprint_version, geometry_schema_version, geometry) ON space_blueprint TO ${reader};
     GRANT SELECT (template_key, blueprint_version) ON space_blueprint_default TO ${reader};
@@ -166,9 +154,6 @@ async function migrateBlueprints(environment, wallWidth) {
     COMMIT;`, databaseName);
   assert.equal(sql("SELECT version FROM space_blueprint_migration;", databaseName).trim(), "1");
   assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 11;", databaseName).trim(), "lounge:11");
-  // The JVM must observe the committed marker before any readiness call, user traffic, or room revision change.
-  const switched = `Realtime blueprint source environment=${environment.toUpperCase()} source=DATABASE`;
-  await waitFor(() => serverLog.slice(start).includes(switched), `${environment} switched without incoming requests`, 25000);
   const blocker = JSON.stringify([{ x: -2, z: 6.8, width: wallWidth, depth: wallWidth, height: 2 }]);
   sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
     SELECT 'lounge', version, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '${blocker}'::jsonb)
@@ -176,17 +161,6 @@ async function migrateBlueprints(environment, wallWidth) {
     WHERE template_key = 'lounge' AND blueprint_version = 11;`, databaseName);
   saveLayout([11], { ...room, items: [] }, 2, environment, 13);
   saveLayout([12], { ...room, items: [] }, 2, environment, 15);
-}
-
-function assertLegacySchema(environment) {
-  const { databaseName } = environments[environment];
-  const shape = sql(`SELECT
-    to_regclass('public.space_blueprint_migration') IS NULL AND
-    to_regclass('public.space_blueprint') IS NULL AND
-    to_regclass('public.space_blueprint_default') IS NULL AND NOT EXISTS (
-      SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'group_space'
-        AND column_name IN ('blueprint_template_key', 'blueprint_version'));`, databaseName);
-  assert.equal(shape.trim(), "t");
 }
 
 function startServer(dbPort, extraArgs = []) {
@@ -295,10 +269,19 @@ try {
     const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "blueprint preflight", 45000);
     return exitCode.code;
   }
-  assertLegacySchema("dev");
-  assertLegacySchema("prod");
+  const savedRows = Object.fromEntries(Object.entries(environments).map(([environment, { databaseName }]) =>
+    [environment, sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName)]));
+  assert.notEqual(await checkBlueprints(), 0);
+  await migrateBlueprints("dev", 1);
+  assert.notEqual(await checkBlueprints(), 0);
+  await migrateBlueprints("prod", 3);
   assert.equal(await checkBlueprints(), 0);
-  receipt.push("the candidate preflight accepts two pre-V45 databases without blueprint tables or room reference columns");
+  receipt.push("preflight requires migrated blueprint tables, catalog, references and grants in both databases");
+  for (const [environment, { databaseName }] of Object.entries(environments)) {
+    assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName), savedRows[environment]);
+    assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 1;", databaseName).trim(), "lounge:11");
+  }
+  receipt.push("both migrations pin existing saved rooms and preserve their furniture JSON and revision");
   serverLog = "";
   server = startServer(dbPort);
   const port = await waitFor(() => {
@@ -323,52 +306,26 @@ try {
   const url = `ws://127.0.0.1:${port}/ws/realtime`;
   const devMap = await connect(url, "101", "11");
   const prodMap = await connect(url, "101", "11", { environment: "prod" });
-  const pid = server.pid, devInitial = context(devMap), prodInitial = context(prodMap);
-  const legacySpawn = { x: -2, y: 0, z: 6.8 };
-  assert.deepEqual(await checkLiveRoom(devMap, devInitial, 1), legacySpawn);
-  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
-  receipt.push("development and production join with bundled lounge geometry and the old group_space schema");
-
-  const stable = await connect(url, "101", "13");
-  const stableInitial = context(stable);
-  assert.deepEqual(await checkLiveRoom(stable, stableInitial, 1), legacySpawn);
-  const originalRow = sql("SELECT revision, room_json FROM group_space WHERE group_id = 13;");
-  await migrateBlueprints("dev", 1);
-  await waitFor(() => participant(stable, "101").position.x !== legacySpawn.x ||
-    participant(stable, "101").position.z !== legacySpawn.z, "active room adopts DB geometry with unchanged revision");
-  assert.notDeepEqual(await checkLiveRoom(stable, stableInitial, 1), legacySpawn);
-  assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 13;"), originalRow);
-  stable.socket.close(1000, "LEAVE");
-  receipt.push("an active development socket adopts a test-only DB wall and keeps its room epoch, connection, revision and exact saved furniture JSON");
-  assertLegacySchema("prod");
+  const devInitial = context(devMap), prodInitial = context(prodMap);
+  const defaultSpawn = { x: -2, y: 0, z: 6.8 };
   const devStart = await checkLiveRoom(devMap, devInitial, 2);
-  assert.equal((await checkHealth()).status, 200);
-  assert.notDeepEqual(devStart, legacySpawn);
-  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
-  assert.equal(await checkBlueprints(), 0);
-  receipt.push("only development switches to its published colliding wall, production keeps its bundled layout and both sockets keep their identity");
+  const prodStart = await checkLiveRoom(prodMap, prodInitial, 2);
+  assert.notDeepEqual(devStart, defaultSpawn);
+  assert.notDeepEqual(prodStart, defaultSpawn);
+  assert.notDeepEqual(prodStart, devStart);
+  receipt.push("both environments read a DB-only version and apply their own geometry for the same key and version");
 
   const { databaseName: devDb, reader: devReader } = environments.dev;
   sql(`REVOKE SELECT (geometry) ON space_blueprint FROM ${devReader};`, devDb);
   assert.equal((await checkHealth()).status, 503);
   await connect(url, "101", "12", { expectedError: "BACKEND_UNAVAILABLE", expectedCloseCode: 4004 });
-  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 1), legacySpawn);
+  assert.deepEqual(await checkLiveRoom(prodMap, prodInitial, 2), prodStart);
   sql(`GRANT SELECT (geometry) ON space_blueprint TO ${devReader};`, devDb);
   assert.equal((await checkHealth()).status, 200);
   const recovered = await connect(url, "101", "12");
   assert.deepEqual(participant(recovered, "101").position, devStart);
   recovered.socket.close(1000, "LEAVE");
-  receipt.push("a migrated development reader denied geometry cannot join a cold room through the bundled layout and recovers on grant restoration");
-
-  await migrateBlueprints("prod", 3);
-  const prodStart = await checkLiveRoom(prodMap, prodInitial, 2);
-  assert.equal((await checkHealth()).status, 200);
-  assert.notDeepEqual(prodStart, legacySpawn);
-  assert.notDeepEqual(prodStart, devStart);
-  assert.deepEqual(await checkLiveRoom(devMap, devInitial, 2), devStart);
-  assert.equal(server.pid, pid);
-  assert.equal(server.exitCode, null);
-  receipt.push("production switches later to its own geometry with the same key and version, on the same server process and original WebSockets");
+  receipt.push("a development reader denied geometry cannot join a cold room and recovers on grant restoration");
 
   const { reader: prodReader, databaseName: prodDb } = environments.prod;
   sql(`REVOKE SELECT (blueprint_version) ON space_blueprint_default FROM ${prodReader};`, prodDb);
@@ -397,7 +354,7 @@ try {
   restored.socket.close(1000, "LEAVE");
   devMap.socket.close(1000, "LEAVE");
   prodMap.socket.close(1000, "LEAVE");
-  receipt.push("a production PostgreSQL disconnection after cutover refuses a new production admission while a new development admission succeeds, and the same JVM recovers when production reconnects");
+  receipt.push("a production PostgreSQL disconnection refuses a new production admission while a new development admission succeeds, and the same JVM recovers when production reconnects");
   await connect(url, "101", "3", { expectedError: "ACCESS_DENIED" });
   await connect(url, "101", "4", { expectedError: "ACCESS_DENIED" });
   await connect(url, "999", "1", { expectedError: "ACCESS_DENIED" });

@@ -20,7 +20,7 @@ class MovementPathTest {
                 {"building":{"minX":-20,"maxX":20,"minZ":-20,"maxZ":20},
                  "walls":[{"x":0,"z":0,"width":1,"depth":1}]}
                 """);
-        var layout = new RoomLayout(1, Map.of(), geometry, new Vec3(-1, 0, 0), mapper.readTree("{}"), RoomLayout.Origin.DATABASE);
+        var layout = new RoomLayout(1, Map.of(), geometry, new Vec3(-1, 0, 0), mapper.readTree("{}"));
         var room = new RoomState("7", layout, 10, 100);
         room.join(TestRooms.admission("1"), "a", 1000);
         return room;
