@@ -8,6 +8,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends Repository<RefreshToken, Long> {
@@ -65,4 +66,29 @@ public interface RefreshTokenRepository extends Repository<RefreshToken, Long> {
     @Modifying
     @Query("delete from RefreshToken t where t.family.id = :familyId")
     int removeAllByFamilyId(@Param("familyId") long familyId);
+
+    /**
+     * 정리할 패밀리의 토큰을 지운다. 패밀리 행보다 먼저 지워야 외래 키에 걸리지 않는다.
+     */
+    @Modifying
+    @Query("delete from RefreshToken t where t.family.id in :familyIds")
+    int removeAllByFamilyIdIn(@Param("familyIds") Collection<Long> familyIds);
+
+    /**
+     * 패밀리 없이 저장된 이전 행 중 {@code cutoff} 전에 만료된 행을 최대 {@code limit}개 지운다. 다른 앱이 같은
+     * 행을 지우는 중이면 기다리지 않고 건너뛴다.
+     */
+    @Modifying
+    @Query(value = """
+            delete from refresh_token
+             where id in (
+                   select id
+                     from refresh_token
+                    where refresh_token_family_id is null
+                      and expires_at < :cutoff
+                    order by id
+                    limit :limit
+                      for update skip locked)
+            """, nativeQuery = true)
+    int removeExpiredWithoutFamily(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
 }
