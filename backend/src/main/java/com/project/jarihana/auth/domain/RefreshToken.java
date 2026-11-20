@@ -8,8 +8,10 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Optional;
 
 @Entity
 @Table(
@@ -34,8 +36,23 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
-    private RefreshToken(Member member, String tokenHash, LocalDateTime expiresAt) {
-        this.member = require(member, "회원");
+    /**
+     * 회전을 도입하기 전 버전이 만든 행은 비어 있다. 새 버전이 처음 회전할 때 패밀리에 넣는다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refresh_token_family_id")
+    private RefreshTokenFamily family;
+
+    /**
+     * 비어 있으면 아직 쓰이지 않은 활성 토큰이다. 회전 시각은 같은 토큰으로 동시에 온 요청과 경합하므로
+     * 저장소의 조건부 UPDATE로만 기록한다.
+     */
+    @Column(name = "rotated_at")
+    private LocalDateTime rotatedAt;
+
+    private RefreshToken(RefreshTokenFamily family, String tokenHash, LocalDateTime expiresAt) {
+        this.family = require(family, "패밀리");
+        this.member = require(family.getMember(), "회원");
         this.tokenHash = require(tokenHash, "토큰 해시");
         this.expiresAt = require(expiresAt, "만료 시각");
     }
@@ -47,12 +64,38 @@ public class RefreshToken extends BaseEntity {
         return value;
     }
 
-    public static RefreshToken issue(Member member, String tokenHash, LocalDateTime expiresAt) {
-        return new RefreshToken(member, tokenHash, expiresAt);
+    public static RefreshToken issue(RefreshTokenFamily family, String tokenHash, LocalDateTime expiresAt) {
+        return new RefreshToken(family, tokenHash, expiresAt);
     }
 
     public boolean isExpired(LocalDateTime now) {
         return !now.isBefore(expiresAt);
+    }
+
+    /**
+     * 패밀리가 없는 이전 행은 자기 {@code expiresAt}이 절대 만료 역할을 하므로 여기서는 막지 않는다.
+     */
+    public boolean isFamilyUsableAt(LocalDateTime now) {
+        return family == null || family.isUsableAt(now);
+    }
+
+    public boolean isRotated() {
+        return rotatedAt != null;
+    }
+
+    /**
+     * 탭 여러 개가 같은 쿠키로 거의 동시에 갱신한 경우처럼 회전 직후의 재제출은 사본의 증거로 보지 않는다.
+     */
+    public boolean isWithinReuseGraceAt(LocalDateTime now, Duration reuseGrace) {
+        return isRotated() && now.isBefore(rotatedAt.plus(reuseGrace));
+    }
+
+    public Optional<RefreshTokenFamily> findFamily() {
+        return Optional.ofNullable(family);
+    }
+
+    public LocalDateTime getRotatedAt() {
+        return rotatedAt;
     }
 
     public Long getId() {

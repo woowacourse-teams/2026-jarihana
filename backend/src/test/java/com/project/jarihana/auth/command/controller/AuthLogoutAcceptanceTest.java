@@ -18,12 +18,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
 
     private static final String LOGOUT_PATH = "/auth/logout";
+    private static final String REFRESH_PATH = "/auth/refresh";
     private static final String MY_PROFILE_PATH = "/members/me";
     private static final String SESSION_COOKIE_NAME = "SESSION";
     private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
@@ -48,6 +50,9 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
     @Autowired
     private AccessTokenProvider accessTokenProvider;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @DisplayName("가입한 회원이 로그아웃하면 Refresh Token을 폐기한다.")
     @Test
     void discardRefreshTokenOnLogout() {
@@ -63,6 +68,42 @@ class AuthLogoutAcceptanceTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
         assertThat(refreshTokenTestRepository.findAll()).isEmpty();
+    }
+
+    @DisplayName("로그아웃하면 회전된 이전 토큰까지 같은 로그인의 Refresh Token을 모두 폐기한다.")
+    @Test
+    void revokeWholeLoginOnLogout() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        String first = refreshTokenIssuer.issue(member).value();
+        String second = rotate(first);
+
+        // When
+        ExtractableResponse<Response> response = logout(request -> request
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
+                .cookie(authCookieProperties.refreshTokenName(), second));
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
+        assertThat(refreshTokenTestRepository.findAll()).isEmpty();
+        assertThat(jdbcTemplate.queryForObject(
+                "select revoke_reason from refresh_token_family where member_id = ?",
+                String.class, member.getId())).isEqualTo("LOGOUT");
+    }
+
+    private String rotate(String refreshToken) {
+        String csrfToken = issueCsrfToken();
+        String rotated = RestAssured.given()
+                .cookie(CSRF_COOKIE_NAME, csrfToken)
+                .header(CSRF_HEADER_NAME, csrfToken)
+                .cookie(authCookieProperties.refreshTokenName(), refreshToken)
+                .when()
+                .post(REFRESH_PATH)
+                .then()
+                .extract()
+                .cookie(authCookieProperties.refreshTokenName());
+        assertThat(rotated).isNotBlank();
+        return rotated;
     }
 
     private ExtractableResponse<Response> logout(CredentialSpec credentials) {
