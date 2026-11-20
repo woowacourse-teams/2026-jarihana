@@ -1,0 +1,44 @@
+name: Production Release V2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/frontend-prod-deploy.yml"
+      - "infra/docker-compose.yml"
+      - "infra/monitoring/alloy/config.alloy"
+      - "infra/monitoring/alloy/postgres-queries.yaml"
+      - "infra/scripts/verify-backend.sh"
+      - "infra/blue-green-deploy/scripts/**"
+      - "infra/blue-green-deploy/controller/**"
+      - "infra/blue-green-deploy/nginx/**"
+      - ".github/workflows/backend-prod-deploy.yml"
+      - ".github/workflows/backend-bluegreen-deploy.yml"
+      - ".github/workflows/backend-app-operation.yml"
+      - ".github/workflows/backend-bluegreen-phase.yml"
+      - ".github/workflows/backend-prod-deploy-v2.yml"
+      - ".github/workflows/backend-bluegreen-deploy-v2.yml"
+      - ".github/workflows/backend-bluegreen-app-v2.yml"
+      - ".github/workflows/backend-bluegreen-prepare-v2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 운영 배포
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-deploy-v2.yml
+    with:
+      environment: prod
+    secrets: inherit

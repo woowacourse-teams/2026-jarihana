@@ -3,11 +3,13 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
+import { fetchDefaultSpaceBlueprint, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
 import { groupSpaceKeys } from "../../features/group-space/hooks.js";
 import { routeRegistry } from "../../app/routes.js";
 import { GroupSpacePage } from "./GroupSpacePage.jsx";
 import { createInitialRoom, readSavedRoom } from "./roomState.js";
+
+import { getRoomLayout } from "./roomLayout.js";
 
 let mockRouteParams = {};
 jest.mock("react-router", () => ({
@@ -16,7 +18,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
-jest.mock("../../features/group-space/api.js", () => ({ fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
+jest.mock("../../features/group-space/api.js", () => ({ fetchDefaultSpaceBlueprint: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
 jest.mock("./roomState.js", () => {
   const actual = jest.requireActual("./roomState.js");
   return { ...actual, readSavedRoom: jest.fn(actual.readSavedRoom) };
@@ -102,6 +104,37 @@ test("the leader can submit edits to a saved loft", async () => {
   await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", { room, expectedRevision: 3 }));
 });
 
+test("renaming a pinned room keeps the furniture coordinates, document version and blueprint reference", async () => {
+  const room = createInitialRoom("lounge", { loungeLoft: false });
+  const blueprint = { blueprintRef: { templateKey: "lounge", version: 13 }, geometry: getRoomLayout(room) };
+  fetchGroupSpace.mockResolvedValue(snapshot(room, blueprint));
+  saveGroupSpace.mockImplementation((id, { room: draft }) => Promise.resolve(snapshot(draft, { ...blueprint, revision: 4 })));
+  setup();
+  await screen.findByDisplayValue(room.name);
+  fireEvent.change(editorName(), { target: { value: "변경한 이름" } });
+  save();
+  await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledTimes(1));
+  const request = saveGroupSpace.mock.calls[0][1];
+  expect(request.blueprintRef).toEqual(blueprint.blueprintRef);
+  expect(JSON.parse(JSON.stringify(request.room))).toEqual({ ...room, name: "변경한 이름" });
+});
+
+test("an unsaved first edit uses the published default while the shared visitor room stays on lounge v11", async () => {
+  const flat = createInitialRoom("lounge", { loungeLoft: false });
+  const loft = createInitialRoom();
+  const blueprint = { blueprintRef: { templateKey: "lounge", version: 13 }, geometry: getRoomLayout(loft) };
+  fetchGroupSpace.mockResolvedValue(snapshot(null, { blueprintRef: { templateKey: "lounge", version: 11 }, geometry: getRoomLayout(flat) }));
+  fetchDefaultSpaceBlueprint.mockResolvedValue(blueprint);
+  saveGroupSpace.mockImplementation((id, { room }) => Promise.resolve(snapshot(room, { ...blueprint, revision: 1 })));
+  setup();
+  expect(await screen.findByLabelText("실시간 배치")).toHaveTextContent("7:0:11");
+  expect(fetchDefaultSpaceBlueprint).toHaveBeenCalledWith("lounge");
+  save();
+  await waitFor(() => expect(saveGroupSpace).toHaveBeenCalledWith("41", {
+    room: expect.objectContaining({ version: 12 }), blueprintRef: blueprint.blueprintRef, expectedRevision: 0
+  }));
+});
+
 test("the shared scene uses the persisted geometry until the loft is saved", async () => {
   const legacy = createInitialRoom("lounge", { loungeLoft: false });
   const loft = createInitialRoom("lounge", { loungeLoft: true });
@@ -135,7 +168,7 @@ test("presentation rerenders reuse the validated room and a changed snapshot is 
   const invalidRoom = { version: 8 };
   act(() => client.setQueryData(groupSpaceKeys.detail(41, 7), snapshot(invalidRoom)));
   expect(await screen.findByRole("heading", { name: "공간을 불러오지 못했어요" })).toBeInTheDocument();
-  expect(readSavedRoom).toHaveBeenLastCalledWith(invalidRoom);
+  expect(readSavedRoom).toHaveBeenLastCalledWith(invalidRoom, { preserveVersion: true });
 });
 
 test("invalid saved room is an error, not a new default room", async () => {

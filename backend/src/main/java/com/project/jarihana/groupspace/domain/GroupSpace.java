@@ -34,24 +34,34 @@ public class GroupSpace extends BaseEntity {
     @Column(name = "room_json", nullable = false, columnDefinition = "text")
     private String roomJson;
 
+    @Column(name = "blueprint_template_key", nullable = false, length = 32)
+    private String blueprintTemplateKey;
+
+    @Column(name = "blueprint_version", nullable = false)
+    private int blueprintVersion;
+
     @Column(nullable = false)
     private long revision;
 
-    private GroupSpace(Long id, Group group, String roomJson, long revision, LocalDateTime createdAt) {
+    private GroupSpace(Long id, Group group, String roomJson, BlueprintRef blueprint, long revision, LocalDateTime createdAt) {
         super(createdAt);
         this.id = id;
         this.group = Objects.requireNonNull(group);
         this.roomJson = Objects.requireNonNull(roomJson);
+        this.blueprintTemplateKey = blueprint.templateKey();
+        this.blueprintVersion = blueprint.version();
         this.revision = revision;
     }
 
-    public static GroupSpace create(Group group, String roomJson, LocalDateTime now) {
-        return new GroupSpace(null, group, roomJson, 1, now);
+    public static GroupSpace create(Group group, String roomJson, BlueprintRef blueprint, LocalDateTime now) {
+        return new GroupSpace(null, group, roomJson, blueprint, 1, now);
     }
 
-    public GroupSpace replaceRoom(String roomJson) {
-        return new GroupSpace(id, group, roomJson, revision + 1, getCreatedAt());
+    public GroupSpace replaceRoom(String roomJson, BlueprintRef blueprint) {
+        return new GroupSpace(id, group, roomJson, blueprint, revision + 1, getCreatedAt());
     }
+
+    public BlueprintRef blueprintRef() { return new BlueprintRef(blueprintTemplateKey, blueprintVersion); }
 
     public Long getId() { return id; }
     public String getRoomJson() { return roomJson; }

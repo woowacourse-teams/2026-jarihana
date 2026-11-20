@@ -9,10 +9,6 @@ public record NotificationReadAllRequest(@Min(1) @Max(3) Integer clientVersion) 
         clientVersion = clientVersion == null ? 1 : clientVersion;
     }
 
-    public boolean includesChat() {
-        return clientVersion == 3;
-    }
-
     public boolean includesAnnouncements() {
         return clientVersion >= 2;
     }

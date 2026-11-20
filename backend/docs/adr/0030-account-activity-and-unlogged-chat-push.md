@@ -7,6 +7,8 @@
 - 관련 결정: [백엔드 ADR 0028 · 모임 채팅](0028-durable-group-chat-and-postgres-notify.md), [백엔드 ADR 0015 · 알림함과 웹푸시](0015-web-push-and-notification-inbox.md)
 - 계약: [공통 채팅 계약](../../../docs/chat-implementation-contract.md), [알림 API 계약](../context/api/endpoints/notifications.md)
 
+> 이 ADR은 최초 보류 정책의 결정 기록이다. 현재는 활성 계정이 새 메시지를 받으면 발송 작업을 생성하지 않고, 이미 적재된 작업에 아래의 보류 정책을 적용한다. [현재 발송 계약](../context/api/endpoints/notifications.md#채팅-푸시-적재와-재판정)을 따른다.
+
 ## 배경
 
 모임 채팅에 푸시를 추가하면서, 서비스를 사용하고 있는 사람의 다른 기기까지 알림이 울리는

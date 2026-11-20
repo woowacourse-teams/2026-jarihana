@@ -6,7 +6,7 @@ TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
 extract() {
   awk -v marker="$2" '
-    /^        run: \|$/ { capture=1; block=""; matched=0; next }
+    /^        run: \|-?$/ { capture=1; block=""; matched=0; next }
     capture && /^          / { line=substr($0,11); block=block line "\n"; if(index(line,marker)) matched=1; next }
     capture { if(matched) { printf "%s",block; count++ }; capture=0 }
     END { if(capture && matched) { printf "%s",block; count++ }; if(count!=1) exit 1 }
@@ -25,9 +25,52 @@ MODE=bootstrap; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow disabled_bootstrap_explicit_exception'
 MODE=deploy ENABLED=true; bash "$TEST_DIR/enabled.sh"
 echo 'PASS release-workflow enabled_deploy'
+# 진입점에서 실제 사용하는 선택 스텝을 실행한다.
+extract "$ROOT/.github/workflows/backend-prod-deploy.yml" 'workflow_dispatch:V2)' "$TEST_DIR/engine.sh"
+check_engine() {
+  local event=$1 selected=$2 expected=$3
+  : > "$TEST_DIR/engine-output"
+  GITHUB_EVENT_NAME="$event" SELECTED="$selected" GITHUB_OUTPUT="$TEST_DIR/engine-output" bash "$TEST_DIR/engine.sh"
+  [[ $(cat "$TEST_DIR/engine-output") == "engine=$expected" ]]
+}
+manual="$ROOT/.github/workflows/backend-prod-deploy.yml"
+automatic="$ROOT/.github/workflows/backend-prod-deploy-v2.yml"
+if grep -q '^  push:' "$manual" || grep -q '^  workflow_dispatch:' "$automatic"; then exit 1; fi
+grep -qx '  push:' "$automatic"
+grep -qx '      - main' "$automatic"
+grep -qx '    uses: ./.github/workflows/backend-bluegreen-deploy-v2.yml' "$automatic"
+grep -qx '  group: backend-prod-deploy' "$automatic"
+grep -qx '  group: backend-prod-deploy' "$manual"
+check_engine workflow_dispatch '' V1
+check_engine workflow_dispatch V1 V1
+check_engine workflow_dispatch V2 V2
+if GITHUB_EVENT_NAME=workflow_dispatch SELECTED=unknown GITHUB_OUTPUT="$TEST_DIR/engine-output" bash "$TEST_DIR/engine.sh"; then exit 1; fi
+echo 'PASS release-workflow main 자동 배포는 V2 한 번, 수동 배포는 V1 또는 V2'
+extract "$ROOT/.github/workflows/backend-bluegreen-prepare-v2.yml" '"$GITHUB_WORKFLOW_REF"' "$TEST_DIR/v2-gate.sh"
+(
+  export GITHUB_REPOSITORY=woowacourse-teams/2026-jarihana GITHUB_REF=refs/heads/main BG_ENVIRONMENT=prod
+  export GITHUB_EVENT_NAME=push MODE=deploy ENABLED=true
+  export GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy-v2.yml@refs/heads/main"
+  # Actions invokes Bash run steps with errexit enabled.
+  bash -e "$TEST_DIR/v2-gate.sh"
+  for denied in GITHUB_EVENT_NAME=workflow_dispatch MODE=bootstrap ENABLED=false GITHUB_REF=refs/heads/develop; do
+    if env "$denied" bash -e "$TEST_DIR/v2-gate.sh"; then exit 1; fi
+  done
+  GITHUB_WORKFLOW_REF="$GITHUB_REPOSITORY/.github/workflows/backend-prod-deploy.yml@refs/heads/main"
+  if bash -e "$TEST_DIR/v2-gate.sh"; then exit 1; fi
+  GITHUB_EVENT_NAME=workflow_dispatch
+  export REQUESTED_MODE=deploy
+  bash -e "$TEST_DIR/v2-gate.sh"
+  MODE=bootstrap ENABLED=false
+  if bash -e "$TEST_DIR/v2-gate.sh"; then exit 1; fi
+  export REQUESTED_MODE=bootstrap
+  bash -e "$TEST_DIR/v2-gate.sh"
+)
+echo 'PASS release-workflow V2 호출 파일, 이벤트, 운영 허용 여부 확인'
 mkdir -p "$TEST_DIR/source" "$TEST_DIR/bin"
 mkdir -p "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions"
 cp "$ROOT/infra/blue-green-deploy/scripts/actions/compose-preflight.sh" "$TEST_DIR/source/infra/blue-green-deploy/scripts/actions/"
+export REAL_GIT=$(command -v git)
 export REAL_DOCKER=$(command -v docker)
 export RELEASE_COMPOSE_FIXTURE="$ROOT/infra/blue-green-deploy/controller/app-compose.yml"
 cat >"$TEST_DIR/bin/docker" <<'MOCK'
@@ -43,6 +86,7 @@ fi
 MOCK
 cat >"$TEST_DIR/bin/git" <<'MOCK'
 #!/usr/bin/env bash
+if [[ ${USE_REAL_GIT:-false} == true ]]; then exec "$REAL_GIT" "$@"; fi
 case $1 in
   show) cat "$RELEASE_COMPOSE_FIXTURE";;
   rev-parse) if [[ $2 == HEAD ]]; then echo "${CHECKOUT_SHA:-$GITHUB_SHA}"; else printf '%040d\n' 4; fi;;
@@ -114,3 +158,68 @@ INPUT_FRONTEND_ONLY=false INPUT_TAG=1111111111111111111111111111111111111111
 if (cd "$TEST_DIR/source" && bash "$TEST_DIR/resolve.sh") >"$TEST_DIR/mismatch.log" 2>&1; then exit 1; fi
 grep -q 'must match the caller backend tree' "$TEST_DIR/mismatch.log"
 echo 'PASS release-workflow manual_backend_tag_mismatch_rejected'
+
+# 수동 V2가 운영에서 실행할 대상과 실제로 조회하는 이미지를 함께 확인한다.
+compact_resolve="$ROOT/infra/blue-green-deploy/scripts/compact/resolve.sh"
+export GITHUB_EVENT_NAME=workflow_dispatch INPUT_TAG='' CHANGE_SCOPE=both
+for scope in frontend backend both; do
+  INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false
+  case $scope in frontend) INPUT_FRONTEND_ONLY=true;; backend) INPUT_BACKEND_ONLY=true;; esac
+  : > "$GITHUB_OUTPUT"
+  : > "$DOCKER_TRACE"
+  (cd "$TEST_DIR/source" && bash "$compact_resolve")
+  grep -qx "frontend_only=$INPUT_FRONTEND_ONLY" "$GITHUB_OUTPUT"
+  grep -qx "backend_only=$INPUT_BACKEND_ONLY" "$GITHUB_OUTPUT"
+  if [[ $scope == frontend ]]; then
+    [[ ! -s $DOCKER_TRACE ]]
+  else
+    grep -q '^pull .*:tree-' "$DOCKER_TRACE"
+  fi
+  echo "PASS release-workflow manual_v2_scope_$scope"
+done
+export INPUT_FRONTEND_ONLY=true INPUT_BACKEND_ONLY=true
+if (cd "$TEST_DIR/source" && bash "$compact_resolve"); then exit 1; fi
+export GITHUB_EVENT_NAME=push INPUT_FRONTEND_ONLY=false INPUT_BACKEND_ONLY=false USE_REAL_GIT=true
+cd "$TEST_DIR/source"
+mkdir -p backend frontend infra/blue-green-deploy/controller .github/workflows
+cp "$REAL_COMPOSE_FIXTURE" infra/blue-green-deploy/controller/app-compose.yml
+touch backend/file frontend/file
+git init -q
+git config user.name fixture
+git config user.email fixture@example.com
+git config commit.gpgsign false
+git config core.hooksPath /dev/null
+git add .
+git commit -qm initial
+for scope in frontend backend both workflow; do
+  BEFORE_SHA=$(git rev-parse HEAD)
+  case $scope in
+    frontend) echo changed >> frontend/file ;;
+    backend) echo changed >> backend/file ;;
+    both) echo both >> frontend/file; echo both >> backend/file ;;
+    workflow) touch .github/workflows/backend-prod-deploy-v2.yml ;;
+  esac
+  git add .
+  git commit -qm "$scope"
+  GITHUB_SHA=$(git rev-parse HEAD)
+  : > "$GITHUB_OUTPUT"
+  : > "$DOCKER_TRACE"
+  bash "$compact_resolve"
+  case $scope in
+    frontend) grep -qx frontend_only=true "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT"; [[ ! -s $DOCKER_TRACE ]] ;;
+    backend) grep -qx backend_only=true "$GITHUB_OUTPUT"; grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -q '^pull .*:tree-' "$DOCKER_TRACE" ;;
+    *) grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT"; grep -q '^pull .*:tree-' "$DOCKER_TRACE" ;;
+  esac
+  echo "PASS release-workflow automatic_v2_scope_$scope"
+done
+BEFORE_SHA=0000000000000000000000000000000000000000
+: > "$GITHUB_OUTPUT"
+bash "$compact_resolve"
+grep -qx frontend_only=false "$GITHUB_OUTPUT"
+grep -qx backend_only=false "$GITHUB_OUTPUT"
+: > "$DOCKER_TRACE"
+for denied in BG_MODE=bootstrap BG_PROD_AUTO_ENABLED=false INPUT_FRONTEND_ONLY=true INPUT_TAG="$GITHUB_SHA" GITHUB_REF=refs/heads/develop BEFORE_SHA=ffffffffffffffffffffffffffffffffffffffff; do
+  if env "$denied" bash "$compact_resolve"; then exit 1; fi
+done
+[[ ! -s $DOCKER_TRACE ]]
+echo 'PASS release-workflow 정상 main push만 자동 V2 배포 허용'

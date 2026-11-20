@@ -6,7 +6,10 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.groupspace.domain.BlueprintRef;
+import com.project.jarihana.groupspace.domain.SpaceBlueprint;
 import com.project.jarihana.groupspace.query.repository.GroupSpaceQueryRepository;
+import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.groupspace.query.service.dto.GroupSpaceResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,8 +21,13 @@ import tools.jackson.databind.node.ObjectNode;
 @RequiredArgsConstructor
 public class GroupSpaceQueryService {
     private final GroupSpaceQueryRepository spaces;
+    private final SpaceBlueprintRepository blueprints;
     private final ObjectMapper mapper;
     private final LoginMemberReader loginMemberReader;
+
+    public SpaceBlueprint findDefaultBlueprint(String templateKey) {
+        return blueprints.getDefault(templateKey);
+    }
 
     public GroupSpaceResult findGroupSpace(long groupId) {
         var space = spaces.findSpace(groupId, loginMemberReader.currentMemberId().orElse(null))
@@ -40,8 +48,12 @@ public class GroupSpaceQueryService {
                 }
             }
         }
+        var ref = room == null ? BlueprintRef.UNSAVED_ROOM
+                : new BlueprintRef(space.blueprintTemplateKey(), space.blueprintVersion());
+        var blueprint = blueprints.get(ref);
         return new GroupSpaceResult(room,
                 space.revision() == null ? 0 : space.revision(),
-                space.role() == GroupMemberRole.LEADER && space.status() == GroupStatus.ACTIVE, space.updatedAt());
+                space.role() == GroupMemberRole.LEADER && space.status() == GroupStatus.ACTIVE, space.updatedAt(),
+                blueprint.ref(), blueprint.geometry());
     }
 }

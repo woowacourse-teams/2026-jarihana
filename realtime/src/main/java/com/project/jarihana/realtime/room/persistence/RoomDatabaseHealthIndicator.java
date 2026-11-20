@@ -18,13 +18,14 @@ final class RoomDatabaseHealthIndicator implements HealthIndicator {
 
     @Override
     public Health health() {
-        try {
-            for (RealtimeEnvironment environment : RealtimeEnvironment.values()) {
+        boolean healthy = true;
+        for (RealtimeEnvironment environment : RealtimeEnvironment.values()) {
+            try {
                 rooms.verifyReadAccess(environment);
+            } catch (DataAccessException | IllegalStateException error) {
+                healthy = false;
             }
-            return Health.up().build();
-        } catch (DataAccessException error) {
-            return Health.down().build();
         }
+        return healthy ? Health.up().build() : Health.down().build();
     }
 }

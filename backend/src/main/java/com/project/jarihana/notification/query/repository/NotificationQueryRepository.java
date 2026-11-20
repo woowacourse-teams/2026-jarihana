@@ -43,8 +43,7 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.deletedAt is null
               and (:includeAnnouncements = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
-              and (:includeChat = true or notification.eventType <>
-                   com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
+              and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED
               and (notification.createdAt, notification.id) < (:cursorCreatedAt, :cursorId)
             order by notification.createdAt desc, notification.id desc
             """)
@@ -53,7 +52,6 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorId") long cursorId,
             @Param("includeAnnouncements") boolean includeAnnouncements,
-            @Param("includeChat") boolean includeChat,
             Pageable pageable
     );
 
@@ -90,10 +88,8 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.readAt is null
               and (:includeAnnouncements = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
-              and (:includeChat = true or notification.eventType <>
-                   com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
+              and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED
             """)
     long countUnread(@Param("memberId") long memberId,
-                     @Param("includeAnnouncements") boolean includeAnnouncements,
-                     @Param("includeChat") boolean includeChat);
+                     @Param("includeAnnouncements") boolean includeAnnouncements);
 }

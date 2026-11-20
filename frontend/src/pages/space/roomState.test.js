@@ -1,6 +1,6 @@
 import previousRooms from './fixtures/rooms-v9.json';
 import { transformAttachedItems } from './assetCustomization';
-import { getRoomLayout, PLAYER } from "./roomLayout";
+import { bindRoomBlueprint, getRoomLayout, PLAYER } from "./roomLayout";
 import { createLegacyFacilityItems } from "./legacyFacilityCatalog";
 import {
   ATMOSPHERE_PRESETS, TEMPLATE_ATMOSPHERES, CATALOG, DEFAULT_ATMOSPHERE, MAX_ITEMS, MAX_PHOTO_LENGTH, ROOM_TEMPLATES, STORAGE_KEY, applyRoomTemplate, canPlace,
@@ -278,6 +278,31 @@ describe("room persistence and edit history", () => {
     const storage = { setItem: () => { throw new Error("quota"); } };
     expect(() => saveRoom(storage, createInitialRoom())).toThrow("quota");
   });
+  test("blueprint-only changes can be undone and redone", () => {
+    const document = createInitialRoom("study");
+    const geometry = getRoomLayout(document);
+    const pinned = (version) => bindRoomBlueprint(document, { blueprintRef: { templateKey: "study", version }, geometry });
+    const original = pinned(11), updated = pinned(13);
+    const changed = historyReducer({ past: [], present: original, future: [] }, { type: "change", room: updated });
+    expect(changed.present).toBe(updated);
+    const undone = historyReducer(changed, { type: "undo" });
+    expect(undone.present).toBe(original);
+    expect(historyReducer(undone, { type: "redo" }).present).toBe(updated);
+  });
+
+  test("retains an existing server placement while checking each new or moved item", () => {
+    const document = { ...createInitialRoom("study"), items: [{ id: "chair", kind: "armchair", x: 1, z: 1, rotation: 0 }] };
+    const geometry = getRoomLayout(document);
+    const pinned = bindRoomBlueprint(document, { blueprintRef: { templateKey: "study", version: 11 },
+      geometry: { ...geometry, walls: [...geometry.walls, { x: 1, z: 1, width: 3, depth: 3, height: 4 }] } });
+    const savedRoom = readSavedRoom(pinned, { preserveVersion: true });
+    expect(savedRoom.items).toEqual(document.items);
+    expect(validateRoom({ ...savedRoom, name: "원래 위치" }, { savedRoom }).items).toEqual(document.items);
+    expect(validateRoom({ ...savedRoom, items: [{ ...savedRoom.items[0], x: 1.5 }] }, { savedRoom })).toBeNull();
+    expect(validateRoom({ ...savedRoom, items: [{ ...savedRoom.items[0], id: "new" }] }, { savedRoom })).toBeNull();
+    expect(canPlace(savedRoom.items[0], savedRoom.items, savedRoom)).toBe(false);
+  });
+
   test("undo/redo round-trip edits; a new change clears redo; cancel clears history", () => {
     const first = createInitialRoom();
     const second = { ...first, theme: "sage" };
@@ -623,6 +648,8 @@ describe("version 9 reusable facilities", () => {
         { id: "our-memory", kind: "memory", ...recordPosition, rotation: 0, title: "첫 모임", note: "함께 남긴 기록",
           photo: "data:image/jpeg;base64,YWJj", link: "https://example.com/our-record" }
       ] };
+    const pinned = bindRoomBlueprint(old, { blueprintRef: { templateKey: template, version: 8 }, geometry: getRoomLayout(old) });
+    expect(readSavedRoom(pinned, { preserveVersion: true })).toEqual(pinned);
     const storage = { getItem: () => JSON.stringify(old), setItem: jest.fn() };
     const { room, warning } = loadRoom(storage);
     expect(warning).toBe("");

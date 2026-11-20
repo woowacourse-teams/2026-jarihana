@@ -108,11 +108,11 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
     }
 
     @Test
-    @DisplayName("채팅 계약을 요청한 클라이언트는 남은 채팅 알림의 목록·상세·개별 읽음·삭제를 처리한다.")
-    void currentClientReadsAndUpdatesPersistedChatNotification() {
+    @DisplayName("계약 3은 저장된 채팅 알림을 종 알림함에서 숨기고 상세·개별 읽음·삭제를 허용한다.")
+    void currentClientCanOpenPersistedChatNotificationOutsideTheInbox() {
         // Given
         Member owner = member("101");
-        notification(owner, "normal");
+        var normal = notification(owner, "normal");
         long id = futureChat(owner);
 
         // When
@@ -125,14 +125,14 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
 
         // Then
         assertThat(page.statusCode()).isEqualTo(200);
-        assertThat(page.jsonPath().getLong("data.items[0].id")).isEqualTo(id);
+        assertThat(page.jsonPath().getList("data.items.id", Long.class)).containsExactly(normal.getId());
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.jsonPath().getString("data.eventType")).isEqualTo("CHAT_MESSAGE_RECEIVED");
         assertThat(detail.jsonPath().getString("data.title")).isEqualTo("새 메시지");
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_CHAT");
         assertThat(detail.jsonPath().getMap("data.target")).containsOnlyKeys("kind", "groupId");
         assertThat(unread.statusCode()).isEqualTo(200);
-        assertThat(unread.jsonPath().getLong("data.unreadCount")).isEqualTo(2);
+        assertThat(unread.jsonPath().getLong("data.unreadCount")).isEqualTo(1);
         assertThat(read.statusCode()).isEqualTo(200);
         assertThat(afterRead.jsonPath().getLong("data.unreadCount")).isEqualTo(1);
         assertThat(deleted.statusCode()).isEqualTo(204);
@@ -141,26 +141,21 @@ class ChatReadCompatibilityAcceptanceTest extends NotificationIntegrationTestSup
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {1, 2})
-    @DisplayName("기존 전체 읽음은 숨긴 채팅 알림을 보존하고 계약 3의 전체 읽음만 채팅을 포함한다.")
-    void readAllDoesNotReadChatHiddenFromOlderClients(int version) {
+    @ValueSource(ints = {1, 2, 3})
+    @DisplayName("전체 읽음은 모든 계약에서 종 알림함에 표시되는 알림만 대상으로 삼는다.")
+    void readAllOnlyMarksInboxNotifications(int version) {
         // Given
         Member owner = member("101");
         notification(owner, "normal");
         long id = futureChat(owner);
 
         // When
-        Response legacy = authenticatedWrite(owner).queryParam("clientVersion", version).patch("/notifications/read-all");
-        Object hiddenReadAt = jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id);
-        Response current = authenticatedWrite(owner).queryParam("clientVersion", 3).patch("/notifications/read-all");
+        Response read = authenticatedWrite(owner).queryParam("clientVersion", version).patch("/notifications/read-all");
 
         // Then
-        assertThat(legacy.statusCode()).isEqualTo(200);
-        assertThat(legacy.jsonPath().getInt("data.updatedCount")).isEqualTo(1);
-        assertThat(hiddenReadAt).isNull();
-        assertThat(current.statusCode()).isEqualTo(200);
-        assertThat(current.jsonPath().getInt("data.updatedCount")).isEqualTo(1);
-        assertThat(jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id)).isNotNull();
+        assertThat(read.statusCode()).isEqualTo(200);
+        assertThat(read.jsonPath().getInt("data.updatedCount")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id)).isNull();
     }
 
     @Test
