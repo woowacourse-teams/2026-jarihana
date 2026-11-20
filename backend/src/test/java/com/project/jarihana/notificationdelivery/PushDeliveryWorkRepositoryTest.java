@@ -50,8 +50,8 @@ class PushDeliveryWorkRepositoryTest extends PushIntegrationTestSupport {
     @Autowired private RecordingInspector inspector;
 
     @Test
-    @DisplayName("네 작업을 선점하고 전송 정보를 준비할 때 SQL을 두 번만 실행한다.")
-    void batchClaimAndPrepareUseTwoStatements() {
+    @DisplayName("네 작업을 선점하고 전송 정보를 준비할 때 SQL을 세 번 실행한다.")
+    void batchClaimAndPrepareUseThreeStatements() {
         // Given
         var owner = member("101");
         var subscription = subscription(owner, "batch");
@@ -69,7 +69,7 @@ class PushDeliveryWorkRepositoryTest extends PushIntegrationTestSupport {
         });
 
         // Then
-        assertThat(statements).hasSize(2);
+        assertThat(statements).hasSize(3);
         assertThat(claimed.get()).hasSize(4).allSatisfy(claim -> {
             assertThat(claim.status()).isEqualTo(DeliveryStatus.IN_FLIGHT);
             assertThat(claim.token()).isNotNull();
@@ -110,7 +110,7 @@ class PushDeliveryWorkRepositoryTest extends PushIntegrationTestSupport {
         var statements = inspector.capture(() -> prepared.set(leases.prepare(claims)));
 
         // Then
-        assertThat(statements).hasSize(2);
+        assertThat(statements).hasSize(1);
         assertThat(prepared.get()).extracting(PushRequest::deliveryId).containsExactly(pending.getFirst().getId());
         assertThat(deliveries.findById(pending.get(1).getId()).orElseThrow().getLeaseToken()).isEqualTo(replacement);
         assertThat(deliveries.findById(pending.get(4).getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.IN_FLIGHT);
@@ -357,13 +357,14 @@ class PushDeliveryWorkRepositoryTest extends PushIntegrationTestSupport {
         jdbc.execute("analyze notification_deliveries");
         jdbc.execute("analyze push_subscriptions");
         String sql = PushDeliveryWorkRepository.class
-                .getMethod("claimNextRows", LocalDateTime.class, LocalDateTime.class, UUID.class, int.class)
+                .getMethod("claimNextRows", LocalDateTime.class, LocalDateTime.class, UUID.class, int.class, List.class)
                 .getAnnotation(Query.class).value();
         var parameters = new MapSqlParameterSource()
                 .addValue("now", NOW, Types.TIMESTAMP)
                 .addValue("lockedUntil", NOW.plusMinutes(1), Types.TIMESTAMP)
                 .addValue("token", UUID.randomUUID(), Types.OTHER)
-                .addValue("limit", 4);
+                .addValue("limit", 4)
+                .addValue("chatSubscriptions", List.of(-1L));
 
         // When
         String plan = new NamedParameterJdbcTemplate(jdbc)

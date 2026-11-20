@@ -1,15 +1,17 @@
 import * as THREE from 'three';
 import { studioMaterial } from './studio-materials.js';
 
+export const PIPE_COLORS = Object.freeze({ a: 0x2ac1bc, b: 0xed6a5a });
+
 export const NOZZLE_LENGTH_RATIO = 2.35 / 1.6;
 export const NOZZLE_DEPTH = 0.37;
 export const NOZZLE_HORIZONTAL = Math.sqrt(1 - NOZZLE_DEPTH ** 2);
 
 export function createPipeSurfaces(color) {
   return {
-    wall: studioMaterial({ color, roughness: 0.18, clearcoat: 0.7, clearcoatRoughness: 0.12, transparent: true, opacity: 0.38, depthWrite: false }),
-    solid: studioMaterial({ color, roughness: 0.36, clearcoat: 0.35, emissive: color, emissiveIntensity: 0 }),
-    inner: studioMaterial({ color, roughness: 0.24, transparent: true, opacity: 0.14, side: THREE.BackSide, depthWrite: false }),
+    wall: studioMaterial({ color, roughness: 0.18, clearcoat: 0.7, clearcoatRoughness: 0.12, envMapIntensity: 0.22, transparent: true, opacity: 0.38, depthWrite: false }),
+    solid: studioMaterial({ color, roughness: 0.36, clearcoat: 0.35, envMapIntensity: 0.22, emissive: color, emissiveIntensity: 0 }),
+    inner: studioMaterial({ color, roughness: 0.24, envMapIntensity: 0.22, transparent: true, opacity: 0.14, side: THREE.BackSide, depthWrite: false }),
   };
 }
 

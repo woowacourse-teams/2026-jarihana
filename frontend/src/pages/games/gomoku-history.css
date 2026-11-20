@@ -1,0 +1,622 @@
+.gomoku-lobby-tabs .ui-tabs__list {
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+.gomoku-lobby-tabs .ui-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+.gomoku-lobby-tabs .ui-tabs__tab[aria-selected="true"] {
+  color: var(--color-surface);
+  background: var(--color-ink);
+}
+.gomoku-lobby-tabs .ui-tabs__tab[aria-selected="true"]::after {
+  display: none;
+}
+.gomoku-lobby-tabs .ui-tabs__tab:not([aria-selected="true"]):hover {
+  background: var(--color-surface-sunken);
+}
+.gomoku-statistics-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-block: var(--space-8) var(--space-3);
+}
+.gomoku-statistics-heading h2 {
+  margin: 0;
+  font-size: var(--text-h3);
+}
+.gomoku-statistics-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-muted-ink);
+  font-size: var(--text-badge);
+}
+.gomoku-statistics-heading p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+.gomoku-ranking-heading {
+  margin-block: 0;
+}
+.gomoku-ranking-heading h2 {
+  font-size: var(--text-h2);
+}
+.gomoku-statistics-note {
+  margin: var(--space-6) 0 0;
+  text-align: center;
+  color: var(--color-muted-ink);
+  font-size: var(--text-badge);
+  line-height: 1.7;
+}
+.gomoku-statistics-empty,
+.gomoku-statistics-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 20rem;
+  text-align: center;
+}
+.gomoku-statistics-empty > svg {
+  color: var(--color-muted-ink);
+}
+.gomoku-statistics-empty h3,
+.gomoku-statistics-empty p,
+.gomoku-statistics-state p {
+  margin: 0;
+}
+.gomoku-statistics-empty p {
+  color: var(--color-muted-ink);
+  font-size: var(--text-label);
+}
+.gomoku-history-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-7) var(--space-8);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-lg);
+}
+.gomoku-statistics-eyebrow {
+  font-size: var(--text-caption);
+  color: var(--color-muted-ink);
+}
+.gomoku-history-summary h2 {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-h2);
+  font-weight: 800;
+}
+.gomoku-history-totals {
+  display: flex;
+  gap: var(--space-8);
+  margin: var(--space-5) 0 0;
+}
+.gomoku-history-totals > div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-1);
+}
+.gomoku-history-totals dt {
+  font-size: var(--text-badge);
+  color: var(--color-muted-ink);
+}
+.gomoku-history-totals dd {
+  margin: 0;
+  font-size: var(--text-h2);
+  font-weight: 800;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.gomoku-history-totals > div:first-child dd {
+  color: var(--color-brand-ink);
+}
+.gomoku-win-rate {
+  width: 9.75rem;
+  height: 9.75rem;
+  flex-shrink: 0;
+  position: relative;
+}
+.gomoku-win-rate svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  transform: rotate(-90deg);
+}
+.gomoku-win-rate-track {
+  stroke: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  stroke-width: 7;
+}
+.gomoku-win-rate-value {
+  stroke: var(--color-brand);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+.gomoku-win-rate > div {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.gomoku-win-rate > div > span {
+  font-size: var(--text-badge);
+  color: var(--color-muted-ink);
+}
+.gomoku-win-rate strong {
+  font-size: var(--text-h1);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.gomoku-win-rate small {
+  font-size: var(--text-label);
+  margin-left: var(--space-1);
+  font-weight: 500;
+}
+.gomoku-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gomoku-history-list > li {
+  display: grid;
+  grid-template-columns: 3.625rem minmax(0, 1fr) 7rem 8rem;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-5) var(--space-1);
+  border-bottom: var(--border-thin) solid var(--color-line);
+}
+.gomoku-history-result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-8);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-badge);
+  font-weight: 700;
+}
+.gomoku-history-result--win {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+.gomoku-history-result--lose {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.gomoku-history-result--draw {
+  background: var(--color-surface-sunken);
+  color: var(--color-muted-ink);
+}
+.gomoku-history-opponent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gomoku-history-opponent strong {
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+.gomoku-history-opponent p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-badge);
+  color: var(--color-muted-ink);
+}
+.gomoku-history-reason {
+  color: var(--color-muted-ink);
+  font-size: var(--text-caption);
+}
+.gomoku-history-date {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  font-size: var(--text-badge);
+  color: var(--color-muted-ink);
+  font-variant-numeric: tabular-nums;
+}
+.gomoku-ranking-podium {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: var(--space-8);
+  align-items: end;
+  max-width: 37.5rem;
+  margin: 0 auto var(--space-7);
+}
+.gomoku-ranking-champion,
+.gomoku-ranking-runner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+}
+.gomoku-ranking-place {
+  font-size: var(--text-h3);
+  color: var(--color-muted-ink);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: var(--space-4);
+}
+.gomoku-ranking-runner-profile.ui-avatar {
+  width: var(--space-16);
+  height: var(--space-16);
+  font-size: var(--text-h2);
+  margin-bottom: var(--space-5);
+  box-shadow:
+    0 0 0 var(--space-2) var(--color-surface),
+    var(--shadow-card);
+}
+.gomoku-ranking-runner-profile--2.ui-avatar {
+  background: var(--color-activity-study-soft);
+  color: var(--color-activity-study-ink);
+}
+.gomoku-ranking-runner-profile--3.ui-avatar {
+  background: var(--color-activity-session-soft);
+  color: var(--color-activity-session-ink);
+}
+.gomoku-ranking-winner-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.gomoku-ranking-winner-name strong {
+  font-size: var(--text-h3);
+  font-weight: 700;
+}
+.gomoku-ranking-champion .gomoku-ranking-winner-name strong {
+  font-size: var(--text-h2);
+  font-weight: 800;
+}
+.gomoku-ranking-winner-name > span {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-badge);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.gomoku-ranking-wins {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--color-muted-ink);
+}
+.gomoku-ranking-wins b {
+  font-size: var(--text-h2);
+  color: var(--color-ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.gomoku-ranking-champion .gomoku-ranking-wins b {
+  color: var(--color-brand-ink);
+}
+.gomoku-ranking-rate {
+  color: var(--color-muted-ink);
+  font-size: var(--text-badge);
+  margin-top: var(--space-1);
+}
+.gomoku-ranking-chair-scene {
+  position: relative;
+  width: 16.5rem;
+  max-width: 120%;
+  height: var(--gomoku-ranking-scene-height);
+  margin-bottom: var(--space-3);
+  isolation: isolate;
+}
+.gomoku-ranking-chair {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--gomoku-ranking-chair-size);
+  height: var(--gomoku-ranking-chair-size);
+  object-fit: contain;
+  filter: drop-shadow(0 var(--space-2) var(--space-2) var(--color-shadow));
+}
+.gomoku-ranking-halo {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 85%;
+  background: radial-gradient(ellipse, var(--color-brand-soft), transparent 68%);
+  z-index: -1;
+}
+.gomoku-ranking-champion-profile.ui-avatar {
+  position: absolute;
+  bottom: var(--gomoku-ranking-profile-bottom);
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--gomoku-ranking-profile-size);
+  height: var(--gomoku-ranking-profile-size);
+  border: var(--space-1) solid var(--color-surface);
+  background: var(--color-surface-sunken);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-h1);
+}
+.gomoku-ranking-crown {
+  position: absolute;
+  top: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%) rotate(-9deg);
+  width: var(--space-7);
+  height: var(--space-7);
+  color: var(--color-brand-ink);
+  fill: var(--color-brand-soft);
+}
+.gomoku-ranking-mine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  margin-bottom: var(--space-6);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+  border-radius: var(--radius-md);
+}
+.gomoku-ranking-mine > div {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--text-caption);
+}
+.gomoku-ranking-mine > div + div {
+  gap: var(--space-6);
+}
+.gomoku-ranking-mine strong {
+  font-size: var(--text-h2);
+  font-weight: 800;
+}
+.gomoku-ranking-mine small {
+  font-size: var(--text-caption);
+  font-weight: 500;
+  margin-left: var(--space-1);
+}
+.gomoku-ranking-mine-icon {
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  background: var(--color-surface);
+  border-radius: 50%;
+}
+.gomoku-ranking-mine-icon svg {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+.gomoku-ranking-columns,
+.gomoku-ranking-list > li {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) 10.25rem 5.625rem;
+  align-items: center;
+  gap: var(--space-5);
+  padding-inline: var(--space-5);
+}
+.gomoku-ranking-columns {
+  padding-bottom: var(--space-3);
+  color: var(--color-muted-ink);
+  font-size: var(--text-badge);
+}
+.gomoku-ranking-columns > span:last-child {
+  text-align: right;
+}
+.gomoku-ranking-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gomoku-ranking-list > li {
+  padding-block: var(--space-4);
+  border-top: var(--border-thin) solid var(--color-line);
+  font-size: var(--text-label);
+}
+.gomoku-ranking-position {
+  color: var(--color-muted-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.gomoku-ranking-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gomoku-ranking-member small {
+  font-size: var(--text-badge);
+  color: var(--color-brand-ink);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-soft);
+  padding-inline: var(--space-1);
+}
+.gomoku-ranking-record {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.gomoku-ranking-record > span {
+  font-size: var(--text-badge);
+  color: var(--color-muted-ink);
+}
+.gomoku-ranking-percentage {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.gomoku-ranking-self {
+  background: var(--color-section-soft);
+  border-radius: var(--radius-sm);
+}
+@media (max-width: 47.9375rem) {
+  .gomoku-lobby-tabs .ui-tabs__list {
+    gap: var(--space-1);
+    margin-bottom: var(--space-7);
+  }
+  .gomoku-lobby-tabs .ui-tabs__tab {
+    flex: 1;
+    padding-inline: var(--space-2);
+    gap: var(--space-1);
+  }
+  .gomoku-history-summary {
+    padding: var(--space-6) var(--space-5);
+    gap: var(--space-3);
+    border-radius: var(--radius-md);
+  }
+  .gomoku-history-totals {
+    gap: var(--space-5);
+  }
+  .gomoku-win-rate {
+    width: 7.25rem;
+    height: 7.25rem;
+  }
+  .gomoku-win-rate strong {
+    font-size: var(--text-h2);
+  }
+  .gomoku-history-list > li {
+    grid-template-columns: 2.75rem minmax(0, 1fr) 6.75rem;
+    grid-template-areas: "result opponent date" "result opponent reason";
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-5) 0;
+  }
+  .gomoku-history-result {
+    grid-area: result;
+  }
+  .gomoku-history-opponent {
+    grid-area: opponent;
+  }
+  .gomoku-history-opponent > .ui-avatar {
+    display: none;
+  }
+  .gomoku-history-date {
+    grid-area: date;
+    font-size: var(--text-badge);
+  }
+  .gomoku-history-reason {
+    grid-area: reason;
+    text-align: right;
+    font-size: var(--text-badge);
+  }
+  .gomoku-ranking-podium {
+    gap: var(--space-2);
+    grid-template-columns: 1fr 1.5fr 1fr;
+  }
+  .gomoku-ranking-chair-scene {
+    --gomoku-ranking-chair-size: 9.875rem;
+    --gomoku-ranking-scene-height: 13rem;
+    --gomoku-ranking-profile-size: 4.25rem;
+    --gomoku-ranking-profile-bottom: 4.0625rem;
+    width: 10.625rem;
+  }
+  .gomoku-ranking-crown {
+    top: var(--space-10);
+    width: var(--space-6);
+    height: var(--space-6);
+  }
+  .gomoku-ranking-runner-profile.ui-avatar {
+    width: var(--space-12);
+    height: var(--space-12);
+    font-size: var(--text-h3);
+    margin-bottom: var(--space-4);
+  }
+  .gomoku-ranking-winner-name {
+    gap: var(--space-1);
+  }
+  .gomoku-ranking-winner-name strong {
+    font-size: var(--text-body);
+  }
+  .gomoku-ranking-champion .gomoku-ranking-winner-name strong {
+    font-size: var(--text-h3);
+  }
+  .gomoku-ranking-winner-name > span {
+    padding: 0 var(--space-1);
+  }
+  .gomoku-ranking-rate {
+    white-space: nowrap;
+  }
+  .gomoku-ranking-mine {
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+  .gomoku-ranking-mine > div {
+    gap: var(--space-2);
+    font-size: var(--text-badge);
+  }
+  .gomoku-ranking-mine > div + div {
+    flex-direction: column;
+    align-items: end;
+    gap: 0;
+  }
+  .gomoku-ranking-mine-icon {
+    width: var(--space-8);
+    height: var(--space-8);
+  }
+  .gomoku-ranking-mine-icon svg {
+    width: var(--space-5);
+    height: var(--space-5);
+  }
+  .gomoku-ranking-columns,
+  .gomoku-ranking-list > li {
+    grid-template-columns: 1.625rem minmax(0, 1fr) 4.625rem 3rem;
+    gap: var(--space-2);
+    padding-inline: var(--space-1);
+  }
+  .gomoku-ranking-list > li {
+    font-size: var(--text-caption);
+  }
+  .gomoku-ranking-member {
+    gap: var(--space-2);
+  }
+  .gomoku-ranking-member > .ui-avatar {
+    width: var(--space-7);
+    height: var(--space-7);
+    font-size: var(--text-badge);
+  }
+  .gomoku-ranking-record {
+    flex-direction: column;
+    align-items: start;
+    gap: 0;
+    font-size: var(--text-badge);
+  }
+}
+@media (max-width: 22rem) {
+  .gomoku-history-summary {
+    padding-inline: var(--space-4);
+  }
+  .gomoku-history-totals {
+    gap: var(--space-3);
+  }
+  .gomoku-win-rate {
+    width: var(--space-16);
+    height: var(--space-16);
+  }
+  .gomoku-ranking-mine-icon {
+    display: none;
+  }
+}

@@ -39,13 +39,9 @@ jobs:
       BG_MODE: ${{ inputs.mode }}
       BG_OPERATION: ${{ inputs.operation }}
       BG_IMAGE_DIGEST: ${{ inputs.digest }}
-      BG_CONTROL_REF: ${{ vars.BLUE_GREEN_CONTROL_REF }}
       BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
       GH_TOKEN: ${{ github.token }}
       RDS_URL: ${{ vars.RDS_URL }}
-      # Older immutable control releases still require this process environment alias.
-      # Both names use RDS_URL; no separate GitHub variable or DB override is read.
-      BLUE_GREEN_RDS_URL: ${{ vars.RDS_URL }}
       DB_USERNAME: ${{ vars.DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       INVITATION_TOKEN_ACTIVE_KEY_ID: ${{ vars.INVITATION_TOKEN_ACTIVE_KEY_ID || 'primary' }}
@@ -56,6 +52,8 @@ jobs:
       GITHUB_OAUTH_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
       GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
       GITHUB_OAUTH_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
+      GOMOKU_CHAT_ENABLED: ${{ vars.GOMOKU_CHAT_ENABLED || 'false' }}
+      POINTS_STARTS_AT: ${{ vars.POINTS_STARTS_AT }}
       PUSH_ENABLED: ${{ vars.PUSH_ENABLED || 'false' }}
       PUSH_WORKER_ENABLED: ${{ vars.PUSH_WORKER_ENABLED || 'true' }}
       PUSH_VAPID_PUBLIC_KEY: ${{ vars.PUSH_VAPID_PUBLIC_KEY }}
@@ -69,10 +67,12 @@ jobs:
       IMAGE_CDN_DELIVERY_BASE_URL: ${{ vars.IMAGE_CDN_DELIVERY_BASE_URL }}
       IMAGE_CLOUDFRONT_KEY_PAIR_ID: ${{ vars.IMAGE_CLOUDFRONT_KEY_PAIR_ID }}
       IMAGE_CLOUDFRONT_PRIVATE_KEY: ${{ secrets.IMAGE_CLOUDFRONT_PRIVATE_KEY }}
+      IMAGE_CLEANUP_ENABLED: ${{ vars.IMAGE_CLEANUP_ENABLED || 'false' }}
+      IMAGE_CLEANUP_GRACE_PERIOD: P7D
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ vars.BLUE_GREEN_CONTROL_REF }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: 임시 Docker 인증 디렉터리
         if: inputs.operation == 'prepare'
@@ -86,14 +86,12 @@ jobs:
           password: ${{ github.token }}
       - name: 로컬 앱의 허가·신원을 확인하고 작업 실행
         id: operation
+        env:
+          YOUTUBE_DATA_API_KEY: ${{ inputs.operation == 'prepare' && secrets.YOUTUBE_DATA_API_KEY || '' }}
+          REALTIME_WEBSOCKET_URL: ${{ inputs.operation == 'prepare' && vars.REALTIME_WEBSOCKET_URL || '' }}
         shell: bash
         run: |
           script=infra/blue-green-deploy/scripts/actions/app.sh
-          # The immutable control checkout may predate the package move.
-          if [[ ! -f "$script" ]]; then
-            script=infra/scripts/deploy/actions/app.sh
-          fi
-          [[ -f "$script" ]] || { echo '::error::Control release app entrypoint is missing'; exit 1; }
           exec bash "$script" "$BG_OPERATION"
       - name: 임시 Docker 인증 정리
         if: always() && env.DOCKER_CONFIG != ''

@@ -1,11 +1,21 @@
 import * as THREE from 'three';
 
+export const COURT_COLORS = Object.freeze({ mint: 0x27bdb6, coral: 0xec7569, line: 0xffffff });
+export const FRAME_COLOR = 0x46645e;
+
 // Broad reflections match the soft vinyl finish of the existing chair illustrations.
 export function studioMaterial(parameters = {}) {
   return new THREE.MeshPhysicalMaterial({
     roughness: 0.5, metalness: 0, clearcoat: 0.1, clearcoatRoughness: 0.45,
-    envMapIntensity: 0.22, ...parameters,
+    envMapIntensity: 0.3, ...parameters,
   });
+}
+
+export function teamMaterial({ colorIntensity = 0.65, ...parameters } = {}) {
+  const material = studioMaterial({ ...parameters, toneMapped: false, envMapIntensity: 0, specularIntensity: 0.05, clearcoat: 0 });
+  // Compensate for the studio lighting so team colors retain the entry screen's saturation.
+  material.color.multiplyScalar(colorIntensity);
+  return material;
 }
 
 export function createStudioEnvironment(renderer) {

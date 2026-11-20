@@ -56,6 +56,11 @@ test("account change during subscribe prevents server registration and rearming"
   await expect(operation).rejects.toThrow("계정이 변경됐어요");
   expect(registerPush).not.toHaveBeenCalled(); expect(events).not.toContain("BIND");
 });
+test.each([[undefined, 1], [1, 1], [2, 2], [3, 3], [99, 1]])("active worker version %s registers capability %s", async (workerVersion, expected) => {
+  state.clientVersion = workerVersion;
+  await enableBrowserPush(1, registration, { vapidPublicKey: "AQID" }, { ...state, clientVersion: 3 });
+  expect(registerPush).toHaveBeenCalledWith(expect.anything(), expected);
+});
 test("iOS outside standalone asks for installation instead of automatic permission", () => {
   Object.defineProperty(navigator, "userAgent", { configurable: true, value: "iPhone" });
   expect(pushEnvironment().installRequired).toBe(true);

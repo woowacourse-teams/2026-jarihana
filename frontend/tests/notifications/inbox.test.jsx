@@ -87,6 +87,30 @@ test("new group notifications need only a group id and open the group detail", (
     eventType: "REGISTRATION_SUBMITTED" }).success).toBe(false);
 });
 
+test("chat notifications open their room and reject mismatched destinations", () => {
+  const notification = original.notificationSchema.parse({ ...row(1), payloadVersion: 1,
+    eventType: "CHAT_MESSAGE_RECEIVED", target: { kind: "GROUP_CHAT", groupId: 10 } });
+  expect(original.notificationTargetPath(notification.target, notification.id)).toBe("/chat/10");
+  expect(original.notificationSchema.safeParse({ ...notification,
+    target: { kind: "GROUP_DETAIL", groupId: 10 } }).success).toBe(false);
+  expect(original.notificationSchema.safeParse({ ...notification,
+    target: { kind: "GROUP_CHAT", groupId: 0 } }).success).toBe(false);
+  expect(original.notificationSchema.safeParse({ ...notification,
+    eventType: "REGISTRATION_SUBMITTED" }).success).toBe(false);
+});
+
+test("notification reads and read-all advertise chat capability", async () => {
+  const client = { request: jest.fn().mockResolvedValue({}) };
+  await original.fetchNotifications(undefined, client);
+  await original.fetchUnreadCount(client);
+  await original.fetchNotification(5, client);
+  await original.readAllNotifications(client);
+  expect(client.request).toHaveBeenCalledTimes(4);
+  for (const [, options] of client.request.mock.calls) {
+    expect(options.searchParams.clientVersion).toBe(3);
+  }
+});
+
 test.each(["ACTIVITY_POST_COMMENTED", "ACTIVITY_POST_REACTED"])("%s needs the post id and opens that post among my records", (eventType) => {
   const notification = original.notificationSchema.parse({ ...row(1), payloadVersion: 1,
     eventType, target: { kind: "ACTIVITY_POST", groupId: 10, activityPostId: 77 } });

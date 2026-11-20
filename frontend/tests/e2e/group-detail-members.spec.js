@@ -3,6 +3,8 @@ import { expect, test } from "playwright/test";
 
 import { group, installApiFixture } from "./api-fixture.js";
 
+test.use({ launchOptions: { args: ["--disable-webgl"] } });
+
 for (const width of [360, 768, 1440]) {
   test(`@core keeps the leader first before and after loading all members at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

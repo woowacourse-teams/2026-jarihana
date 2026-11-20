@@ -1,3 +1,9 @@
+gomoku:
+  posthog:
+    enabled: ${GOMOKU_POSTHOG_ENABLED:true}
+    project-token: "phc_ABBYBqJovasTGojDV9U5XpsqG2QofkY4WVAnss5zXFMM"
+    host: "https://us.i.posthog.com"
+
 spring:
   main:
     banner-mode: "off"

@@ -2,13 +2,17 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as THREE from '../../public/sparring-arena/vendor/three.module.js';
 import { characterVariant } from '../../public/sparring-arena/src/character-motion.js';
+import { readAvatarAppearance } from '../../public/sparring-arena/src/avatar-appearance.js';
+import { createWalkingCharacters } from '../../public/sparring-arena/src/walking-characters.js';
+
+jest.mock('three', () => jest.requireActual('../../public/sparring-arena/vendor/three.module.js'), { virtual: true });
 
 it('캡슐 의자는 회원 유형과 독립적으로 편 색을 선택하고 편을 바꾸면 이전 이미지를 숨긴다', async () => {
   const source = readFileSync(path.join(__dirname, '../../public/sparring-arena/src/characters.js'), 'utf8')
     .replace(/^import .*;\n/gm, '').replaceAll('export function', 'function')
     .replace('import.meta.url', JSON.stringify('http://localhost/sparring-arena/src/characters.js'));
-  const { createCharacters, whenCharacterAssetsReady } = new Function('THREE', 'characterVariant',
-    `${source}\nreturn { createCharacters, whenCharacterAssetsReady };`)(THREE, characterVariant);
+  const { createCharacters, whenCharacterAssetsReady } = new Function('THREE', 'characterVariant', 'readAvatarAppearance', 'createWalkingCharacters',
+    `${source}\nreturn { createCharacters, whenCharacterAssetsReady };`)(THREE, characterVariant, readAvatarAppearance, createWalkingCharacters);
   const loader = jest.spyOn(THREE.TextureLoader.prototype, 'load').mockImplementation((url, ready) => {
     const texture = new THREE.Texture();
     ready(texture);

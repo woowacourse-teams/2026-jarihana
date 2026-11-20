@@ -6,6 +6,8 @@ set +x
 SCRIPT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BG_READ_ONLY_VERIFIED_AT=0
 BG_LIVE_CACHED_AT=0
+BG_TOPOLOGY_CONFIG=''
+BG_TOPOLOGY_DIGEST=''
 
 bg_api_context() {
     BG_API_MIN_REMAINING=500
@@ -40,7 +42,13 @@ bg_die() { printf '::error::%s\n' "$*" >&2; exit 1; }
 bg_require() { local message=$1; shift; "$@" || bg_die "$message"; }
 bg_now() { date +%s; }
 bg_uuid() { cat /proc/sys/kernel/random/uuid; }
-bg_topology_digest() { jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f 1; }
+bg_topology_digest() {
+    if [[ $CONFIG == "$BG_TOPOLOGY_CONFIG" && -n $BG_TOPOLOGY_DIGEST ]]; then
+        printf '%s\n' "$BG_TOPOLOGY_DIGEST"
+    else
+        jq -Sc '.topology' <<< "$CONFIG" | sha256sum | cut -d ' ' -f 1
+    fi
+}
 
 bg_root_file() {
     local path=$1 maximum=${2:-65536} private=${3:-false} uid mode size directory
@@ -73,9 +81,7 @@ bg_config() {
       .topology.coordinator_instance_id != .topology.b.instance_id and
       .topology.a.host_id != .topology.b.host_id and .topology.a.upstream != .topology.b.upstream and
       ([.topology.a.host_id,.topology.b.host_id] | all(test("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"))) and
-      ([.topology.a.upstream,.topology.b.upstream] | all(test("^[0-9.]+:[0-9]{1,5}$"))) and
-      (.topology.control.ref | test("^refs/tags/deployment-control-[A-Za-z0-9._-]+$")) and
-      (.topology.control.sha | test("^[a-f0-9]{40}$"))
+      ([.topology.a.upstream,.topology.b.upstream] | all(test("^[0-9.]+:[0-9]{1,5}$")))
     ' <<< "$CONFIG" >/dev/null || bg_die 'Repository, environment or A/B topology is invalid.'
     jq -e '
       def port: type == "number" and floor == . and . >= 1024 and . <= 65535;
@@ -87,7 +93,6 @@ bg_config() {
         .image_repository == "ghcr.io/woowacourse-teams/jarihana-backend" and
         (.container_name | test("^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$")) and
         (.project | test("^[a-z0-9][a-z0-9_-]{0,63}$")) and
-        .compose_file == ("/etc/jarihana-deploy/" + $env + "/app-compose.yml") and
         .worker_token_file == ("/etc/jarihana-deploy/" + $env + "/worker-token") and
         .journal_key == ("/etc/jarihana-deploy/" + $env + "/grant-key") and
         .known_hosts == ("/etc/jarihana-deploy/" + $env + "/known-hosts")
@@ -102,6 +107,9 @@ bg_config() {
         (.telemetry.max_mean_seconds | type == "number" and . > 0)
       end
     ' <<< "$CONFIG" >/dev/null || bg_die 'Protected paths, ports or adapter settings belong to another scope.'
+    # Cache only this validated in-memory configuration, never live journal or permission checks.
+    BG_TOPOLOGY_DIGEST=$(bg_topology_digest)
+    BG_TOPOLOGY_CONFIG=$CONFIG
 }
 
 bg_github() {
@@ -135,17 +143,27 @@ bg_github() {
     printf '%s\n' "$body"
 }
 
+bg_workflow_file() {
+    case "$ENVIRONMENT:${GITHUB_EVENT_NAME:-}" in
+      prod:push) echo backend-prod-deploy-v2.yml ;;
+      prod:workflow_dispatch) echo backend-prod-deploy.yml ;;
+      dev:*) echo backend-dev-deploy.yml ;;
+      *) return 1 ;;
+    esac
+}
+
 bg_live() {
-    local actual path checked_at
+    local actual file path checked_at
     checked_at=$(bg_now)
-    path=".github/workflows/backend-$ENVIRONMENT-deploy.yml"
-    # The actual filenames use dev/prod, not the display environment name.
+    file=$(bg_workflow_file) || bg_die 'Unknown deployment event.'
+    path=".github/workflows/$file"
     actual=$(bg_github "/repos/$REPO/actions/runs/$RUN_ID")
     jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg branch "$BRANCH" \
-      --arg path "$path" --arg ref "refs/heads/$BRANCH" --arg repo "$REPO" --argjson workflow "$WORKFLOW_ID" '
+      --arg env "$ENVIRONMENT" --arg event "${GITHUB_EVENT_NAME:-}" --arg path "$path" \
+      --arg ref "refs/heads/$BRANCH" --arg repo "$REPO" --argjson workflow "$WORKFLOW_ID" '
       .id == $run and .run_attempt == 1 and .head_sha == $sha and .head_branch == $branch and
       .workflow_id == $workflow and (.path == $path or .path == ($path + "@" + $ref)) and
-      (.event == "push" or .event == "workflow_dispatch") and
+      (.event == "push" or .event == "workflow_dispatch") and ($env == "dev" or .event == $event) and
       .repository.id == 1321030074 and .head_repository.id == 1321030074 and
       .repository.full_name == $repo and .head_repository.full_name == $repo and
       (.status | IN("queued", "in_progress", "waiting", "pending", "requested")) and
@@ -190,7 +208,7 @@ bg_machine() {
 }
 
 bg_init() {
-    local role=$1 file actual workflow expected name
+    local role=$1 file actual workflow expected name workflow_file
     ENVIRONMENT=${BG_ENVIRONMENT:?}; RUN_ID=${GITHUB_RUN_ID:?}; ATTEMPT=${GITHUB_RUN_ATTEMPT:?}
     [[ "$ENVIRONMENT" == dev || "$ENVIRONMENT" == prod ]] || bg_die 'Invalid deployment environment.'
     [[ "$RUN_ID" =~ ^[1-9][0-9]*$ && "$ATTEMPT" == 1 ]] || bg_die 'Workflow reruns are not allowed.'
@@ -207,18 +225,16 @@ bg_init() {
     [[ $(id -un) == "$name" ]] || bg_die 'Use the dedicated deployment account.'
     bg_config "$file"
     [[ $(jq -r '.topology.environment' <<< "$CONFIG") == "$ENVIRONMENT" ]] || bg_die 'Configuration environment differs.'
-    CONTROL_SHA=$(jq -r '.topology.control.sha' <<< "$CONFIG")
-    expected=$(jq -r '.topology.control.ref' <<< "$CONFIG")
-    [[ "${BG_CONTROL_REF:-}" == "$expected" || "refs/tags/${BG_CONTROL_REF:-}" == "$expected" ]] || bg_die 'Control tag differs from administrator settings.'
-    actual=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
-    [[ "$actual" == "$CONTROL_SHA" ]] || bg_die 'Checked-out control code is not the approved SHA.'
     REPO=$(jq -r '.repository.full_name' <<< "$CONFIG")
     [[ "${GITHUB_REPOSITORY:-}" == "$REPO" && "${GITHUB_SHA:-}" =~ ^[a-f0-9]{40}$ ]] || bg_die 'Deployment repository or SHA differs.'
+    actual=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
+    [[ "$actual" == "$GITHUB_SHA" ]] || bg_die 'Checked-out deployment code does not match the deployment commit.'
     BRANCH=main; [[ "$ENVIRONMENT" != dev ]] || BRANCH=develop
-    expected="$REPO/.github/workflows/backend-$ENVIRONMENT-deploy.yml@refs/heads/$BRANCH"
+    workflow_file=$(bg_workflow_file) || bg_die 'Unknown deployment event.'
+    expected="$REPO/.github/workflows/$workflow_file@refs/heads/$BRANCH"
     [[ "${GITHUB_REF:-}" == "refs/heads/$BRANCH" && "${GITHUB_WORKFLOW_REF:-}" == "$expected" ]] || bg_die 'Use the approved environment workflow and branch.'
-    workflow=$(bg_github "/repos/$REPO/actions/workflows/backend-$ENVIRONMENT-deploy.yml")
-    WORKFLOW_ID=$(jq -er --arg path ".github/workflows/backend-$ENVIRONMENT-deploy.yml" \
+    workflow=$(bg_github "/repos/$REPO/actions/workflows/$workflow_file")
+    WORKFLOW_ID=$(jq -er --arg path ".github/workflows/$workflow_file" \
       'select(.path == $path and .state == "active") | .id | select(type == "number" and . > 0)' <<< "$workflow")
     bg_live
     if [[ "$role" == coordinator ]]; then
@@ -232,15 +248,16 @@ bg_init() {
 }
 
 bg_atomic() {
-    local path=$1 value=$2 temporary
-    [[ -d $(dirname -- "$path") && ! -L "$path" ]] || bg_die 'Atomic state destination is invalid.'
+    local path=$1 value=$2 temporary directory
+    directory=$(dirname -- "$path")
+    [[ -d $directory && ! -L "$path" ]] || bg_die 'Atomic state destination is invalid.'
     jq -es 'length == 1 and (.[0] | type == "object")' <<< "$value" >/dev/null || bg_die 'Refusing to save invalid state.'
-    temporary=$(mktemp "$(dirname -- "$path")/.state.XXXXXX")
+    temporary=$(mktemp "$directory/.state.XXXXXX")
     chmod 600 "$temporary"
     printf '%s\n' "$value" > "$temporary"
     sync -f "$temporary"
     mv -f -- "$temporary" "$path"
-    sync -f "$(dirname -- "$path")"
+    sync -f "$directory"
 }
 
 bg_grant() {
@@ -262,11 +279,11 @@ bg_grant() {
     STATE=$(cat -- "$temporary"); rm -f -- "$temporary"
     jq -es 'length == 1 and (.[0] | type == "object")' <<< "$STATE" >/dev/null || bg_die 'Invalid coordinator grant JSON.'
     now=$(bg_now)
-    jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" \
+    jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" \
       --arg env "$ENVIRONMENT" --arg mode "$BG_MODE" --arg operation "$operation" --arg slot "$slot" \
       --arg image "$BG_IMAGE_DIGEST" --arg topology "$(bg_topology_digest)" --argjson now "$now" '
       .schema_version == 2 and .environment == $env and .run_id == $run and .attempt == 1 and
-      .sha == $sha and .control_sha == $control and .mode == $mode and .image == $image and
+      .sha == $sha and .mode == $mode and .image == $image and
       .topology_digest == $topology and (.old == "A" or .old == "B") and
       (.target == "A" or .target == "B") and .old != .target and
       .phase != "NEEDS_ATTENTION" and .expires_at > $now and

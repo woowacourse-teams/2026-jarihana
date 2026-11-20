@@ -24,8 +24,8 @@ docker network rm "$PREFIX" >/dev/null
 docker network create --label "com.jarihana.actions-acl=$PREFIX" --subnet "$subnet" "$PREFIX" >/dev/null
 base=$(printf '%s' "$subnet" | awk -F '[./]' '{print $1 "." $2 "." $3 "."}')
 allowed=${base}20; denied=${base}21; proxy=${base}22
-[[ $(grep -c 'allow 10.0.3.51;' "$ROOT/infra/monitoring/nginx/default.conf") == 1 ]]
-sed "s/allow 10.0.3.51;/allow $allowed;/" "$ROOT/infra/monitoring/nginx/default.conf" > "$DIR/proxy.conf"
+[[ $(grep -c 'allow 10.0.3.66;' "$ROOT/infra/monitoring/nginx/default.conf") == 1 ]]
+sed "s/allow 10.0.3.66;/allow $allowed;/" "$ROOT/infra/monitoring/nginx/default.conf" > "$DIR/proxy.conf"
 printf 'events {}\nhttp { server { listen 9090; return 200 "ok"; } server { listen 3000; return 200 "ok"; } server { listen 3100; return 200 "ok"; } }\n' > "$DIR/stub.conf"
 docker run -d --name "$PREFIX-upstream" --network "$PREFIX" \
   --network-alias prometheus --network-alias grafana --network-alias loki \

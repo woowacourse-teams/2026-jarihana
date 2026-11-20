@@ -63,7 +63,8 @@ test("opens recruitment history from the recruitment management tab", async ({ p
   expect(state.unexpectedResponses).toEqual([]);
 });
 
-test("keeps the group type badge readable across detail page viewports", async ({ page }) => {
+test("keeps the group type badge and music accessible across detail page viewports", async ({ page }) => {
+  test.slow();
   const browserFailures = watchBrowserFailures(page);
   const state = await installApiFixture(page);
 
@@ -74,28 +75,83 @@ test("keeps the group type badge readable across detail page viewports", async (
     await page.setViewportSize(viewport);
     await page.goto("/groups/10");
 
-    const badge = page.locator(".group-profile__type-tag .ui-badge");
+    const badge = page.locator(".group-clubhouse__badges .ui-badge");
     await expect(badge).toHaveText("스터디");
     await expect(badge).toHaveClass(/ui-badge--group-type-study/);
 
-    const geometry = await page.locator(".group-profile").evaluate((profile) => {
-      const badgeElement = profile.querySelector(".group-profile__type-tag");
+    const geometry = await page.locator(".group-clubhouse__frontage").evaluate((profile) => {
+      const badgeElement = profile.querySelector(".group-clubhouse__badges .ui-badge");
       const profileBounds = profile.getBoundingClientRect();
       const badgeBounds = badgeElement.getBoundingClientRect();
 
       return {
         badgeInsideProfile: badgeBounds.right <= profileBounds.right + 1,
-        profileHasHorizontalOverflow: profile.scrollWidth > profile.clientWidth
+        pageHasHorizontalOverflow: document.documentElement.scrollWidth > window.innerWidth
       };
     });
 
     expect(geometry, `${viewport.label} detail geometry`).toEqual({
       badgeInsideProfile: true,
-      profileHasHorizontalOverflow: false
+      pageHasHorizontalOverflow: false
     });
+    const header = page.getByRole("banner");
+    const musicToggle = header.getByRole("button", { name: "모임 음악", exact: true });
+    await musicToggle.click();
+    const music = header.getByRole("complementary", { name: "우리 모임 음악" });
+    await expect(music).toBeVisible();
+    const bounds = await music.boundingBox();
+    const headerBounds = await header.boundingBox();
+    expect(bounds.y).toBeGreaterThanOrEqual(headerBounds.y + headerBounds.height - 1);
+    expect(bounds.y - headerBounds.y - headerBounds.height).toBeLessThan(24);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+    await music.getByRole("button", { name: "음악 패널 접기" }).click();
+    await expect(music).toBeHidden();
+    await expect(musicToggle).toBeFocused();
   }
 
   expect(browserFailures).toEqual([]);
+  expect(state.unexpectedResponses).toEqual([]);
+});
+
+test("shows the builders while the clubhouse is loading and clears them when it is ready", async ({ page }, testInfo) => {
+  test.slow();
+  const state = await installApiFixture(page);
+  let finishLoading;
+  const pending = new Promise((resolve) => { finishLoading = resolve; });
+  await page.route("**/api/groups/10/space", async (route) => {
+    await pending;
+    await route.fallback();
+  });
+
+  await page.setViewportSize({ width: 1280, height: 831 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/groups/10", { waitUntil: "domcontentloaded" });
+  const loader = page.locator(".clubhouse-loading");
+  const hammer = loader.locator(".clubhouse-loading__hammer");
+  try {
+    await expect(loader).toBeVisible();
+    await expect(loader).toHaveAttribute("role", "status");
+    await expect(loader).toHaveText("우리 아지트를 만드는 중…");
+    await expect(hammer).toHaveCSS("animation-name", "none");
+    await page.screenshot({ path: testInfo.outputPath("clubhouse-loading-desktop.png") });
+
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(hammer).toHaveCSS("animation-name", "clubhouse-hammer");
+    const art = await loader.locator("svg").boundingBox();
+    expect(art.x).toBeGreaterThanOrEqual(0);
+    expect(art.x + art.width).toBeLessThanOrEqual(375);
+    const caption = await loader.locator("p").boundingBox();
+    const visit = await page.getByRole("button", { name: "놀러가기" }).boundingBox();
+    expect(caption.y + caption.height).toBeLessThanOrEqual(visit.y);
+    await page.screenshot({ path: testInfo.outputPath("clubhouse-loading-mobile.png") });
+  } finally {
+    finishLoading();
+  }
+
+  await expect(page.locator("[data-canvas-status]")).toHaveAttribute("data-canvas-status", "ready");
+  await expect(loader).toBeHidden();
   expect(state.unexpectedResponses).toEqual([]);
 });
 
@@ -138,28 +194,11 @@ test(
     );
 
     await page.goto("/signup");
-    const bootcampOption = page.getByRole("radio", { name: /부트캠프/ });
-    await expect(bootcampOption).toBeVisible();
-    await expect(page.getByRole("radio", { name: /회사/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /코치/ })).toHaveCount(0);
-    await expect(page.getByText("안녕하세요. 어떤 분이신가요?")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "자리하나에서 쓸 닉네임을 알려주세요" })).toBeVisible();
+    await expect(page.getByRole("radio")).toHaveCount(0);
+    await expect(page.getByRole("combobox")).toHaveCount(0);
 
-    await bootcampOption.click();
-    await expect(page.getByRole("heading", { name: "어느 부트캠프인가요?" })).toBeVisible();
-    await page.getByRole("radio", { name: "우아한테크코스" }).click();
-    const crewVerification = page.getByRole("button", { name: "우테코 크루 인증" });
-    await expect(crewVerification).toBeVisible();
-    await crewVerification.click();
-    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
-
-    await page.getByRole("button", { name: "이전" }).click();
-    await expect(crewVerification).toBeVisible();
-    await crewVerification.click();
-    await expect(page.getByRole("heading", { name: "안녕하세요 크루님 프로필을 작성해주세요" })).toBeVisible();
-
-    await page.getByLabel("크루 이름").fill("자리");
-    await page.getByLabel("과정").selectOption("FRONTEND");
-    await page.getByLabel("기수").selectOption("8");
+    await page.getByRole("textbox", { name: "닉네임" }).fill("자리");
     await page.getByRole("button", { name: "가입 완료하기" }).click();
     await page.getByRole("button", { name: "확인" }).click();
 
@@ -167,12 +206,7 @@ test(
     const signupRequest = state.requests.find(
       (request) => request.method === "POST" && request.path === "/members"
     );
-    expect(signupRequest?.postData).toEqual({
-      course: "FRONTEND",
-      crewName: "자리",
-      generation: 8,
-      memberType: "CREW"
-    });
+    expect(signupRequest?.postData).toEqual({ crewName: "자리" });
     expect(browserFailures).toEqual([]);
     expect(state.unexpectedResponses).toEqual([]);
   }

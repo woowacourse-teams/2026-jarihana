@@ -1,32 +1,16 @@
 package com.project.jarihana.member.command.controller.dto;
 
-import com.project.jarihana.member.domain.BootcampStatus;
-import com.project.jarihana.member.domain.Career;
-import com.project.jarihana.member.domain.Course;
-import com.project.jarihana.member.domain.MemberField;
 import com.project.jarihana.member.domain.MemberType;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 /**
- * 크루는 {@code generation}, {@code course}를, 부트캠프 회원은 {@code bootcamp}, {@code field}를,
- * 현직자는 {@code field}, {@code career}와 선택 {@code company}를 보낸다. 유형별 필수 여부는 도메인이 검증한다.
+ * 가입 화면은 닉네임만 보낸다. 크루 여부와 기수, 과정은 크루 명단으로 정하므로 요청에서 받지 않는다.
+ *
+ * <p>{@code memberType}은 코치 가입({@code COACH})에만 쓰고 그 밖의 값은 무시한다. 이전 가입 화면이
+ * 보내는 기수, 과정, 소속 정보도 알 수 없는 필드로 무시된다.
  */
 public record MemberSignupRequest(
-        @NotNull MemberType memberType,
         @NotBlank String crewName,
-        @Positive Integer generation,
-        Course course,
-        BootcampRequest bootcamp,
-        MemberField field,
-        Career career,
-        CompanyRequest company
+        MemberType memberType
 ) {
-
-    public record BootcampRequest(String name, BootcampStatus status, String cohort) {
-    }
-
-    public record CompanyRequest(String name, Boolean visible) {
-    }
 }

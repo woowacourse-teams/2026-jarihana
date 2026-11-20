@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createCapsuleBatch } from './capsule-batch.js';
 import { createDispenserPhysics, OUTPUT_CAPACITY, SLIDE, TRAY } from './dispenser-physics.js';
 import { TANK, RADIUS } from './physics.js';
-import { studioMaterial } from './studio-materials.js';
+import { COURT_COLORS, FRAME_COLOR, studioMaterial, teamMaterial } from './studio-materials.js';
 import { characterPose, characterVariant } from './character-motion.js';
 import { createSeatedCapsuleCharacters } from './chair-characters.js';
 import { createSlideEffects } from './slide-effects.js';
@@ -13,8 +13,10 @@ const PAIR_SLIDE_SECONDS = 1.4;
 const OPEN_SHELL_POSE = { stage: 'empty-shell', scale: 1, shrink: 1, closing: 0 };
 
 export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidth = TRAY.frontWidth, edgeScale = 1 } = {}) {
-  const slide = studioMaterial({ color: 0x91a8bf, roughness: 0.86, clearcoat: 0.02, envMapIntensity: 0.1, side: THREE.DoubleSide });
-  const rim = studioMaterial({ color: 0x34445c, roughness: 0.82, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const slide = teamMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.65, side: THREE.DoubleSide });
+  const floorColors = [COURT_COLORS.coral, COURT_COLORS.coral, COURT_COLORS.line, COURT_COLORS.line, COURT_COLORS.mint, COURT_COLORS.mint]
+    .map(color => new THREE.Color(color));
+  const rim = studioMaterial({ color: FRAME_COLOR, roughness: 0.5 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); mesh.receiveShadow = true; scene.add(mesh);
@@ -29,13 +31,23 @@ export function createDispenser(scene, onReveal, { onOpened = () => {}, trayWidt
     points.push(new THREE.Vector3(TRAY.backWidth / 2, TRAY.y + 0.12, TRAY.back));
     points.push(new THREE.Vector3(width / 2, TRAY.frontY + 0.12, TRAY.front));
     const outline = new THREE.CatmullRomCurve3(points).getPoints(segments);
-    const vertices = [], indices = [];
-    for (const { x, y, z } of outline) vertices.push(-x, y, z, x, y, z);
+    const vertices = [], colors = [], indices = [];
+    for (const { x, y, z } of outline) {
+      [-x, -0.035, -0.035, 0.035, 0.035, x].forEach((offset, index) => {
+        vertices.push(offset, y, z);
+        const color = floorColors[index];
+        colors.push(color.r, color.g, color.b);
+      });
+    }
     for (let i = 0; i < segments; i++) {
-      const n = i * 2; indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
+      for (let lane = 0; lane < 3; lane++) {
+        const n = i * 6 + lane * 2;
+        indices.push(n, n + 6, n + 1, n + 1, n + 6, n + 7);
+      }
     }
     const floor = new THREE.BufferGeometry();
     floor.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    floor.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     floor.setIndex(indices); floor.computeVertexNormals();
     const rails = [-1, 1].map(side => {
       const edge = points.map(({ x, y, z }) => new THREE.Vector3(side * x, y + rimLift * scale, z));

@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router";
 
 import * as authHooks from "../../../src/features/auth/index.js";
 import * as groupHooks from "../../../src/features/group/index.js";
+import { useTodaySessions } from "../../../src/features/group/useTodaySessions.js";
 import { GroupsPage } from "../../../src/pages/groups/GroupsPage.jsx";
 import { sessionHeadline } from "../../../src/pages/groups/home/useSessionHeadline.js";
 import { GroupBrowsePage } from "../../../src/pages/groups/GroupBrowsePage.jsx";
@@ -15,7 +16,7 @@ jest.mock("../../../src/features/auth/index.js", () => ({
 }));
 
 jest.mock("../../../src/features/group/useTodaySessions.js", () => ({
-  useTodaySessions: () => ({ date: "2026-09-27", data: [], isLoading: false, refetch: jest.fn() })
+  useTodaySessions: jest.fn()
 }));
 
 jest.mock("../../../src/features/group/index.js", () => ({
@@ -510,13 +511,29 @@ describe("headline in the introduction hero", () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    Element.prototype.scrollTo = jest.fn();
     jest.spyOn(Math, "random").mockReturnValue(0);
     authHooks.useAuth.mockReturnValue({ status: "authenticated" });
+    useTodaySessions.mockReturnValue({
+      date: "2026-09-27",
+      data: [
+        makeGroup({
+          type: "SESSION",
+          sessionSchedule: {
+            sessionDate: "2026-09-27",
+            startTime: "19:00:00",
+            endTime: "20:30:00"
+          }
+        })
+      ],
+      isSuccess: true
+    });
   });
 
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+    delete Element.prototype.scrollTo;
     if (originalGeolocation) Object.defineProperty(navigator, "geolocation", originalGeolocation);
     else delete navigator.geolocation;
   });

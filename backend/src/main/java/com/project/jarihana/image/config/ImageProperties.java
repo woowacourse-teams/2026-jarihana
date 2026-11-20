@@ -25,9 +25,8 @@ public record ImageProperties(
 ) {
 
     public ImageProperties {
-        bucket = defaultString(bucket, "techcourse-project-2026");
-        region = defaultString(region, "ap-northeast-2");
-        keyPrefix = defaultString(keyPrefix, "jarihana/images");
+        // Do not default the bucket or prefix: scope validation must see missing/invalid values.
+        region = region == null ? "ap-northeast-2" : region;
         publicBaseUrl = defaultString(publicBaseUrl, "");
         deliveryBaseUrl = defaultString(deliveryBaseUrl, "");
         cloudFrontKeyPairId = defaultString(cloudFrontKeyPairId, "");

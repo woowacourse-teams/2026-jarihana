@@ -20,13 +20,13 @@ import { LandingProductDemo } from "./LandingProductDemo";
 import "./landing-guide.css";
 import "./landing-demo-viewport.css";
 
-const guideChapters = [
+export const guideChapters = [
   {
     id: "browse",
     number: "01",
     icon: Search,
     title: "나에게 맞는 자리 찾기",
-    checks: ["이름으로 검색", "유형·모집 상태로 필터"],
+    checks: ["이름으로 검색", "유형과 모집 상태로 필터"],
     alt: "모임 검색과 유형 필터로 함께 배우는 토요일을 찾는 이용 예시"
   },
   {
@@ -34,7 +34,7 @@ const guideChapters = [
     number: "02",
     icon: CalendarDays,
     title: "이 모임, 나와 잘 맞을까?",
-    checks: ["소개·일정·장소 확인", "참여 신청"],
+    checks: ["소개, 일정, 장소 확인", "참여 신청"],
     alt: "모임 소개와 일정, 모집 방식을 확인하고 참여를 신청하는 이용 예시"
   },
   {
@@ -47,7 +47,7 @@ const guideChapters = [
   }
 ];
 
-const proposalChapters = [{
+export const proposalChapters = [{
   id: "proposal",
   number: "01",
   icon: Hand,
@@ -56,13 +56,13 @@ const proposalChapters = [{
   alt: "모임 제안에 함께하고 싶어요가 모이고 가능한 시간과 진행 방식, 분위기가 정리되는 자유게시판 이용 예시"
 }];
 
-const hostChapters = [
+export const hostChapters = [
   {
     id: "create",
     number: "01",
     icon: Plus,
     title: "모임 만들기",
-    checks: ["종류·이름·소개 입력", "장소·일정 설정"],
+    checks: ["종류, 이름, 소개 입력", "장소와 일정 설정"],
     alt: "모임 종류와 이름, 소개, 장소와 일정을 정해 모임을 만드는 이용 예시"
   },
   {
@@ -70,12 +70,12 @@ const hostChapters = [
     number: "02",
     icon: ClipboardCheck,
     title: "참여 신청 관리",
-    checks: ["신청 내용 확인", "승인·모집 상태 관리"],
+    checks: ["신청 내용 확인", "승인과 모집 상태 관리"],
     alt: "모임장이 신청 내용을 읽고 승인 여부를 관리하는 이용 예시"
   }
 ];
 
-const inviteChapters = [{
+export const inviteChapters = [{
   id: "invite",
   number: "01",
   icon: UserPlus,
@@ -84,7 +84,7 @@ const inviteChapters = [{
   alt: "회원을 검색해 함께할 사람을 선택하고 초대하거나 링크를 공유하는 이용 예시"
 }];
 
-const chatChapters = [
+export const chatChapters = [
   {
     id: "chat",
     number: "01",
@@ -103,7 +103,7 @@ const chatChapters = [
   }
 ];
 
-const activityChapters = [{
+export const activityChapters = [{
   id: "activity",
   number: "01",
   icon: Camera,
@@ -112,13 +112,13 @@ const activityChapters = [{
   alt: "활동 사진과 짧은 글을 올리고 댓글과 하트로 대화한 뒤 새 반응을 알림함에서 확인하는 활동 피드 이용 예시"
 }];
 
-const sparringChapters = [{
+export const sparringChapters = [{
   id: "sparring",
   number: "01",
   icon: Swords,
   title: "내 편 고르고 한마디 건네기",
   checks: ["두 입장 중 내 생각 고르기", "한마디로 받아치고 주고받기"],
-  alt: "토론 주제에서 강의부터 편을 고르고 상대 편의 지난 한마디에 받아치기를 보내면 두 캐릭터가 VS로 마주 서는 토론해요 이용 예시"
+  alt: "토론 주제에서 강의부터 편을 고르고 상대 편의 지난 한마디에 받아치기를 보내면, 캡슐이 관을 지나 부딪힌 뒤 두 캐릭터가 의자에 앉아 VS로 마주하는 토론하나? 이용 예시"
 }];
 
 function ProductFrame({ chapter, isActive = true, playbackActive = isActive }) {
@@ -196,7 +196,7 @@ function GuideChapter({ chapter, active }) {
   );
 }
 
-function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
+export function GuideSection({ id, titleId, className, chapters, activeChapter, children }) {
   return (
     <section
       aria-labelledby={titleId}

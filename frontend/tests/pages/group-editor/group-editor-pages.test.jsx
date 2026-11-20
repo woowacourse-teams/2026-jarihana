@@ -16,6 +16,7 @@ const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
 
+jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: { id: 7 } }) }));
 jest.mock("../../../src/features/group/index.js", () => ({
   useCreateGroup: () => ({ mutateAsync: mockCreateGroup, isPending: false }),
   useDeleteGroup: () => ({ mutateAsync: mockDeleteGroup, isPending: false }),
@@ -201,6 +202,36 @@ describe("NewGroupPage", () => {
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
   });
 
+  it("모임 종류 안내를 선택과 분리하고 순서대로 제공한다", async () => {
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const toggle = screen.getByRole("button", { name: "모임 종류: 스터디" });
+    await user.click(toggle);
+    const menu = screen.getByRole("group", { name: "모임 종류 선택" });
+    expect(within(menu).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "동아리", "", "스터디", "", "같이해요", ""
+    ]);
+    const info = within(menu).getByRole("button", { name: "동아리 안내" });
+    await user.hover(info);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("동아리는 비학술적 모임으로 추천해요.");
+    await user.click(info);
+    expect(screen.getByRole("button", { name: "모임 종류: 스터디" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "동아리", exact: true }));
+    expect(screen.getByRole("button", { name: "모임 종류: 동아리" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "모임 종류: 동아리" }));
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("tooltip")).toHaveTextContent("동아리는 비학술적 모임으로 추천해요.");
+    await user.click(screen.getByLabelText("모임 이름"));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "모임 종류 선택" })).not.toBeInTheDocument());
+  });
+
   it("첫 오류 필드에 포커스하고 수정 후 다음 오류로 부드럽게 이동한다", async () => {
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -221,7 +252,8 @@ describe("NewGroupPage", () => {
   it("같이해요의 날짜 누락은 모달을 열지 않고 본문의 일정 설정으로 이동한다", async () => {
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
-    await user.selectOptions(screen.getByLabelText("모임 종류"), "SESSION");
+    await user.click(screen.getByRole("button", { name: "모임 종류: 스터디" }));
+    await user.click(screen.getByRole("button", { name: "같이해요", exact: true }));
     await user.type(screen.getByLabelText("모임 이름"), "하루 모임");
     await user.type(screen.getByLabelText("한 줄 소개"), "같이 만나요");
     submitForm("group-create-form");
@@ -256,7 +288,8 @@ describe("NewGroupPage", () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
-    await user.selectOptions(screen.getByLabelText("모임 종류"), "SESSION");
+    await user.click(screen.getByRole("button", { name: "모임 종류: 스터디" }));
+    await user.click(screen.getByRole("button", { name: "같이해요", exact: true }));
     await user.type(screen.getByLabelText("모임 이름"), "성능 튜닝 세션");
     await user.type(screen.getByLabelText("한 줄 소개"), "한 번에 깊게 파고들어요");
     await user.type(
@@ -521,11 +554,11 @@ describe("NewGroupPage", () => {
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
     );
   });
 
-  it("만들고 나면 방금 만들었다는 사실과 함께 상세로 보낸다", async () => {
+  it("모임을 만들고 나면 상세로 보낸다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -535,9 +568,9 @@ describe("NewGroupPage", () => {
     // When
     submitForm("group-create-form");
 
-    // Then 모집 여부는 상세 화면이 묻는다. 이 화면은 완료만 알리고 표식을 넘긴다.
+    // Then
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
     );
     expect(mockShowToast).toHaveBeenCalledWith({ title: "모임을 만들었어요.", tone: "success" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -1,14 +1,32 @@
 #!/usr/bin/env bash
 # Sourced by the coordinator: every mutation requires its live journal lease.
 set -euo pipefail
-FE_RELEASE_CAPABILITY=3
 FE_BUCKET=techcourse-project-2026
 FE_LIVE=jarihana/frontend
 FE_ARCHIVE=jarihana/frontend-releases
 FE_PUBLIC=https://jarihana.com
 FE_DISTRIBUTION=E1YDHL1SDC4C1C
+FE_S3_TRANSPORT=curl
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-s3.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-cache.sh"
 
-fe_aws() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
+fe_aws_cli() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
+fe_aws() {
+  if [[ ${FE_S3_TRANSPORT:-curl} == curl && -n ${FE_S3_CACHE:-} && ${1:-} == s3api && ${3:-} == --bucket && ${4:-} == "$FE_BUCKET" && ${5:-} == --key ]]; then
+    if [[ $# == 9 && $2 == get-object && $7 == --range ]] &&
+       { [[ $FE_TRANSFER_MODE == download && $6 == "$FE_ARCHIVE/"*/files/* && $8 == bytes=0-67108864 ]] ||
+         [[ $FE_TRANSFER_MODE == publish && $6 == "$FE_ARCHIVE/state.json" && $8 == bytes=0-1048576 ]]; }; then
+      fe_s3_request "$@"; return
+    fi
+    if [[ $2 == put-object && ${7:-} == --body && ${9:-} == --checksum-sha256 ]] &&
+       { [[ $FE_TRANSFER_MODE == archive && $# == 12 && $6 == "$FE_ARCHIVE/"*/files/* && ${11} == --if-none-match && ${12} == '*' ]] ||
+         [[ $FE_TRANSFER_MODE == publish && $# == 14 && $6 == "$FE_LIVE/"* && ${11} == --content-type && ${13} == --cache-control && ${14} == 'no-cache, max-age=0, must-revalidate' ]]; }; then
+      fe_s3_request "$@"; return
+    fi
+  fi
+  fe_aws_cli "$@"
+}
 fe_enabled() { [[ ${ENVIRONMENT:-} == prod && ${BG_MODE:-} == deploy ]]; }
 fe_changed() { [[ $(jq -r 'if (.frontend // {} | has("changed")) then .frontend.changed else (.backend_only != true) end' <<<"$STATE") == true ]]; }
 fe_id() { [[ $1 =~ ^(baseline-[1-9][0-9]*|[a-f0-9]{40}-[1-9][0-9]*)$ ]] || bg_die 'Invalid frontend release ID'; }
@@ -39,7 +57,7 @@ fe_validate_manifest() {
   while IFS= read -r path; do fe_path "$path"; done < <(jq -r '.files[].path' "$manifest")
 }
 fe_manifest() {
-  local directory=$1 release=$2 backend=$3 source=$4 path size total=0 count=0
+  local directory=$1 release=$2 backend=$3 source=$4 path size checksum total=0 count=0
   [[ -d $directory && ! -L $directory ]] || bg_die 'Frontend build directory missing'
   [[ -z $(find "$directory" -type l -print -quit) ]] || bg_die 'Frontend symlinks are forbidden'
   [[ -z $(find "$directory" ! -type f ! -type d -print -quit) ]] || bg_die 'Frontend special files are forbidden'
@@ -49,11 +67,12 @@ fe_manifest() {
     size=$(stat -Lc %s "$directory/$path")
     total=$((total+size)); count=$((count+1))
     (( size>0 && size<=67108864 && total<=536870912 && count<=1000 )) || bg_die 'Frontend artifact exceeds transfer limits'
-    jq -cn --arg path "$path" --arg sha "$(sha256sum "$directory/$path" | cut -d ' ' -f1)" --argjson size "$size" '{path:$path,sha256:$sha,size:$size}' >> "$FE_TEMP/files.jsonl"
+    checksum=$(sha256sum "$directory/$path") || bg_die 'Cannot checksum frontend file'
+    jq -cn --arg path "$path" --arg sha "${checksum%% *}" --argjson size "$size" '{path:$path,sha256:$sha,size:$size}' >> "$FE_TEMP/files.jsonl"
   done < <(find "$directory" -type f -print0)
   jq -s --arg release "$release" --arg backend "$backend" --arg source "$source" --argjson run "$RUN_ID" \
-    --arg dep "$(jq -r .deployment_id <<<"$STATE")" --arg control "$CONTROL_SHA" \
-    '{schema_version:1,release_id:$release,source_commit:(if $source=="" then null else $source end),backend_image:$backend,run_id:$run,deployment_id:$dep,control_sha:$control,files:sort_by(.path)}' \
+    --arg dep "$(jq -r .deployment_id <<<"$STATE")" \
+    '{schema_version:1,release_id:$release,source_commit:(if $source=="" then null else $source end),backend_image:$backend,run_id:$run,deployment_id:$dep,files:sort_by(.path)}' \
     "$FE_TEMP/files.jsonl" > "$FE_TEMP/release.json"
   fe_validate_manifest "$FE_TEMP/release.json"
   local reference references=0
@@ -104,7 +123,7 @@ fe_pointer_write() {
   bg_touch
 }
 fe_preflight() {
-  local distribution policy edge_code edge_sha
+  local distribution edge_code edge_sha
   command -v aws >/dev/null || bg_die 'AWS CLI v2 with conditional S3 put support is required'
   [[ $(fe_aws --version) == aws-cli/2.* ]] || bg_die 'AWS CLI v2 is required'
   (( $(df -Pk "$(dirname "$STATE_FILE")" | awk 'NR==2 {print $4}')>=2097152 )) || bg_die 'Frontend staging requires 2 GiB free disk'
@@ -116,7 +135,6 @@ fe_preflight() {
       (.Quantity==1 and (.Items|length)==1 and .Items[0].EventType=="viewer-request" and
         .Items[0].FunctionARN=="arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview")) and
     ($d.DefaultCacheBehavior.LambdaFunctionAssociations.Quantity // 0)==0 and
-    ([$d.CacheBehaviors.Items[]? | .PathPattern | IN("/api/*","api/*","/images/*","images/*")]|all) and
     ([$d.Origins.Items[]|select(.Id==$d.DefaultCacheBehavior.TargetOriginId and .OriginPath==$prefix and (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length==1)
   ' <<<"$distribution" >/dev/null || bg_die 'Frontend CDN origin or edge transformations differ'
   if [[ $(jq -r '.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity // 0' <<<"$distribution") == 1 ]]; then
@@ -129,59 +147,79 @@ fe_preflight() {
     # Reviewed LIVE bytes: repository group-share-preview.js without its opening doc comment or final LF.
     [[ $edge_sha == 43f5a2aba54c74c4ffc7dba57ec43ebc2b270890f03b7a82fc2d761eb287b828 ]] || bg_die 'Frontend edge function code differs'
   fi
-  policy=$(fe_aws cloudfront get-cache-policy --id "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")") || bg_die 'Cannot verify frontend cache policy'
-  jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'
+  fe_check_cache_policy "$(jq -er .DistributionConfig.DefaultCacheBehavior.CachePolicyId <<<"$distribution")"
   fe_aws s3api head-bucket --bucket "$FE_BUCKET" >/dev/null || bg_die 'Frontend bucket is inaccessible'
+  printf '%s\n' "$distribution" > "$FE_TEMP/distribution.json"
+}
+fe_check_cache_policy() {
+  local policy
+  policy=$(fe_aws cloudfront get-cache-policy --id "$1") || bg_die 'Cannot verify frontend cache policy'
+  jq -e '.CachePolicy.CachePolicyConfig | .MinTTL==0 and .DefaultTTL==0 and .MaxTTL==0' <<<"$policy" >/dev/null || bg_die 'Frontend publication requires disabled CDN caching'
+}
+fe_check_routes() {
+  local manifest=$1 policies policy
+  # Manifest paths are already canonical. CloudFront uses the first matching rule, with only * and ? as wildcards.
+  policies=$(jq -r --slurpfile cdn "$FE_TEMP/distribution.json" --arg bucket "$FE_BUCKET" --arg prefix "/$FE_LIVE" '
+    def path_regex:
+      ltrimstr("/") | split("") | map(
+        if .=="*" then ".*" elif .=="?" then "."
+        elif IN(".","+","$","^","(",")","[","]","{","}","|","\\") then "\\"+.
+        else . end) | "^/"+join("")+"$";
+    $cdn[0].DistributionConfig as $d |
+    [.files[].path as $path |
+      (first($d.CacheBehaviors.Items[]? | . as $rule |
+        select(("/"+$path)|test($rule.PathPattern|path_regex))) // $d.DefaultCacheBehavior) as $behavior |
+      if ([$d.Origins.Items[] | select(.Id==$behavior.TargetOriginId and .OriginPath==$prefix and
+        (.DomainName==($bucket+".s3.ap-northeast-2.amazonaws.com") or .DomainName==($bucket+".s3.amazonaws.com")))]|length)!=1
+      then error("Frontend CDN route differs for /"+$path+" (origin: "+($behavior.TargetOriginId // "missing")+")")
+      elif (($behavior.LambdaFunctionAssociations.Quantity // 0)!=0 or
+        (($behavior.LambdaFunctionAssociations.Items // [])|length)!=0 or
+        ($behavior.FunctionAssociations.Quantity // 0)!=(($behavior.FunctionAssociations.Items // [])|length) or
+        (($behavior.FunctionAssociations.Items // [])!=[] and
+          ($behavior.FunctionAssociations.Items // [])!=($d.DefaultCacheBehavior.FunctionAssociations.Items // [])))
+      then error("Frontend CDN transformations differ for /"+$path)
+      elif ($behavior.CachePolicyId|type)!="string" or $behavior.CachePolicyId==""
+      then error("Frontend CDN cache policy missing for /"+$path)
+      else $behavior.CachePolicyId end] |
+    unique[] | select(.!=$d.DefaultCacheBehavior.CachePolicyId)
+  ' "$manifest") || bg_die 'Cannot verify frontend file routing'
+  while IFS= read -r policy; do
+    [[ -z $policy ]] || fe_check_cache_policy "$policy"
+  done <<<"$policies"
 }
 fe_verify_files() {
-  local manifest=$1 directory=$2 path expected size
+  local manifest=$1 directory=$2 path expected size actual
   fe_validate_manifest "$manifest"
   while IFS=$'\t' read -r path expected size; do
     [[ -f $directory/$path && ! -L $directory/$path ]] || bg_die 'Frontend file is missing'
     [[ $(stat -Lc %s "$directory/$path") == "$size" ]] || bg_die 'Frontend file size differs'
-    [[ $(sha256sum "$directory/$path" | cut -d ' ' -f1) == "$expected" ]] || bg_die 'Frontend checksum differs'
+    actual=$(sha256sum "$directory/$path") || bg_die 'Cannot checksum frontend file'
+    [[ ${actual%% *} == "$expected" ]] || bg_die 'Frontend checksum differs'
   done < <(jq -r '.files[]|[.path,.sha256,.size]|@tsv' "$manifest")
 }
 fe_public_check() {
-  local manifest=$1 path expected
-  while IFS=$'\t' read -r path expected; do
-    bg_file_guard
-    curl -q --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 3 --max-time 30 --max-filesize 67108864 \
-      --header 'Accept-Encoding: identity' --header 'Cache-Control: no-cache' \
-      "$FE_PUBLIC/$path" --output "$FE_TEMP/public-file" || bg_die 'Frontend public HTTP check failed'
-    [[ $(sha256sum "$FE_TEMP/public-file" | cut -d ' ' -f1) == "$expected" ]] || bg_die 'Frontend public content differs'
-    bg_touch_local
-  done < <(jq -r '.files[]|[.path,.sha256]|@tsv' "$manifest")
-  bg_guard
+  fe_transfer public "$1"
 }
 fe_archive() {
-  local directory=$1 manifest=$2 release path
+  local directory=$1 manifest=$2 release
   release=$(jq -r .release_id "$manifest"); fe_id "$release"
   fe_verify_files "$manifest" "$directory"
-  while IFS= read -r path; do
-    bg_file_guard
-    fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/files/$path" --body "$directory/$path" --if-none-match '*' >/dev/null || bg_die 'Immutable frontend file upload failed or uncertain'
-    fe_get "$FE_ARCHIVE/$release/files/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend archive readback failed'
-    cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend archive readback differs'
-    bg_touch_local
-  done < <(jq -r '.files[].path' "$manifest")
-  bg_guard
+  fe_transfer archive "$manifest" "$directory"
   fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_ARCHIVE/$release/release.json" --body "$manifest" --content-type application/json --if-none-match '*' >/dev/null || bg_die 'Frontend completion manifest upload uncertain'
   bg_touch
 }
-fe_download_release() {
-  local release=$1 directory=$2 path
-  fe_id "$release"; mkdir -p "$directory"
+fe_read_release_manifest() {
+  local release=$1
+  fe_id "$release"
   fe_get "$FE_ARCHIVE/$release/release.json" "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Completed frontend archive missing'
   fe_validate_manifest "$FE_TEMP/download-manifest.json"
   [[ $(jq -r .release_id "$FE_TEMP/download-manifest.json") == "$release" ]] || bg_die 'Archive identity differs'
-  while IFS= read -r path; do
-    bg_file_guard
-    mkdir -p "$(dirname "$directory/$path")"
-    fe_get "$FE_ARCHIVE/$release/files/$path" "$directory/$path" >/dev/null || bg_die 'Archived frontend file missing'
-    bg_touch_local
-  done < <(jq -r '.files[].path' "$FE_TEMP/download-manifest.json")
-  fe_verify_files "$FE_TEMP/download-manifest.json" "$directory"
+}
+fe_download_release() {
+  local release=$1 directory=$2
+  mkdir -p "$directory"
+  fe_read_release_manifest "$release"
+  fe_transfer download "$FE_TEMP/download-manifest.json" "$directory"
   bg_guard
 }
 fe_capture_baseline() {
@@ -201,56 +239,79 @@ fe_capture_baseline() {
   again=$(fe_aws s3api list-objects-v2 --bucket "$FE_BUCKET" --prefix "$FE_LIVE/" --no-paginate --max-keys 1000) || bg_die 'Cannot recheck current frontend'
   [[ $(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$listing") == "$(jq -Sc '[.Contents[]|{Key,ETag,Size}]|sort_by(.Key)' <<<"$again")" ]] || bg_die 'Current frontend changed during capture'
   fe_manifest "$FE_TEMP/baseline" "$baseline" "$(jq -r .previous_backend_image <<<"$STATE")" ''
+  fe_check_routes "$FE_TEMP/release.json"
   fe_public_check "$FE_TEMP/release.json"
   fe_archive "$FE_TEMP/baseline" "$FE_TEMP/release.json"
   fe_pointer_write "$(jq -cn --arg current "$baseline" --arg backend "$(jq -r .previous_backend_image <<<"$STATE")" '{schema_version:1,current:$current,previous:null,pending:null,backend_image:$backend}')"
 }
 fe_stage() {
   local release="$GITHUB_SHA-$RUN_ID" previous backend changed=true
-  fe_temp; fe_preflight; fe_pointer_read
+  fe_temp; fe_preflight
+  # A new plan is admitted only after the previous journal is resolved.
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
+  if [[ $(jq -r '.backend_only // false' <<<"$STATE") != true ]]; then
+    fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
+    fe_check_routes "$FE_TEMP/release.json"
+    mv "$FE_TEMP/release.json" "$FE_TEMP/candidate-manifest.json"
+  fi
+  fe_pointer_read
   [[ $FE_POINTER != null ]] || fe_capture_baseline
   jq -e '.pending==null' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend transaction requires reconciliation'
   previous=$(jq -r .current <<<"$FE_POINTER")
-  fe_download_release "$previous" "$FE_TEMP/previous"
+  if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
+    # Read the existing release identity for an unchanged frontend.
+    fe_read_release_manifest "$previous"
+    bg_guard
+  else
+    fe_download_release "$previous" "$FE_TEMP/previous"
+  fi
   backend=$(jq -r '.backend_image // empty' <<<"$FE_POINTER")
   [[ -n $backend ]] || backend=$(jq -r .backend_image "$FE_TEMP/download-manifest.json")
   [[ $backend == "$(jq -r .previous_backend_image <<<"$STATE")" ]] || bg_die 'Current frontend/backend pair differs'
-  fe_public_check "$FE_TEMP/download-manifest.json"
+  fe_check_routes "$FE_TEMP/download-manifest.json"
   if [[ $(jq -r '.backend_only // false' <<<"$STATE") == true ]]; then
+    jq '.files |= map(select(.path=="index.html" or .path=="sw.js" or .path=="manifest.webmanifest"))' \
+      "$FE_TEMP/download-manifest.json" > "$FE_TEMP/critical-manifest.json"
+    fe_public_check "$FE_TEMP/critical-manifest.json"
     changed=false; release=$previous
   else
-    fe_manifest "${BG_FRONTEND_DIST:?}" "$release" "$(jq -r .image <<<"$STATE")" "$GITHUB_SHA"
-    fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/release.json"
+    fe_public_check "$FE_TEMP/download-manifest.json"
+    fe_archive "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"
+    if ! fe_cache_store "$BG_FRONTEND_DIST" "$FE_TEMP/candidate-manifest.json"; then
+      printf '::warning::Frontend candidate cache unavailable; publication will read S3\n' >&2
+    fi
   fi
-  fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,control_sha:$state.control_sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
+  fe_pointer_write "$(jq -c --arg release "$release" --arg previous_backend "$backend" --argjson changed "$changed" --argjson state "$STATE" '.pending={release_id:$release,previous_release_id:.current,backend_image:$state.image,previous_backend_image:$previous_backend,frontend_changed:$changed,run_id:$state.run_id,source_commit:$state.sha,deployment_id:$state.deployment_id,status:"staged"}' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg release "$release" --arg previous "$previous" --arg etag "$FE_ETAG" --argjson changed "$changed" '.frontend={release_id:$release,previous_release_id:$previous,changed:$changed,etag:$etag,published:false,recovered:false,finalized:false}' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
 }
 fe_owned_pointer() {
+  local check
   fe_pointer_read
-  jq -e --argjson state "$STATE" '.current==$state.frontend.previous_release_id and
+  check=$(jq -r --argjson state "$STATE" --arg etag "$FE_ETAG" 'if (.current==$state.frontend.previous_release_id and
     .pending.release_id==$state.frontend.release_id and .pending.previous_release_id==$state.frontend.previous_release_id and
     .pending.run_id==$state.run_id and .pending.source_commit==$state.sha and
-    .pending.control_sha==$state.control_sha and .pending.deployment_id==$state.deployment_id and
+    .pending.deployment_id==$state.deployment_id and
     .pending.backend_image==$state.image and .pending.previous_backend_image==$state.previous_backend_image and
-    .pending.frontend_changed==$state.frontend.changed' <<<"$FE_POINTER" >/dev/null || bg_die 'Frontend pointer belongs to another release'
-  [[ $FE_ETAG == "$(jq -r .frontend.etag <<<"$STATE")" ]] || bg_die 'Frontend pointer ETag changed'
+    .pending.frontend_changed==$state.frontend.changed) then
+      if $etag==$state.frontend.etag then "valid" else "etag" end
+    else "owner" end' <<<"$FE_POINTER") || bg_die 'Cannot verify frontend pointer'
+  case $check in
+    valid) ;;
+    etag) bg_die 'Frontend pointer ETag changed';;
+    *) bg_die 'Frontend pointer belongs to another release';;
+  esac
 }
 fe_publish_files() {
-  local directory=$1 manifest=$2 path type
+  local directory=$1 manifest=$2
+  fe_preflight
+  fe_check_routes "$manifest"
   # Keep all previous hashed assets. index.html is the last object overwritten.
-  while IFS= read -r path; do
-    type=application/octet-stream
-    case $path in *.html) type='text/html; charset=utf-8';; *.js) type='text/javascript; charset=utf-8';; *.css) type='text/css; charset=utf-8';; *.json) type=application/json;; *.webmanifest) type=application/manifest+json;; *.png) type=image/png;; *.svg) type=image/svg+xml;; *.ico) type=image/x-icon;; *.jpg|*.jpeg) type=image/jpeg;; *.webp) type=image/webp;; *.woff2) type=font/woff2;; *.txt) type='text/plain; charset=utf-8';; esac
-    bg_file_guard; fe_owned_pointer
-    fe_aws s3api put-object --bucket "$FE_BUCKET" --key "$FE_LIVE/$path" --body "$directory/$path" --content-type "$type" --cache-control 'no-cache, max-age=0, must-revalidate' >/dev/null || bg_die 'Frontend publication failed or uncertain'
-    fe_get "$FE_LIVE/$path" "$FE_TEMP/verify-file" >/dev/null || bg_die 'Frontend live readback failed'
-    cmp -s "$directory/$path" "$FE_TEMP/verify-file" || bg_die 'Frontend live readback differs'
-    bg_touch_local
-  done < <(jq -r '.files[].path|select(.!="index.html")' "$manifest"; printf '%s\n' index.html)
+  fe_transfer publish "$manifest" "$directory"
   fe_public_check "$manifest"
 }
 fe_publish() {
+  local FE_CANDIDATE_DIRECTORY
   fe_temp; fe_owned_pointer
   if ! fe_changed; then
     fe_pointer_write "$(jq -c '.pending.status="paired"' <<<"$FE_POINTER")"
@@ -258,11 +319,10 @@ fe_publish() {
     rm -rf -- "$FE_TEMP"
     return
   fi
-  fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/candidate"
-  jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Candidate frontend manifest context differs'
+  fe_prepare_candidate
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.publication_started=true' <<<"$STATE")"
-  fe_publish_files "$FE_TEMP/candidate" "$FE_TEMP/download-manifest.json"
+  fe_publish_files "$FE_CANDIDATE_DIRECTORY" "$FE_TEMP/download-manifest.json"
   fe_pointer_write "$(jq -c '.pending.status="published"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" --argjson now "$(bg_now)" '.frontend.etag=$etag | .frontend.published=true | .frontend.published_at=$now' <<<"$STATE")"
   rm -rf -- "$FE_TEMP"
@@ -271,7 +331,7 @@ fe_observe_prepare() {
   fe_temp; fe_owned_pointer
   fe_get "$FE_ARCHIVE/$(jq -r .frontend.release_id <<<"$STATE")/release.json" "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation manifest missing'
   fe_validate_manifest "$FE_TEMP/observe-manifest.json"
-  jq -e --argjson state "$STATE" '.release_id==$state.frontend.release_id and .backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id and .control_sha==$state.control_sha' "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation context differs'
+  jq -e --argjson state "$STATE" '.release_id==$state.frontend.release_id and .backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/observe-manifest.json" >/dev/null || bg_die 'Frontend observation context differs'
   jq '.files |= map(select(.path=="index.html" or .path=="sw.js" or .path=="manifest.webmanifest"))' "$FE_TEMP/observe-manifest.json" > "$FE_TEMP/critical-manifest.json"
 }
 fe_observe_check() {
@@ -282,14 +342,20 @@ fe_finalize() {
   fe_temp; fe_owned_pointer
   jq -e '(.frontend.published==true or (.frontend.changed==false and .frontend.pair_ready==true)) and .frontend.recovered==false' <<<"$STATE" >/dev/null || bg_die 'Frontend or backend pair was not verified'
   if fe_changed; then
-    fe_download_release "$(jq -r .frontend.release_id <<<"$STATE")" "$FE_TEMP/final"
+    # S3 verified each archived upload's SHA-256; downloaded bytes were checked before publication.
+    # Finalization compares every public byte with that manifest without downloading the archive again.
+    fe_read_release_manifest "$(jq -r .frontend.release_id <<<"$STATE")"
+    jq -e --argjson state "$STATE" '.backend_image==$state.image and .source_commit==$state.sha and .run_id==$state.run_id and .deployment_id==$state.deployment_id' "$FE_TEMP/download-manifest.json" >/dev/null || bg_die 'Final frontend manifest context differs'
     fe_public_check "$FE_TEMP/download-manifest.json"
   fi
   fe_pointer_write "$(jq -c 'if .pending.frontend_changed then .previous=.current | .current=.pending.release_id else . end | .backend_image=.pending.backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.finalized=true' <<<"$STATE")"
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
   rm -rf -- "$FE_TEMP"
 }
 fe_recover() {
+  # Recovery must not depend on the experimental forward-transfer transport.
+  local FE_S3_TRANSPORT=awscli
   fe_temp; fe_owned_pointer
   if fe_changed; then
     fe_download_release "$(jq -r .frontend.previous_release_id <<<"$STATE")" "$FE_TEMP/previous"
@@ -297,5 +363,6 @@ fe_recover() {
   fi
   fe_pointer_write "$(jq -c '.backend_image=.pending.previous_backend_image | .pending=null' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.recovered=true' <<<"$STATE")"
+  fe_cache_clear || printf '::warning::Frontend candidate cache cleanup skipped\n' >&2
   rm -rf -- "$FE_TEMP"
 }

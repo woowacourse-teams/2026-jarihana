@@ -24,14 +24,15 @@ class PushSubscriptionAcceptanceTest extends PushIntegrationTestSupport {
 
     @Autowired private NotificationDeliveryCommandRepository deliveries;
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(ints = {2, 3})
     @DisplayName("구독은 활성 SW가 확인한 버전을 저장하고 미전달 재등록은 구버전으로 되돌린다.")
-    void persistsExplicitWorkerVersionAndDefaultsMissingVersionToLegacy() {
+    void persistsExplicitWorkerVersionAndDefaultsMissingVersionToLegacy(int version) {
         // Given
         Member owner = member("101");
         var legacy = body(owner, "legacy-worker");
         var current = new HashMap<>(legacy);
-        current.put("clientVersion", 2);
+        current.put("clientVersion", version);
         long id = subscriptions.findByEndpoint((String) legacy.get("endpoint")).orElseThrow().getId();
 
         // When
@@ -41,14 +42,14 @@ class PushSubscriptionAcceptanceTest extends PushIntegrationTestSupport {
 
         // Then
         assertThat(upgraded.statusCode()).isEqualTo(200);
-        assertThat(storedVersion).isEqualTo(2);
+        assertThat(storedVersion).isEqualTo(version);
         assertThat(downgraded.statusCode()).isEqualTo(200);
         assertThat(jdbc.queryForObject("select client_version from push_subscriptions where id = ?", Integer.class, id)).isEqualTo(1);
         assertThat(downgraded.jsonPath().getLong("data.generation")).isEqualTo(1);
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 3})
+    @ValueSource(ints = {0, 4})
     @DisplayName("지원 범위 밖의 SW 버전으로 구독을 등록할 수 없다.")
     void rejectsUnsupportedWorkerVersion(int version) {
         // Given
@@ -95,13 +96,16 @@ class PushSubscriptionAcceptanceTest extends PushIntegrationTestSupport {
                 Long.class, request.get("endpoint"))).isEqualTo(1);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3})
     @DisplayName("해제와 재연결은 연결 버전을 증가시키고 과거 작업을 취소하며 소급 전송하지 않는다.")
-    void disableAndReconnectCancelOldWork() {
+    void disableAndReconnectCancelOldWork(int version) {
         // Given
         Member owner = member("101");
-        var request = body(owner, "one");
+        var request = new HashMap<>(body(owner, "one"));
+        request.put("clientVersion", version);
         var subscription = subscriptions.findByEndpoint((String) request.get("endpoint")).orElseThrow();
+        jdbc.update("update push_subscriptions set client_version = ? where id = ?", version, subscription.getId());
         var delivery = deliveries.save(NotificationDelivery.create(notification(owner, "event"), subscription, NOW, NOW.plusDays(1)));
         // When
         Response deleted = mutation(owner).delete("/push-subscriptions/" + subscription.getId());
@@ -112,6 +116,8 @@ class PushSubscriptionAcceptanceTest extends PushIntegrationTestSupport {
         assertThat(repeated.statusCode()).isEqualTo(204);
         assertThat(reconnect.statusCode()).isEqualTo(200);
         assertThat(reconnect.jsonPath().getLong("data.generation")).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select client_version from push_subscriptions where id = ?", Integer.class, subscription.getId()))
+                .isEqualTo(version);
         assertThat(deliveries.findById(delivery.getId()).orElseThrow().getStatus()).isEqualTo(DeliveryStatus.CANCELLED);
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Long.class)).isEqualTo(1);
     }

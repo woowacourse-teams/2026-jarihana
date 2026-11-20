@@ -5,7 +5,8 @@ import com.project.jarihana.common.exception.ErrorCode;
 
 public enum NotificationClientVersion {
     LEGACY,
-    ANNOUNCEMENTS;
+    ANNOUNCEMENTS,
+    CHAT;
 
     public static NotificationClientVersion from(int value) {
         if (value == 1) {
@@ -14,10 +15,17 @@ public enum NotificationClientVersion {
         if (value == 2) {
             return ANNOUNCEMENTS;
         }
+        if (value == 3) {
+            return CHAT;
+        }
         throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지원하지 않는 알림 클라이언트 버전입니다.");
     }
 
+    public boolean includesChat() {
+        return this == CHAT;
+    }
+
     public boolean includesAnnouncements() {
-        return this == ANNOUNCEMENTS;
+        return this == ANNOUNCEMENTS || this == CHAT;
     }
 }

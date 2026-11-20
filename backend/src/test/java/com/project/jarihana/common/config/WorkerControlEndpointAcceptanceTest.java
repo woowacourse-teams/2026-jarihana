@@ -33,6 +33,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("prod")
 @TestPropertySource(properties = {
+        "jarihana.image.bucket=techcourse-project-2026",
+        "jarihana.image.region=ap-northeast-2",
+        "jarihana.image.key-prefix=jarihana/images",
         "management.server.address=127.0.0.1",
         "jarihana.push.worker-control-enabled=true",
         "jarihana.push.worker-host-id=control-test",

@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -39,11 +40,12 @@ public class AnnouncementQueryController {
     @GetMapping("/groups/{groupId}/announcements/{announcementId}")
     public ResponseEntity<ApiResponse<AnnouncementDetailResponse>> findDetail(
             @PathVariable long groupId,
-            @PathVariable long announcementId
+            @PathVariable long announcementId,
+            @RequestParam(defaultValue = "false") boolean includeManagement
     ) {
         AnnouncementDetailResponse response = AnnouncementDetailResponse.from(announcements.findDetail(
                 groupId, announcementId, loginMemberReader.currentMemberId().orElse(null)
-        ));
+        ), includeManagement);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(response));
     }
 }

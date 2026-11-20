@@ -12,3 +12,4 @@
 | 0002 | [알림함과 Service Worker](0002-notification-inbox-and-service-worker.md) | 채택 |
 | 0003 | [초대 이벤트와 사용자 식별](0003-invitation-events-and-user-identity.md) | 채택 |
 | 0004 | [채팅 모달과 이벤트·이력 관리](0004-chat-event-recovery.md) | 채택, 로컬 구현 / 운영 적용 대기 |
+| 0005 | [같은 브라우저의 오목 관전 탭을 함께 퇴장시킨다](0005-gomoku-observation-tab-leave.md) | 채택, 로컬 구현 / 운영 적용 대기 |

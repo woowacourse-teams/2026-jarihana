@@ -21,7 +21,8 @@ export const announcementDetailSchema = z.object({
   content: z.string(),
   scope: announcementScopeSchema,
   authorNickname: z.string(),
-  createdAt: localDateTimeSchema
+  createdAt: localDateTimeSchema,
+  canManage: z.boolean().default(false)
 }).strict();
 
 export const announcementCreatedSchema = z.object({ id: entityIdSchema }).strict();

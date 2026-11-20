@@ -43,6 +43,7 @@ public interface NotificationCommandRepository extends Repository<Notification, 
             update notifications set read_at = :now, updated_at = :now
             where member_id = :memberId and deleted_at is null and read_at is null
               and (:includeAnnouncements = true or event_type <> 'GROUP_ANNOUNCEMENT_CREATED')
+              and event_type <> 'CHAT_MESSAGE_RECEIVED'
             """, nativeQuery = true)
     int markAllRead(@Param("memberId") long memberId, @Param("now") LocalDateTime now,
                     @Param("includeAnnouncements") boolean includeAnnouncements);

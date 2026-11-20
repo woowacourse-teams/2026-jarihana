@@ -67,6 +67,25 @@ test("최신 대화를 보고 있는 방의 배지는 깜빡이지 않으며 닫
   expect(socket.deactivate).toHaveBeenCalledTimes(1);
 });
 
+test("아지트의 배경 구독은 읽음 수를 유지하고 모달 방 선택에 우선권을 준다", async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.count).toBe(5));
+  act(() => hook.result.current.session.selectBackgroundRoom("1"));
+  await waitFor(() => expect(hook.result.current.session.chat?.history.data).toBeDefined());
+  expect(hook.result.current.session.activeRoomId).toBe("1");
+  expect(hook.result.current.session.roomId).toBeUndefined();
+  expect(hook.result.current.count).toBe(5);
+  act(() => hook.result.current.session.selectRoom("2"));
+  await waitFor(() => expect(hook.result.current.session.chat?.history.data).toBeDefined());
+  expect(hook.result.current.session.activeRoomId).toBe("2");
+  act(() => hook.result.current.session.selectRoom(undefined));
+  await waitFor(() => expect(hook.result.current.session.chat?.history.data).toBeDefined());
+  expect(hook.result.current.session.activeRoomId).toBe("1");
+  expect(hook.result.current.count).toBe(5);
+  expect(Client).toHaveBeenCalledTimes(1);
+  hook.unmount();
+});
+
 test("로그아웃 시 연결과 캐시를 정리하고 새 계정에는 이전 이벤트가 반영되지 않는다", async () => {
   const hook = setup();
   await waitFor(() => expect(hook.result.current.count).toBe(5));

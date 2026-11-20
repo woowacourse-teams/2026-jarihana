@@ -11,7 +11,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
 
     private static final int NAMED_REACTOR_LIMIT = 20;
 
-    public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS, INVITATION, ACTIVITY_POST, GROUP_ANNOUNCEMENT }
+    public enum TargetKind { GROUP_DETAIL, LEADER_REGISTRATIONS, LEADER_MEMBERS, MY_PAGE, MY_GROUPS, INVITATION, ACTIVITY_POST, GROUP_ANNOUNCEMENT, GROUP_CHAT }
     public record Target(TargetKind kind, long groupId, Long recruitmentId, Long registrationId, Long invitationId,
                          Long activityPostId, Long announcementId) { }
 
@@ -30,6 +30,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case ACTIVITY_POST_COMMENTED -> "새 댓글";
             case ACTIVITY_POST_REACTED -> "좋아요";
             case GROUP_ANNOUNCEMENT_CREATED -> "새 공지";
+            case CHAT_MESSAGE_RECEIVED -> "새 메시지";
         };
         String group = groupName == null ? "삭제된 모임" : "‘" + groupName + "’ 모임";
         String body = switch (projection.eventType()) {
@@ -41,6 +42,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case ACTIVITY_POST_COMMENTED -> group + " 활동 기록에 새 댓글이 달렸습니다.";
             case ACTIVITY_POST_REACTED -> reactionBody(group, reactions);
             case GROUP_ANNOUNCEMENT_CREATED -> group + "에 새 공지가 등록되었습니다.";
+            case CHAT_MESSAGE_RECEIVED -> group + "에 새 채팅 메시지가 도착했습니다.";
             case REGISTRATION_REJECTED -> group + "의 신청이 미승인되었습니다.";
             case REGISTRATION_SYSTEM_REJECTED -> switch (projection.payload().getReasonCode()) {
                 case RERECRUITMENT -> group + "에 새 모집 공고가 등록되어 이전 신청이 미승인되었습니다.";
@@ -56,6 +58,7 @@ public record NotificationItemResult(long id, NotificationEventType eventType, i
             case INVITATION_RECEIVED -> TargetKind.INVITATION;
             case ACTIVITY_POST_COMMENTED, ACTIVITY_POST_REACTED -> TargetKind.ACTIVITY_POST;
             case GROUP_ANNOUNCEMENT_CREATED -> TargetKind.GROUP_ANNOUNCEMENT;
+            case CHAT_MESSAGE_RECEIVED -> TargetKind.GROUP_CHAT;
         };
         return new NotificationItemResult(projection.id(), projection.eventType(), projection.payloadVersion(), title,
                 body, projection.createdAt(), projection.readAt(),

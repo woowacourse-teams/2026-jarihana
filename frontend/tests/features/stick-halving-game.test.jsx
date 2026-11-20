@@ -1,0 +1,210 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { StickHalvingGame } from "../../src/features/stick-halving";
+import { generatePracticeStick } from "../../src/features/stick-halving/puzzle";
+
+const firstStick = generatePracticeStick(11, 1);
+const secondStick = generatePracticeStick(11, 2);
+
+const timerShows = (text) => waitFor(() => expect(screen.getByRole("timer")).toHaveTextContent(text));
+
+function rankedAdapter(nextRemainingMillis) {
+  return {
+    cut: jest.fn().mockResolvedValue({
+      answerPosition: 6,
+      errorRate: 0.01,
+      finished: false,
+      round: 1,
+      score: 900,
+      timedOut: false,
+      totalScore: 900
+    }),
+    next: jest.fn().mockResolvedValue({ remainingMillis: nextRemainingMillis, round: 2, stick: secondStick }),
+    start: jest.fn().mockResolvedValue({ remainingMillis: 30_000, round: 1, stick: firstStick })
+  };
+}
+
+async function cutFirstStickAndWaitOnResult(adapter, waitMillis) {
+  render(<StickHalvingGame adapter={adapter} />);
+  await timerShows("30초 남음");
+  fireEvent.click(screen.getByRole("button", { name: "자르기" }));
+  const nextButton = await screen.findByRole("button", { name: "다음 막대" });
+  await act(async () => {
+    jest.advanceTimersByTime(waitMillis);
+  });
+  return nextButton;
+}
+
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+it("asks for the next stick only after the result screen and counts from the moment it arrives", async () => {
+  // Given: 결과 화면을 10초 동안 본다.
+  const adapter = rankedAdapter(30_000);
+  const nextButton = await cutFirstStickAndWaitOnResult(adapter, 10_000);
+  expect(adapter.next).not.toHaveBeenCalled();
+
+  // When
+  fireEvent.click(nextButton);
+
+  // Then: 기다린 시간이 다음 막대의 제한 시간에서 빠지지 않는다.
+  await timerShows("30초 남음");
+  expect(adapter.next).toHaveBeenCalledWith(2);
+  expect(screen.getByRole("region", { name: "게임" })).toHaveTextContent(/^2\/5/);
+});
+
+it("shows the time left until the server deadline instead of a fresh 30 seconds", async () => {
+  // Given: 응답이 늦게 와서 서버 마감까지 12초만 남았다.
+  const adapter = rankedAdapter(12_000);
+  const nextButton = await cutFirstStickAndWaitOnResult(adapter, 1_000);
+
+  // When
+  fireEvent.click(nextButton);
+
+  // Then
+  await timerShows("12초 남음");
+  expect(screen.getByRole("timer")).not.toHaveTextContent("30초 남음");
+});
+
+it("counts the time the response spent on the way, so the screen never shows more than the server allows", async () => {
+  // Given: 다음 막대 응답이 5초 늦게 온다. 서버는 요청을 받은 때부터 30초를 잰다.
+  const adapter = rankedAdapter(30_000);
+  adapter.next.mockImplementation(
+    () => new Promise((resolve) => {
+      setTimeout(() => resolve({ remainingMillis: 30_000, round: 2, stick: secondStick }), 5_000);
+    })
+  );
+  const nextButton = await cutFirstStickAndWaitOnResult(adapter, 1_000);
+
+  // When
+  fireEvent.click(nextButton);
+  await act(async () => {
+    jest.advanceTimersByTime(5_000);
+  });
+
+  // Then: 응답을 기다린 5초가 빠진 25초만 보여 준다.
+  await timerShows("25초 남음");
+  expect(screen.getByRole("timer")).not.toHaveTextContent("30초 남음");
+});
+
+it("counts the first stick from when the run was requested too", async () => {
+  // Given: 판 시작 응답이 4초 늦게 온다.
+  const adapter = rankedAdapter(30_000);
+  adapter.start.mockImplementation(
+    () => new Promise((resolve) => {
+      setTimeout(() => resolve({ remainingMillis: 30_000, round: 1, stick: firstStick }), 4_000);
+    })
+  );
+
+  // When
+  render(<StickHalvingGame adapter={adapter} />);
+  await act(async () => {
+    jest.advanceTimersByTime(4_000);
+  });
+
+  // Then
+  await timerShows("26초 남음");
+});
+
+it("keeps the scroll position when the next stick starts, since the button stays in the same place", async () => {
+  // Given
+  const scrollIntoView = jest.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  const adapter = rankedAdapter(30_000);
+  const nextButton = await cutFirstStickAndWaitOnResult(adapter, 0);
+
+  // When
+  fireEvent.click(nextButton);
+  expect(await screen.findByRole("button", { name: "자르기" })).toBeInTheDocument();
+
+  // Then
+  expect(scrollIntoView).not.toHaveBeenCalled();
+  delete Element.prototype.scrollIntoView;
+});
+
+it("cuts and asks for the next stick with the same button, ignoring the second click of a double-click", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  render(<StickHalvingGame adapter={adapter} />);
+  await timerShows("30초 남음");
+  const cutButton = screen.getByRole("button", { name: "자르기" });
+
+  // When: 자르고, 같은 자리의 다음 막대를 더블클릭한다.
+  fireEvent.click(cutButton);
+  const nextButton = await screen.findByRole("button", { name: "다음 막대" });
+  fireEvent.click(nextButton, { detail: 2 });
+
+  // Then: 같은 버튼이고, 두 번째 클릭으로는 넘어가지 않는다.
+  expect(nextButton).toBe(cutButton);
+  expect(adapter.next).not.toHaveBeenCalled();
+
+  // When: 한 번 눌러 다음 막대를 받고, 같은 자리의 자르기를 더블클릭한다.
+  fireEvent.click(nextButton);
+  const secondCut = await screen.findByRole("button", { name: "자르기" });
+  fireEvent.click(secondCut, { detail: 2 });
+
+  // Then: 새 막대를 바로 자르지 않는다.
+  expect(secondCut).toBe(cutButton);
+  expect(adapter.cut).toHaveBeenCalledTimes(1);
+});
+
+it("restarts from the first stick with the button or the R key, even in Korean input mode", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  const onRestart = jest.fn();
+  render(<StickHalvingGame adapter={adapter} onRestart={onRestart} />);
+  await timerShows("30초 남음");
+
+  // When: 한글 입력 상태라 key는 "ㄱ"이지만 같은 자리의 R 키를 누른다.
+  fireEvent.keyDown(window, { code: "KeyR", key: "ㄱ" });
+
+  // Then
+  expect(onRestart).toHaveBeenCalledTimes(1);
+
+  // When: 버튼을 누른다.
+  const restartButton = screen.getByRole("button", { name: "처음부터 다시 하기" });
+  fireEvent.click(restartButton);
+
+  // Then
+  expect(onRestart).toHaveBeenCalledTimes(2);
+  expect(restartButton).toHaveAttribute("aria-keyshortcuts", "R");
+  expect(restartButton).toHaveAttribute("data-ph-capture-attribute-action", "stick_run_restart");
+});
+
+it("leaves Ctrl+R and keys inside the analysis dialog alone", async () => {
+  // Given
+  const adapter = rankedAdapter(30_000);
+  const onRestart = jest.fn();
+  render(<StickHalvingGame adapter={adapter} onRestart={onRestart} />);
+  await timerShows("30초 남음");
+
+  // When: 새로고침 조합을 누른다.
+  fireEvent.keyDown(window, { code: "KeyR", ctrlKey: true, key: "r" });
+  fireEvent.keyDown(window, { code: "KeyR", key: "r", metaKey: true });
+
+  // Then
+  expect(onRestart).not.toHaveBeenCalled();
+
+  // When: 자른 뒤 분석 창을 열고 그 안에서 R을 누른다.
+  fireEvent.click(screen.getByRole("button", { name: "자르기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "분석하기" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.keyDown(dialog, { code: "KeyR", key: "r" });
+
+  // Then
+  expect(onRestart).not.toHaveBeenCalled();
+});
+
+it("offers no restart when the page does not ask for it", async () => {
+  // Given
+  render(<StickHalvingGame adapter={rankedAdapter(30_000)} />);
+  await timerShows("30초 남음");
+
+  // Then
+  expect(screen.queryByRole("button", { name: "처음부터 다시 하기" })).not.toBeInTheDocument();
+});

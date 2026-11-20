@@ -5,5 +5,5 @@ import com.project.jarihana.announcement.domain.AnnouncementScope;
 import java.time.LocalDateTime;
 
 public record AnnouncementDetailProjection(long id, String title, String content, AnnouncementScope scope,
-                                           String authorNickname, LocalDateTime createdAt) {
+                                           String authorNickname, Long authorMemberId, LocalDateTime createdAt) {
 }

@@ -129,6 +129,31 @@ class MemberMyProfileAcceptanceTest extends IntegrationTestSupport {
         assertThat((Object) response.jsonPath().get("data.member.bootcamp")).isNull();
     }
 
+    @DisplayName("기본 멤버는 기수, 과정과 소속 정보 없이 자신의 정보를 조회한다.")
+    @Test
+    void respondProfileToBasicMember() {
+        // Given
+        Member member = memberRepository.save(Member.createBasic("도담", GITHUB_ID));
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .cookie(authCookieProperties.accessTokenName(), accessTokenOf(member))
+                .when()
+                .get(MY_PROFILE_PATH)
+                .then()
+                .extract();
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.jsonPath().getString("data.member.memberType")).isEqualTo("MEMBER");
+        assertThat(response.jsonPath().getString("data.member.crewName")).isEqualTo("도담");
+        assertThat((Object) response.jsonPath().get("data.member.generation")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.course")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.field")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.bootcamp")).isNull();
+        assertThat((Object) response.jsonPath().get("data.member.company")).isNull();
+    }
+
     private String accessTokenOf(Member member) {
         return accessTokenProvider.issue(member.getId()).value();
     }

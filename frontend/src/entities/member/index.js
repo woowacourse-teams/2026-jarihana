@@ -3,7 +3,7 @@ import { z } from "zod";
 import { cursorPageSchema, entityIdSchema, localDateTimeSchema } from "../common/schemas.js";
 import { groupRoleSchema } from "../group/index.js";
 
-export const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL"]);
+export const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL", "MEMBER"]);
 export const courseSchema = z.enum(["BACKEND", "FRONTEND", "ANDROID"]);
 export const bootcampStatusSchema = z.enum(["IN_PROGRESS", "COMPLETED"]);
 export const memberFieldSchema = z.enum([
@@ -42,18 +42,19 @@ export const CAREER_LABELS = Object.freeze({
   YEARS_7_PLUS: "7년 이상"
 });
 
-/** 기수 없이 유형으로 표시하는 회원의 이름이다. 크루는 기수와 과정으로 표시한다. */
+/** 기수 없이 유형으로 표시하는 회원의 이름이다. 크루는 기수와 과정으로 표시한다. MEMBER는 소속을 묻지 않고 가입한 기본 멤버다. */
 export const NON_CREW_MEMBER_TYPE_LABELS = Object.freeze({
   COACH: "코치",
   BOOTCAMP: "부트캠프",
-  PROFESSIONAL: "현직자"
+  PROFESSIONAL: "현직자",
+  MEMBER: "멤버"
 });
 
 export function nonCrewMemberTypeLabel(memberType) {
   return NON_CREW_MEMBER_TYPE_LABELS[memberType] ?? null;
 }
 
-const COHORT_TYPE_ORDER = Object.freeze(["COACH", "BOOTCAMP", "PROFESSIONAL"]);
+const COHORT_TYPE_ORDER = Object.freeze(["COACH", "BOOTCAMP", "PROFESSIONAL", "MEMBER"]);
 
 /** 기수 분포에서 회원을 묶는 키다. 크루는 기수 숫자, 기수가 없는 유형은 유형 값, 알 수 없으면 "unknown"이다. */
 export function memberCohortKey(member) {
@@ -67,7 +68,7 @@ function cohortRank(key) {
   return typeIndex >= 0 ? typeIndex + 1 : COHORT_TYPE_ORDER.length + 1;
 }
 
-/** 기수 오름차순, 그다음 코치, 부트캠프, 현직자, 마지막에 기수 미정 순서다. */
+/** 기수 오름차순, 그다음 코치, 부트캠프, 현직자, 멤버, 마지막에 기수 미정 순서다. */
 export function compareMemberCohortKeys(left, right) {
   const byRank = cohortRank(left) - cohortRank(right);
   if (byRank !== 0) return byRank;

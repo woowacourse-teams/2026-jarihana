@@ -11,15 +11,15 @@ import { createClash } from './clash.js';
 import { createMuzzleBurst } from './muzzle-burst.js';
 import { createClashCamera } from './clash-camera.js';
 import { createDispenser } from './dispenser.js';
-import { TRAY } from './dispenser-physics.js';
 import { PACKED_SCALE } from './history-walk.js';
 import { TANK, RADIUS, FRESH_CAPSULE_SCALE, nozzlePose } from './physics.js';
-import { studioMaterial, createStudioEnvironment } from './studio-materials.js';
+import { FRAME_COLOR, studioMaterial, createStudioEnvironment } from './studio-materials.js';
 import { createTransportScene } from './transport-scene.js';
-import { createPipeSurfaces } from './pipe-surfaces.js';
+import { PIPE_COLORS, createPipeSurfaces } from './pipe-surfaces.js';
 import { ARENA_VIEWS, createArenaCamera, fitArenaCamera, extendArenaViewport } from './arena-framing.js';
 import { createFrameClock } from './frame-clock.js';
-import { createPlanetPlayground } from './planet-playground.js';
+import { createPlanetPlayground, PLAYGROUND_FLOOR } from './planet-playground.js';
+import { createBackgroundPlanets } from './background-planets.js';
 import { watchPlaygroundSky } from './playground-sky.js';
 
 const PIPE_LENGTH = 2.35;
@@ -39,6 +39,15 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
   container.append(renderer.domElement);
   let viewMode = 'compact';
   let camera = createArenaCamera(viewMode), renderCamera = camera.clone();
+  const projectionPoint = new THREE.Vector3();
+  const grabRay = new THREE.Raycaster(), grabPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
+  const grabPoint = new THREE.Vector3();
+  const holdNormal = new THREE.Vector3();
+  const heldScene = new THREE.Scene();
+  let heldModels = null, heldIndex = null, heldRenderer = null;
+  let heldShake = null;
+  let heldRenderWidth = 0, heldRenderHeight = 0;
+  const projectionViewport = { width: 0, height: 0, top: 0 };
   let presentationCamera = camera;
   const clashCamera = createClashCamera();
   container.dataset.viewMode = viewMode;
@@ -60,11 +69,27 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     renderer.setViewport(0, 0, width, height);
     renderer.clear();
     const viewport = extendArenaViewport(presentationCamera, renderCamera, bounds, width, height, presentationCamera !== camera);
+    if (heldShake && !reduced.matches && !paused) {
+      const view = renderCamera.view;
+      renderCamera.setViewOffset(view.fullWidth, view.fullHeight,
+        view.offsetX + heldShake.x * view.width / viewport.width,
+        view.offsetY + heldShake.y * view.height / viewport.height, view.width, view.height);
+    }
     renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
     renderer.render(scene, renderCamera);
     // The intake runs over the tray edge; keep the same camera without letting the tray mask it.
     renderer.clearDepth();
     renderer.render(transportScene.world, renderCamera);
+    if (heldIndex !== null) {
+      if (heldRenderWidth !== width || heldRenderHeight !== height) {
+        heldRenderWidth = width; heldRenderHeight = height;
+        heldRenderer.setSize(width, height, false);
+      }
+      heldRenderer.domElement.hidden = false;
+      heldRenderer.clear();
+      heldRenderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+      heldRenderer.render(heldScene, renderCamera);
+    }
     renderer.clearDepth();
     renderer.setViewport(0, 0, width, height);
     if (composer?.dataset.side !== backdropSide) {
@@ -81,19 +106,20 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       resolveReady();
     }
   }
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.25));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e7eb, 0.35));
   const sun = new THREE.DirectionalLight(0xffffff, 2.3);
   sun.position.set(-4, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 10, bottom: -13, near: 0.5, far: 35 });
   sun.shadow.normalBias = 0.03; sun.shadow.bias = -0.0001; scene.add(sun);
-  const light = new THREE.DirectionalLight(0xe9faff, 0.35); light.position.set(5, 4, -5); scene.add(light);
+  const light = new THREE.DirectionalLight(0xe9faff, 0.5); light.position.set(5, 4, -5); scene.add(light);
   const playground = createPlanetPlayground(scene);
+  createBackgroundPlanets(scene);
 
   const height = TANK.rim - TANK.bottom;
   const halfWidth = TANK.width / 2, halfDepth = TANK.depth / 2;
-  const glass = studioMaterial({ color: 0x9eb3bf, transparent: true, opacity: 0.025, roughness: 0.2, envMapIntensity: 0.08, side: THREE.DoubleSide, depthWrite: false });
-  const rimMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
-  const edgeMaterial = studioMaterial({ color: 0x34445c, roughness: 0.78, clearcoat: 0.02, envMapIntensity: 0.1 });
+  const glass = studioMaterial({ color: 0xffffff, transparent: true, opacity: 0.015, roughness: 0.08, envMapIntensity: 0.15, side: THREE.DoubleSide, depthWrite: false });
+  const rimMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
+  const edgeMaterial = studioMaterial({ color: FRAME_COLOR, roughness: 0.45 });
   function box(size, position, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...position); scene.add(mesh);
@@ -110,7 +136,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       box([0.04, height, 0.04], [sign * halfWidth, (TANK.rim + TANK.bottom) / 2, z], edgeMaterial);
     }
   }
-  const shine = new THREE.MeshBasicMaterial({ color: 0xadc6d0, transparent: true, opacity: 0.12, depthWrite: false });
+  const shine = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
   for (const x of [-halfWidth + 0.12, halfWidth - 0.12]) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.045, height - 0.3), shine);
     strip.position.set(x, (TANK.rim + TANK.bottom) / 2, halfDepth + 0.03); scene.add(strip);
@@ -130,7 +156,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     const surfaces = createPipeSurfaces(color), material = surfaces.solid;
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, length, 36, 1, true), material);
     tube.rotation.x = Math.PI / 2; tube.castShadow = true; barrel.add(tube);
-    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, side: THREE.DoubleSide });
+    const dark = studioMaterial({ color: side === 'a' ? 0x235f53 : 0x905143, roughness: 0.65, envMapIntensity: 0.22, side: THREE.DoubleSide });
     const inside = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, length, 36, 1, true), dark);
     inside.rotation.x = Math.PI / 2; barrel.add(inside);
     for (const z of [-length / 2, length / 2]) {
@@ -139,7 +165,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     scene.add(group);
     return { group, material, until: 0, muzzle: createMuzzleBurst(group, barrel, length, side === 'a' ? 0x8ef5e8 : 0xffc49f) };
   }
-  const pipes = { a: pipe('a', 0x2ac1bc), b: pipe('b', 0xed6a5a) };
+  const pipes = { a: pipe('a', PIPE_COLORS.a), b: pipe('b', PIPE_COLORS.b) };
   const capsules = createCapsules(scene, onSelect, post => container.dispatchEvent(new CustomEvent('capsuleready', { detail: { id: post.id } })), requestHistory);
   const ready = whenCharacterAssetsReady().then(() => {
     assetsLoaded = true;
@@ -147,16 +173,83 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     return firstFrame;
   });
   const stage = container.parentElement;
-  const duel = createCharacterDuel(stage, onReply, onReveal, createChairDuelVisuals(transportScene.front, stage));
+  let brawlEnabled = false;
+  const replayScene = new THREE.Group(), duelScene = new THREE.Group();
+  scene.add(replayScene); transportScene.front.add(duelScene);
+  const duel = createCharacterDuel(stage, onReply, onReveal, createChairDuelVisuals(duelScene, stage));
   const duelField = stage.querySelector('.character-duel');
   duelField.hidden = true;
   const historyModels = createChairCharacters(scene, HISTORY_MODEL_CAPACITY);
+  function hideHeld(index) {
+    if (heldIndex !== index) return;
+    heldModels.hide(0);
+    heldIndex = null;
+    heldShake = null;
+    heldRenderer.domElement.hidden = true;
+  }
   const history = createHistoryConversation(stage, onReply, onReveal, {
     ...historyModels,
+    draw(index, post, position, size, pose, yaw) {
+      if (pose.hanging || pose.released || pose.focused) {
+        if (!heldModels) {
+          heldRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+          heldRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+          heldRenderer.setClearColor(0xffffff, 0);
+          heldRenderer.toneMapping = renderer.toneMapping;
+          heldRenderer.toneMappingExposure = renderer.toneMappingExposure;
+          heldRenderer.autoClear = false;
+          heldRenderer.domElement.className = 'arena-held-renderer';
+          heldRenderer.domElement.setAttribute('aria-hidden', 'true');
+          heldRenderer.domElement.hidden = true;
+          document.body.append(heldRenderer.domElement);
+          heldScene.environment = createStudioEnvironment(heldRenderer);
+          for (const light of scene.children.filter(child => child.isLight)) {
+            const copy = light.clone(); copy.castShadow = false; heldScene.add(copy);
+          }
+          heldModels = createChairCharacters(heldScene, 1);
+        }
+        historyModels.hide(index);
+        heldIndex = index;
+        heldShake = pose.hanging ? pose.cameraShake ?? null : null;
+        heldRenderer.domElement.dataset.held = String(!!(pose.hanging || pose.released));
+        const overlayParent = pose.hanging || pose.released ? document.body : stage.querySelector('.history-conversation') ?? stage;
+        if (heldRenderer.domElement.parentElement !== overlayParent) overlayParent.append(heldRenderer.domElement);
+        const foregroundPose = pose.chairFlight?.target === 'camera'
+          ? { ...pose, chairFlight: { ...pose.chairFlight, camera: presentationCamera } } : pose;
+        heldModels.draw(0, post, position, size, foregroundPose, yaw);
+      } else {
+        hideHeld(index);
+        historyModels.draw(index, post, position, size, pose, yaw);
+      }
+    },
+    hide(index) {
+      hideHeld(index);
+      historyModels.hide(index);
+    },
     project: point => project([point.x, point.y, point.z]),
+    cameraFacing: point => {
+      if (presentationCamera.isPerspectiveCamera) return Math.atan2(presentationCamera.position.x - point.x, presentationCamera.position.z - point.z);
+      presentationCamera.getWorldDirection(holdNormal);
+      return Math.atan2(-holdNormal.x, -holdNormal.z);
+    },
+    unprojectHold: (point, reference) => {
+      if (!projectionViewport.width || !projectionViewport.height) return null;
+      grabRay.setFromCamera({ x: point.x / projectionViewport.width * 2 - 1,
+        y: 1 - (point.y - projectionViewport.top) / projectionViewport.height * 2 }, camera);
+      camera.getWorldDirection(holdNormal);
+      grabPlane.setFromNormalAndCoplanarPoint(holdNormal, grabPoint.set(reference.x, reference.y, reference.z));
+      return grabRay.ray.intersectPlane(grabPlane, grabPoint) ? { x: grabPoint.x, y: grabPoint.y, z: grabPoint.z } : null;
+    },
+    unproject: (point, floorY) => {
+      if (!projectionViewport.width || !projectionViewport.height) return null;
+      grabRay.setFromCamera({ x: point.x / projectionViewport.width * 2 - 1,
+        y: 1 - (point.y - projectionViewport.top) / projectionViewport.height * 2 }, camera);
+      grabPlane.normal.set(0, 1, 0); grabPlane.constant = -floorY;
+      return grabRay.ray.intersectPlane(grabPlane, grabPoint) ? { x: grabPoint.x, y: floorY, z: grabPoint.z } : null;
+    },
   });
   const reveals = createCapsuleReveals(container, onReply);
-  const clash = createClash(scene, container, camera, () => {}, {
+  const clash = createClash(replayScene, container, camera, () => {}, {
     onLaunch: sides => { for (const side of sides) pipes[side].muzzle.fire(); },
     onImpact: ({ point }) => {
       if (!reduced.matches) { capsules.shockwave(point); reveals.spark(point, camera); }
@@ -166,8 +259,8 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let groupId = 0, outputQueue = [], outputClock = 0, seeded = false;
   const replyQueue = [];
-  const launchedIds = new Set(), transports = new Set();
-  const dispenser = createDispenser(scene, () => {}, {
+  const launchedIds = new Set(), transports = new Set(), pendingReplies = new Set();
+  const dispenser = createDispenser(replayScene, () => {}, {
     onOpened(entry) {
       if (entry.groupId !== groupId) return;
       const origin = () => project([entry.body.position.x, entry.body.position.y + 0.25, entry.body.position.z]);
@@ -178,13 +271,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     edgeScale: ARENA_VIEWS[viewMode].edgeScale,
   });
   function project(position) {
-    const p = new THREE.Vector3(...position).project(camera);
-    return { x: (p.x + 1) * container.clientWidth / 2, y: container.offsetTop + (1 - p.y) * container.clientHeight / 2 };
+    const p = projectionPoint.set(...position).project(camera);
+    return { x: (p.x + 1) * projectionViewport.width / 2, y: projectionViewport.top + (1 - p.y) * projectionViewport.height / 2 };
   }
   function startGroup(selection) {
     const participants = duel.prepare(selection.post, selection.fresh, reduced.matches);
     if (!participants.length) return;
-    history.leaveAll(reduced.matches);
+    history.setCheering(true, reduced.matches);
     duelField.hidden = false;
     dispenser.clearAll();
     groupId++;
@@ -198,12 +291,17 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       startTransport(selection.transport, () => startSelection({ ...selection, transport: null }), selection.settle);
       return;
     }
+    pendingReplies.delete(selection.post.id);
     if (!selection.post.replyTo || !selection.fresh && !selection.replayClash) {
       duel.clear();
       duelField.hidden = true;
+      history.setCheering(false, reduced.matches);
       history.setVisible(true);
-      outputQueue.push({ post: selection.post, fresh: false, kind: 'history', groupId });
-      outputClock = 1;
+      if (history.hasAuthor(selection.post)) history.emerge(selection.post, null, reduced.matches);
+      else {
+        outputQueue.push({ post: selection.post, fresh: false, kind: 'history', groupId });
+        outputClock = 1;
+      }
       releaseClock = 0;
       return;
     }
@@ -214,6 +312,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     duel.clear();
     duelField.hidden = true;
     history.setVisible(true, { speech: false });
+    history.setCheering(true, reduced.matches);
     clash.reposition();
     clash.start(selection.post, selection.fresh, reduced.matches);
     clash.step(0);
@@ -254,6 +353,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     if (disposed || !isVisible || document.hidden) { frame = 0; return; }
     const delta = frameClock.take(now);
     if (!delta) { frame = requestAnimationFrame(tick); return; }
+    projectionViewport.top = container.offsetTop;
     capsules.step(delta, reduced.matches);
     const collision = capsules.takeCollision();
     if (collision && !paused && !reduced.matches) reveals.spark(collision, camera);
@@ -268,14 +368,18 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     }
     releaseClock += delta;
     const waiting = capsules.controlState();
+    const trackedReplyId = clashCamera.activePostId();
+    const followingPendingReply = pendingReplies.has(trackedReplyId);
     const priority = waiting.queuedId !== null || replyQueue.length > 0 || waiting.freshReady;
     const userSpill = spillQueue > 0;
-    const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 1.8);
-    const canMove = (!paused || allowPausedRelease) && !duel.pinned() && !history.pinned();
-    const replaceReady = duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
-      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || history.canReplace());
-    if (canMove && !clash.busy() && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
-      const selection = replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
+    const due = !!replyQueue[0]?.transport || reduced.matches || releaseClock >= (priority ? 0.55 : userSpill ? 0.1 : 0.6);
+    const canMove = (!paused || allowPausedRelease) && !duel.pinned() && (!history.pinned() || history.isGrabbing?.());
+    const replaceReady = !clash.busy() && duel.canReplace(false) && history.canAccept() && !outputQueue.length &&
+      dispenser.readyForNext(true, reduced.matches) && (!waiting.freshReady || followingPendingReply || history.canReplace());
+    if (canMove && replaceReady && due && (priority || userSpill || (!paused && !reduced.matches))) {
+      // The tracked reply hides history speech, so its reading timer cannot unblock it.
+      const selection = followingPendingReply ? capsules.takeHistorical(true, trackedReplyId)
+        : replyQueue.length ? replyQueue.shift() : waiting.queuedId !== null ? (waiting.drawReady ? capsules.takeForDraw() : null) : capsules.takeHistorical(!userSpill && (paused || reduced.matches));
       if (selection) {
         if (userSpill && !priority) spillQueue--;
         startSelection(selection);
@@ -291,10 +395,13 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       history.step(delta, reduced.matches);
       clash.step(delta * clashCamera.timeScale(clash.presentation()));
     }
-    if (!reduced.matches && !duelField.hidden && duel.canReplace(false) && !clash.busy()) {
-      duel.clear(); duelField.hidden = true; history.setVisible(true);
+    if (!duelField.hidden && duel.canReplace(false) && !clash.busy()) {
+      history.setCheering(false, reduced.matches);
+      if (!reduced.matches) { duel.clear(); duelField.hidden = true; history.setVisible(true); }
     }
-    presentationCamera = clashCamera.update(camera, clash.presentation() ?? transportScene.presentation() ?? dispenser.presentation(), delta, reduced.matches || !canMove);
+    presentationCamera = clashCamera.update(camera,
+      [clash.presentation(), transportScene.presentation(), dispenser.presentation()],
+      delta, reduced.matches || !canMove, pendingReplies);
     const cameraIntensity = clashCamera.intensity();
     stage.dataset.cinematic = String(cameraIntensity > 0);
     if (composer && composer.hasAttribute('inert') !== (cameraIntensity > 0)) composer.toggleAttribute('inert', cameraIntensity > 0);
@@ -318,7 +425,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     syncControls();
     if (now - statsAt > 250) {
       statsAt = now;
-      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), cameraShot: cameraIntensity > 0, outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
+      container.dataset.renderStats = JSON.stringify({ ...capsules.stats(), ...dispenser.stats(), ...duel.stats(), ...history.stats(), ...clash.stats(), brawlEnabled, cameraShot: cameraIntensity > 0, outputQueued: outputQueue.length, replyQueued: replyQueue.length, spillQueue, draws: renderer.info.render.calls, geometries: renderer.info.memory.geometries });
       container.dataset.flowState = reduced.matches ? 'reduced' : paused ? 'paused' : 'running';
     }
     const pendingRelease = (waiting.queuedId !== null || replyQueue.length || waiting.freshReady || spillQueue) && !clash.busy() && duel.canReplace(false);
@@ -331,9 +438,15 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     const key = JSON.stringify(detail);
     if (key !== controlKey) { controlKey = key; container.dispatchEvent(new CustomEvent('slidestate', { detail })); }
   }
+  function resetCamera() {
+    camera = createArenaCamera(viewMode);
+    renderCamera = camera.clone(); presentationCamera = camera;
+    clash.setCamera(camera);
+  }
   function resize() {
     const width = container.clientWidth, height = container.clientHeight;
     if (!width || !height) return;
+    Object.assign(projectionViewport, { width, height, top: container.offsetTop });
     fitArenaCamera(camera, viewMode, width, height, TANK);
     const tankTop = project([0, TANK.rim, TANK.depth / 2]);
     stage.style.setProperty('--tank-top', `${tankTop.y}px`);
@@ -374,15 +487,15 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     container.dataset.pipeAnchors = JSON.stringify(anchors);
     const compact = viewMode === 'compact';
     const landingZ = compact ? 9.6 : 10.1;
-    const landingY = TRAY.y + (TRAY.frontY - TRAY.y) * (landingZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.12;
+    const landingY = PLAYGROUND_FLOOR.y;
     const duelSpread = 1.8;
     const worldDestinations = [-duelSpread, duelSpread].map(x => ({ x, y: landingY, z: landingZ }));
     const destinations = worldDestinations.map(point => project([point.x, point.y, point.z]));
     duelField.dataset.compact = String(compact);
     duel.setLayout(destinations);
     const historyZ = landingZ;
-    const historyY = TRAY.y + (TRAY.frontY - TRAY.y) * (historyZ - TRAY.back) / (TRAY.front - TRAY.back) + 0.12;
-    const historySpread = ARENA_VIEWS[viewMode].trayWidth * 0.22;
+    const historyY = PLAYGROUND_FLOOR.y;
+    const historySpread = compact ? 1.25 : 2.0;
     const historyWorld = [-historySpread, historySpread].map(x => ({ x, y: historyY, z: historyZ }));
     const historyPoints = historyWorld.map(point => project([point.x, point.y, point.z]));
     const floorCenter = project([0, historyY, historyZ]);
@@ -392,7 +505,9 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     const exitWorld = [-bounds.left - margin, document.documentElement.clientWidth - bounds.left + margin]
       .map(x => ({ x: (x - floorCenter.x) / pixelsPerUnit, y: historyY, z: historyZ }));
     history.setLayout({ exitLeft: exitWorld[0], exitRight: exitWorld[1], left: historyPoints[0], right: historyPoints[1], worldLeft: historyWorld[0], worldRight: historyWorld[1], width,
-      characterScale: compact ? PACKED_SCALE : 0.65, characterGap: compact ? 0.55 : 0.9 });
+      floorHalfWidth: PLAYGROUND_FLOOR.width / 2 - 1,
+      cameraZ: camera.isPerspectiveCamera ? camera.position.z : null,
+      characterScale: compact ? PACKED_SCALE : 0.65, characterGap: compact ? 0.8 : 1.25 });
     clash.reposition();
     if (clash.busy()) clash.step(0);
     wake();
@@ -405,6 +520,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     // Stored posts remain available to history; missed live effects need not play on return.
     for (const selection of replyQueue) selection.settle?.();
     replyQueue.length = 0;
+    pendingReplies.clear();
     capsules.settleReplays();
     clashCamera.reset(); syncMotionPause(); container.dataset.flowState = 'hidden';
   }
@@ -444,13 +560,28 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
   resize();
   return {
     ready,
+    setBrawl(value) {
+      if (disposed || typeof value !== 'boolean' || value === brawlEnabled) return;
+      brawlEnabled = value;
+      stage.dataset.brawl = String(value);
+      history.setBrawl(value, reduced.matches);
+      wake();
+    },
     setClashCamera(value) { clashCamera.setEnabled(value); wake(); },
+    setCharacterLimits(value) {
+      if (disposed) return;
+      history.setCharacterLimits(value, reduced.matches);
+      wake();
+    },
+    setSpeechOverlap(value) {
+      if (disposed || typeof value !== 'boolean') return;
+      history.setSpeechOverlap(value);
+      wake();
+    },
     setView(next) {
       if (!Object.hasOwn(ARENA_VIEWS, next) || next === viewMode || disposed) return;
       viewMode = next;
-      camera = createArenaCamera(next); renderCamera = camera.clone();
-      presentationCamera = camera; clashCamera.reset();
-      clash.setCamera(camera);
+      resetCamera(); clashCamera.reset();
       dispenser.setTrayWidth(ARENA_VIEWS[next].trayWidth, ARENA_VIEWS[next].edgeScale);
       container.dataset.viewMode = next;
       resize();
@@ -458,6 +589,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
     dispose() {
       disposed = true; suspend();
       stopSky(); playground.dispose();
+      delete stage.dataset.brawl;
       stage.dataset.cinematic = 'false';
       composer?.removeAttribute('inert');
       sizeObserver.disconnect(); visibilityObserver.disconnect();
@@ -479,7 +611,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       for (const selection of replyQueue) selection.settle?.();
       outputQueue = []; replyQueue.length = 0; dispenser.clearAll(); duel.dispose(); history.dispose(); reveals.dispose(); clash.dispose();
       const geometries = new Set(), materials = new Set(), textures = new Set();
-      scene.traverse(object => {
+      for (const root of [scene, heldScene]) root.traverse(object => {
         if (object.geometry) geometries.add(object.geometry);
         for (const material of [object.material, object.customDepthMaterial, object.customDistanceMaterial].flat().filter(Boolean)) {
           materials.add(material);
@@ -488,6 +620,10 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       });
       geometries.forEach(value => value.dispose()); materials.forEach(value => value.dispose());
       textures.forEach(value => value.dispose()); scene.environment?.dispose(); sun.shadow.map?.dispose();
+      heldScene.environment?.dispose();
+      if (heldRenderer) {
+        heldRenderer.dispose(); heldRenderer.forceContextLoss(); heldRenderer.domElement.remove();
+      }
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     },
     chooseSide(side) { pipes[side].until = performance.now() + 600; wake(); },
@@ -506,6 +642,7 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       allowPausedRelease = paused;
       capsules.queueReplay(post, Infinity);
       if (post.replyTo) {
+        pendingReplies.add(post.id);
         const arrive = () => {
           capsules.queueReplay(post, 0, isVisible && !document.hidden);
         };
@@ -525,11 +662,14 @@ export function createArena(container, onSelect, onReveal, onReply = onSelect, r
       return delivered;
     },
     celebrate(id) { if (!reduced.matches) capsules.nudge(id); wake(); },
-    updateState(posts, balance, historyPage) {
-      capsules.updateState(posts, balance, historyPage); duel.updateState(posts);
+    updateState(posts, balance, historyPage, avatarCandidates) {
+      capsules.updateState(posts, balance, historyPage, avatarCandidates); duel.updateState(posts);
       if (!seeded) {
         seeded = true;
-        if (posts.length) startSelection(capsules.takeHistorical());
+        if (posts.length) {
+          const selection = capsules.takeHistorical();
+          if (selection) startSelection(selection);
+        }
       }
       wake();
     },

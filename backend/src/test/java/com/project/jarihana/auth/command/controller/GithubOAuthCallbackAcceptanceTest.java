@@ -5,8 +5,13 @@ import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Bootcamp;
+import com.project.jarihana.member.domain.BootcampStatus;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberField;
+import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.support.CrewRosterFixture;
 import com.project.jarihana.support.GithubOAuthClientStub;
 import com.project.jarihana.support.IntegrationTestSupport;
 import com.project.jarihana.support.RefreshTokenTestRepository;
@@ -48,6 +53,9 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
     @Autowired
     private SignupSessionFixture signupSessionFixture;
+
+    @Autowired
+    private CrewRosterFixture crewRosterFixture;
 
     @Autowired
     private AuthProperties authProperties;
@@ -238,5 +246,99 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
 
         // Then
         assertThat(response.cookie(authCookieProperties.accessTokenName())).isNull();
+    }
+
+    @DisplayName("크루 명단에 있는 기본 멤버는 GitHub로 로그인할 때 닉네임을 유지한 채 크루가 된다.")
+    @Test
+    void verifyBasicMemberAsCrewOnLogin() {
+        // Given
+        memberRepository.save(Member.createBasic("도담", GITHUB_ID));
+        crewRosterFixture.register(GITHUB_ID, 8, "FRONTEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.FOUND.value());
+        Member member = memberRepository.findByGithubId(GITHUB_ID).orElseThrow();
+        assertThat(member.getMemberType()).isEqualTo(MemberType.CREW);
+        assertThat(member.getCrewName()).isEqualTo("도담");
+        assertThat(member.getGeneration()).isEqualTo(8);
+        assertThat(member.getCourse()).isEqualTo(Course.FRONTEND);
+    }
+
+    @DisplayName("크루 명단에 있는 부트캠프 회원은 로그인할 때 소속 정보를 비우고 크루가 된다.")
+    @Test
+    void verifyBootcampMemberAsCrewOnLogin() {
+        // Given
+        memberRepository.save(Member.createBootcamp(
+                "도담", GITHUB_ID, Bootcamp.of("SSAFY", BootcampStatus.COMPLETED, "12기"), MemberField.BACKEND
+        ));
+        crewRosterFixture.register(GITHUB_ID, 8, "BACKEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        Member member = memberRepository.findByGithubId(GITHUB_ID).orElseThrow();
+        assertThat(member.getMemberType()).isEqualTo(MemberType.CREW);
+        assertThat(member.getBootcamp()).isNull();
+        assertThat(member.getField()).isNull();
+    }
+
+    @DisplayName("같은 기수에 같은 닉네임의 크루가 있으면 크루로 바꾸지 않고 로그인은 그대로 성공한다.")
+    @Test
+    void keepBasicMemberWhenRosterGenerationHasSameName() {
+        // Given
+        memberRepository.save(Member.create("도담", 8, "other-github-id", Course.BACKEND));
+        memberRepository.save(Member.createBasic("도담", GITHUB_ID));
+        crewRosterFixture.register(GITHUB_ID, 8, "FRONTEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(response.header(HttpHeaders.LOCATION))
+                .isEqualTo("http://localhost:5173/oauth/callback?signupRequired=false");
+        assertThat(response.detailedCookie(authCookieProperties.accessTokenName()).getValue()).isNotBlank();
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
+                .extracting(Member::getMemberType)
+                .isEqualTo(MemberType.MEMBER);
+    }
+
+    @DisplayName("크루 명단에 없는 기본 멤버는 로그인해도 기본 멤버로 남는다.")
+    @Test
+    void keepBasicMemberOutsideRoster() {
+        // Given
+        memberRepository.save(Member.createBasic("도담", GITHUB_ID));
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
+                .extracting(Member::getMemberType)
+                .isEqualTo(MemberType.MEMBER);
+    }
+
+    @DisplayName("이미 크루인 회원은 명단의 기수, 과정과 달라도 로그인할 때 바뀌지 않는다.")
+    @Test
+    void keepExistingCrewProfileOnLogin() {
+        // Given
+        memberRepository.save(Member.create("가온", 7, GITHUB_ID, Course.BACKEND));
+        crewRosterFixture.register(GITHUB_ID, 8, "FRONTEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        Member member = memberRepository.findByGithubId(GITHUB_ID).orElseThrow();
+        assertThat(member.getGeneration()).isEqualTo(7);
+        assertThat(member.getCourse()).isEqualTo(Course.BACKEND);
     }
 }

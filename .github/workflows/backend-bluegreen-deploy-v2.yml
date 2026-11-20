@@ -1,0 +1,484 @@
+name: 운영 무중단 배포 2안
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: 운영 환경 이름(prod)
+      frontend_only:
+        type: boolean
+        default: false
+        description: 현재 백엔드를 유지하고 프론트만 배포
+      backend_only:
+        type: boolean
+        default: false
+        description: 현재 프론트를 유지하고 백엔드만 배포
+      image_tag:
+        type: string
+        default: ""
+        description: 운영 커밋의 백엔드 트리와 대조할 이미지 태그
+permissions:
+  contents: read
+  actions: read
+  packages: read
+concurrency:
+  group: jarihana-observed-deployment
+  cancel-in-progress: false
+  queue: max
+jobs:
+  prepare:
+    name: 배포 준비
+    uses: ./.github/workflows/backend-bluegreen-prepare-v2.yml
+    with:
+      environment: ${{ inputs.environment }}
+      mode: deploy
+      frontend_only: ${{ inputs.frontend_only }}
+      backend_only: ${{ inputs.backend_only }}
+      image_tag: ${{ inputs.image_tag }}
+    secrets: inherit
+  plan:
+    name: 배포 계획
+    needs: prepare
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 25
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+      BG_PHASE: plan
+      BG_FRONTEND_ONLY: ${{ needs.prepare.outputs.frontend_only == 'true' }}
+      BG_BACKEND_ONLY: ${{ needs.prepare.outputs.backend_only == 'true' }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 운영 프론트엔드 AWS CLI 준비
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
+      - name: 프론트 빌드 파일을 받을 경로 준비
+        if: needs.prepare.outputs.backend_only != 'true'
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ needs.prepare.outputs.artifact_id }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          BG_FRONTEND_DIST="$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID"
+          printf 'BG_FRONTEND_DIST=%s\n' "$BG_FRONTEND_DIST" >> "$GITHUB_ENV"
+          [[ "$BG_FRONTEND_DIST" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]
+          rm -rf -- "$BG_FRONTEND_DIST"
+          mkdir -m 700 -- "$BG_FRONTEND_DIST"
+      - name: 이번 실행에서 검증할 프론트 빌드 파일 받기
+        if: needs.prepare.outputs.backend_only != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          path: ${{ env.BG_FRONTEND_DIST }}
+          merge-multiple: true
+      - name: 배포 계획 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh plan
+        id: phase
+      - name: 내려받은 프론트 빌드 파일 정리
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$BG_PHASE" == plan && "${BG_FRONTEND_DIST:-}" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]; then
+            rm -rf -- "$BG_FRONTEND_DIST"
+          fi
+    outputs:
+      digest: ${{ steps.phase.outputs.digest }}
+      old: ${{ steps.phase.outputs.old }}
+      target: ${{ steps.phase.outputs.target }}
+  guardian:
+    name: 러너 대기 감시
+    if: >-
+      github.repository == 'woowacourse-teams/2026-jarihana' && github.ref == 'refs/heads/main' && github.run_attempt == '1' &&
+      ((github.event_name == 'push' && github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy-v2.yml@refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.blue_green_mode == 'deploy' &&
+        github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy.yml@refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BG_COMPACT_WORKFLOW: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+        name: 배포 커밋 가져오기
+      - name: 전용 runner queue와 전체 실행 기한 감시
+        shell: bash
+        run: |
+          script=infra/blue-green-deploy/scripts/actions/queue-guard.sh
+          exec bash "$script"
+  old:
+    name: 기존 앱 작업
+    needs: [ prepare, plan ]
+    if: |-
+      always() && !cancelled() && needs.prepare.result == 'success' && needs.plan.result == 'success' && needs.prepare.outputs.frontend_only != 'true'
+    uses: ./.github/workflows/backend-bluegreen-app-v2.yml
+    secrets: inherit
+    with:
+      lane: old
+      slot: ${{ needs.plan.outputs.old }}
+      digest: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+  target:
+    name: 새 앱 작업
+    needs: [ prepare, plan ]
+    if: |-
+      always() && !cancelled() && needs.prepare.result == 'success' && needs.plan.result == 'success' && needs.prepare.outputs.frontend_only != 'true'
+    uses: ./.github/workflows/backend-bluegreen-app-v2.yml
+    secrets: inherit
+    with:
+      lane: target
+      slot: ${{ needs.plan.outputs.target }}
+      digest: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+  control:
+    name: 전환과 관측
+    needs: [ prepare, plan ]
+    if: |-
+      always() && !cancelled() && needs.prepare.result == 'success' && needs.plan.result == 'success'
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    timeout-minutes: 120
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+      BG_COMPACT_WORKFLOW: "true"
+    outputs:
+      cleanup_deferred: ${{ steps.seal.outputs.cleanup_deferred }}
+      sealed: ${{ steps.seal.outcome == 'success' }}
+      front_sealed: ${{ steps.front_seal.outcome == 'success' }}
+      switch_started: ${{ steps.switch.outputs.started }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 프론트 게시 및 복구 도구 준비
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
+      - name: 앱 서버별 완료 결과 수신 준비
+        id: open
+        if: needs.prepare.outputs.frontend_only != 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh open
+      - name: 새 앱 준비를 확인하고 기존 워커 인계 허가
+        id: handoff
+        if: needs.prepare.outputs.frontend_only != 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh grant-handoff prepare
+      - name: 인계 결과 확인 후 API 전환 및 프론트 버전 연결
+        id: switch
+        if: needs.prepare.outputs.frontend_only != 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh switch handoff
+      - name: 새 워커 활성화 확인 후 병렬 관측 허가
+        id: grant
+        if: needs.prepare.outputs.frontend_only != 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh grant-observe activate
+      - name: 프론트 전용 릴리스 게시
+        id: front_publish
+        if: needs.prepare.outputs.frontend_only == 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh frontend-publish
+      - name: 공개 경로와 서비스 지표를 5분간 관측
+        id: observe
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh observe
+      - name: 워커 관측과 연결 종료 확인 후 버전 확정
+        id: seal
+        if: needs.prepare.outputs.frontend_only != 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh seal observe
+      - name: 프론트 전용 배포 확정
+        id: front_seal
+        if: needs.prepare.outputs.frontend_only == 'true'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh frontend-seal
+      - name: 새 앱 완료 확인 후 기존 앱 종료 허가
+        id: stop
+        if: needs.prepare.outputs.frontend_only != 'true' && steps.seal.outputs.cleanup_deferred == 'false'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh grant-stop complete
+      - name: 대기 중인 앱 작업에 중단 알림
+        id: close
+        if: failure() && steps.open.outcome == 'success'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh close
+  after-switch:
+    name: 전환 후 처리
+    needs: [ prepare, plan, control, old, target ]
+    if: >-
+      always() && !cancelled() && needs.plan.result == 'success' && needs.prepare.outputs.frontend_only != 'true' &&
+      ((needs.prepare.result == 'success' && needs.control.result == 'success' &&
+        needs.old.result == 'success' && needs.target.result == 'success' && needs.control.outputs.cleanup_deferred == 'false') ||
+       (needs.control.outputs.sealed != 'true' && needs.control.outputs.cleanup_deferred != 'true' &&
+        needs.control.outputs.switch_started == 'true' && contains(needs.*.result, 'failure')))
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: ${{ contains(needs.*.result, 'failure') && 8 || 12 }}
+    outputs:
+      stopped: ${{ steps.stop.outcome == 'success' }}
+      rollback_ready: ${{ steps.rollback.outputs.rollback_ready }}
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 기존 앱 종료 증거 확인 후 EC2 중지
+        id: stop
+        if: ${{ !contains(needs.*.result, 'failure') }}
+        shell: bash
+        env:
+          BG_COMPACT_WORKFLOW: "true"
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh stop stop
+      - name: 정상 완료한 실행의 임시 전달 결과 정리
+        if: steps.stop.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/compact/control.sh clean
+      - name: 이전 API 경로 복구 실행
+        id: rollback
+        if: contains(needs.*.result, 'failure')
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh rollback-http
+  frontend-recover:
+    name: 프론트 버전 복구
+    needs: [ prepare, plan, control, old, target, after-switch ]
+    if: |-
+      always() && !cancelled() && needs.plan.result == 'success' && needs.control.outputs.sealed != 'true' && needs.control.outputs.cleanup_deferred != 'true' && needs.control.outputs.front_sealed != 'true' && (needs.control.result == 'failure' || needs.old.result == 'failure' || needs.target.result == 'failure')
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 25
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 운영 프론트엔드 AWS CLI 준비
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
+      - name: 프론트 버전 복구 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh frontend-recover
+        id: phase
+  release-candidate:
+    name: 새 워커 권한 반납
+    needs: [ prepare, plan, after-switch, frontend-recover ]
+    if: |-
+      always() && !cancelled() && needs.after-switch.result == 'success' && needs.after-switch.outputs.rollback_ready == 'true'
+    runs-on: [ "${{ vars[format('BLUE_GREEN_PROD_{0}_RUNNER', needs.plan.outputs.target)] }}" ]
+    environment: prod
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    outputs:
+      result: ${{ steps.operation.outputs.result }}
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_SLOT: ${{ needs.plan.outputs.target }}
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 새 워커 권한 반납 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/app.sh rollback
+        id: operation
+  grant-rollback-old:
+    name: 이전 워커 재개 허가
+    needs: [ prepare, plan, release-candidate ]
+    if: always() && !cancelled() && needs.release-candidate.result == 'success'
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 8
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+      APP_RESULT: ${{ needs.release-candidate.outputs.result }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 이전 워커 재개 허가 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh grant-rollback-old
+        id: phase
+  resume-old:
+    name: 이전 워커 재개
+    needs: [ prepare, plan, grant-rollback-old ]
+    if: always() && !cancelled() && needs.grant-rollback-old.result == 'success'
+    runs-on: [ "${{ vars[format('BLUE_GREEN_PROD_{0}_RUNNER', needs.plan.outputs.old)] }}" ]
+    environment: prod
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    outputs:
+      result: ${{ steps.operation.outputs.result }}
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_SLOT: ${{ needs.plan.outputs.old }}
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 이전 워커 재개 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/app.sh rollback
+        id: operation
+  finish-rollback:
+    name: 전체 복구 확정
+    needs: [ prepare, plan, resume-old, frontend-recover ]
+    if: |-
+      always() && !cancelled() && needs.resume-old.result == 'success' && (inputs.environment != 'prod' || needs.frontend-recover.result == 'success')
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 8
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+      APP_RESULT: ${{ needs.resume-old.outputs.result }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 전체 복구 확정 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh finish-rollback
+        id: phase
+  interrupt:
+    name: 중단 상태 보존
+    needs:
+      [
+        prepare,
+        plan,
+        control,
+        after-switch,
+        finish-rollback,
+        release-candidate,
+        grant-rollback-old,
+        resume-old,
+        frontend-recover
+      ]
+    if: |-
+      always() && needs.plan.result == 'success' && (needs.after-switch.result != 'success' || needs.after-switch.outputs.stopped != 'true') && needs.finish-rollback.result != 'success' && needs.control.outputs.front_sealed != 'true' && !(needs.prepare.outputs.frontend_only == 'true' && needs.frontend-recover.result == 'success')
+    runs-on: [ jarihana-bluegreen-coordinator ]
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 8
+    env:
+      BG_ENVIRONMENT: prod
+      BG_MODE: deploy
+      BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 배포 커밋 가져오기
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: 중단 상태 보존 실행
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/coordinator.sh interrupt
+        id: phase
+  result:
+    name: 배포 결과
+    if: always()
+    needs: [ prepare, plan, control, after-switch, finish-rollback, interrupt, frontend-recover ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: 배포 결과와 복구 결과를 구분하여 기록
+        env:
+          RELEASE_SCOPE: ${{ needs.prepare.outputs.frontend_only == 'true' && 'frontend' || needs.prepare.outputs.backend_only == 'true' &&
+            'backend' || 'both' }}
+          FRONTEND: ${{ needs.control.outputs.front_sealed == 'true' && 'success' || '미확정' }}
+          FRONTEND_RECOVERY: ${{ needs.frontend-recover.result }}
+          DEPLOY: ${{ needs.after-switch.result == 'success' && needs.after-switch.outputs.stopped == 'true' && 'success' ||
+            needs.after-switch.result == 'failure' && 'failure' || 'skipped' }}
+          ROLLBACK: ${{ needs.finish-rollback.result }}
+          CLEANUP_DEFERRED: ${{ needs.control.outputs.cleanup_deferred }}
+        shell: bash
+        run: |
+          exec >> "$GITHUB_STEP_SUMMARY"
+          printf '이번 배포/롤백 대상: %s\n' "$RELEASE_SCOPE"
+          printf '백엔드 배포: %s / 백엔드 롤백: %s\n' "$DEPLOY" "$ROLLBACK"
+          printf '프론트엔드 전용 배포: %s / 프론트엔드 복구: %s / 릴리스: %s-%s\n' "$FRONTEND" "$FRONTEND_RECOVERY" "$GITHUB_SHA" "$GITHUB_RUN_ID"
+          if [[ "$CLEANUP_DEFERRED" == true ]]; then
+            echo '확인 필요: 신규 서버는 정상이며 계속 서비스합니다. 이전 연결 종료가 확인되지 않아 롤백, 앱 종료, EC2 중지를 보류했습니다. 양쪽 EC2와 배포 저널을 확인하세요.'
+            exit 1
+          fi
+          if [[ "$DEPLOY" == success || "$FRONTEND" == success ]]; then exit 0; fi
+          echo '배포 실패: 롤백 성공 여부와 Nginx 저널을 확인하세요. 미확정 작업과 두 EC2를 보존하며 같은 실행을 재실행하지 마세요.'
+          exit 1

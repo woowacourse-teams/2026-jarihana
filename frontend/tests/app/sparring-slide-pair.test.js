@@ -58,7 +58,7 @@ it('받아치기 캡슐의 미끄럼틀 위치를 추적하고 열릴 때도 복
   expect(dispenser.presentation()).toBeNull();
 });
 
-it.each([10, 4.4])('폭 %s의 마당에서도 두 캡슐이 함께 내려온 뒤 착지한다', trayWidth => {
+it.each([5, 3.2])('폭 %s의 짧은 미끄럼틀에서도 두 캡슐이 함께 내려온 뒤 착지한다', trayWidth => {
   const physics = createDispenserPhysics({ trayWidth });
   const left = physics.reset(0), right = physics.reset(1);
   physics.positionPair([0, 1], 0);
@@ -107,16 +107,25 @@ it('구도를 바꿔도 미끄럼틀과 마당 테두리는 바닥에 붙고 같
     expect(scene.children).toHaveLength(meshCount);
     for (const rail of rails) expect(rail.geometry.parameters.radius).toBeCloseTo(0.1 * scale);
     const positions = floor.geometry.attributes.position;
-    const segments = positions.count / 2 - 1;
+    const colors = floor.geometry.attributes.color;
+    const segments = positions.count / 6 - 1;
     for (let i = 0; i <= segments; i++) {
       for (let side = 0; side < 2; side++) {
+        const vertex = i * 6 + side * 5;
         const edge = rails[side].geometry.parameters.path.getPoint(i / segments);
-        expect(edge.x).toBeCloseTo(positions.getX(i * 2 + side));
-        expect(edge.z).toBeCloseTo(positions.getZ(i * 2 + side));
-        expect(edge.y - positions.getY(i * 2 + side)).toBeCloseTo(0.07 * scale);
-        expect(edge.y - rails[side].geometry.parameters.radius).toBeLessThan(positions.getY(i * 2 + side));
+        expect(edge.x).toBeCloseTo(positions.getX(vertex));
+        expect(edge.z).toBeCloseTo(positions.getZ(vertex));
+        expect(edge.y - positions.getY(vertex)).toBeCloseTo(0.07 * scale);
+        expect(edge.y - rails[side].geometry.parameters.radius).toBeLessThan(positions.getY(vertex));
       }
-      if (i > 0) expect(positions.getZ(i * 2)).toBeGreaterThan(positions.getZ((i - 1) * 2));
+      const row = i * 6;
+      expect(colors.getX(row)).toBeGreaterThan(colors.getY(row));
+      expect(colors.getY(row + 5)).toBeGreaterThan(colors.getX(row + 5));
+      expect([colors.getX(row + 2), colors.getY(row + 2), colors.getZ(row + 2)]).toEqual([1, 1, 1]);
+      expect(positions.getX(row + 3) - positions.getX(row + 2)).toBeCloseTo(0.07);
+      expect(positions.getX(row + 1)).toBe(positions.getX(row + 2));
+      expect(positions.getX(row + 3)).toBe(positions.getX(row + 4));
+      if (i > 0) expect(positions.getZ(row)).toBeGreaterThan(positions.getZ(row - 6));
     }
     expect(positions.getX(positions.count - 1)).toBeCloseTo(width / 2);
     expect(positions.getZ(positions.count - 1)).toBeCloseTo(TRAY.front);

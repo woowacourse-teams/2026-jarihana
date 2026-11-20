@@ -8,7 +8,7 @@ import {
   localTimeSchema
 } from "../common/schemas.js";
 
-const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL"]);
+const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL", "MEMBER"]);
 
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
@@ -169,7 +169,8 @@ export const groupDetailSchema = groupListItemSchema.extend({
   sessionSchedule: sessionScheduleSchema.nullable(),
   currentMemberRegistrationId: entityIdSchema.nullable().optional(),
   currentMemberRegistrationStatus: groupRegistrationStatusSchema.nullable().optional(),
-  createdAt: localDateTimeSchema
+  createdAt: localDateTimeSchema,
+  clubhouseSetupEnabled: z.boolean().optional()
 });
 
 export const groupCreateResponseSchema = z.object({

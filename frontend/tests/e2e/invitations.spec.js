@@ -120,10 +120,7 @@ test("비회원 공유 초대는 공개 조회 후 가입 완료까지 경로를
   shared.auth = "signup-required";
   await page.goto("/oauth/callback"); await expect(page).toHaveURL(/\/signup$/);
   expect(await page.evaluate(() => sessionStorage.getItem("jarihana:auth:return-target"))).toBe(`/invitations/link/${token}`);
-  await page.getByRole("radio", { name: "크루" }).click();
-  await page.getByRole("textbox", { name: "크루 이름" }).fill("초대");
-  await page.getByRole("combobox", { name: "과정" }).selectOption("FRONTEND");
-  await page.getByRole("combobox", { name: "기수" }).selectOption("3");
+  await page.getByRole("textbox", { name: "닉네임" }).fill("초대");
   await page.getByRole("button", { name: "가입 완료하기" }).click();
   await page.getByRole("button", { name: "확인", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/invitations/link/${token}$`));

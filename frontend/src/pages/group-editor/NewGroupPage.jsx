@@ -18,6 +18,7 @@ import {
   UnderlineSelect
 } from "./EditorFields.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
+import { GroupTypePicker } from "./GroupTypePicker.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
 import { useSubmissionLock } from "./useSubmissionLock.js";
@@ -242,8 +243,7 @@ export function NewGroupPage() {
           toCreateBody(formValues, representativeImageKey)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        /* 모집을 시작할지는 상세 화면이 자리를 잡은 뒤에 묻는다. 방금 만들었다는 사실만 넘긴다. */
-        navigate(`/groups/${result.id}`, { state: { justCreated: true } });
+        navigate(`/groups/${result.id}`, { state: formValues.type === "SESSION" ? { justCreated: true } : null });
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",
@@ -275,17 +275,12 @@ export function NewGroupPage() {
           className={`group-profile group-editor__profile${representativeImagePreview ? "" : " group-profile--default-image"}`}
         >
           <div className="group-profile__copy">
-            <UnderlineSelect
-              className="group-editor__type-field"
+            <GroupTypePicker
               error={errors.type?.message}
-              label="모임 종류"
-              labelHidden
+              value={type}
+              onChange={(next) => setValue("type", next, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
               registration={register("type")}
-            >
-              <option value="STUDY">스터디</option>
-              <option value="CLUB">동아리</option>
-              <option value="SESSION">같이해요</option>
-            </UnderlineSelect>
+            />
 
             <UnderlineField
               className="group-editor__field--title"

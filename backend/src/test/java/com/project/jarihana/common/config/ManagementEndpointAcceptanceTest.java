@@ -27,6 +27,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("prod")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+        "jarihana.image.bucket=techcourse-project-2026",
+        "jarihana.image.region=ap-northeast-2",
+        "jarihana.image.key-prefix=jarihana/images",
         "management.server.address=127.0.0.1",
         "spring.application.name=jarihana"
 })

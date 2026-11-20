@@ -5,6 +5,8 @@ import com.project.jarihana.chat.command.service.dto.ReadChatResult;
 import com.project.jarihana.chat.command.service.dto.SendChatResult;
 import com.project.jarihana.chat.domain.ChatLifecycleEvent;
 import com.project.jarihana.chat.domain.ChatMessage;
+import com.project.jarihana.chat.domain.ChatMessageCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 
@@ -30,6 +32,7 @@ public class ChatCommandService {
     private final ChatCommandRepository repository;
     private final Clock clock;
     private final MeterRegistry metrics;
+    private final ApplicationEventPublisher events;
 
     @Transactional(timeout = 10)
     public SendChatResult sendMessage(long memberId, long groupId, UUID requestId, String content) {
@@ -51,6 +54,7 @@ public class ChatCommandService {
         ChatMessage message =
                 repository.save(groupId, memberId, requestId, content, LocalDateTime.now(clock));
         repository.notifyEvent("MESSAGE_CREATED", groupId, null, message.id());
+        events.publishEvent(new ChatMessageCreatedEvent(message.id(), groupId, memberId, message.createdAt()));
         return new SendChatResult(message, true);
     }
 

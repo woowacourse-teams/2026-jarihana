@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -52,10 +51,7 @@ public class PushDeliveryLeaseService {
     @Transactional
     public List<PushRequest> prepare(List<DeliveryClaim> claims) {
         LocalDateTime now = LocalDateTime.now(clock);
-        var result = work.findSendable(claims, now);
-        var sendableIds = result.stream().map(PushRequest::deliveryId).collect(Collectors.toSet());
-        work.cancelUnsendable(claims.stream().filter(claim -> !sendableIds.contains(claim.id())).toList(), now);
-        return result;
+        return work.prepare(claims, now);
     }
 
     @Transactional

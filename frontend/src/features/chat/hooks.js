@@ -6,15 +6,8 @@ import { getCookieValue } from "../../shared/api/cookies";
 import { getMe, useAuth } from "../auth";
 import { catchUp, fetchAllRooms, fetchMessages, markRead, postMessage } from "./api";
 import { applyChatMessage, applyChatReadState, mergeRoomSnapshot } from "./cache";
-
-function messageUuid() {
-  if (crypto.randomUUID) return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+import { createChatActivityReporter } from "./activity";
+import { chatUuid as messageUuid } from "./uuid";
 
 export function useChat(roomId) {
   const auth = useAuth();
@@ -111,6 +104,7 @@ export function useChat(roomId) {
         try {
           const profile = await getMe();
           if (!profile.signupCompleted || String(profile.member?.id) !== memberId) {
+            activity.stop();
             await socket.deactivate();
             if (active()) void reloadAuth();
             return;
@@ -154,10 +148,15 @@ export function useChat(roomId) {
           }
           if (event.type === "RESYNC_REQUIRED") void sync();
         });
+        activity.connected();
         void sync();
       },
       onWebSocketClose: () => { if (active()) setConnection("reconnecting"); },
       onStompError: () => { if (active()) setConnection("reconnecting"); }
+    });
+    const activity = createChatActivityReporter({
+      isConnected: () => active() && socket.connected,
+      report: () => socket.publish({ destination: "/app/presence/active", body: "" })
     });
     socket.activate();
     const interval = window.setInterval(sync, 30000);
@@ -165,6 +164,7 @@ export function useChat(roomId) {
     document.addEventListener("visibilitychange", sync);
     return () => {
       controller.abort();
+      activity.stop();
       client.setQueriesData({ queryKey: [...scope, "messages"] }, (old) => old ? { ...old, items: old.items.map((message) => message.pending ? { ...message, pending: false, failed: true } : message) } : old);
       window.clearTimeout(reconnectTimer);
       void socket.deactivate({ force: true });
@@ -182,7 +182,7 @@ export function useChat(roomId) {
 
   const send = useCallback(async (content, retryMessage) => {
     const controller = lifetime.current;
-    if (!controller || controller.signal.aborted) return;
+    if (!controller || controller.signal.aborted || !roomId || activeRoom.current.roomId !== roomId) return false;
     const message = retryMessage ?? {
       id: `pending-${messageUuid()}`, clientMessageId: messageUuid(),
       groupId: roomId, senderId: memberId, author: auth.member.crewName ?? "나",
@@ -194,6 +194,7 @@ export function useChat(roomId) {
       const saved = await postMessage(roomId, { content: message.content, clientMessageId: message.clientMessageId }, controller.signal);
       if (!controller.signal.aborted) {
         if (applyChatMessage(client, scope, saved, memberId)) void synchronize.current();
+        return saved;
       }
     } catch {
       if (!controller.signal.aborted) {
@@ -201,6 +202,7 @@ export function useChat(roomId) {
         void synchronize.current();
       }
     }
+    return false;
   }, [auth.member.crewName, client, historyKey, memberId, roomId, scope]);
 
   const read = useCallback(async (sequence) => {

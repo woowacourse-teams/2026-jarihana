@@ -58,7 +58,7 @@ public class NotificationQueryService {
         if (id <= 0) {
             throw invalidParameter();
         }
-        NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId, clientVersion.includesAnnouncements())
+        NotificationProjection item = notifications.findActiveByIdAndMemberId(id, memberId, clientVersion.includesAnnouncements(), clientVersion.includesChat())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."));
         Map<Long, String> groupNames = findGroupNames(List.of(item));
         Map<Long, ActivityPostReactionSummaryProjection> reactions = findReactionSummaries(List.of(item));

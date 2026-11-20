@@ -1,3 +1,5 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+# 크루 명단 적재 테스트는 실제 명단 파일처럼 BOM과 CRLF가 있는 CSV를 그대로 쓴다.
+backend/src/test/resources/crew-roster/*.csv -text

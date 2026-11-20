@@ -10,8 +10,7 @@ it('앉아서 시작해 의자를 잡고 찌르기, 내리치기, 던지기를 �
   expect(sample(1.65)).toMatchObject({ phase: 'thrust', attacker: 0, chair: { mode: 'held' } });
   expect(sample(2.55, 1)).toMatchObject({ phase: 'slam', attacker: 1, chair: { mode: 'held' } });
   expect(sample(4.2)).toMatchObject({ phase: 'throw', chair: { mode: 'flight' } });
-  expect(sample(5.8)).toMatchObject({ phase: 'recover', chair: { mode: 'flight' } });
-  expect(sample(6.4)).toMatchObject({ phase: 'settled', seated: 1, chair: { mode: 'seat' } });
+  expect(sample(5.8)).toMatchObject({ phase: 'settled', seated: 0, chair: { mode: 'flight' } });
 });
 
 it('찌르는 의자가 도착할 때만 상대가 맞고 내리치기는 몸을 낮춰 피한다', () => {
@@ -59,16 +58,19 @@ it('좌우와 발언 순서를 바꾸면 같은 동작이 거울처럼 반전된
   }
 });
 
-it.each([0, 1])('끝난 뒤에는 의자와 인물이 제자리로 돌아오고 다시 공격하지 않는다: %s', index => {
-  const options = { size: 180 };
-  const beforeSeat = sample(6.4 - 0.00001, index, options);
+it.each([0, 1])('던진 의자는 떨어진 자리에 남고 인물은 다시 앉지 않는다: %s', index => {
+  const options = { size: 180, distance: 200 };
+  const beforeSettle = sample(5.3 - 0.00001, index, options);
+  const settled = sample(5.3, index, options);
   const direction = index === 0 ? 1 : -1;
-  expect(beforeSeat.chair.x).toBeCloseTo(-direction * 180 * 0.3 * Math.sin(0.65) / 2.1, 4);
-  expect(beforeSeat.chair.y).toBeCloseTo(-90, 4);
-  expect(Math.sin(beforeSeat.chair.roll)).toBeCloseTo(0, 4);
-  for (const time of [6.4, CHAIR_BATTLE_SECONDS, 20, 1000]) {
-    expect(sample(time, index)).toMatchObject({ phase: 'settled', attacker: null, x: 0, y: 0, seated: 1,
-      impact: 0, chair: { mode: 'seat', x: 0, y: 0, pitch: 0, roll: 0 } });
+  expect(settled).toMatchObject({ phase: 'settled', attacker: null, y: 0, seated: 0,
+    impact: 0, chair: { mode: 'flight', pitch: 0 } });
+  expect(settled.x).toBeCloseTo(0);
+  expect(direction * settled.chair.x).toBeGreaterThan(options.distance);
+  expect(Math.sin(settled.chair.roll)).toBeCloseTo(direction);
+  for (const key of ['x', 'y', 'roll']) expect(beforeSettle.chair[key]).toBeCloseTo(settled.chair[key], 2);
+  for (const time of [5.8, 6.4, CHAIR_BATTLE_SECONDS, 20, 1000]) {
+    expect(sample(time, index, options)).toEqual(settled);
   }
 });
 

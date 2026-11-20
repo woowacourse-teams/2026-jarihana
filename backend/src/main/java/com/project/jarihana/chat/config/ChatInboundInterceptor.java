@@ -24,6 +24,8 @@ public class ChatInboundInterceptor implements ChannelInterceptor {
                 || command == StompCommand.UNSUBSCRIBE) return message;
         if (command == StompCommand.SUBSCRIBE
                 && "/user/queue/chat-events".equals(a.getDestination())) return message;
+        if (command == StompCommand.SEND
+                && "/app/presence/active".equals(a.getDestination())) return message;
         throw new AccessDeniedException("허용되지 않은 채팅 경로입니다.");
     }
 }

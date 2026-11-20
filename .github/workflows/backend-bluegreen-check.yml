@@ -10,6 +10,7 @@ on:
       - .github/workflows/backend-app-operation.yml
       - .github/workflows/backend-dev-deploy.yml
       - .github/workflows/backend-prod-deploy.yml
+      - .github/workflows/backend-prod-deploy-v2.yml
       - .github/workflows/frontend-prod-deploy.yml
       - .github/workflows/backend-migration-review.yml
       - '!infra/blue-green-deploy/**/*.md'
@@ -28,6 +29,7 @@ jobs:
         run: |
           bash --version
           jq --version
+          docker compose version
           if ! command -v shellcheck >/dev/null; then
             sudo apt-get update
             sudo apt-get install --yes shellcheck
@@ -35,11 +37,18 @@ jobs:
       - name: Bash 구문과 실행 오류 정적 검사
         shell: bash
         run: |
-          for file in infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh infra/blue-green-deploy/tests/actions/*.sh; do
+          scripts=(
+            infra/blue-green-deploy/scripts/actions/*.sh
+            infra/blue-green-deploy/scripts/compact/*.sh
+            infra/blue-green-deploy/controller/receive-app-result.sh
+            infra/blue-green-deploy/scripts/migration-review.sh
+            infra/blue-green-deploy/scripts/prepare-control-removal.sh
+          )
+          for file in "${scripts[@]}" infra/blue-green-deploy/tests/actions/*.sh; do
             bash -n "$file"
           done
           shellcheck --severity=error --external-sources --source-path=SCRIPTDIR \
-            infra/blue-green-deploy/scripts/actions/*.sh infra/blue-green-deploy/scripts/migration-review.sh
+            "${scripts[@]}"
       - name: 격리된 로컬 계약 테스트
         # Protected-file tests create root-owned temporary fixtures, without business secrets.
         run: sudo bash infra/blue-green-deploy/tests/actions/run-tests.sh
@@ -48,6 +57,10 @@ jobs:
           docker pull node@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
           docker pull nginx:1.30.5-alpine
           bash infra/blue-green-deploy/tests/actions/run-probe-header-e2e.sh
+      - name: 배포 지표의 HTTP와 SSE 분리 검증
+        run: |
+          docker pull prom/prometheus:v3.15.0
+          node infra/blue-green-deploy/tests/actions/test-http-metrics.mjs
   api-budget-shard:
     name: api-budget shard ${{ matrix.shard }}
     runs-on: ubuntu-latest

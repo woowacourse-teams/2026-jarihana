@@ -153,18 +153,16 @@ it("searches both open and closed topics through the API", async () => {
   expect(listSparrings).toHaveBeenCalledWith(expect.objectContaining({ filter: "open", keyword: "점심" }));
   expect(listSparrings).toHaveBeenCalledWith(expect.objectContaining({ filter: "closed", keyword: "점심" }));
 });
-function fillTopicStep(dialog, title = "새 이야기") {
+function fillTopic(dialog, title = "새 이야기") {
   fireEvent.change(within(dialog).getByRole("textbox", { name: "토론 주제" }), { target: { value: title } });
-  fireEvent.click(within(dialog).getByRole("button", { name: "다음" }));
 }
-function fillChoicesStep(dialog, a = "첫 입장", b = "둘째 입장") {
+function fillChoices(dialog, a = "첫 입장", b = "둘째 입장") {
   fireEvent.change(within(dialog).getByRole("textbox", { name: "첫 번째 생각" }), { target: { value: a } });
   fireEvent.change(within(dialog).getByRole("textbox", { name: "두 번째 생각" }), { target: { value: b } });
-  fireEvent.click(within(dialog).getByRole("button", { name: "다음" }));
 }
-function reachFinalStep(dialog, title = "새 이야기", a = "첫 입장", b = "둘째 입장") {
-  fillTopicStep(dialog, title);
-  fillChoicesStep(dialog, a, b);
+function fillRequiredFields(dialog, title = "새 이야기", a = "첫 입장", b = "둘째 입장") {
+  fillTopic(dialog, title);
+  fillChoices(dialog, a, b);
 }
 it("creates a topic and enters the returned room", async () => {
   createSparring.mockResolvedValue({ id: 10 });
@@ -172,7 +170,7 @@ it("creates a topic and enters the returned room", async () => {
   await screen.findByRole("list");
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
   fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   await within(dialog).findByRole("button", { name: "토론 만들기" });
   await import("@testing-library/react").then(({ waitFor }) =>
@@ -203,7 +201,7 @@ it("defaults to tomorrow and applies each quick deadline", async () => {
   await screen.findByRole("list");
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
   const dateButton = within(dialog).getByRole("button", { name: "마감 날짜 선택" });
   expect(dateButton).toHaveTextContent(formatEndpointDate(addDateDays(today(), 1)));
   for (const [label, days] of [["3일 뒤", 3], ["1주일 뒤", 7], ["15일 뒤", 15], ["내일", 1]]) {
@@ -219,7 +217,7 @@ it("allows a calendar date and submits the end of that day in Korea", async () =
   await screen.findByRole("list");
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog, "마감 있는 토론", "찬성", "반대");
+  fillRequiredFields(dialog, "마감 있는 토론", "찬성", "반대");
   const chosen = addDateDays(today(), 4);
   fireEvent.click(within(dialog).getByRole("button", { name: "마감 날짜 선택" }));
   const initialMonth = monthStart(addDateDays(today(), 1));
@@ -234,48 +232,53 @@ it("disables past dates in the calendar", async () => {
   await screen.findByRole("list");
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
   fireEvent.click(within(dialog).getByRole("button", { name: "마감 날짜 선택" }));
   const yesterday = addDateDays(today(), -1);
   if (monthStart(yesterday) !== monthStart(addDateDays(today(), 1))) fireEvent.click(within(dialog).getByRole("button", { name: "이전 달" }));
   expect(within(dialog).getByRole("button", { name: formatDateLabel(yesterday) })).toBeDisabled();
 });
 
-it("validates each step and preserves its draft when going back", async () => {
+it("shows all required fields and validates them without changing screens", async () => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).queryByRole("button", { name: "토론 만들기" })).not.toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "다음" }));
+  expect(within(dialog).queryByRole("button", { name: "다음" })).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: "이전" })).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("textbox", { name: "설명 (선택)" })).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: "사진 선택" })).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   expect(within(dialog).getByText("토론할 주제를 적어주세요.")).toBeInTheDocument();
+  expect(within(dialog).getByText("첫 번째 생각을 적어주세요.")).toBeInTheDocument();
+  expect(within(dialog).getByText("두 번째 생각을 적어주세요.")).toBeInTheDocument();
   expect(within(dialog).getByRole("textbox", { name: "토론 주제" })).toHaveFocus();
-  fillTopicStep(dialog);
-  fillChoicesStep(dialog, "같은 생각", "같은 생각");
+  fillRequiredFields(dialog, "새 이야기", "같은 생각", "같은 생각");
+  fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   expect(within(dialog).getByText("서로 다른 두 생각을 적어주세요.")).toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "이전" }));
-  expect(within(dialog).getByRole("textbox", { name: "토론 주제" })).toHaveValue("새 이야기");
-  fireEvent.click(within(dialog).getByRole("button", { name: "다음" }));
-  expect(within(dialog).getByRole("textbox", { name: "첫 번째 생각" })).toHaveValue("같은 생각");
+  expect(within(dialog).getByRole("textbox", { name: "두 번째 생각" })).toHaveFocus();
   expect(createSparring).not.toHaveBeenCalled();
 });
 
-it("preserves final preview edits when going back and submits the revised topic", async () => {
+it("preserves optional text when collapsed and submits it with the required fields", async () => {
   createSparring.mockResolvedValue({ id: 16 });
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
-  fireEvent.change(within(dialog).getByRole("textbox", { name: "토론 주제" }), { target: { value: "쉬는 날, 집콕 vs 나들이?" } });
-  fireEvent.change(within(dialog).getByRole("textbox", { name: "첫 번째 생각" }), { target: { value: "집에서 푹 쉬기" } });
-  fireEvent.change(within(dialog).getByRole("textbox", { name: "두 번째 생각" }), { target: { value: "밖으로 기분 전환" } });
-  fireEvent.click(within(dialog).getByRole("button", { name: "이전" }));
-  expect(within(dialog).getByRole("textbox", { name: "첫 번째 생각" })).toHaveValue("집에서 푹 쉬기");
-  expect(within(dialog).getByRole("textbox", { name: "두 번째 생각" })).toHaveValue("밖으로 기분 전환");
-  fireEvent.click(within(dialog).getByRole("button", { name: "다음" }));
-  expect(within(dialog).getByRole("textbox", { name: "토론 주제" })).toHaveValue("쉬는 날, 집콕 vs 나들이?");
+  fillRequiredFields(dialog);
+  const toggle = within(dialog).getByRole("button", { name: /설명·사진 추가/ });
+  expect(toggle).toHaveAttribute("data-ph-capture-attribute-action", "sparring_create_options_toggle");
+  fireEvent.click(toggle);
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "설명 (선택)" }), { target: { value: " 가벼운 주말 이야기 " } });
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveTextContent("설명 추가됨");
+  expect(within(dialog).queryByRole("textbox", { name: "설명 (선택)" })).not.toBeInTheDocument();
+  fireEvent.click(toggle);
+  expect(within(dialog).getByRole("textbox", { name: "설명 (선택)" })).toHaveValue(" 가벼운 주말 이야기 ");
+  fireEvent.click(toggle);
   fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   await waitFor(() => expect(createSparring).toHaveBeenCalledWith(expect.objectContaining({
-    title: "쉬는 날, 집콕 vs 나들이?", a: "집에서 푹 쉬기", b: "밖으로 기분 전환"
+    title: "새 이야기", a: "첫 입장", b: "둘째 입장", description: "가벼운 주말 이야기"
   }), expect.anything()));
 });
 
@@ -284,11 +287,11 @@ it.each([
   ["첫 번째 생각", " ", "첫 번째 생각을 적어주세요."],
   ["두 번째 생각", " ", "두 번째 생각을 적어주세요."],
   ["두 번째 생각", "첫 입장", "서로 다른 두 생각을 적어주세요."]
-])("validates the edited %s on the final preview", async (label, value, message) => {
+])("validates the edited %s before creating", async (label, value, message) => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
   const input = within(dialog).getByRole("textbox", { name: label });
   fireEvent.change(input, { target: { value } });
   fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
@@ -297,18 +300,18 @@ it.each([
   expect(createSparring).not.toHaveBeenCalled();
 });
 
-it("can skip the sample photo while preserving the discussion draft", async () => {
+it("creates without opening optional settings or selecting a photo", async () => {
   createSparring.mockResolvedValue({ id: 12 });
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
-  fireEvent.click(within(dialog).getByRole("button", { name: "대표사진 제거" }));
-  expect(within(dialog).getByRole("button", { name: "사진 선택" })).toHaveTextContent("사진 추가하기");
-  expect(within(dialog).getByRole("textbox", { name: "토론 주제" })).toHaveValue("새 이야기");
+  fillRequiredFields(dialog);
+  expect(within(dialog).getByRole("button", { name: /설명·사진 추가/ })).toHaveAttribute("aria-expanded", "false");
+  expect(within(dialog).queryByRole("img")).not.toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   await waitFor(() => expect(createSparring).toHaveBeenCalled());
   expect(createSparring.mock.calls[0][0]).not.toHaveProperty("representativeImageKey");
+  expect(uploadImage).not.toHaveBeenCalled();
 });
 
 it("uploads a representative image and submits its storage key", async () => {
@@ -317,8 +320,9 @@ it("uploads a representative image and submits its storage key", async () => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
   const file = new File(["photo"], "cover.webp", { type: "image/webp" });
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
   fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), { target: { files: [file] } });
   expect(within(dialog).getByAltText("선택한 대표사진 미리보기")).toHaveAttribute("src", "blob:photo-preview");
   expect(within(dialog).getByRole("button", { name: "토론 만들기" })).toBeDisabled();
@@ -334,7 +338,8 @@ it("keeps failed photos for retry and allows creating after removing them", asyn
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
   fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), {
     target: { files: [new File(["photo"], "cover.png", { type: "image/png" })] }
   });
@@ -355,7 +360,8 @@ it("ignores a completed upload after that photo was removed", async () => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
   fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), {
     target: { files: [new File(["photo"], "cover.jpg", { type: "image/jpeg" })] }
   });
@@ -371,7 +377,8 @@ it("rejects unsupported files before uploading", async () => {
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog);
+  fillRequiredFields(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
   fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), {
     target: { files: [new File(["vector"], "cover.svg", { type: "image/svg+xml" })] }
   });
@@ -387,14 +394,15 @@ it("uses uploaded representative photos for both open and closed cards", async (
   expect(container.querySelector(".sparring-topic-row__image")).toHaveAttribute("src", "/api/images/sparrings/3/cover.webp");
 });
 
-it("retries a failed photo without losing the current step or text", async () => {
+it("retries a failed photo without losing the draft", async () => {
   uploadImage.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ imageKey: "groups/tmp/retried.png" });
   createSparring.mockResolvedValue({ id: 15 });
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog, "사진 있는 이야기");
+  fillRequiredFields(dialog, "사진 있는 이야기");
   const file = new File(["photo"], "retry.png", { type: "image/png" });
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
   fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), { target: { files: [file] } });
   fireEvent.click(await within(dialog).findByRole("button", { name: "다시 올리기" }));
   await waitFor(() => expect(within(dialog).getByRole("button", { name: "토론 만들기" })).toBeEnabled());
@@ -403,16 +411,78 @@ it("retries a failed photo without losing the current step or text", async () =>
   expect(uploadImage).toHaveBeenCalledTimes(2);
 });
 
-it("keeps the final step and draft after creation fails", async () => {
+it("keeps the draft after creation fails and lets the user retry", async () => {
   createSparring.mockRejectedValueOnce(new Error("다시 시도해 주세요."));
   mount();
   fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
   const dialog = screen.getByRole("dialog");
-  reachFinalStep(dialog, "보존할 이야기");
+  fillRequiredFields(dialog, "보존할 이야기");
   fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
   expect(await within(dialog).findByRole("alert")).toHaveTextContent("다시 시도해 주세요.");
   expect(within(dialog).getByRole("button", { name: "마감 날짜 선택" })).toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "이전" }));
-  fireEvent.click(within(dialog).getByRole("button", { name: "이전" }));
   expect(within(dialog).getByRole("textbox", { name: "토론 주제" })).toHaveValue("보존할 이야기");
+  createSparring.mockResolvedValueOnce({ id: 18 });
+  fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/sparring/18"));
+});
+
+it("preserves a photo when options close and blocks submission until its upload finishes", async () => {
+  let resolveUpload;
+  uploadImage.mockReturnValue(new Promise((resolve) => { resolveUpload = resolve; }));
+  createSparring.mockResolvedValue({ id: 19 });
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
+  const dialog = screen.getByRole("dialog");
+  fillRequiredFields(dialog);
+  const toggle = within(dialog).getByRole("button", { name: /설명·사진 추가/ });
+  fireEvent.click(toggle);
+  fireEvent.change(within(dialog).getByLabelText("대표사진 파일"), {
+    target: { files: [new File(["photo"], "cover.png", { type: "image/png" })] }
+  });
+  fireEvent.click(toggle);
+  expect(within(dialog).getByRole("status")).toHaveTextContent("사진 올리는 중");
+  expect(within(dialog).getByRole("button", { name: "토론 만들기" })).toBeDisabled();
+  fireEvent.submit(dialog.querySelector("form"));
+  expect(createSparring).not.toHaveBeenCalled();
+  const { act } = await import("@testing-library/react");
+  await act(async () => resolveUpload({ imageKey: "groups/tmp/cover.png" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "토론 만들기" }));
+  await waitFor(() => expect(createSparring).toHaveBeenCalledWith(expect.objectContaining({ representativeImageKey: "groups/tmp/cover.png" }), expect.anything()));
+});
+
+it("locks controls while creating and sends only one request", async () => {
+  let resolveCreate;
+  createSparring.mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "토론 만들기" }));
+  const dialog = screen.getByRole("dialog");
+  fillRequiredFields(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
+  fireEvent.submit(dialog.querySelector("form"));
+  fireEvent.submit(dialog.querySelector("form"));
+  await waitFor(() => expect(within(dialog).getByRole("button", { name: "닫기" })).toBeDisabled());
+  for (const label of ["토론 주제", "첫 번째 생각", "두 번째 생각", "설명 (선택)"]) {
+    expect(within(dialog).getByRole("textbox", { name: label })).toBeDisabled();
+  }
+  expect(within(dialog).getByRole("button", { name: "사진 선택" })).toBeDisabled();
+  expect(within(dialog).getByRole("button", { name: "마감 날짜 선택" })).toBeDisabled();
+  expect(within(dialog).getByRole("button", { name: /설명·사진 추가/ })).toBeDisabled();
+  expect(createSparring).toHaveBeenCalledTimes(1);
+  const { act } = await import("@testing-library/react");
+  await act(async () => resolveCreate({ id: 20 }));
+  expect(mockNavigate).toHaveBeenCalledWith("/sparring/20");
+});
+
+it("starts a fresh draft after closing the modal", async () => {
+  mount();
+  const opener = screen.getByRole("button", { name: "토론 만들기" });
+  fireEvent.click(opener);
+  const dialog = screen.getByRole("dialog");
+  fillRequiredFields(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: /설명·사진 추가/ }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "닫기" }));
+  fireEvent.click(opener);
+  const reopened = screen.getByRole("dialog");
+  expect(within(reopened).getByRole("textbox", { name: "토론 주제" })).toHaveValue("");
+  expect(within(reopened).getByRole("button", { name: /설명·사진 추가/ })).toHaveAttribute("aria-expanded", "false");
 });

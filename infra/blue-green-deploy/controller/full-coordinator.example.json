@@ -17,10 +17,6 @@
       "host_id": "dev-b",
       "instance_id": "i-bbbbbbbbbbbbbbbbb",
       "upstream": "10.0.0.11:8080"
-    },
-    "control": {
-      "ref": "refs/tags/deployment-control-v1",
-      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
   },
   "ec2": {

@@ -13,14 +13,14 @@ bg_owned_directory() {
   while [[ $component != / ]]; do
     [[ ! -L $component ]] || bg_die 'Coordinator directory contains a symlink'
     read -r uid mode < <(stat -Lc '%u %a' "$component")
-    [[ $uid == 0 || $uid == "$(id -u)" ]] || bg_die 'Coordinator directory ancestor belongs to another account'
+    [[ $uid == 0 || $uid == "$EUID" ]] || bg_die 'Coordinator directory ancestor belongs to another account'
     if (( (8#$mode & 0022)!=0 )); then
       [[ $uid == 0 ]] && (( (8#$mode & 01000)!=0 )) || bg_die 'Coordinator directory ancestor is writable'
     fi
     component=$(dirname "$component")
   done
   read -r uid mode < <(stat -Lc '%u %a' "$directory")
-  [[ $uid == "$(id -u)" && $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 0022)==0 )) || bg_die 'Coordinator directory ownership or mode differs'
+  [[ $uid == "$EUID" && $mode =~ ^[0-7]{3,4}$ ]] && (( (8#$mode & 0022)==0 )) || bg_die 'Coordinator directory ownership or mode differs'
 }
 bg_owned_file() {
   local path=$1 maximum=${2:-65536}
@@ -28,7 +28,7 @@ bg_owned_file() {
   bg_owned_directory "$(dirname "$path")"
   [[ -f $path && ! -L $path ]] || bg_die 'Invalid coordinator file'
   read -r uid mode size < <(stat -Lc '%u %a %s' "$path")
-  [[ $uid == "$(id -u)" && $mode =~ ^[0-7]{3,4}$ && $size -le $maximum ]] && (( (8#$mode & 0077)==0 )) || bg_die 'Coordinator file ownership, mode or size differs'
+  [[ $uid == "$EUID" && $mode =~ ^[0-7]{3,4}$ && $size -le $maximum ]] && (( (8#$mode & 0077)==0 )) || bg_die 'Coordinator file ownership, mode or size differs'
 }
 bg_state_file() { bg_owned_file "$STATE_FILE"; }
 bg_lock() {
@@ -43,8 +43,8 @@ bg_lock() {
 bg_load() {
   bg_state_file
   STATE=$(cat "$STATE_FILE")
-  jq -e --arg env "$ENVIRONMENT" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" '
-    .schema_version==2 and .environment==$env and .run_id==$run and .attempt==1 and .sha==$sha and .control_sha==$control and .topology_digest==$topology and (.revision|type)=="number"' <<<"$STATE" >/dev/null || bg_die 'Journal context differs; manual reconciliation required'
+  jq -e --arg env "$ENVIRONMENT" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg topology "$(bg_topology_digest)" '
+    .schema_version==2 and .environment==$env and .run_id==$run and .attempt==1 and .sha==$sha and .topology_digest==$topology and (.revision|type)=="number"' <<<"$STATE" >/dev/null || bg_die 'Journal context differs; manual reconciliation required'
 }
 bg_guard() {
   if [[ ${BG_COORDINATOR_READ_ONLY:-false} == true ]]; then bg_live_readonly; else bg_live; fi
@@ -56,12 +56,19 @@ bg_file_guard() {
 }
 bg_poll_touch() { bg_file_guard; bg_touch_local; }
 bg_guard_local() {
-  local latest
+  local latest check
   bg_state_file
   latest=$(cat "$STATE_FILE")
   [[ $latest == "$STATE" ]] || bg_die 'Journal changed while executing this phase'
-  jq -e --arg topology "$(bg_topology_digest)" '.topology_digest==$topology' <<<"$STATE" >/dev/null || bg_die 'Journal topology differs; manual reconciliation required'
-  jq -e --argjson now "$(bg_now)" '.expires_at>$now and .heartbeat<=($now+5) and (if .pending==null then ($now-.heartbeat)<=60 else .pending.deadline>$now end)' <<<"$STATE" >/dev/null || bg_die 'Journal lease expired'
+  check=$(jq -r --arg topology "$(bg_topology_digest)" --argjson now "$(bg_now)" '
+    if .topology_digest!=$topology then "topology"
+    elif (.expires_at>$now and .heartbeat<=($now+5) and (if .pending==null then ($now-.heartbeat)<=60 else .pending.deadline>$now end)) then "valid"
+    else "lease" end' <<<"$STATE") || bg_die 'Cannot verify journal'
+  case $check in
+    valid) ;;
+    topology) bg_die 'Journal topology differs; manual reconciliation required';;
+    *) bg_die 'Journal lease expired';;
+  esac
 }
 bg_save() {
   local next=$1
@@ -105,9 +112,18 @@ bg_accept() {
      elif $op=="rollback" and $slot==$state.target then (.healthy|type)=="boolean" and .running==true
      else .healthy==true and .running==true end) and
     (if $slot==$state.target and $op!="bootstrap" then .image==$state.image else true end)' <<<"$result" >/dev/null || bg_die 'App receipt identity or health is invalid'
-  previous=$(jq -c --arg key "$key" '.[$key]' <<<"$STATE")
+  jq -e --arg op "$op" --arg sha "$GITHUB_SHA" '
+    (.compose_source==null or (.compose_source |
+      (.commit|type=="string" and test("^[a-f0-9]{40}$")) and
+      (.sha256|type=="string" and test("^[a-f0-9]{64}$")))) and
+    ($op!="prepare" or (.compose_source!=null and .compose_source.commit==$sha))
+  ' <<<"$result" >/dev/null || bg_die 'App receipt Compose source is invalid'
+  previous=$(jq -c --arg key "$key" --argjson receipt "$result" '
+    .[$key] // (.previous_backend_status | select(.identity==$receipt.identity and .image==$receipt.image)) // null
+  ' <<<"$STATE")
   if [[ $previous != null ]]; then
     jq -e --argjson previous "$previous" '.identity==$previous.identity and .image==$previous.image' <<<"$result" >/dev/null || bg_die 'App boot or image changed between phases'
+    jq -e --argjson previous "$previous" '.compose_source==$previous.compose_source' <<<"$result" >/dev/null || bg_die 'App Compose source changed between phases'
   fi
   bg_save "$(jq -c --arg key "$key" --argjson result "$result" '.[$key]=$result' <<<"$STATE")"
 }
@@ -126,26 +142,42 @@ bg_scalar() {
   raw=$(curl --noproxy '*' --fail --silent --show-error --max-time 3 --max-filesize 65536 --get --data-urlencode "query=$1" --data-urlencode timeout=2s "$(jq -r '.telemetry.url' <<<"$CONFIG")/api/v1/query") || return 1
   jq -er '. | select(.status=="success" and ((.warnings // [])|length)==0 and .data.resultType=="vector" and (.data.result|length)==1) | .data.result[0].value[1] | select(type=="string" and test("^[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$")) | tonumber | select(isfinite and .>=0)' <<<"$raw"
 }
+bg_http_increase() {
+  local metric=$1 labels=$2
+  # Legacy metrics have no response_type; their known SSE routes are excluded.
+  printf 'sum(increase(%s{%s,response_type="http"}[2m]) or increase(%s{%s,response_type="",uri!="/sparrings/{topicId}/events",uri!="/games/gomoku/rooms/{id}/events"}[2m]))' \
+    "$metric" "$labels" "$metric" "$labels"
+}
 bg_metrics() {
   local labels selector up age requests errors duration
   labels="job=\"jarihana-backend\",environment=\"$ENVIRONMENT\",host_id=\"$(bg_host "$1" | jq -r '.host_id')\""; selector="{$labels}"
   up=$(bg_scalar "up$selector") && age=$(bg_scalar "time() - timestamp(up$selector)") || return 2
   jq -en --argjson age "$age" --argjson cfg "$CONFIG" '$age<=$cfg.telemetry.max_age_seconds' >/dev/null || return 2
   [[ $up == 1 ]] || return 1
-  requests=$(bg_scalar "sum(increase(http_server_requests_seconds_count${selector}[2m]))") || return 2
-  errors=$(bg_scalar "sum(increase(http_server_requests_seconds_count{$labels,status=~\"5..\"}[2m])) or vector(0)") || return 2
-  duration=$(bg_scalar "sum(increase(http_server_requests_seconds_sum${selector}[2m]))") || return 2
+  requests=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels")") || return 2
+  errors=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_count "$labels,status=~\"5..\"") or vector(0)") || return 2
+  duration=$(bg_scalar "$(bg_http_increase http_server_requests_seconds_sum "$labels")") || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" '$e<=$r and ($r>0 or $d==0)' >/dev/null || return 2
   jq -en --argjson r "$requests" --argjson e "$errors" --argjson d "$duration" --argjson cfg "$CONFIG" '$r==0 or ($e/$r<=$cfg.telemetry.max_error_ratio and $d/$r<=$cfg.telemetry.max_mean_seconds)' >/dev/null
 }
 bg_target_ready() { [[ $(bg_route) == "$(jq -r '.target' <<<"$STATE")" ]] && bg_metrics "$(jq -r '.target' <<<"$STATE")"; }
+bg_previous_journal() {
+  bg_state_file
+  jq -e --arg env "$ENVIRONMENT" --arg topology "$(bg_topology_digest)" '
+    .schema_version==2 and .environment==$env and .topology_digest==$topology and
+    .pending==null and .cleanup_deferred!=true and
+    (if .phase=="COMPLETE" then .sealed==true or .mode=="bootstrap"
+     elif .phase=="ROLLED_BACK" then .http_recovered==true and .worker_recovered==true and
+       (.frontend==null or .frontend.changed!=true or .frontend.recovered==true)
+     else false end)
+  ' "$STATE_FILE" >/dev/null || bg_die 'Previous deployment is unfinished or topology differs; preserve the journal'
+}
 bg_plan() {
   local old target now previous_status=null previous_image=""
   [[ ${BG_FRONTEND_ONLY:-false} != true || ${BG_BACKEND_ONLY:-false} != true ]] || bg_die 'A release cannot be frontend-only and backend-only'
   [[ ${BG_BACKEND_ONLY:-false} != true || ( $ENVIRONMENT == prod && $BG_MODE == deploy ) ]] || bg_die 'Backend-only scope is production deploy only'
   if [[ -e $STATE_FILE ]]; then
-    bg_state_file
-    jq -e --arg env "$ENVIRONMENT" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" '.schema_version==2 and .environment==$env and .control_sha==$control and .topology_digest==$topology and (.phase=="COMPLETE" or .phase=="ROLLED_BACK")' "$STATE_FILE" >/dev/null || bg_die 'Previous deployment requires reconciliation'
+    bg_previous_journal
   fi
   if fe_enabled; then
     [[ -f $STATE_FILE ]] || bg_die 'Production frontend release requires a completed backend bootstrap journal'
@@ -164,7 +196,7 @@ bg_plan() {
     [[ $(bg_ec2_state "$old") == running ]] || bg_die 'Current EC2 is not running'
   fi
   now=$(bg_now)
-  STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
+  STATE=$(jq -cn --arg env "$ENVIRONMENT" --arg dep "$(bg_uuid)" --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg topology "$(bg_topology_digest)" --arg mode "$BG_MODE" --arg old "$old" --arg target "$target" --arg image "$BG_IMAGE_DIGEST" --argjson now "$now" '{schema_version:2,revision:0,environment:$env,deployment_id:$dep,run_id:$run,attempt:1,sha:$sha,topology_digest:$topology,mode:$mode,phase:"PREPARING",old:$old,target:$target,image:$image,created_at:$now,heartbeat:$now,expires_at:($now+7200),pending:null,old_status:null,target_status:null,drain_ticket:null,switched:false,sealed:false,http_recovered:false,worker_recovered:false,observation_failed:false,reason:null}')
   STATE=$(jq -c --arg previous "$previous_image" --argjson frontend_only "${BG_FRONTEND_ONLY:-false}" --argjson backend_only "${BG_BACKEND_ONLY:-false}" --argjson previous_status "$previous_status" '.previous_backend_image=$previous | .frontend_only=$frontend_only | .backend_only=$backend_only | .release_scope=(if $frontend_only then "frontend" elif $backend_only then "backend" else "both" end) | .previous_backend_status=$previous_status' <<<"$STATE")
   bg_atomic "$STATE_FILE" "$STATE"
   if fe_enabled; then
@@ -241,7 +273,13 @@ bg_observe() {
     (( failures<3 )) || bg_die 'Three unhealthy observation samples'
     if [[ $(jq -r '.frontend_only // false' <<<"$STATE") != true ]] && (( elapsed-jobs_checked_at>=15 )); then
       jobs=$(bg_github "/repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100") || bg_die 'Cannot verify app observation job'
-      jq -e '[.jobs[] | select(.name|contains("candidate-worker-observation")) | select(.conclusion!=null and .conclusion!="success")] | length==0' <<<"$jobs" >/dev/null || bg_die 'App observation failed'
+      if [[ ${BG_COMPACT_WORKFLOW:-false} == true ]]; then
+        jq -e '[.jobs[] | select((.name|split(" / ")|last)=="새 앱 서버")] |
+          length==1 and (.[0] | (.conclusion==null or .conclusion=="success") and
+          all(.steps[]?; .conclusion==null or .conclusion=="success" or .conclusion=="skipped"))' <<<"$jobs" >/dev/null || bg_die '새 앱 서버의 관측 상태를 확인할 수 없습니다.'
+      else
+        jq -e '[.jobs[] | select(.name|contains("candidate-worker-observation")) | select(.conclusion!=null and .conclusion!="success")] | length==0' <<<"$jobs" >/dev/null || bg_die 'App observation failed'
+      fi
       jobs_checked_at=$elapsed
     fi
     if fe_enabled && fe_changed && (( elapsed-frontend_checked_at>=30 )); then

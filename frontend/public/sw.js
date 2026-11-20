@@ -81,7 +81,8 @@ const EVENT_COPY = {
   PARTICIPANT_JOINED: "모임 참여가 완료되었어요.",
   ACTIVITY_POST_COMMENTED: "내 활동 기록에 새 댓글이 달렸어요.",
   ACTIVITY_POST_REACTED: "내 활동 기록에 좋아요가 도착했어요.",
-  GROUP_ANNOUNCEMENT_CREATED: "모임에 새 공지가 등록되었어요."
+  GROUP_ANNOUNCEMENT_CREATED: "모임에 새 공지가 등록되었어요.",
+  CHAT_MESSAGE_RECEIVED: "모임에 새 채팅 메시지가 도착했어요."
 };
 const NAMED_REACTOR_LIMIT = 20;
 function reactionCopy(summary) {
@@ -106,7 +107,7 @@ async function receivePush(event) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}&clientVersion=2`, {
+      const response = await fetch(`/api/notifications/${reference.notificationId}/push-content?subscriptionId=${initial.id}&generation=${initial.generation}&clientVersion=3`, {
         credentials: "include", cache: "no-store", redirect: "error", signal: controller.signal
       });
       if (response.ok) {
@@ -150,7 +151,7 @@ if (typeof ServiceWorkerGlobalScope !== "undefined") {
     if (event.data?.protocol !== 1 || !event.ports[0] || !event.source?.url
       || new URL(event.source.url).origin !== self.location.origin) return;
     event.waitUntil(serial(() => command(event.data)).then(
-      (state) => event.ports[0].postMessage({ ok: true, state: { ...state, clientVersion: 2 } }),
+      (state) => event.ports[0].postMessage({ ok: true, state: { ...state, clientVersion: 3 } }),
       () => event.ports[0].postMessage({ ok: false })
     ));
   });

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 export const ARENA_VIEWS = Object.freeze({
-  original: Object.freeze({ trayWidth: 10, edgeScale: 1, heightRatio: 0.66, centerY: 0.24 }),
-  reference: Object.freeze({ trayWidth: 14, edgeScale: 1, heightRatio: 0.7, centerY: 0.18 }),
-  compact: Object.freeze({ trayWidth: 4.4, edgeScale: 0.45, heightRatio: 0.7, centerY: 0.18 }),
+  original: Object.freeze({ trayWidth: 5, edgeScale: 1, heightRatio: 0.66, centerY: 0.24 }),
+  reference: Object.freeze({ trayWidth: 5, edgeScale: 1, heightRatio: 0.7, centerY: 0.18 }),
+  compact: Object.freeze({ trayWidth: 3.2, edgeScale: 0.45, heightRatio: 0.7, centerY: 0.18 }),
 });
 
 export function createArenaCamera(view) {

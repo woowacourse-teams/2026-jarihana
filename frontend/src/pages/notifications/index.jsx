@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../../features/auth";
 import { fetchGroup } from "../../features/group/api";
+import { fetchMessages } from "../../features/chat/api";
 import { fetchAnnouncement } from "../../features/announcement/api.js";
 import { fetchInvitation } from "../../features/invitation/api";
 import { ApiError } from "../../shared/api";
@@ -31,6 +32,8 @@ export function NotificationOpenPage() {
         }
       } else if (kind === "GROUP_ANNOUNCEMENT") {
         await fetchAnnouncement(groupId, notification.target.announcementId, signal);
+      } else if (kind === "GROUP_CHAT") {
+        await fetchMessages(groupId, { size: 1 }, signal);
       } else if (kind !== "MY_PAGE" && kind !== "MY_REGISTRATIONS" && kind !== "MY_GROUPS") {
         const group = await fetchGroup(groupId);
         if ((kind === "LEADER_REGISTRATIONS" || kind === "LEADER_MEMBERS") && group.leader.memberId !== member?.id) {

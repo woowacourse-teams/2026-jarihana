@@ -15,13 +15,15 @@ p50/p95/p99가 모두 같은 기준을 사용한다. 사용자나 부하테스�
 제거해야 한다. 앱 포트는 기존 Nginx/내부 접근 제한을 유지한다. 헤더는 인증 수단이 아니다.
 
 2026-10-29 14:21 KST에 Nginx 활성 설정과 30초 관측 타이머를 SSH로 선반영했다.
-백엔드 로직은 `develop`에 먼저 병합한 뒤 `develop → main` 릴리스 PR과 운영 자동 배포로 반영한다. Nginx 템플릿, 직접 점검
-스크립트와 타이머 설치 정의의 영구 코드화는 사용자 요청에 따라 후속 작업으로 남긴다.
+현재 저장소에는 표시를 처리하는 [Nginx 템플릿](../../../infra/blue-green-deploy/nginx/nginx.conf.template),
+[직접 점검 스크립트](../../../infra/blue-green-deploy/scripts/actions/nginx.sh)와
+[30초 수집 주기 정의](../../../infra/monitoring/deployment/systemd/jarihana-observability@prod.timer.d/30-second-interval.conf)가 있다.
 
-고정된 배포 제어 릴리스는 아직 변경하지 않았다. 다음 배포의 Nginx 전환이 기존 템플릿을
-다시 쓸 수 있으므로, 백엔드 배포 후 활성 설정의 표시를 재확인하고 필요하면 재적용한다.
-후보 직접 검사도 기존 제어 스크립트에 표시가 없으면 계속 집계된다. 따라서 후속 코드화와
-새 제어 릴리스 적용 전에는 모든 점검이 영구 제외됐다고 판단하지 않는다.
+SHA 배포로 전환한 Blue-Green은 배포를 시작한 main SHA의 Nginx 템플릿과 직접 점검 스크립트를 사용한다.
+기존 서버의 전환은 [최초 전환 절차](../../../infra/blue-green-deploy/docs/release-sha.md)를 따른다.
+위 선반영 기록은 과거 적용 상태이며 현재 운영 설치를 증명하지 않는다.
+배포 후 활성 설정의 표시와 실제 지표를 확인하며, 설치형 수집기/타이머는 별도로 갱신한다.
+적용 순서와 구버전 앱의 제약은 [인프라 적용 안내](../../../infra/docs/observability/PROBE-METRICS-ROLLOUT.md)를 따른다.
 
 검증 명령은 다음과 같다.
 

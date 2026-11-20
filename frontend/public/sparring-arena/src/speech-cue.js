@@ -1,7 +1,6 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function createSpeechCue(button, action) {
-  const dismissed = new Set();
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('speech-cue-outline');
   svg.setAttribute('aria-hidden', 'true');
@@ -43,16 +42,16 @@ export function createSpeechCue(button, action) {
         void button.offsetWidth;
       }
       current = id;
-      button.dataset.cueActive = String(!dismissed.has(id));
+      delete button.dataset.replySelected;
+      button.dataset.cueActive = 'true';
     },
     dismiss() {
       if (current === undefined) return;
-      dismissed.add(current);
-      button.dataset.cueActive = 'false';
+      button.dataset.replySelected = 'true';
     },
-    layout(width, height, tail, tip = tail, tailHeight = 10) {
+    layout(width, height, tail, tip = tail, tailHeight = 10, tailAbove = false) {
       if (!(width > 0 && height > 0)) return;
-      const key = `${width}:${height}:${tail}:${tip}:${tailHeight}`;
+      const key = `${width}:${height}:${tail}:${tip}:${tailHeight}:${tailAbove}`;
       if (key === lastLayout) return;
       lastLayout = key;
       const r = Math.min(18, width / 4, height / 2);
@@ -71,7 +70,11 @@ export function createSpeechCue(button, action) {
       shadow.setAttribute('width', width - 2);
       shadow.setAttribute('height', height - 2);
       shadow.setAttribute('rx', r);
-      for (const path of [body, outline]) path.setAttribute('d', d);
+      for (const path of [body, outline]) {
+        path.setAttribute('d', d);
+        if (tailAbove) path.setAttribute('transform', `translate(0 ${height}) scale(1 -1)`);
+        else path.removeAttribute('transform');
+      }
     },
   };
 }

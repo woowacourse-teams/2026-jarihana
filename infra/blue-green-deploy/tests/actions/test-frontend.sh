@@ -22,7 +22,7 @@ bg_github() { echo '{"jobs":[{"name":"candidate-worker-observation","conclusion"
 sleep() { echo "$(( $(bg_now)+300 ))" >"$CASE_DIR/clock"; }
 aws() { :; }
 fe_aws() {
-  local service=${1:-} operation=${2:-} key='' body='' condition='' expected='' output='' arg file etag
+  local service=${1:-} operation=${2:-} key='' body='' condition='' expected='' output='' id='' arg file etag checksum=''
   [[ $service != --version ]] || { echo aws-cli/2.38.5; return; }
   shift 2
   while (( $# )); do
@@ -31,14 +31,17 @@ fe_aws() {
       --key) key=$1; shift;; --body) body=$1; shift;;
       --if-match) condition=match; expected=$1; shift;;
       --if-none-match) condition=absent; expected=$1; shift;;
-      --bucket|--content-type|--cache-control|--range|--prefix|--max-keys|--id|--name|--stage) shift;;
+      --checksum-sha256) checksum=$1; shift;;
+      --id) id=$1; shift;;
+      --bucket|--content-type|--cache-control|--range|--prefix|--max-keys|--name|--stage) shift;;
       --no-paginate) :;; *) output=$arg;;
     esac
   done
   file="$CASE_DIR/s3/$key"
+  printf '%s\t%s\n' "$service/$operation" "$key" >>"$CASE_DIR/requests"
   case "$service/$operation" in
     cloudfront/get-distribution-config)
-      jq -cn --arg edge "${EDGE_FUNCTION:-none}" '{DistributionConfig:{Enabled:true,Aliases:{Items:["jarihana.com"]},DefaultCacheBehavior:{TargetOriginId:"frontend",CachePolicyId:"disabled",FunctionAssociations:(if $edge=="none" then {Quantity:0} else {Quantity:1,Items:[{EventType:"viewer-request",FunctionARN:"arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview"}]} end)},Origins:{Items:[{Id:"frontend",OriginPath:"/jarihana/frontend",DomainName:"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"}]}}} |
+      jq -cn --arg edge "${EDGE_FUNCTION:-none}" --argjson behaviors "${CDN_BEHAVIORS:-[]}" --argjson origins "${CDN_EXTRA_ORIGINS:-[]}" '{DistributionConfig:{Enabled:true,Aliases:{Items:["jarihana.com"]},DefaultCacheBehavior:{TargetOriginId:"frontend",CachePolicyId:"disabled",FunctionAssociations:(if $edge=="none" then {Quantity:0} else {Quantity:1,Items:[{EventType:"viewer-request",FunctionARN:"arn:aws:cloudfront::843255971531:function/jarihana-group-share-preview"}]} end)},CacheBehaviors:{Items:$behaviors},Origins:{Items:([{Id:"frontend",OriginPath:"/jarihana/frontend",DomainName:"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"},{Id:"realtime",DomainName:"realtime.example.com"}]+$origins)}}} |
         if $edge=="unknown" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items[0].FunctionARN="arn:aws:cloudfront::843255971531:function/other"
         elif $edge=="event" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items[0].EventType="viewer-response"
         elif $edge=="extra" then .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Quantity=2 | .DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items+=.DistributionConfig.DefaultCacheBehavior.FunctionAssociations.Items
@@ -48,7 +51,8 @@ fe_aws() {
       [[ ${EDGE_FUNCTION:-none} != unreadable ]] || return 1
       sed '1,/^ \*\/$/d' "$ROOT/infra/cloudfront/group-share-preview.js" | head -c -1 >"$output"
       [[ ${EDGE_FUNCTION:-none} != tampered ]] || printf '\n// changed\n' >>"$output";;
-    cloudfront/get-cache-policy) jq -cn --argjson ttl "${CACHE_TTL:-0}" '{CachePolicy:{CachePolicyConfig:{MinTTL:$ttl,DefaultTTL:$ttl,MaxTTL:$ttl}}}';;
+    cloudfront/get-cache-policy)
+      jq -cn --arg id "$id" --argjson ttl "${CACHE_TTL:-0}" '{CachePolicy:{CachePolicyConfig:{MinTTL:$ttl,DefaultTTL:$ttl,MaxTTL:(if $id=="cached" then 60 else $ttl end)}}}';;
     s3api/head-bucket) :;;
     s3api/list-objects-v2)
       find "$CASE_DIR/s3/$FE_LIVE" -type f | sort | while IFS= read -r path; do
@@ -61,6 +65,9 @@ fe_aws() {
       jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" '{ETag:$etag}';;
     s3api/put-object)
       if [[ ${FAIL_KEY:-} == "$key" ]]; then echo 'Simulated upload failure' >&2; return 1; fi
+      if [[ -n $checksum ]]; then
+        [[ $checksum == "$(fe_checksum_base64 "$(sha256sum "$body" | cut -d' ' -f1)")" ]] || { echo BadDigest >&2; return 1; }
+      fi
       if [[ $condition == absent && -e $file ]]; then echo 'PreconditionFailed' >&2; return 1; fi
       if [[ $condition == match ]]; then
         [[ -f $file ]] || return 1
@@ -78,7 +85,7 @@ fe_aws() {
         jq '.reason="external change"' "$STATE_FILE" >"$CASE_DIR/tampered"
         cp "$CASE_DIR/tampered" "$STATE_FILE"
       fi
-      jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" '{ETag:$etag}';;
+      jq -cn --arg etag "\"$(sha256sum "$file" | cut -d' ' -f1)\"" --arg checksum "${BAD_CHECKSUM_RECEIPT:-$checksum}" --argjson omit "${OMIT_CHECKSUM_RECEIPT:-false}" '{ETag:$etag,ChecksumSHA256:$checksum} | if $omit then del(.ChecksumSHA256) else . end';;
     *) echo "Unexpected AWS operation $service/$operation" >&2; return 1;;
   esac
 }
@@ -92,6 +99,7 @@ curl() {
       *) shift;;
     esac
   done
+  printf 'public\t%s\n' "$path" >>"$CASE_DIR/requests"
   if [[ ${BAD_PUBLIC:-} == "$path" ]]; then path=index.html; fi
   [[ -f "$CASE_DIR/s3/$FE_LIVE/$path" ]] || return 1
   cp "$CASE_DIR/s3/$FE_LIVE/$path" "$output"
@@ -113,14 +121,14 @@ setup() {
   echo 1000 >"$CASE_DIR/clock"
   BG_LIVE_CACHED_AT=0
   ENVIRONMENT=prod; BG_MODE=deploy; BG_FRONTEND_ONLY=false
-  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2); CONTROL_SHA=$(printf '%040d' 3)
+  RUN_ID=123; GITHUB_SHA=$(printf '%040d' 2)
   BG_IMAGE_DIGEST="sha256:$(printf '%064d' 2)"; OLD_DIGEST="sha256:$(printf '%064d' 1)"
   CONFIG=$(cat "$ROOT/infra/blue-green-deploy/controller/full-coordinator.example.json")
-  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg control "$CONTROL_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,control_sha:$control,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
+  STATE=$(jq -cn --arg sha "$GITHUB_SHA" --arg image "$BG_IMAGE_DIGEST" --arg old "$OLD_DIGEST" --arg topology "$(bg_topology_digest)" '{schema_version:2,revision:0,environment:"prod",run_id:123,attempt:1,sha:$sha,topology_digest:$topology,deployment_id:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",image:$image,previous_backend_image:$old,old:"A",target:"B",phase:"PREPARING",mode:"deploy",heartbeat:1000,expires_at:10000,pending:{operation:"frontend-stage",deadline:5000},sealed:false,switched:false,frontend_only:false,observation_failed:false}')
   bg_atomic "$STATE_FILE" "$STATE"
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
-  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC
+  unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION CDN_BEHAVIORS CDN_EXTRA_ORIGINS REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
 }
 rejects() {
   local status=0
@@ -132,6 +140,9 @@ write_count() { if [[ -f $CASE_DIR/writes ]]; then wc -l <"$CASE_DIR/writes"; el
 manifest_file() { echo "$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/release.json"; }
 github_read_count() { wc -l <"$CASE_DIR/github-reads"; }
 file_operation_fixture() {
+  local i
+  # More than two batches, so cancellation must stop untouched later assets too.
+  for i in {1..10}; do echo "$i" >"$BG_FRONTEND_DIST/assets/extra-$i.js"; done
   fe_stage; fe_temp; fe_owned_pointer
   FILE_MANIFEST="$(manifest_file)"
   FILE_COUNT=$(jq '.files|length' "$FILE_MANIFEST")
@@ -161,7 +172,8 @@ cancellation_stops_next_file() {
   REVOKE_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   ADVANCE_AFTER_WRITE=$REVOKE_AFTER_WRITE
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   grep -q 'Parent run revoked' "$CASE_DIR/rejection.log"
 }
 cancellation_after_last_public_file() {
@@ -183,14 +195,16 @@ local_lease_checked_after_file() {
   file_operation_fixture
   EXPIRE_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   grep -q 'Journal lease expired' "$CASE_DIR/rejection.log"
 }
 local_state_change_preserved_after_file() {
   file_operation_fixture
   TAMPER_AFTER_WRITE="$FE_LIVE/$(jq -r '.files[0].path' "$FILE_MANIFEST")"
   rejects fe_publish_files "$BG_FRONTEND_DIST" "$FILE_MANIFEST"
-  [[ $(write_count) == 1 ]]
+  (( $(write_count)>=1 && $(write_count)<=4 ))
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   jq -e '.reason=="external change"' "$STATE_FILE" >/dev/null
   grep -q 'Journal changed' "$CASE_DIR/rejection.log"
 }
@@ -228,6 +242,135 @@ missing_baseline() {
 }
 pointer_permission_not_absent() { POINTER_ERROR=true; rejects fe_stage; [[ $(write_count) == 0 ]]; }
 cache_preflight() { CACHE_TTL=1; rejects fe_stage; [[ $(write_count) == 0 ]]; }
+realtime_behavior_preflight() { EDGE_FUNCTION=known; CDN_BEHAVIORS='[{"PathPattern":"/ws/realtime/*","TargetOriginId":"realtime"}]'; fe_stage; [[ -f $(manifest_file) ]]; }
+realtime_exact_behavior_preflight() { EDGE_FUNCTION=known; CDN_BEHAVIORS='[{"PathPattern":"/ws/realtime","TargetOriginId":"realtime"}]'; fe_stage; [[ -f $(manifest_file) ]]; }
+realtime_combined_behavior_preflight() {
+  EDGE_FUNCTION=known
+  CDN_BEHAVIORS=$(jq -cn '["/ws/realtime","ws/realtime","/ws/realtime/*","ws/realtime/*"] | map({PathPattern:.,TargetOriginId:"realtime"})')
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+misrouted_assets_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+unrelated_behavior_preflight() {
+  EDGE_FUNCTION=known
+  CDN_BEHAVIORS='[{"PathPattern":"/ws/realtime/*","TargetOriginId":"realtime"},{"PathPattern":"/health/*","TargetOriginId":"realtime"},{"PathPattern":"/assets/unused.js","TargetOriginId":"realtime"},{"PathPattern":"/ASSETS/*","TargetOriginId":"realtime"}]'
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+frontend_behavior_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"assets/*","TargetOriginId":"frontend","CachePolicyId":"disabled"}]'
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+wrong_frontend_origin_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/new.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+frontend_origin_alias_preflight() {
+  CDN_EXTRA_ORIGINS='[{"Id":"frontend-alias","OriginPath":"/jarihana/frontend","DomainName":"techcourse-project-2026.s3.amazonaws.com"}]'
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"frontend-alias","CachePolicyId":"also-disabled"}]'
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+wrong_frontend_bucket_preflight() {
+  CDN_EXTRA_ORIGINS='[{"Id":"other","OriginPath":"/jarihana/frontend","DomainName":"other-bucket.s3.ap-northeast-2.amazonaws.com"}]'
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"other","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+wrong_frontend_prefix_preflight() {
+  CDN_EXTRA_ORIGINS='[{"Id":"other","OriginPath":"/other/frontend","DomainName":"techcourse-project-2026.s3.ap-northeast-2.amazonaws.com"}]'
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"other","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+missing_frontend_origin_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"missing","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+formerly_allowed_path_preflight() {
+  mkdir "$BG_FRONTEND_DIST/images"
+  echo image >"$BG_FRONTEND_DIST/images/logo.png"
+  CDN_BEHAVIORS='[{"PathPattern":"/images/*","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /images/logo.png' "$CASE_DIR/rejection.log"
+}
+first_matching_behavior_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"assets/*","TargetOriginId":"frontend","CachePolicyId":"disabled"},{"PathPattern":"/assets/new.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+first_wrong_behavior_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/new.js","TargetOriginId":"realtime","CachePolicyId":"disabled"},{"PathPattern":"assets/*","TargetOriginId":"frontend","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+nested_asset_behavior_preflight() {
+  mkdir "$BG_FRONTEND_DIST/assets/chunks"
+  echo chunk >"$BG_FRONTEND_DIST/assets/chunks/widget.js"
+  CDN_BEHAVIORS='[{"PathPattern":"assets/new.js","TargetOriginId":"frontend","CachePolicyId":"disabled"},{"PathPattern":"assets/*.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/chunks/widget.js' "$CASE_DIR/rejection.log"
+}
+single_character_behavior_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/ne?.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+literal_behavior_pattern_preflight() {
+  echo asset >"$BG_FRONTEND_DIST/assets/ghostXjs"
+  echo asset >"$BG_FRONTEND_DIST/assets/ab.js"
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/ghost.js","TargetOriginId":"realtime"},{"PathPattern":"/assets/a+b.js","TargetOriginId":"realtime"},{"PathPattern":"/assets/ne??.js","TargetOriginId":"realtime"}]'
+  fe_stage
+  [[ -f $(manifest_file) ]]
+}
+frontend_behavior_transformations_rejected() {
+  local transformation
+  for transformation in '{"FunctionAssociations":{"Quantity":1,"Items":[{"EventType":"viewer-request","FunctionARN":"arn:aws:cloudfront::843255971531:function/other"}]}}' '{"LambdaFunctionAssociations":{"Quantity":1,"Items":[{"EventType":"origin-request","LambdaFunctionARN":"other"}]}}'; do
+    CDN_BEHAVIORS=$(jq -cn --argjson transformation "$transformation" '[{PathPattern:"/assets/*",TargetOriginId:"frontend",CachePolicyId:"disabled"}+$transformation]')
+    rejects fe_stage
+    [[ $(write_count) == 0 ]]
+    grep -q 'Frontend CDN transformations differ for /assets/new.js' "$CASE_DIR/rejection.log"
+  done
+}
+frontend_behavior_cache_preflight() {
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/*","TargetOriginId":"frontend","CachePolicyId":"cached"}]'
+  rejects fe_stage
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend publication requires disabled CDN caching' "$CASE_DIR/rejection.log"
+}
+changed_route_before_publication() {
+  fe_stage
+  : >"$CASE_DIR/writes"
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/new.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_publish
+  ! grep -q "^$FE_LIVE/" "$CASE_DIR/writes"
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  grep -q 'Frontend CDN route differs for /assets/new.js' "$CASE_DIR/rejection.log"
+}
+changed_route_before_recovery() {
+  fe_stage; fe_publish
+  : >"$CASE_DIR/writes"
+  CDN_BEHAVIORS='[{"PathPattern":"/assets/old.js","TargetOriginId":"realtime","CachePolicyId":"disabled"}]'
+  rejects fe_recover
+  [[ $(write_count) == 0 ]]
+  grep -q 'Frontend CDN route differs for /assets/old.js' "$CASE_DIR/rejection.log"
+}
 approved_edge_function() { EDGE_FUNCTION=known; fe_stage; jq -e '.frontend.published==false' "$STATE_FILE" >/dev/null; }
 unapproved_edge_function() {
   local variant
@@ -251,9 +394,69 @@ traversal_manifest() {
 }
 archive_checksum_mismatch() {
   fe_stage
+  fe_cache_clear
   echo corrupted >"$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/sw.js"
   local before; before=$(write_count)
   rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+}
+candidate_cache_reused_across_phases() {
+  fe_stage
+  rm -rf -- "$BG_FRONTEND_DIST"
+  : >"$CASE_DIR/requests"
+  ( unset FE_TEMP FE_POINTER FE_ETAG; STATE=$(cat "$STATE_FILE"); fe_publish )
+  STATE=$(cat "$STATE_FILE")
+  ! grep -q '/files/' "$CASE_DIR/requests"
+  grep -q 'release.json' "$CASE_DIR/requests"
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+  fe_finalize
+  [[ ! -e $(fe_cache_path) ]]
+  jq -e --arg release "$GITHUB_SHA-$RUN_ID" '.current==$release and .previous=="baseline-123" and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+candidate_cache_does_not_rescan_s3_files() {
+  fe_stage
+  echo corrupted >"$CASE_DIR/s3/$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/sw.js"
+  : >"$CASE_DIR/requests"
+  fe_publish
+  ! grep -q '/files/' "$CASE_DIR/requests"
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+}
+candidate_cache_miss_falls_back() {
+  local fault
+  for fault in missing checksum marker symlink; do
+    ( setup "cache-miss-$fault"
+      fe_stage
+      case $fault in
+        missing) fe_cache_clear;;
+        checksum) printf 'bad worker\n' >"$(fe_cache_path)/files/sw.js";;
+        marker) rm "$(fe_cache_path)/release.json";;
+        symlink) mv "$(fe_cache_path)/files/assets" "$CASE_DIR/assets"; ln -s "$CASE_DIR/assets" "$(fe_cache_path)/files/assets";;
+      esac
+      : >"$CASE_DIR/requests"
+      fe_publish
+      [[ $(grep -c "s3api/get-object.*$FE_ARCHIVE/$GITHUB_SHA-$RUN_ID/files/" "$CASE_DIR/requests") == 5 ]]
+      [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'new worker' ]]
+    )
+  done
+}
+candidate_cache_recovery_uses_previous_archive() {
+  fe_stage; fe_publish
+  echo corrupted >"$(fe_cache_path)/files/sw.js"
+  : >"$CASE_DIR/requests"
+  fe_recover
+  [[ $(grep -c "s3api/get-object.*$FE_ARCHIVE/baseline-123/files/" "$CASE_DIR/requests") == 5 ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/sw.js") == 'old worker' && ! -e $(fe_cache_path) ]]
+}
+candidate_cache_revocation_stops_publication() {
+  fe_stage
+  local before; before=$(write_count)
+  sha256sum() {
+    command sha256sum "$@"
+    if [[ $1 == *frontend-candidate/files/* ]]; then : >"$CASE_DIR/revoked"; fi
+  }
+  rejects fe_publish
+  unset -f sha256sum
+  grep -q 'Parent run revoked' "$CASE_DIR/rejection.log"
   [[ $(write_count) == "$before" ]]
 }
 wrong_manifest_release() {
@@ -277,6 +480,14 @@ cas_conflict() {
   echo '{}' >"$CASE_DIR/s3/$FE_ARCHIVE/state.json"
   rejects fe_pointer_write "$FE_POINTER"
   [[ $(cat "$CASE_DIR/s3/$FE_ARCHIVE/state.json") == '{}' ]]
+}
+owned_pointer_etag_changed() {
+  fe_stage; fe_temp; fe_owned_pointer
+  printf '\n' >>"$CASE_DIR/s3/$FE_ARCHIVE/state.json"
+  local before; before=$(write_count)
+  rejects fe_owned_pointer
+  grep -q 'Frontend pointer ETag changed' "$CASE_DIR/rejection.log"
+  [[ $(write_count) == "$before" ]]
 }
 recovery_failure_preserves_intent() {
   fe_stage; fe_publish
@@ -302,8 +513,8 @@ independent_worker_recovery() {
 }
 frontend_only_full_observation() {
   local status
-  status=$(jq -cn --arg image "$OLD_DIGEST" '{slot:"A",image:$image,running:true,healthy:true,identity:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},authority:{status:"ACTIVE",phase:"COMPLETE",owner:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}}')
-  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
+  status=$(jq -cn --arg image "$OLD_DIGEST" --arg commit "$(printf '%040d' 1)" --arg hash "$(printf '%064d' 1)" '{slot:"A",image:$image,compose_source:{commit:$commit,sha256:$hash},running:true,healthy:true,identity:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},authority:{status:"ACTIVE",phase:"COMPLETE",owner:{hostId:"prod-a",bootId:"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}}')
+  STATE=$(jq -c --argjson status "$status" '.phase="COMPLETE" | .sealed=true | .pending=null | .old_status=$status' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   BG_FRONTEND_ONLY=true
   bg_ec2_state() { exit 95; }
   bg_plan
@@ -315,7 +526,20 @@ frontend_only_full_observation() {
   jq -e '.http_observed_started_at>=.frontend.published_at and .http_observed_finished_at-.http_observed_started_at==300' "$STATE_FILE" >/dev/null
   main frontend-seal
   jq -e '.phase=="COMPLETE" and .frontend.finalized==true and .old_status.slot=="A"' "$STATE_FILE" >/dev/null
+  jq -e --argjson status "$status" '.old_status.compose_source==$status.compose_source' "$STATE_FILE" >/dev/null
   jq -e --arg release "$GITHUB_SHA-$RUN_ID" '.current==$release and .previous=="baseline-123" and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
+}
+frontend_only_repeated_compose_source() {
+  frontend_only_full_observation
+  STATE=$(cat "$STATE_FILE")
+  local source; source=$(jq -c '.old_status.compose_source' <<<"$STATE")
+  RUN_ID=124; GITHUB_SHA=$(printf '%040d' 3)
+  bg_plan
+  jq -e --argjson source "$source" '.previous_backend_status.compose_source==$source' "$STATE_FILE" >/dev/null
+  main frontend-publish
+  STATE=$(cat "$STATE_FILE"); main observe
+  STATE=$(cat "$STATE_FILE"); main frontend-seal
+  jq -e --arg sha "$GITHUB_SHA" --argjson source "$source" '.phase=="COMPLETE" and .sha==$sha and .old_status.compose_source==$source' "$STATE_FILE" >/dev/null
 }
 frontend_only_short_observation_rejected() {
   fe_stage; fe_publish
@@ -378,7 +602,7 @@ frontend_only_recovery_refreshes_lease() {
   jq -e '.phase=="ROLLED_BACK" and .frontend.recovered==true' "$STATE_FILE" >/dev/null
 }
 backend_only_fixture() {
-  fe_temp; fe_pointer_read; fe_capture_baseline; rm -rf -- "$FE_TEMP"
+  fe_temp; fe_preflight; fe_pointer_read; fe_capture_baseline; rm -rf -- "$FE_TEMP"
   : >"$CASE_DIR/writes"
   STATE=$(jq '.backend_only=true' <<<"$STATE"); bg_atomic "$STATE_FILE" "$STATE"
   unset BG_FRONTEND_DIST
@@ -425,7 +649,12 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
+for test in candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
+  ( setup "$test"; "$test" )
+  printf 'PASS frontend %s\n' "$test"
+done
+for test in frontend_origin_alias_preflight wrong_frontend_bucket_preflight wrong_frontend_prefix_preflight missing_frontend_origin_preflight formerly_allowed_path_preflight first_matching_behavior_preflight first_wrong_behavior_preflight nested_asset_behavior_preflight single_character_behavior_preflight literal_behavior_pattern_preflight frontend_behavior_transformations_rejected frontend_behavior_cache_preflight changed_route_before_publication changed_route_before_recovery  unrelated_behavior_preflight frontend_behavior_preflight wrong_frontend_origin_preflight \
+  approved_edge_function unapproved_edge_function file_operations_bound_remote_reads archive_operations_bound_remote_reads cancellation_stops_next_file cancellation_after_last_public_file cancellation_prevents_release_commit local_lease_checked_after_file local_state_change_preserved_after_file backend_only_observation_and_seal backend_only_keeps_frontend_files backend_only_rollback_keeps_frontend_files frontend_after_backend_only_uses_actual_pair full_round_trip partial_publish public_fallback_detected missing_baseline pointer_permission_not_absent cache_preflight realtime_behavior_preflight realtime_exact_behavior_preflight realtime_combined_behavior_preflight misrouted_assets_preflight symlink_artifact traversal_manifest archive_checksum_mismatch wrong_manifest_release stale_recovery cas_conflict owned_pointer_etag_changed recovery_failure_preserves_intent revocation_no_replay independent_worker_recovery frontend_only_full_observation frontend_only_repeated_compose_source frontend_only_short_observation_rejected observation_before_publish_rejected archive_immutable zero_length_file_rejected missing_referenced_asset public_failure_during_observation final_check_before_pointer_commit frontend_only_recovery_refreshes_lease; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

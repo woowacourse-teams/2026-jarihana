@@ -34,7 +34,10 @@ public class Member extends BaseEntity {
     @Column(name = "crew_name", nullable = false, length = 4)
     private String crewName;
 
-    @Column(name = "generation", updatable = false)
+    /**
+     * 사용자가 바꿀 수 있는 경로는 없다. 크루 명단으로 인증할 때만 비어 있던 기수가 채워지므로 갱신을 막지 않는다.
+     */
+    @Column(name = "generation")
     private Integer generation;
 
     @Enumerated(EnumType.STRING)
@@ -195,6 +198,37 @@ public class Member extends BaseEntity {
     ) {
         Affiliation affiliation = new Affiliation(null, field, career, company);
         return new Member(null, crewName, null, githubId, MemberType.PROFESSIONAL, null, affiliation, null);
+    }
+
+    public static Member createBasic(String crewName, String githubId) {
+        return new Member(null, crewName, null, githubId, MemberType.MEMBER, null, Affiliation.NONE, null);
+    }
+
+    /**
+     * 크루 명단으로 인증할 수 있는 회원인지 확인한다. 이미 크루이거나 코치이면 명단과 달라도 바꾸지 않는다.
+     */
+    public boolean isCrewVerificationTarget() {
+        return memberType == MemberType.MEMBER
+                || memberType == MemberType.BOOTCAMP
+                || memberType == MemberType.PROFESSIONAL;
+    }
+
+    /**
+     * 크루 명단에 있는 회원을 크루로 바꾼다. 닉네임은 유지하고 기수와 과정은 명단 값을 쓰며, 크루가 가질 수 없는 소속 정보는 비운다.
+     */
+    public void verifyCrew(int generation, Course course) {
+        if (!isCrewVerificationTarget()) {
+            throw new IllegalStateException("크루 명단 인증 대상이 아닌 회원입니다.");
+        }
+        Integer verifiedGeneration = validateGeneration(generation, MemberType.CREW);
+        Course verifiedCourse = validateCourse(course, MemberType.CREW);
+        this.memberType = MemberType.CREW;
+        this.generation = verifiedGeneration;
+        this.course = verifiedCourse;
+        this.bootcamp = null;
+        this.field = null;
+        this.career = null;
+        this.company = null;
     }
 
     public LocalDateTime getJoinedAt() {

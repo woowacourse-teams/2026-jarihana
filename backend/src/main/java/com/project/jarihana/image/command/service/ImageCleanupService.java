@@ -1,6 +1,8 @@
 package com.project.jarihana.image.command.service;
 
+import com.project.jarihana.image.client.ImageKeyPolicy;
 import com.project.jarihana.image.client.ImageStorage;
+import com.project.jarihana.image.client.ImageStorageBoundaryException;
 import com.project.jarihana.image.command.repository.ImageDeletionTaskRepository;
 import com.project.jarihana.image.command.repository.ImageReferenceRepository;
 import com.project.jarihana.image.command.repository.ImagePromotionTaskRepository;
@@ -87,6 +89,7 @@ public class ImageCleanupService {
                 if (task == null || !task.canReconcileAt(now)) {
                     return;
                 }
+                validatePromotion(task, upload);
                 boolean promotedToTarget = upload != null
                         && task.getTargetImageKey().equals(upload.getImageKey());
                 imageStorage.delete(promotedToTarget ? task.getSourceImageKey() : task.getTargetImageKey());
@@ -111,7 +114,21 @@ public class ImageCleanupService {
     }
 
     private void process(UUID taskId, LocalDateTime now) {
-        ClaimedTask claimed = transactions.execute(ignored -> claim(taskId, now));
+        ClaimedTask claimed;
+        try {
+            claimed = transactions.execute(ignored -> claim(taskId, now));
+        } catch (ImageStorageBoundaryException exception) {
+            String error = exception.getClass().getSimpleName();
+            transactions.executeWithoutResult(ignored -> taskRepository.findWithLockById(taskId)
+                    .filter(task -> task.canClaim(now))
+                    .ifPresent(task -> task.reschedule(now.plus(properties.cleanupGracePeriod()), error)));
+            log.atError()
+                    .addKeyValue("event.action", "image.cleanup.rejected")
+                    .addKeyValue("image.task_id", taskId)
+                    .addKeyValue("error.type", error)
+                    .log("Invalid image deletion task retained without deleting an object");
+            return;
+        }
         if (claimed == null) {
             return;
         }
@@ -127,6 +144,15 @@ public class ImageCleanupService {
         ImageDeletionTask task = taskRepository.findWithLockById(taskId).orElse(null);
         if (task == null || !task.canClaim(now)) {
             return null;
+        }
+        if (!ImageKeyPolicy.isManaged(task.getImageKey())) {
+            throw new ImageStorageBoundaryException("관리 대상이 아닌 이미지의 삭제 작업을 차단했습니다.");
+        }
+        if (task.getImageUploadId() != null) {
+            ImageUpload upload = uploadRepository.findById(task.getImageUploadId()).orElse(null);
+            if (upload == null || !task.getImageKey().equals(upload.getImageKey())) {
+                throw new ImageStorageBoundaryException("삭제 작업과 이미지 업로드의 키가 일치하지 않습니다.");
+            }
         }
         if (task.getImageUploadId() != null && referenceRepository.existsByImageUploadId(task.getImageUploadId())) {
             uploadRepository.findById(task.getImageUploadId()).ifPresent(upload -> upload.restoreAttachment(now));
@@ -177,6 +203,23 @@ public class ImageCleanupService {
             return 0;
         }
         return uploadRepository.findById(uploadId).map(ImageUpload::getCleanupAttempts).orElse(0);
+    }
+
+    private void validatePromotion(ImagePromotionTask task, ImageUpload upload) {
+        String source = task.getSourceImageKey();
+        String target = task.getTargetImageKey();
+        if (!ImageKeyPolicy.isTemporary(source) || !ImageKeyPolicy.isManaged(target)
+                || ImageKeyPolicy.isTemporary(target)
+                || !source.substring(source.lastIndexOf('/') + 1)
+                        .equals(target.substring(target.lastIndexOf('/') + 1))) {
+            throw new ImageStorageBoundaryException("승격 작업의 원본과 대상 이미지 키가 올바르지 않습니다.");
+        }
+        if (upload != null && !source.equals(upload.getImageKey()) && !target.equals(upload.getImageKey())) {
+            throw new ImageStorageBoundaryException("승격 작업과 이미지 업로드의 키가 일치하지 않습니다.");
+        }
+        if (upload != null && target.equals(upload.getImageKey()) && !source.equals(upload.getSourceImageKey())) {
+            throw new ImageStorageBoundaryException("승격된 이미지와 원본 임시 이미지의 키가 일치하지 않습니다.");
+        }
     }
 
     private record ClaimedTask(UUID taskId, UUID uploadId, String imageKey) {

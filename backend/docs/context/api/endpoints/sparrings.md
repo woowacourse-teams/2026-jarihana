@@ -9,6 +9,7 @@
 | POST | `/sparrings` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}` | PUBLIC | 주장·표수·내 편·글 수·revision |
 | POST | `/sparrings/{topicId}/votes` | MEMBER + CSRF | 204, 본문 없음 |
+| GET | `/sparrings/{topicId}/avatar-pools` | PUBLIC | 장식 캡슐용 투표자 외형 목록 |
 | GET | `/sparrings/{topicId}/posts` | PUBLIC | 저장된 의견과 받아치기 원문 |
 | POST | `/sparrings/{topicId}/posts` | MEMBER + CSRF | 201 `{id}` |
 | GET | `/sparrings/{topicId}/events` | PUBLIC | `text/event-stream`, 메시지 스냅샷·추가분 및 공개 집계 |
@@ -17,12 +18,27 @@
 `filter=all|active|mine|open|closed|open_active|closed_active`(기본all), `cursor`. active는 의견이 한 개 이상 있는 주제,
 mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open은 마감이 없거나 마감 전인 주제, closed는 마감 시각에 도달한 주제다. open_active와 closed_active는 각각 해당 상태 중 의견이 있는 주제다. 생성 시각/ID 내림차순이다.
 
-의견: `size` 1..100(기본20), `cursor`, `mine`(기본false).
+의견: `size` 1..100(기본20), `cursor`, `mine`(기본false), `side`(선택, `MINT|CORAL`),
+`throughId`(선택, 0 이상).
 이전 대화는 ID 내림차순, 재접속 복구 `afterId=0..`는 ID 오름차순이다.
-`afterId`는 `cursor` 또는 `mine=true`와 병용할 수 없다.
+`side`는 작성 당시 편으로 필터링하며 페이지 크기 제한 전에 적용한다. 편별로 받은
+`nextCursor`를 같은 `side`와 함께 사용하면 한쪽 글 수와 무관하게 다른 편의 과거 글을 이어 조회한다.
+`throughId`를 지정하면 해당 ID 이하의 글만 반환한다. 순회 시작 때 확인한 최대 글 ID를
+양쪽 조회와 후속 페이지에 동일하게 유지하면 이후 새 글이 현재 순회에 끼어들지 않는다.
+`throughId=0`은 빈 목록이며, 생략하면 상한 없이 기존처럼 조회한다.
+`afterId`는 `cursor`, `mine=true`, `side`, `throughId`와 병용할 수 없다.
 응답은 `{items, nextCursor, hasNext}`, 더 없으면 nextCursor는 null이다.
 원문 `replyTo`에는 ID/작성자ID/이름/회원유형/진영/내용이 포함되어,
 부모 글이 현재 페이지 밖에 있어도 두 주장을 함께 표시할 수 있다.
+글과 `replyTo` 각각의 `appearance`는 조회 시점 작성자의
+[저장된 아바타 외형](member-avatar.md)이다. 저장한 외형이 없으면 `null`을 반환한다.
+작성 당시 진영은 글에 저장한 값을 반환한다.
+
+장식 캡슐용 응답의 `data`는 `{appearances: Appearance[]}`다.
+해당 토론의 현재 투표자 중 저장 외형이 있는 회원을 편 구분 없이 회원 ID 오름차순으로 최대 240명 고른다.
+각 원소는 외형 파츠만 포함한다. 목록은 비어 있을 수 있으며 없는 주제는 `SPARRING_NOT_FOUND`(404)다.
+토론별 목록은 서버에 캐시한다. 저장 후 30초가 지난 목록을 요청하면 기존 목록을 반환하고
+백그라운드에서 갱신한다. 투표 시 캐시를 비우지 않는다.
 
 등록 입력: title 1..80자, a/b 각 1..32자, description 선택 0..240자.
 대표사진은 선택이다. 기존 `POST /api/image-uploads`로 업로드 정보를 받고 파일 전송을 마친 뒤,
@@ -40,7 +56,7 @@ mine은 내가 투표한 주제이며 로그인해야 조회할 수 있다. open
 `SPARRING_NOT_FOUND`(404), 잘못된 입력/다른 주제의 부모 글은 `INVALID_PARAMETER`(400)다.
 
 SSE는 JSON 봉투 없이 다음 이벤트를 보낸다. 두 이벤트의 필드는 동일하며 `posts` 원소는
-의견 HTTP 응답과 같은 ID·작성자·본문·작성 시각·원문(`replyTo`) 계약이다.
+의견 HTTP 응답과 같은 ID·작성자·본문·작성 시각·원문(`replyTo`)·외형 계약이다.
 
 ```text
 id:12
@@ -67,9 +83,22 @@ data:{"revision":13,"votesA":4,"votesB":2,"postCount":0,"posts":[]}
   메시지 수신 때 요약·의견 HTTP를 반복 호출하지 않는다. 저장 응답은 ID만 반환하므로
   작성자 연출 확인에는 저장한 의견 한 건을 HTTP로 조회한다.
 
-활성 주제당 1초 간격 DB revision 조회를 공유한다. 변경 시 집계와 추가 의견을 같은
-REPEATABLE READ 스냅샷에서 읽고 조회 커서를 전진시킨다. 주제별 명령은 주제 잠금 이후
-의견 ID를 할당하므로 커밋되지 않은 낮은 ID가 나중에 누락되지 않는다. 네트워크 전송은 DB
+투표·의견 저장 트랜잭션이 커밋되면 변경된 주제 ID를 메모리에 모은다. 발행 작업은 완료 후
+1초 간격으로 실행하며, 서버 인스턴스별로 한 배치에서 같은 주제는 한 번만 PostgreSQL
+`NOTIFY`를 발행한다.
+알림에는 주제 ID만 담고 저장 요청의 트랜잭션 밖에서 발행한다. 각 서버는 전용 JDBC 연결로
+`sparring_revision` 채널을 `LISTEN`한다. 알림을 받으면 해당 서버에 SSE 구독자가 있는
+주제를 즉시 조회하고 전송한다. 수신 후 별도의 1초 대기는 없다. 같은 주제를 조회 중이면
+변경 신호를 합쳐 진행 중인 조회가 끝난 직후 다시 조회한다.
+
+알림 누락을 보완하기 위해 활성 주제들의 revision을 한 쿼리로 조회하는 작업을 완료 후
+5초 간격으로 실행한다. 이 5초는 알림 발행·전송 주기와 별개인 복구 주기다. LISTEN
+재연결 직후에도 활성 주제를 다시 조회한다. 최초 구독은 1초 정기 작업에서 스냅샷을 보내며,
+변경 없는 주제는 이 작업에서 DB를 조회하지 않는다. 조회·발행 실행 시간과 자원 대기 때문에
+1초 전송이나 5초 이내 복구를 보장하지는 않는다.
+
+변경 시 집계와 추가 의견을 같은 REPEATABLE READ 스냅샷에서 읽고 조회 커서를 전진시킨다.
+주제별 명령은 주제 잠금 이후 의견 ID를 할당하므로 커밋되지 않은 낮은 ID가 나중에 누락되지 않는다. 네트워크 전송은 DB
 트랜잭션 밖에서 연결별 큐 순서대로 수행하며, 전송 중 다음 갱신을 버리지 않는다.
 변화가 없으면 약 15초마다 heartbeat를 보내고, 120초 연결 교체·종료·오류 시 대기 큐를 비운다.
 

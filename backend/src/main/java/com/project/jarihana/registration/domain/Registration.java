@@ -14,7 +14,10 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-@Table(name = "registration")
+@Table(
+        name = "registration",
+        indexes = @Index(name = "idx_registration_recruitment_id", columnList = "recruitment_id")
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Registration extends BaseEntity {
 

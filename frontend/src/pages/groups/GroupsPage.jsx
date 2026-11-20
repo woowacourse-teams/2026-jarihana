@@ -12,6 +12,7 @@ import "./home/home.css";
 export function GroupsPage() {
   const { status } = useAuth();
   const today = useTodaySessions();
+  const hasNoTodaySessions = today.isSuccess && today.data.length === 0;
   const campus = usePangyoCampus();
   const { headline, period } = useSessionHero(campus.isAtPangyo);
 
@@ -21,7 +22,7 @@ export function GroupsPage() {
         isAuthenticated={status === "authenticated"}
         headline={headline}
         heroPeriod={period}
-        beforeResults={
+        beforeResults={hasNoTodaySessions ? null : (
           <TodaySessionsHero
             campusStatus={campus.status}
             onRequestLocation={campus.requestLocation}
@@ -31,7 +32,7 @@ export function GroupsPage() {
             isLoading={today.isLoading}
             onRetry={() => today.refetch()}
           />
-        }
+        )}
       />
       <ArchiveSection />
     </PageContainer>

@@ -143,6 +143,7 @@ describe("activity reactors", () => {
   it("labels bootcamp and professional reactors by member type", () => {
     expect(formatReactorMeta({ course: null, generation: null, memberType: "BOOTCAMP" })).toBe("부트캠프");
     expect(formatReactorMeta({ course: null, generation: null, memberType: "PROFESSIONAL" })).toBe("현직자");
+    expect(formatReactorMeta({ course: null, generation: null, memberType: "MEMBER" })).toBe("멤버");
   });
 
   it("summarizes reactors with me first and counts the rest", () => {

@@ -1,6 +1,5 @@
 package com.project.jarihana.image.client;
 
-import com.project.jarihana.image.config.ImageProperties;
 import java.time.Duration;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -19,20 +18,20 @@ public class S3ImageStorage implements ImageStorage {
 
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
-    private final ImageProperties properties;
+    private final ImageStorageScope scope;
 
-    public S3ImageStorage(S3Presigner s3Presigner, S3Client s3Client, ImageProperties properties) {
+    public S3ImageStorage(S3Presigner s3Presigner, S3Client s3Client, ImageStorageScope scope) {
         this.s3Presigner = s3Presigner;
         this.s3Client = s3Client;
-        this.properties = properties;
+        this.scope = scope;
     }
 
     @Override
     public String issueUploadUrl(String imageKey, String contentType, Duration expiration) {
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(properties.bucket())
-                    .key(toObjectKey(imageKey))
+                    .bucket(scope.bucket())
+                    .key(scope.objectKey(imageKey))
                     .contentType(contentType)
                     .build();
             PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
@@ -40,6 +39,8 @@ public class S3ImageStorage implements ImageStorage {
                     .putObjectRequest(putObjectRequest)
                     .build();
             return s3Presigner.presignPutObject(presignRequest).url().toString();
+        } catch (ImageStorageBoundaryException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new ImageStorageException(exception);
         }
@@ -49,8 +50,8 @@ public class S3ImageStorage implements ImageStorage {
     public boolean exists(String imageKey) {
         try {
             s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(properties.bucket())
-                    .key(toObjectKey(imageKey))
+                    .bucket(scope.bucket())
+                    .key(scope.objectKey(imageKey))
                     .build());
             return true;
         } catch (S3Exception exception) {
@@ -67,8 +68,8 @@ public class S3ImageStorage implements ImageStorage {
     public ImageObjectMetadata metadata(String imageKey) {
         try {
             HeadObjectResponse response = s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(properties.bucket())
-                    .key(toObjectKey(imageKey))
+                    .bucket(scope.bucket())
+                    .key(scope.objectKey(imageKey))
                     .build());
             return new ImageObjectMetadata(response.contentLength(), response.contentType());
         } catch (S3Exception exception) {
@@ -85,10 +86,10 @@ public class S3ImageStorage implements ImageStorage {
     public void copy(String sourceImageKey, String targetImageKey) {
         try {
             s3Client.copyObject(CopyObjectRequest.builder()
-                    .sourceBucket(properties.bucket())
-                    .sourceKey(toObjectKey(sourceImageKey))
-                    .destinationBucket(properties.bucket())
-                    .destinationKey(toObjectKey(targetImageKey))
+                    .sourceBucket(scope.bucket())
+                    .sourceKey(scope.objectKey(sourceImageKey))
+                    .destinationBucket(scope.bucket())
+                    .destinationKey(scope.objectKey(targetImageKey))
                     .build());
         } catch (SdkException exception) {
             throw new ImageStorageException(exception);
@@ -99,19 +100,11 @@ public class S3ImageStorage implements ImageStorage {
     public void delete(String imageKey) {
         try {
             s3Client.deleteObject(DeleteObjectRequest.builder()
-                    .bucket(properties.bucket())
-                    .key(toObjectKey(imageKey))
+                    .bucket(scope.bucket())
+                    .key(scope.objectKey(imageKey))
                     .build());
         } catch (SdkException exception) {
             throw new ImageStorageException(exception);
         }
-    }
-
-    private String toObjectKey(String imageKey) {
-        String prefix = properties.keyPrefix();
-        if (prefix == null || prefix.isBlank()) {
-            return imageKey;
-        }
-        return prefix.replaceAll("/+$", "") + "/" + imageKey;
     }
 }

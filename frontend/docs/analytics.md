@@ -1,5 +1,24 @@
 # PostHog 행동 분석
 
+## 상점 미리보기
+
+진입은 `shop_open`, 카테고리는 `shop_category_change`, 상품 선택은 `shop_product_select`, 마이페이지 이동은
+`shop_profile_open`이다. 구매창 열기·닫기·취소·확정은 `shop_purchase_open`,
+`shop_purchase_dismiss`, `shop_purchase_cancel`, `shop_purchase_confirm`을 사용한다.
+착용/해제는 `shop_equipment_toggle`, 조회 재시도는 `shop_load_retry`다.
+실제 포인트 조회 재시도는 `shop_points_retry`다.
+모바일 미리보기에서 선택했던 상품으로 돌아가기는 `shop_product_list_return`을 사용한다.
+상품·외형·잔액·요청 키를 action에 포함하지 않는다.
+잔액과 외형 미리보기는 `data-ph-private`로 가린다. 체험 구매에 실제 구매 성공 이벤트를
+발행하지 않으며 분석 전송 허용 목록을 확장하지 않는다.
+
+## 헤더 자리 메뉴
+
+상위 `자리` disclosure 버튼은 `group_navigation_toggle`을 사용한다. 하위 `뭐있나?`, `뭐했나?`,
+`뭐할래?` 링크는 각각 기존 `group_browse`, `browse_activity_posts`, `browse_proposals`를 유지한다.
+데스크톱과 모바일은 같은 식별자를 공유한다. 로고의 홈 이동은 `group_home`, 자리 만들기는 `group_create`다.
+hover 개폐는 별도 성공 이벤트로 수집하지 않는다.
+
 ## 채팅 동작
 
 채팅 영역 전체를 `data-ph-private`로 마스킹한다. 메시지 본문·작성자 이름·인증 쿠키·헤더는 분석에 보내지 않는다.
@@ -12,13 +31,25 @@
 분석과 녹화 조회는 PostHog 관리자 화면에서 수행한다. 자리하나의 서비스 화면이나
 DB 테이블·스키마는 추가하지 않는다.
 
+## 아지트 놀러가기 HUD
+
+시점 전환은 기존 `space_mode_first_person`, `space_mode_third_person`을 유지한다.
+왼쪽 메뉴는 `group_playbar_toggle`, 시점 설정은 `space_play_settings_toggle`, 조작 도움말 열기·닫기는 `space_play_help_open`, `space_play_help_close`를 사용한다.
+공지·활동·음악 바로가기와 채팅, 꾸미기는 기존 동작 식별자를 유지한다.
+꾸미기 카메라 회전과 광각 조절은 `space_camera_turn_left`, `space_camera_turn_right`, `space_camera_wide_angle`을 사용한다.
+음소거는 방문자 개인 재생 설정의 조작이며 대기열이나 공유 재생 상태 변경과 구분한다.
+
 ## 모임 공지 UI의 고정 식별자
 
 | 동작 | action |
 | --- | --- |
 | 공지 탭 열기·목록에서 공지 열기·상세에서 모임 열기 | `group_announcement_tab_open`, `group_announcement_open`, `group_announcement_group_open` |
 | 공지 작성 모달 열기·닫기·취소 | `group_announcement_create_open`, `group_announcement_create_dismiss`, `group_announcement_create_cancel` |
+| 이전 요청 불러오기 / 새 공지 쓰기 / 이전 요청 다시 보내기 | `group_announcement_create_restore`, `group_announcement_create_start_new`, `group_announcement_create_resubmit` |
+| 공지 수정 모달 열기·닫기·취소·저장 | `group_announcement_edit_open`, `group_announcement_edit_dismiss`, `group_announcement_edit_cancel`, `group_announcement_edit_submit` |
+| 공지 숨김 확인 열기·닫기·취소·확정 | `group_announcement_delete_open`, `group_announcement_delete_dismiss`, `group_announcement_delete_cancel`, `group_announcement_delete_confirm` |
 | 제목·본문 입력과 공개 범위 변경 | `group_announcement_title_change`, `group_announcement_content_change`, `group_announcement_scope_change` |
+| 수정 중 제목·본문 입력과 공개 범위 변경 | `group_announcement_edit_title_change`, `group_announcement_edit_content_change`, `group_announcement_edit_scope_change` |
 | 공지 등록·목록 다시 시도·더 보기·상세 다시 시도·목록 복귀 | `group_announcement_create_submit`, `group_announcement_list_retry`, `group_announcement_load_more`, `group_announcement_detail_retry`, `group_announcement_list_return` |
 
 입력 폼과 공지 본문은 `data-ph-private`로 가리고, action 식별자에는 제목·본문·모임원 이름·공지 ID를 넣지 않는다. 공지 작성 성공 전용 PostHog 이벤트는 정의하지 않았으며, 자동 수집으로 API 성공을 추정하지 않는다.
@@ -43,20 +74,14 @@ DB 테이블·스키마는 추가하지 않는다.
 
 ## 회원가입 UI의 고정 식별자
 
-가입 화면은 첫 화면에서 부트캠프 또는 회사를 고른 뒤 한 화면에 질문 하나씩 묻는다. 단계별 action으로 어느 질문에서 이탈하는지 구분한다. 닉네임, 캠프 이름, 회사명 같은 입력값은 action에 넣지 않는다.
+가입 화면은 닉네임 한 단계만 묻는다. 우아한테크코스 크루 여부와 기수, 과정은 서버가 GitHub 계정을 크루 명단과 대조해 정하므로 화면에서 고르는 동작이 없다. 닉네임 같은 입력값은 action에 넣지 않는다.
 
 | 동작 | action |
 | --- | --- |
-| 첫 화면에서 부트캠프, 회사 선택 | `signup_member_type_select` |
-| 이전 단계, 다음 단계 | `signup_step_back`, `signup_step_next` |
-| 부트캠프 선택, 직접 입력한 캠프 이름, 캠프 기수 | `signup_bootcamp_select`, `signup_bootcamp_name_input`, `signup_bootcamp_cohort_input` |
-| 우아한테크코스를 고른 뒤 크루 인증 시작 | `signup_crew_verification_start` |
-| 수강 상태, 공부 분야, 직무, 연차 선택 | `signup_bootcamp_status_select`, `signup_field_select`, `signup_job_select`, `signup_career_select` |
-| 닉네임, 크루 과정, 크루 기수 | `signup_name_input`, `signup_course_select`, `signup_generation_select` |
-| 회사명, 회사명 공개 여부 | `signup_company_input`, `signup_company_public_toggle` |
+| 닉네임 입력 | `signup_name_input` |
 | 가입 완료하기, 확인, 확인 창 닫기와 취소 | `signup_submit`, `signup_confirm`, `signup_confirmation_dismiss` |
 
-가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 크루 인증 방법이 정해지기 전까지 `signup_crew_verification_start`는 크루 프로필 입력으로 바로 넘어가는 클릭이며, 인증 성공을 뜻하지 않는다.
+가입 성공은 기존처럼 회원 생성 응답 뒤 `signup_completed`로 따로 기록한다. 이전 단계형 가입 화면의 `signup_member_type_select`, `signup_step_back`, `signup_step_next`, `signup_bootcamp_*`, `signup_crew_verification_start`, `signup_field_select`, `signup_job_select`, `signup_career_select`, `signup_course_select`, `signup_generation_select`, `signup_company_*`는 더 이상 수집되지 않는다. 이전 기간 데이터를 볼 때만 쓴다.
 
 ## 자유게시판 모임 제안
 
@@ -66,6 +91,7 @@ DB 테이블·스키마는 추가하지 않는다.
 | 동작 | action |
 | --- | --- |
 | 헤더 게시판 메뉴, 분야 필터, 제안 열기, 더 보기, 다시 불러오기 | `browse_proposals`, `proposal_category_filter`, `proposal_open`, `proposal_list_load_more`, `proposal_list_retry` |
+| 목록의 이용 안내 열고 닫기 | `proposal_guide_toggle` |
 | 목록의 함께하고 싶어요 켜고 끄기 | `proposal_interest_toggle` |
 | 상세의 조건 칩, 모인 조건 요약 칩 열기, 응답 보내기, 고치기, 고치기 취소, 응답 취소 | `proposal_condition_select`, `proposal_condition_summary_open`, `proposal_interest_submit`, `proposal_interest_edit`, `proposal_interest_edit_cancel`, `proposal_interest_cancel` |
 | 비로그인 로그인 안내 | `proposal_login_to_interest`, `proposal_login_to_comment` |
@@ -330,6 +356,16 @@ Insight와 Dashboard를 구성한다. 이 대시보드는 자리하나의 새 �
 
 ## 스파링
 
+토론 생성은 한 화면에서 제출한다. 필수 입력의 `sparring_topic_edit`, 설명의
+`sparring_description_edit`, 사진의 `sparring_image_choose/upload/remove/retry`, 마감의
+`sparring_deadline_preset/open`, 제출·닫기의 `sparring_create_submit/dismiss`는 유지한다
+(슬래시는 각 접미사를 가진 기존 식별자를 묶어 표기한 것이다). 설명·사진 영역을 펼치거나
+접는 동작에는 `sparring_create_options_toggle`을 사용한다. 이전/다음 단계가 없어져
+`sparring_create_previous/next`는 더 이상 발생하지 않는다. 입력 폼은 `data-ph-private`로
+가리고, 선택 항목을 접거나 제출을 클릭한 사실을 생성 성공으로 해석하지 않는다.
+
+마당 설정 톱니바퀴는 기존 `sparring_experiment_menu`를 재사용하고 모달 닫기는 `sparring_settings_dismiss`로 구분한다. 구도·패싸움·받아치기 연출·팀별 인원·말풍선 겹침 변경은 기존 `sparring_view_change`, `sparring_brawl_toggle`, `sparring_clash_camera_toggle`, `sparring_character_limit_change`, `sparring_speech_overlap_toggle`을 유지한다. 별도 아담한 구도 복원 버튼을 없애 `sparring_compact_restore`는 더 이상 발생하지 않는다.
+
 SSE/물리 렌더러는 같은 출처 iframe이므로 내부 고정 action을 부모로 전달한다.
 부모는 source/origin/고정 allowlist를 검증한 뒤 `sparring_interaction`에 action만 기록한다.
 사용자 글·주제·이름·진영은 전달하지 않는다. 기존 마스킹/개인정보 허용 목록은 유지한다.
@@ -339,3 +375,144 @@ VS 입장 화면의 `sparring_entry_side_select`는 임시 편 선택, `sparring
 이미 저장한 편으로 입장할 때는 투표 요청·성공 이벤트를 다시 만들지 않는다.
 재전송으로 같은 ID를 확인한 요청도 저장 성공이므로 마지막 이벤트는 고유 의견 수가 아닌
 저장 요청 성공 횟수로 해석한다. API/SSE 주기 조회 역시 사용자 행동 횟수가 아니다.
+
+## 게임방
+
+게임방 탐색은 `games_open`, `gomoku_lobby_open`, `games_back`으로 구분한다. 대기실은
+`gomoku_room_create_open`, `gomoku_visibility_select`, `gomoku_rule_select`,
+`gomoku_room_create_submit`, `gomoku_create_dismiss`, `gomoku_my_room_open`,
+`gomoku_lobby_retry`, `gomoku_room_join`, `gomoku_rooms_first`, `gomoku_rooms_next`,
+`gomoku_rooms_search_form`, `gomoku_rooms_search_input`, `gomoku_rooms_search_submit`,
+`gomoku_rooms_search_reset`을 사용한다. 검색어와 크루 이름은 action 값에 포함하지 않는다.
+대국 오류 알림 닫기는 `gomoku_error_dismiss`를 사용한다. 알림 닫기는 선택 좌표나 착수 상태를 변경하지 않는다.
+방 안 조작은 `gomoku_position_select`, `gomoku_move_confirm`, `gomoku_ready_toggle`, `gomoku_game_start`,
+`gomoku_invitation_copy`, `gomoku_invitation_toggle`, `gomoku_invitation_create`, `gomoku_invitation_link_select`, `gomoku_resign_open`,
+`gomoku_resign_confirm`, `gomoku_leave_open`, `gomoku_leave_confirm`,
+`gomoku_confirmation_cancel`, `gomoku_confirmation_dismiss`다. 방 상단의 "대기실" 링크는 참여를 유지하며 `games_back`을 사용하고, 별도 "나가기" 버튼은 `gomoku_leave_open`으로 확인창을 연다. 초대 참여는
+`gomoku_invitation_join`, 게임판의 리듬게임 시작은 `rhythm_game_open`이다.
+
+리듬게임 첫 화면의 게임판 복귀는 `games_back`, 싱글 플레이 카드의 시작 버튼은 `rhythm_single_open`,
+온라인 매칭 카드의 "대기실 입장" 버튼은 `rhythm_online_open`이다. 싱글 플레이 화면의 첫 화면 복귀는 `rhythm_entry_back`,
+따라 하기 카드는 `rhythm_lesson_open`, 혼자 연습은 `rhythm_practice_open`, 랭킹 도전은 `rhythm_ranked_open`이다.
+예전 싱글 플레이 화면의 소리 미리 듣기(`rhythm_sound_demo_kung`, `rhythm_sound_demo_chak`, `rhythm_sound_demo_chi`)와
+접힌 튜토리얼 펼치기(`rhythm_tutorial_toggle`)는 화면에서 빠져 더 이상 기록되지 않는다.
+랭킹 도전 화면의 난이도 선택은 `rhythm_challenge_level_select`, 배속 선택은 `rhythm_challenge_speed_change`,
+입력 지연 보정 슬라이더는 `rhythm_challenge_offset_change`이며 싱크 진단 창은 연습과 같은 `rhythm_sync_*` 식별자를 쓴다.
+다음 단계는 `rhythm_challenge_next`, 도전 만들기는 `rhythm_challenge_start`, 판의 시작 버튼은 `rhythm_challenge_play`,
+옵션으로 돌아가기는 `rhythm_challenge_options`, 다시 도전은 `rhythm_challenge_retry`이다. 판의 Canvas 포커스는
+`rhythm_challenge_arena_focus`, 터치 방향 버튼은 `rhythm_challenge_input_left`, `rhythm_challenge_input_down`,
+`rhythm_challenge_input_up`, `rhythm_challenge_input_right`이다. 옵션과 결과 옆 랭킹의 더 보기와 다시 불러오기는
+`rhythm_ranking_more`, `rhythm_ranking_retry`이다. 랭킹 도전의 점수와 입력은 분석 이벤트로 보내지 않는다.
+따라 하기와 연습 화면의 싱글 플레이 복귀는 `rhythm_single_back`이다. 따라 하기의 단계 선택은
+`rhythm_lesson_step_kung`, `rhythm_lesson_step_chak`, `rhythm_lesson_step_chi`, 빠르기는
+`rhythm_lesson_tempo_slow`, `rhythm_lesson_tempo_normal`, `rhythm_lesson_tempo_original`,
+배속은 `rhythm_lesson_speed_change`, 듣기와 해보기는 `rhythm_lesson_listen`, `rhythm_lesson_try`,
+다음 단계와 마치기는 `rhythm_lesson_next`, `rhythm_lesson_finish`, 건너뛰기는 `rhythm_lesson_skip`이다.
+연습 화면의 세균 위 소리 글자 표시는 `rhythm_labels_toggle`, 다시 불러오기는 `rhythm_harpoon_reload`를 사용한다.
+연습과 따라 하기 도구 막대의 설정 서랍 열기와 닫기는 `rhythm_settings_toggle`이다.
+키 배치 바꾸기는 `rhythm_key_bind_left`, `rhythm_key_bind_down`, `rhythm_key_bind_up`, `rhythm_key_bind_right`,
+`rhythm_key_bind_retry`, 기본 키로 되돌리기는 `rhythm_key_reset`이다. 어떤 키를 골랐는지는 수집하지 않는다.
+게임 안의 조작은 `rhythm_` 접두사의 고정 action을 각 버튼과 입력에 지정한다.
+게임은 같은 React 문서의 기존 자동 수집을 사용하며 별도 SDK를 추가하지 않는다.
+키 입력, 보정 측정값과 점수에 대한 별도 분석 이벤트는 전송하지 않는다.
+터치 방향 버튼은 `rhythm_input_left`, `rhythm_input_down`, `rhythm_input_up`, `rhythm_input_right`로
+구분하며, 누를 때마다 click 자동 수집 이벤트가 하나씩 생긴다.
+
+리듬게임 온라인 매칭(1:1 대전) 대기실의 첫 화면 복귀는 `rhythm_entry_back`, 방 만들기의 공개 여부와 난이도 선택은
+`rhythm_battle_visibility_select`, `rhythm_battle_level_select`, 방 만들기는 `rhythm_battle_create`, 공개 방 참가는
+`rhythm_battle_join`, 이미 앉은 방으로 돌아가는 "내 방으로"는 `rhythm_battle_my_room_open`이다. 초대 링크 화면의 참가는 `rhythm_battle_invite_join`, 방과 초대 화면의 대기실 복귀는
+`rhythm_battle_lobby_back`이다. 방 안에서는 초대 링크 만들기와 복사가 `rhythm_battle_invite_create`,
+`rhythm_battle_invite_copy`, 배속 선택이 `rhythm_battle_speed_change`, 준비와 준비 취소가 `rhythm_battle_ready_toggle`,
+방장의 시작이 `rhythm_battle_start`, 방 나가기가 `rhythm_battle_leave`, 채팅 입력과 보내기가 `rhythm_battle_chat_input`,
+`rhythm_battle_chat_send`이다. 판의 Canvas 포커스는 `rhythm_battle_arena_focus`, 브라우저가 소리를 막았을 때 띄우는 "눌러서 소리 켜기"는 `rhythm_battle_audio_unlock`, 터치 방향 버튼은
+`rhythm_battle_input_left`, `rhythm_battle_input_down`, `rhythm_battle_input_up`, `rhythm_battle_input_right`이다.
+대전의 점수, 입력, 채팅 내용과 상대 정보는 분석 이벤트로 보내지 않는다.
+
+좌표, 회원 이름, 방 ID와 초대 토큰을 action에 포함하지 않는다. 초대 토큰을 담은
+`/games/gomoku/invite/*`와 `/api/games/gomoku/invitations/*`는 분석과 녹화를 중단하는
+private route다. 경로 정규화에서도 토큰은 `:redacted`로 치환한다. 복사 주소는
+`ph-no-capture ph-no-record` 영역에 둔다. 버튼 클릭은 시도로 수집하며, 실제 대국 시작 건수는
+서버가 시작을 확정한 `gomoku_game_started`로 집계한다.
+
+오목 규칙 모달 열기/닫기는 `gomoku_rules_toggle`, `gomoku_rules_dismiss` 고정 action을 사용한다.
+
+규칙 예시 버튼은 `gomoku_double_three_example_open`, `gomoku_double_four_example_open` 고정 action을 사용한다.
+
+종료된 오목방 중앙의 대기실 이동 버튼은 `gomoku_closed_lobby_open`을 사용한다.
+
+### 서버 대국 이벤트
+
+서버가 대국 시작과 종료를 확정할 때 각각 `gomoku_game_started`와 `gomoku_game_finished`를
+기록한다. 시작 건수는 `gomoku_game_started`가 있는 고유 `game_id` 수다. 두 이벤트는
+같은 `game_id`를 사용하며, 재대결에는 새 ID를 사용한다.
+종료 속성은 `end_reason`(FIVE, DRAW, RESIGN, TIMEOUT), `duration_ms`(밀리초),
+`move_count`(총 착수 수)다. `RESIGN`에는 기권 버튼과 대국 중 방 나가기가 함께 포함된다.
+시간 초과는 해당 턴의 마감 시각을 종료 시각으로 사용한다.
+서버 이벤트는 대국 ID를 분석 식별자로 사용하고 회원 프로필을 만들지 않는다.
+
+운영 백엔드는 `application-prod.yaml`의 공개 PostHog 프로젝트 토큰과 수집 주소를 사용한다.
+운영 앱을 배포하면 수집이 시작된다. 수집을 끄거나 프로젝트를 바꾸려면 운영 앱 설정을
+수정해 재배포한다. 운영 프로젝트 토큰이나 주소를 교체할 때는 프론트엔드 배포 변수도
+함께 맞춘다.
+대국 기록과 같은 트랜잭션에 저장된 이벤트는 커밋 이후 백그라운드에서 전송한다.
+재시도는 이벤트 UUID와 발생 시각을 유지하며 PostHog가 중복을 제거한다.
+활성화 전 시작 이벤트는 소급 전송하지 않는다. 시작 기록이 남아 있는 진행 중 대국은
+활성화 후 종료 이벤트만 수집될 수 있으므로, 완주율은 시작 이벤트가 있는 `game_id`를
+기준으로 집계한다.
+
+활성화 배포 중 이전 슬롯과 새 슬롯의 시간 초과 작업이 함께 실행된다. 수집이 꺼진 이전
+슬롯이 먼저 종료한 대국은 DB에 결과가 저장되고 PostHog의 `TIMEOUT` 종료 이벤트는 빠질 수
+있다. 운영 기록에 수집을 켠 배포의 트래픽 전환 시각과 이전 슬롯 정지 시각을 남겨 초기
+지표를 해석할 때 참고한다.
+
+### 오목 통계 화면
+
+대기실 탭은 `gomoku_lobby_tab_rooms`, `gomoku_lobby_tab_history`, `gomoku_lobby_tab_ranking`으로 구분한다. 통계 로그인은 `gomoku_statistics_login`, 빈 전적에서 대기방 이동은 `gomoku_history_browse`다. 조회 재시도는 `gomoku_history_retry`, `gomoku_ranking_retry`, 추가 페이지는 `gomoku_history_more`, `gomoku_ranking_more`, 추가 페이지 재시도는 `gomoku_history_more_retry`, `gomoku_ranking_more_retry`다. 회원 이름/ID, 순위/승률, 상대 정보나 검색어를 action 값에 넣지 않으며 기존 텍스트/응답 마스킹을 유지한다.
+
+## 오목 게임방 채팅
+
+채팅 패널과 입력은 data-ph-private로 마스킹한다. 메시지 원문, 이름과 UUID를 분석 이벤트에 보내지 않는다. 고정 action은 gomoku_chat_open, gomoku_chat_dismiss, gomoku_chat_history_load, gomoku_chat_scroll_latest, gomoku_chat_refresh, gomoku_chat_message_input, gomoku_chat_message_submit, gomoku_chat_message_send, gomoku_chat_message_retry다.
+
+## 오목 관전
+
+고정 action은 gomoku_observation_open, gomoku_observation_retry, gomoku_observation_leave, gomoku_observation_lobby_open이다. 관전 식별자와 메시지 내용은 분석에 보내지 않으며 기존 채팅 마스킹을 유지한다.
+
+관전자 수의 프로필 목록 열기/닫기는 `gomoku_spectators_toggle` 고정 action을 사용한다. 관전자 수, 닉네임, 프로필 URL과 회원 ID는 분석 속성에 포함하지 않고 드롭다운까지 `data-ph-private`로 마스킹한다.
+
+## 아바타 시제품
+
+독립 시제품의 홈 이동, 스타일 선택, 동작 선택, 회전, 얼굴 이미지 받기, 받아치기 체험은 각각
+`avatar_lab_home`, `avatar_lab_preset_select`, `avatar_lab_pose_change`, `avatar_lab_rotate`,
+`avatar_lab_portrait_download`, `avatar_lab_clash`로 식별한다. 시제품은 분석 SDK를 초기화하지 않으며
+체험 메시지·외형 선택값을 분석으로 보내지 않는다. 기존 토론 iframe의 interaction 메시지도 시제품 호스트에서 수집하지 않는다.
+
+파츠 편집의 카테고리 이동은 `avatar_lab_category_change`, 추천 스타일 펼치기는 `avatar_lab_presets_toggle`,
+되돌리기·다시 하기는 `avatar_lab_undo`, `avatar_lab_redo`, 초기화는 `avatar_lab_reset`이다.
+파츠 선택은 `avatar_lab_face_change`, `avatar_lab_skin_change`, `avatar_lab_hair_change`,
+`avatar_lab_hair_color_change`, `avatar_lab_eyes_change`, `avatar_lab_eyebrows_change`,
+`avatar_lab_nose_change`, `avatar_lab_mouth_change`, `avatar_lab_glasses_change`, `avatar_lab_outfit_change`,
+`avatar_lab_shoes_change`, `avatar_lab_shoe_color_change`, `avatar_lab_hat_change`, `avatar_lab_hat_color_change`,
+`avatar_lab_bag_change`, `avatar_lab_bag_color_change`, `avatar_lab_handheld_change`다.
+색상·파츠 값과 외형 데이터를 action에 넣지 않으며 기존 시제품의 미수집 정책을 유지한다.
+
+회원 편집기의 iframe도 분석 SDK를 초기화하지 않는다. 따라서 iframe 내부의 파츠 선택·추천 조합·동작·회전 등
+`avatar_lab_*` 속성은 현재 실제로 수집되지 않는다. 부모로 action이나 외형 값을 중계하지 않으며,
+식별자는 향후 계측을 위한 고정 이름으로만 유지한다. 아래 회원 관리 action 중 부모 문서의 진입·저장·삭제 등만
+기존 앱 분석 설정에 따라 수집한다.
+
+## 회원 아바타 관리
+
+마이페이지 진입은 `my_avatar_edit_open`, 재조회는 `avatar_load_retry`, 마이페이지 복귀는
+`avatar_back_to_my`, 서버 저장은 `avatar_save`다. 삭제 열기·닫기·취소·확인은
+`avatar_delete_open`, `avatar_delete_close`, `avatar_delete_cancel`, `avatar_delete_confirm`이다.
+미저장 이탈 확인은 `avatar_leave_close`, `avatar_leave_cancel`, `avatar_leave_confirm`을 사용한다.
+같은 파츠 편집기를 재사용하므로 내부의 기존 `avatar_lab_*` 식별자는 유지한다.
+회원용 추천 조합은 항상 펼쳐 보여 주므로 `avatar_lab_presets_toggle`은 체험판에만 남는다.
+회원 편집기의 전체 보기·얼굴 확대는 `avatar_lab_view_change`로 구분하며 파츠 값은 포함하지 않는다.
+편집 iframe은 분석 SDK를 초기화하지 않으며 외형·선택값을 분석 메시지로 전달하지 않는다.
+부모 미리보기는 `data-ph-private`로 가린다. 인증·CSRF와 API 통계는 기존 공통 client를 사용한다.
+
+## 의자 쌓기
+
+게임방 진입은 `chair_stack_open`, 시작은 `chair_stack_start`, 게임판 위치 선택은 `chair_stack_position_select`, 놓기는 `chair_stack_drop`, 다시 도전은 `chair_stack_replay`, 랭킹 열기는 `chair_stack_rankings_open`을 사용한다. 닉네임 입력과 랭킹의 닉네임은 녹화에서 가린다. 좌표, 흔들림 시점, 게스트 쿠키 값은 분석 속성에 넣지 않는다.
+의자 회전, 좌우 반전, 상하 반전은 각각 `chair_stack_rotate`, `chair_stack_flip_horizontal`, `chair_stack_flip_vertical`을 사용한다.

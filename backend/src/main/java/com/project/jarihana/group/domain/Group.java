@@ -14,6 +14,7 @@ import java.util.Objects;
 @Entity
 @Table(
         name = "groups",
+        indexes = @Index(name = "idx_groups_status_created_id", columnList = "status, created_at DESC, id DESC"),
         uniqueConstraints = @UniqueConstraint(name = "uk_groups_name", columnNames = "name")
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -41,6 +42,13 @@ public class Group extends BaseEntity {
 
     @Column(name = "show_base_schedule_in_calendar", nullable = false)
     private boolean showBaseScheduleInCalendar;
+
+    @Column(name = "clubhouse_setup_enabled", nullable = false, updatable = false)
+    private boolean clubhouseSetupEnabled = true;
+
+    public boolean isClubhouseSetupEnabled() {
+        return clubhouseSetupEnabled;
+    }
 
     @Column(name = "ended_on")
     private LocalDate endedOn;

@@ -21,8 +21,14 @@ const mySide = () => state.mySide;
 const mobileComposer = () => innerWidth <= 700;
 const composerInput = side => mobileComposer() ? $('#message') : $(`[data-input-side="${side}"]`);
 function scenePost(post) {
-  const parent = state.posts.find(item => item.id === post.replyToId) ?? post.replyTo;
-  return { ...post, mine: own(post), name: displayName(post), replyTo: parent ? { ...parent, name: displayName(parent) } : null };
+  const cachedParent = state.posts.find(item => item.id === post.replyToId);
+  const parent = post.replyTo ? { ...cachedParent, ...post.replyTo } : cachedParent;
+  const withAppearance = item => ({
+    ...item,
+    appearance: item.appearance === undefined && own(item) ? state.actorAppearance : item.appearance,
+    name: displayName(item),
+  });
+  return { ...withAppearance(post), mine: own(post), replyTo: parent ? withAppearance(parent) : null };
 }
 const scenePosts = () => state.posts.map(scenePost);
 function announce(text) { $('#stage-status').textContent = text; }
@@ -56,7 +62,7 @@ function formatTime(timestamp) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(timestamp);
 }
 function storageStatus() {
-  $('#storage-note').textContent = state.connection === 'offline'
+  $('#storage-note').textContent = state.topic.example ? '체험용 대화예요. 새로고침하면 처음으로 돌아가요.' : state.connection === 'offline'
     ? '오프라인이에요. 작성 중인 글은 그대로 두고 다시 연결할게요.'
     : '대화는 서버에 저장돼요. 최근 대화와 지난 대화를 이어서 보여드려요.';
 }
@@ -115,6 +121,15 @@ function changeView(event) {
   if (event.source !== window.parent || event.origin !== location.origin) return;
   if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'view') arena?.setView(event.data.value);
   if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'clash-camera' && typeof event.data.value === 'boolean') arena?.setClashCamera(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'brawl' && typeof event.data.value === 'boolean') arena?.setBrawl(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'speech-overlap' && typeof event.data.value === 'boolean') arena?.setSpeechOverlap(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'character-limits'
+    && ['a', 'b'].every(side => event.data.value?.[side] === null || Number.isInteger(event.data.value?.[side]) && event.data.value[side] >= 1 && event.data.value[side] <= 8)) arena?.setCharacterLimits(event.data.value);
+  if (event.data?.channel === 'jarihana-sparring' && event.data.kind === 'composer-open'
+    && ['a', 'b'].includes(event.data.side) && event.data.side === mySide() && !isClosed()) {
+    expandedSide = event.data.side;
+    renderInput();
+  }
 }
 window.addEventListener('message', changeView);
 window.addEventListener('pagehide', () => window.removeEventListener('message', changeView));
@@ -129,6 +144,13 @@ window.addEventListener('pagehide', () => {
 });
 
 const isClosed = () => !!state.topic.closesAt && Date.now() >= new Date(state.topic.closesAt).getTime();
+function renderReplyTarget(target) {
+  const bubble = $('#reply-target');
+  bubble.dataset.side = target.side;
+  bubble.setAttribute('aria-label', `${sideNames[target.side]}의 받아칠 의견`);
+  $('#reply-target-text').textContent = target.text;
+  $('#reply-target-author').textContent = displayName(target) + '에게 받아치기';
+}
 function renderInput() {
   const side = mySide(), draft = $('#message').value, mobile = mobileComposer();
   const replyTarget = $('#reply-target');
@@ -141,6 +163,7 @@ function renderInput() {
     const expanded = mobile ? choice === 'a' : chosen && expandedSide === choice;
     device.querySelector('.composer-field').dataset.reply = String(chosen && !!replyToId);
     device.dataset.expanded = String(expanded);
+    device.avatarAppearance = state.actorAppearance ?? null;
     device.dataset.memberType = state.actorMemberType ?? state.posts.find(own)?.memberType ?? 'CREW';
     const panel = device.querySelector('.composer-drawer');
     panel.id = `composer-panel-${choice}`;
@@ -153,6 +176,8 @@ function renderInput() {
     toggle.querySelector('.composer-hint').textContent = isClosed() ? '마감된 토론' : voting && pendingSide === choice ? '선택 중…' : mobile ? (chosen ? '선택됨' : '선택') : '내 생각은…';
     toggle.setAttribute('aria-controls', mobile ? 'composer-panel-a' : panel.id);
     input.disabled = isClosed() || (mobile ? choice === 'b' : !chosen);
+    if (replyToId && side && (mobile ? choice === 'a' : chosen)) input.setAttribute('aria-describedby', 'reply-target-author reply-target-text');
+    else input.removeAttribute('aria-describedby');
     input.readOnly = false;
     input.placeholder = isClosed() ? '마감된 토론이에요' : chosen ? (replyToId ? '이 의견에 한마디 받아쳐볼까요?' : '내 생각은…') : '캐릭터를 눌러 한마디 남겨보세요';
     device.querySelector('label').textContent = state.topic[choice] + (replyToId && chosen ? ' · 받아치기' : ' · 한마디');
@@ -195,7 +220,7 @@ function renderCounts() {
   $('#count-b').textContent = result.b + '표';
   $('#percent-a').textContent = (result.total ? percent : 0) + '%';
   $('#percent-b').textContent = (result.total ? 100 - percent : 0) + '%';
-  $('#seat-instruction').textContent = voteError || (voting ? sideNames[pendingSide] + ' 선택을 저장하고 있어요…' : '');
+  $('#seat-instruction').textContent = voteError;
   for (const choice of ['a', 'b']) $('#station-' + choice).classList.toggle('chosen', choice === side);
   document.querySelectorAll('.vote-option[data-side]').forEach(button => {
     const chosen = button.dataset.side === side;
@@ -210,7 +235,7 @@ function renderCounts() {
   $('#empty-stage').hidden = !!state.posts.length;
   $('#spill').disabled = !state.posts.length;
   $('#current-post').hidden = !selectedId;
-  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) });
+  arena?.updateState(scenePosts(), result, state.history && { ...state.history, posts: state.history.posts.map(scenePost) }, state.avatarCandidates);
   renderInput(); storageStatus();
 }
 function sync() { state = store.snapshot(roomId); renderCounts(); flowLabel(); }
@@ -247,6 +272,7 @@ document.querySelectorAll('.vote-option[data-side]').forEach(button => button.ad
   voting = true; pendingSide = side; voteError = ''; composerError();
   try {
     renderCounts();
+    announce(sideNames[side] + ' 선택을 저장하고 있어요…');
     await store.vote(roomId, state.actorId, '', side); sync();
     arena?.chooseSide(side);
     if (mySide() === side) {
@@ -283,8 +309,7 @@ function startReply(id) {
   document.querySelectorAll('.history-conversation-speech, .duel-speech, .capsule-note, .capsule-flight-tag').forEach(bubble => {
     bubble.dataset.replySelected = String(bubble.dataset.postId === String(target.id));
   });
-  $('#reply-target-text').textContent = target.text;
-  $('#reply-target-author').textContent = displayName(target) + '에게 받아치기';
+  renderReplyTarget(target);
   announce('받아칠 의견을 선택했어요. ' + target.text);
   renderInput();
   revealComposer($('#composer'));
@@ -334,10 +359,7 @@ async function submitShipment(shipment) {
       replyToId = shipment.replyToId;
       const target = findPost(replyToId);
       $('#reply-target').hidden = !target;
-      if (target) {
-        $('#reply-target-text').textContent = target.text;
-        $('#reply-target-author').textContent = displayName(target) + '에게 받아치기';
-      }
+      if (target) renderReplyTarget(target);
     }
     composerError(error.message);
   } finally { pendingShipments.delete(shipment.id); sync(); }

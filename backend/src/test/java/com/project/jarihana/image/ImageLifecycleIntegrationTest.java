@@ -39,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -73,6 +74,43 @@ class ImageLifecycleIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @DisplayName("거부 작업이 한 배치를 채워도 다음 배치는 정상 작업을 처리하고 거부 기록을 보존한다.")
+    @Test
+    void rejectedBatchDoesNotStarveValidDeletion() {
+        // Given
+        LocalDateTime now = TestSupportConfig.FIXED_NOW;
+        for (int index = 0; index < 100; index++) {
+            deletionTaskRepository.save(ImageDeletionTask.create(
+                    null, "other-team/rejected-" + index + ".webp", now.minusDays(2), now.minusDays(9)));
+        }
+        ImageDeletionTask valid = deletionTaskRepository.save(ImageDeletionTask.create(
+                null, "groups/tmp/after-rejected-batch.webp", now.minusDays(1), now.minusDays(8)));
+
+        // When
+        cleanupService.cleanupBatch();
+
+        // Then
+        assertThat(deletionTaskRepository.findDue(now, PageRequest.of(0, 100)))
+                .extracting(ImageDeletionTask::getId).containsExactly(valid.getId());
+        assertThat(jdbc.queryForObject("""
+                select count(*) from image_deletion_task
+                where execute_after = ? and attempts = 1 and last_error = 'ImageStorageBoundaryException'
+                  and status = 'PENDING' and locked_until is null
+                """, Long.class, now.plusDays(7))).isEqualTo(100L);
+        assertThat(imageStorage.metadata("other-team/rejected-0.webp")).isNotNull();
+
+        cleanupService.cleanupBatch();
+
+        assertThat(deletionTaskRepository.findById(valid.getId())).isEmpty();
+        assertThat(imageStorage.metadata(valid.getImageKey())).isNull();
+        assertThat(deletionTaskRepository.count()).isEqualTo(100);
+        assertThat(deletionTaskRepository.findDue(now, PageRequest.of(0, 100))).isEmpty();
+        assertThat(jdbc.queryForObject("select min(attempts) from image_deletion_task", Integer.class)).isEqualTo(1);
+    }
 
     @DisplayName("마지막 참조가 사라진 이미지는 7일 뒤 삭제하도록 예약한다.")
     @Test

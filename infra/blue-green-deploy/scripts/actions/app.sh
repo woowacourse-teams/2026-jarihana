@@ -65,6 +65,8 @@ app_snapshot() {
 app_read() { app_snapshot || bg_die 'Application snapshot unavailable or invalid; no mutation authorized'; }
 app_drained() { app_assert '.worker.state=="PAUSED" and .worker.inFlight==0 and .worker.unresolved==0'; }
 app_all_drained() { app_drained; app_assert '.activity.httpInFlight==0 and .activity.backgroundInFlight==0 and .activity.backgroundDrained'; }
+# Bootstrap only registers the worker owner on the app that already serves HTTP; it never stops that app.
+app_background_drained() { app_drained; app_assert '.activity.backgroundInFlight==0 and .activity.backgroundDrained'; }
 app_current_owner() { app_assert '.authority.owner==.identity and .authority.status=="ACTIVE" and .worker.state=="ACTIVE"'; }
 app_owner() { app_current_owner; app_assert '.healthy'; }
 app_unassigned() { app_drained; app_assert '.authority.owner==null and .authority.status=="UNASSIGNED"'; }
@@ -215,17 +217,36 @@ app_stop_container() {
   STOPPED=true
 }
 
+app_release_compose() {
+  local destination=$1 checkout=$SCRIPT_ROOT
+  local source_path=infra/blue-green-deploy/controller/app-compose.yml
+  local source_sha blob size release_hash
+  source_sha=$(git -C "$checkout" rev-parse --verify HEAD) || bg_die 'Release Compose checkout is missing'
+  [[ "$source_sha" == "$GITHUB_SHA" ]] || bg_die 'Release Compose checkout does not match the deployment commit'
+  blob="$source_sha:$source_path"
+  size=$(git -C "$checkout" cat-file -s "$blob") || bg_die 'Release Compose file is missing'
+  (( size > 0 && size <= 65536 )) || bg_die 'Release Compose file size is invalid'
+  git -C "$checkout" cat-file blob "$blob" >"$destination" || bg_die 'Cannot read release Compose'
+  release_hash=$(sha256sum "$destination") || bg_die 'Cannot hash release Compose'
+  RELEASE_COMPOSE_SOURCE=$(jq -cn --arg commit "$source_sha" --arg sha256 "${release_hash%% *}" '{commit:$commit,sha256:$sha256}')
+  printf 'Release Compose commit: %s, SHA-256: %s, path: %s\n' "$source_sha" "${release_hash%% *}" "$source_path"
+}
+
 app_prepare() {
-  local compose existing inspected deadline pin
-  compose=$(jq -r '.compose_file' <<<"$CONFIG")
-  bg_root_file "$compose"
-  cmp -s "$compose" "$SCRIPT_ROOT/../../controller/app-compose.yml" || bg_die 'Installed Compose differs from immutable checkout'
+  local compose project_directory existing inspected deadline pin
+  project_directory="/etc/jarihana-deploy/$ENVIRONMENT"
+  RELEASE_COMPOSE_FILE=$(mktemp "$APP_DIR/release-compose.XXXXXX")
+  trap 'rm -f -- "$RELEASE_COMPOSE_FILE"' EXIT
+  app_release_compose "$RELEASE_COMPOSE_FILE"
+  compose=$RELEASE_COMPOSE_FILE
   : "${RDS_URL:?GitHub RDS_URL is required}"
   [[ "$RDS_URL" =~ ^[a-zA-Z0-9.-]+$ ]] || bg_die 'RDS_URL must contain only the environment DB endpoint'
   export BACKEND_IMAGE="$IMAGE_REPOSITORY" BACKEND_DIGEST="$BG_IMAGE_DIGEST" DEPLOY_ENVIRONMENT="$ENVIRONMENT"
   export DEPLOY_HOST_ID="$HOST_ID" APP_BIND_ADDRESS="$(jq -r '.upstream|split(":")[0]' <<<"$HOST")"
   export APP_PORT="$(jq -r '.app_port' <<<"$CONFIG")" MANAGEMENT_PORT DEPLOY_CONTAINER="$CONTAINER" DEPLOY_DB_NAME="jarihana_$ENVIRONMENT"
   app_push_settings
+  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --project-directory "$project_directory" --env-file /dev/null -f "$compose")
+  app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check
   existing=$(docker ps -aq --no-trunc --filter "name=^/$CONTAINER$") || bg_die 'Cannot enumerate application containers'
   if [[ -n "$existing" ]]; then
@@ -250,8 +271,6 @@ app_prepare() {
     docker rm -- "$(jq -r '.container_id' <<<"$pin")" >/dev/null || bg_die 'Cannot remove normally stopped standby'
   fi
   BOOT_ID=; STOPPED=false
-  local args=(docker compose --project-name "$(jq -r '.project' <<<"$CONFIG")" --env-file /dev/null -f "$compose")
-  app_check; "${args[@]}" config --quiet >/dev/null 2>&1 || bg_die 'Compose configuration invalid'
   app_check; timeout 150 "${args[@]}" pull backend >"$APP_DIR/compose.log" 2>&1 || bg_die 'Image pull failed'
   app_check; bg_live; timeout 150 "${args[@]}" up -d --no-build --pull never backend >>"$APP_DIR/compose.log" 2>&1 || bg_die 'Candidate startup uncertain; preserve container'
   deadline=$(( $(bg_now)+600 ))
@@ -306,7 +325,7 @@ app_run() {
     activate) app_command activate; app_command phase OBSERVE;;
     observe) app_observe;;
     complete) app_command phase COMPLETE;;
-    bootstrap) app_all_drained; app_assert '.healthy and (.authority==null or (.authority.owner==null and .authority.status=="UNASSIGNED" and (.authority.phase=="IDLE" or .authority.phase=="COMPLETE")))'
+    bootstrap) app_background_drained; app_assert '.healthy and (.authority==null or (.authority.owner==null and .authority.status=="UNASSIGNED" and (.authority.phase=="IDLE" or .authority.phase=="COMPLETE")))'
       [[ $(jq -r '.version' <<<"$SNAPSHOT") == "$BG_IMAGE_DIGEST" ]] || bg_die 'Bootstrap image differs'
       app_command begin; app_command phase HANDOFF; app_command activate; app_command phase OBSERVE; app_command phase COMPLETE;;
     rollback)
@@ -326,10 +345,21 @@ app_run() {
 }
 
 app_result() {
+  local compose_source
+  if [[ $OPERATION == prepare ]]; then
+    compose_source=${RELEASE_COMPOSE_SOURCE:?Prepared Compose source is required}
+  else
+    compose_source=$(jq -c --argjson app "$SNAPSHOT" '
+      [.target_status,.old_status,.previous_backend_status]
+      | map(select(.identity==$app.identity and .image==$app.version) | .compose_source // empty)
+      | unique | if length>1 then error("Conflicting Compose sources") else .[0] end
+    ' <<<"$STATE") || bg_die 'Cannot establish application Compose source'
+  fi
   RESULT=$(jq -c --arg instance "$INSTANCE_ID" --arg op "$OPERATION" --arg dep "$DEPLOYMENT_ID" --arg slot "$BG_SLOT" \
     --argjson run "$RUN_ID" --arg grant "$GRANT_ID" --argjson stopped "$STOPPED" --argjson evidence "${SHUTDOWN_EVIDENCE:-null}" \
+    --argjson compose "$compose_source" \
     --argjson started "${OBSERVED_STARTED_AT:-null}" --argjson finished "${OBSERVED_FINISHED_AT:-null}" \
-    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
+    '. + {instance_id:$instance,operation:$op,deployment_id:$dep,slot:$slot,run_id:$run,pending_id:$grant,grant_id:$grant,image:.version,compose_source:$compose,running:($stopped|not),normal_exit:$stopped,shutdown_evidence:$evidence,observed_started_at:$started,observed_finished_at:$finished}' <<<"$SNAPSHOT")
   bg_output result "$RESULT"
 }
 

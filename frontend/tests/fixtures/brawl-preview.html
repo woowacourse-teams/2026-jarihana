@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>가상 대화로 패싸움 확인</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;font:14px system-ui;background:#fff;color:#222}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #ddd}
+  select,button,summary{min-height:44px;padding:8px 12px;border:1px solid #bbb;border-radius:12px;background:white;font:inherit}
+  details{position:relative}summary{cursor:pointer}.options{position:absolute;z-index:1;top:calc(100% + 8px);right:0;display:grid;gap:8px;width:220px;padding:12px;background:white;border:1px solid #bbb;border-radius:12px}
+  iframe{display:block;width:100%;height:calc(100dvh - 120px);border:0}p{margin:0;color:#555}
+</style>
+<header>
+  <strong>가상 대화 미리보기</strong>
+  <label>대화 기록 <select id="scenario" data-ph-capture-attribute-action="sparring_brawl_preview_scenario">
+    <option value="mixed">30명의 서로 다른 대화 · 240개 글</option>
+    <option value="spam">여러 작성자 + 한 사람의 연속 글</option>
+    <option value="crowd">15명 대 15명 · 각자 4개 글</option>
+    <option value="rotation">20명 대 20명 · 8명씩 교체</option>
+    <option value="solo">1명 · 혼자 쓴 글 50개</option>
+    <option value="uneven">3명 대 7명 · 각자 4개 글</option>
+    <option value="empty">대화 없음</option>
+  </select></label>
+  <details>
+    <summary data-ph-capture-attribute-action="sparring_experiment_menu">임시 옵션</summary>
+    <div class="options">
+      <button id="restore-compact" type="button" data-ph-capture-attribute-action="sparring_compact_restore">기존 아담한 구조</button>
+      <button id="toggle" type="button" role="switch" aria-checked="true" data-ph-capture-attribute-action="sparring_brawl_toggle">패싸움</button>
+      <button id="speech-overlap" type="button" role="switch" aria-checked="false" aria-describedby="speech-overlap-description" data-ph-capture-attribute-action="sparring_speech_overlap_toggle">말풍선 겹침 허용</button>
+      <p id="speech-overlap-description">끄면 말풍선이 덜 겹치도록 펼쳐요. 켜면 겹치더라도 캐릭터 가까이에 보여요.</p>
+    </div>
+  </details>
+  <button id="fresh" type="button" data-ph-capture-attribute-action="sparring_brawl_preview_fresh">가상 새 글</button>
+  <button id="new-author" type="button" data-ph-capture-attribute-action="sparring_brawl_preview_new_author">새 작성자 등장</button>
+  <button id="repeat-author" type="button" data-ph-capture-attribute-action="sparring_brawl_preview_repeat_author">같은 작성자 5연속</button>
+  <p>테스트 데이터이며 실제 서버에 저장하지 않습니다.</p>
+  <p id="activity" role="status"></p>
+</header>
+<iframe title="가상 대화 패싸움 경기장"></iframe>
+<script type="module">
+  import { brawlPosts } from './brawl-posts.js';
+  const frame = document.querySelector('iframe'), scenario = document.querySelector('#scenario'), toggle = document.querySelector('#toggle');
+  let enabled = true, state, archive = [], authors = [], cursor = 0, nextId = 0, authorTurn = 0, newcomer = 0, lastAuthor;
+  const speechOverlapToggle = document.querySelector('#speech-overlap');
+  let speechOverlap = false;
+  try { speechOverlap = localStorage.getItem('jarihana.sparring.speech-overlap') === 'on'; }
+  catch { /* The preview switch works without preference storage. */ }
+  speechOverlapToggle.setAttribute('aria-checked', String(speechOverlap));
+  const send = message => frame.contentWindow.postMessage({ channel: 'jarihana-sparring', ...message }, location.origin);
+  const viewport = () => send({ kind: 'viewport', height: innerHeight - frame.getBoundingClientRect().top, contentWidth: document.documentElement.clientWidth });
+  function load() {
+    const counts = { mixed: [15, 15, 8], spam: [8, 8, 4], crowd: [15, 15, 4], rotation: [20, 20, 4], solo: [1, 0, 50], uneven: [3, 7, 4], empty: [0, 0, 1] }[scenario.value];
+    const [a, b] = counts, posts = brawlPosts(...counts, { burst: scenario.value === 'spam' });
+    authors = [...new Map(posts.map(post => [post.authorId, post])).values()];
+    authorTurn = 0; newcomer = 0; lastAuthor = null;
+    document.querySelector('#activity').textContent = `${a + b}명의 가상 작성자가 남긴 ${posts.length}개 글`;
+    const sides = ['a', 'b'].map(side => posts.filter(post => post.side === side).reverse());
+    archive = Array.from({ length: Math.max(...sides.map(list => list.length)) }, (_, i) => sides.map(list => list[i]).filter(Boolean)).flat();
+    cursor = 0; nextId = posts.length;
+    state = { topic: { id: 'preview', title: '가상 대화 · 직접 만나서 vs 온라인으로', a: '직접 만나서', b: '온라인으로', description: `${a}명 대 ${b}명 · 대화 ${posts.length}개`, status: 'CLOSED' },
+      actorId: 'guest', mySide: null, actorMemberType: 'CREW', postCount: posts.length, posts: posts.slice(-30),
+      balance: { a, b, total: a + b, ratio: a + b ? a / (a + b) : .5 }, history: nextPage(1), connection: 'live' };
+    frame.src = '/sparring-arena/index.html?preview=' + scenario.value;
+  }
+  function nextPage(page) {
+    if (cursor >= archive.length) cursor = 0;
+    const posts = archive.slice(cursor, cursor + 30); cursor += posts.length;
+    return { page, posts };
+  }
+  window.addEventListener('message', event => {
+    if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.channel !== 'jarihana-sparring') return;
+    if (event.data.kind === 'ready') { viewport(); send({ kind: 'snapshot', state }); }
+    if (event.data.kind === 'height') frame.style.height = `${event.data.height}px`;
+    if (event.data.kind === 'scene' && event.data.status === 'ready') {
+      send({ kind: 'brawl', value: enabled });
+      send({ kind: 'speech-overlap', value: speechOverlap });
+    }
+    if (event.data.kind === 'history' && event.data.page === state.history.page && archive.length) {
+      state.history = nextPage(state.history.page + 1); send({ kind: 'snapshot', state });
+    }
+    if (event.data.kind === 'command') send({ kind: 'result', requestId: event.data.requestId, error: '가상 대화 미리보기에서는 저장하지 않습니다.' });
+  });
+  scenario.addEventListener('change', load);
+  function publish(author, texts) {
+    lastAuthor = author;
+    const posts = texts.map(text => ({ ...author, id: String(++nextId), text, createdAt: Date.now(), replyToId: null, replyTo: null }));
+    state.posts = [...state.posts, ...posts].slice(-30); archive.push(...posts); state.postCount += posts.length;
+    const a = authors.filter(entry => entry.side === 'a').length, b = authors.length - a;
+    state.balance = { a, b, total: a + b, ratio: a + b ? a / (a + b) : .5 };
+    send({ kind: 'snapshot', state, fresh: posts.map(post => post.id), livePosts: posts });
+    document.querySelector('#activity').textContent = `${author.name} · 새 글 ${posts.length}개 · 전체 작성자 ${authors.length}명`;
+  }
+  document.querySelector('#fresh').addEventListener('click', () => {
+    if (!authors.length) return;
+    const author = authors[authorTurn++ % authors.length];
+    publish(author, [author.side === 'a' ? '저도 한마디요. 직접 만나서 얘기하고 싶어요!' : '다른 의견도 있어요. 온라인이라 더 자주 얘기해요!']);
+  });
+  document.querySelector('#new-author').addEventListener('click', () => {
+    newcomer++;
+    const author = { authorId: `newcomer-${newcomer}`, side: newcomer % 2 ? 'a' : 'b', name: `가상 새친구 ${newcomer}`, memberType: 'CREW' };
+    authors.push(author);
+    publish(author, ['안녕하세요! 저도 이 대화에 끼어볼게요.']);
+  });
+  document.querySelector('#repeat-author').addEventListener('click', () => {
+    const author = lastAuthor ?? authors[0];
+    if (!author) return;
+    publish(author, ['잠깐, 한마디 더요!', '같은 사람이 계속 말하고 있어요.', '캐릭터는 한 명이어야 해요.', '이번 말풍선도 제 의견이에요.', '다섯 번째 말까지 이어서 해봤어요.']);
+  });
+  window.addEventListener('resize', viewport);
+  document.querySelector('#restore-compact').addEventListener('click', () => {
+    send({ kind: 'view', value: 'compact' });
+  });
+  toggle.addEventListener('click', () => {
+    enabled = !enabled; toggle.setAttribute('aria-checked', String(enabled)); send({ kind: 'brawl', value: enabled });
+  });
+  speechOverlapToggle.addEventListener('click', () => {
+    speechOverlap = !speechOverlap;
+    speechOverlapToggle.setAttribute('aria-checked', String(speechOverlap));
+    send({ kind: 'speech-overlap', value: speechOverlap });
+    try { localStorage.setItem('jarihana.sparring.speech-overlap', speechOverlap ? 'on' : 'off'); }
+    catch { /* The preview switch works without preference storage. */ }
+  });
+  load();
+</script>
+</html>

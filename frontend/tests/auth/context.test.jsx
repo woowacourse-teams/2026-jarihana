@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "../../src/features/auth/context";
 import { bootstrapAuth } from "../../src/features/auth/bootstrap";
 import { ApiError } from "../../src/shared/api";
@@ -153,4 +153,37 @@ test("Given signup is incomplete, when auth bootstraps, then signup-required rem
 
   // Then
   await waitFor(() => expect(screen.getByText("signup-required")).toBeInTheDocument());
+});
+
+test("rechecks a BFCache-restored anonymous session and reflects completed signup", async () => {
+  const expired = new ApiError("expired");
+  expired.status = 401;
+  bootstrapAuth.mockRejectedValueOnce(expired);
+  const { unmount } = render(<StrictMode><AuthProvider><AuthStatus /></AuthProvider></StrictMode>);
+  await screen.findByText("anonymous");
+
+  fireEvent(window, new PageTransitionEvent("pageshow", { persisted: false }));
+  expect(bootstrapAuth).toHaveBeenCalledTimes(1);
+
+  let resolveProfile;
+  bootstrapAuth.mockImplementationOnce(() => new Promise(resolve => { resolveProfile = resolve; }));
+  fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+  await screen.findByText("loading");
+  await act(async () => resolveProfile({ signupCompleted: true, member: { id: 12 } }));
+  await screen.findByText("authenticated");
+  expect(bootstrapAuth).toHaveBeenCalledTimes(2);
+
+  unmount();
+  fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+  expect(bootstrapAuth).toHaveBeenCalledTimes(2);
+});
+
+test("shows a retryable error when restored-session verification fails", async () => {
+  bootstrapAuth.mockResolvedValueOnce({ signupCompleted: true, member: { id: 12 } });
+  render(<AuthProvider><AuthStatus /></AuthProvider>);
+  await screen.findByText("authenticated");
+  bootstrapAuth.mockRejectedValueOnce(new Error("offline on return"));
+  fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+  await screen.findByText("unavailable");
+  expect(screen.getByText("offline on return")).toBeInTheDocument();
 });

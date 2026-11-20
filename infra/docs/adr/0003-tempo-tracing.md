@@ -18,7 +18,7 @@ HTTP 처리와 DB 호출 중 어디에서 시간이 쓰였는지 확인하려면
 
 Spring 이미지에 OpenTelemetry Java Agent `2.32.0`을 버전·체크섬을 고정해 넣고 dev·prod Compose에서
 활성화하는 구성을 채택했다. 다만 현재 기본 배포에서는 [ADR 0004](0004-disable-tempo-by-default.md)에 따라
-`OTEL_SDK_DISABLED=true`로 Agent를 끄고 Tempo 전송도 제외한다. 이 ADR의 전송 경로는 trace 선택 구성을
+JVM을 Agent 없이 시작한다. 이 ADR의 전송 경로는 trace 선택 구성을
 다시 켤 때 적용한다. 앱은 기존 OTLP HTTP `4318`로 같은 EC2의 Alloy에 보내며 Alloy는 OTLP HTTP로
 별도 모니터링 EC2의 Nginx `8080`을 거쳐 Tempo HTTP receiver `4318`에 전달한다.
 기존 `TEMPO_OTLP_ENDPOINT` 이름을 유지하되 값은 `http://<monitoring-private-ip>:8080/tempo`로 바꾼다.

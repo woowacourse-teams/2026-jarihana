@@ -264,7 +264,7 @@ describe("backend DTO schemas", () => {
     expect(result.signupCompleted).toBe(false);
   });
 
-  it.each(["BOOTCAMP", "PROFESSIONAL"])("parses a %s member without generation or course", (memberType) => {
+  it.each(["BOOTCAMP", "PROFESSIONAL", "MEMBER"])("parses a %s member without generation or course", (memberType) => {
     // Given
     const member = {
       id: 3,

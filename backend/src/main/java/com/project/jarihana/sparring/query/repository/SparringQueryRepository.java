@@ -1,5 +1,7 @@
 package com.project.jarihana.sparring.query.repository;
 
+import com.project.jarihana.member.domain.AvatarAppearance;
+import com.project.jarihana.member.domain.MemberAvatar;
 import com.project.jarihana.sparring.domain.SparringTopic;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
 import com.project.jarihana.sparring.query.repository.dto.SparringTopicProjection;
@@ -54,6 +56,27 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
     @Query("select t.revision from SparringTopic t where t.id=:id")
     Optional<Long> revision(long id);
 
+    @Query("select t.id as id, t.revision as revision from SparringTopic t where t.id in :ids")
+    List<TopicRevision> revisions(List<Long> ids);
+
+    interface TopicRevision {
+        long getId();
+
+        long getRevision();
+    }
+
+    @Query("select a from MemberAvatar a where a.id in :memberIds")
+    List<MemberAvatar> findAuthorAvatars(List<Long> memberIds);
+
+    @Query(
+            """
+            select a.appearance
+            from SparringVote v join MemberAvatar a on a.id = v.member.id
+            where v.topic.id = :topicId
+            order by v.member.id
+            """)
+    List<AvatarAppearance> findVoterAppearances(long topicId, Pageable pageable);
+
     String POST_SELECT =
             """
             select p.id, p.member_id as authorId, m.crew_name as name, m.member_type as memberType,
@@ -68,11 +91,20 @@ public interface SparringQueryRepository extends Repository<SparringTopic, Long>
                     POST_SELECT
                             + """
                             where p.topic_id=:topicId and (cast(:beforeId as bigint) is null or p.id < :beforeId)
-                              and (:mine = false or p.member_id=:memberId) order by p.id desc
+                              and (:mine = false or p.member_id=:memberId)
+                              and (cast(:side as varchar) is null or p.side=:side)
+                              and (cast(:throughId as bigint) is null or p.id <= :throughId)
+                            order by p.id desc
                             """,
             nativeQuery = true)
     List<SparringPostProjection> posts(
-            long topicId, Long memberId, boolean mine, Long beforeId, Pageable pageable);
+            long topicId,
+            Long memberId,
+            boolean mine,
+            Long beforeId,
+            String side,
+            Long throughId,
+            Pageable pageable);
 
     @Query(
             value = POST_SELECT + " where p.topic_id=:topicId and p.id>:afterId order by p.id asc",

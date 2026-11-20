@@ -96,6 +96,26 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     }
   });
 
+  it('의자를 던진 뒤 선 자세를 유지하고 기존 시간이 지나면 다음 대화로 넘어갈 수 있다', () => {
+    land(reply, true);
+    duel.step(5.3);
+    const ending = [frame(0).motion, frame(1).motion];
+    for (const motion of ending) expect(motion).toMatchObject({
+      phase: 'settled', seated: 0, chair: { mode: 'flight' },
+    });
+    expect(duel.canReplace()).toBe(false);
+    duel.step(2.21);
+    expect(duel.canReplace()).toBe(true);
+    expect(duel.needsFrame()).toBe(false);
+    for (const index of [0, 1]) expect(frame(index).motion).toEqual(ending[index]);
+    expect(bubble('left')).toBeVisible();
+    expect(bubble('right')).toBeVisible();
+    duel.clear();
+    expect(field()).toHaveAttribute('data-chair-phase', 'waiting');
+    expect(bubble('left')).not.toBeVisible();
+    expect(bubble('right')).not.toBeVisible();
+  });
+
   it('같은 편의 받아치기는 원래 역할과 색을 유지하며 의자에 앉아 대화한다', () => {
     const participants = land({ ...reply, side: 'a' });
     expect(participants.map(item => item.role)).toEqual([1, 0]);
@@ -224,7 +244,29 @@ describe('미끄럼틀에서 나온 캐릭터 대치', () => {
     expect(duel.canReplace(true)).toBe(true);
     expect(duel.needsFrame()).toBe(false);
     for (const index of [0, 1]) {
-      expect(frame(index).motion).toMatchObject({ seated: 1, x: 0, y: 0, chair: { mode: 'seat' } });
+      expect(frame(index).motion).toMatchObject({ seated: 0, y: 0, chair: { mode: 'flight' } });
+      expect(frame(index).motion.x).toBeCloseTo(0);
     }
   });
+});
+
+it('커스텀 외형을 대치 렌더러에 전달하고 비우면 모델도 숨긴다', () => {
+  const { AVATAR_PRESETS } = require('../../public/sparring-arena/src/avatar-appearance.js');
+  const stage = document.createElement('div'); document.body.append(stage);
+  const visuals = { draw: jest.fn(), hide: jest.fn(), dispose: jest.fn() };
+  const duel = createCharacterDuel(stage, jest.fn(), jest.fn(), visuals);
+  const parent = { ...original, appearance: AVATAR_PRESETS[0].appearance };
+  const post = { ...reply, appearance: AVATAR_PRESETS[4].appearance, replyTo: parent };
+  try {
+    duel.setLayout([{ x: 100, y: 350 }, { x: 300, y: 350 }], 400);
+    duel.prepare(post, true, true);
+    expect(visuals.draw).not.toHaveBeenCalled();
+    duel.emerge(0, { x: 200, y: 250 }, true);
+    duel.emerge(1, { x: 200, y: 250 }, true);
+    expect(visuals.draw.mock.calls.find(call => call[0] === 0)[1].appearance).toEqual(parent.appearance);
+    expect(visuals.draw.mock.calls.find(call => call[0] === 1)[1].appearance).toEqual(post.appearance);
+    expect(visuals.draw.mock.lastCall[2].motion).toMatchObject({ phase: 'settled', seated: 1 });
+    visuals.hide.mockClear(); duel.clear();
+    expect(visuals.hide).toHaveBeenCalledWith(0); expect(visuals.hide).toHaveBeenCalledWith(1);
+  } finally { duel.dispose(); stage.remove(); }
 });

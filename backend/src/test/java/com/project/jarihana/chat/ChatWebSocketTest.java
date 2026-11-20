@@ -31,6 +31,7 @@ import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -107,8 +108,8 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("다른 경로 구독과 클라이언트 SEND는 오류로 거부한다")
-    void rejectsBrokerSubscriptionsAndAllClientSends() throws Exception {
+    @DisplayName("활성 보고를 제외한 다른 경로 구독과 클라이언트 SEND는 오류로 거부한다")
+    void rejectsBrokerSubscriptionsAndOtherClientSends() throws Exception {
         Member owner = member("304");
         for (String destination :
                 new String[] {"/queue/chat-events", "/topic/chat", "/user/999/queue/chat-events"}) {
@@ -117,9 +118,91 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
                 assertThat(socket.frames.poll(5, TimeUnit.SECONDS)).contains("ERROR");
             }
         }
+        for (String destination :
+                new String[] {
+                    "/user/queue/chat-events", "/app/presence/inactive", "/app/presence/active/other"
+                }) {
+            try (Socket socket = connect(owner, true)) {
+                socket.send("SEND\ndestination:" + destination + "\n\nforged\0");
+                assertThat(socket.frames.poll(5, TimeUnit.SECONDS)).contains("ERROR");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("활성 보고는 인증된 회원과 서버 시각만 저장하고 연결만으로는 활성화하지 않는다")
+    void recordsActivityFromAuthenticatedSocketOnly() throws Exception {
+        // Given
+        Member owner = member("310");
+        Member other = member("311");
         try (Socket socket = connect(owner, true)) {
-            socket.send("SEND\ndestination:/user/queue/chat-events\n\nforged\0");
-            assertThat(socket.frames.poll(5, TimeUnit.SECONDS)).contains("ERROR");
+            assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class))
+                    .isZero();
+
+            // When
+            socket.send(
+                    "SEND\ndestination:/app/presence/active\nmemberId:"
+                            + other.getId()
+                            + "\n\n{\"memberId\":"
+                            + other.getId()
+                            + ",\"lastActiveAt\":\"2099-01-01T00:00:00\"}\0");
+
+            // Then
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () -> {
+                                assertThat(
+                                                jdbc.queryForList(
+                                                        "select member_id from member_activity",
+                                                        Long.class))
+                                        .containsExactly(owner.getId());
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "select last_active_at from member_activity"
+                                                                + " where member_id=?",
+                                                        LocalDateTime.class,
+                                                        owner.getId()))
+                                        .isEqualTo(NOW);
+                            });
+            assertThat(socket.frames.poll(100, TimeUnit.MILLISECONDS)).isNull();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("두 소켓의 활성 보고는 계정 행 하나를 재사용하고 한 소켓 종료로 삭제하지 않는다")
+    void keepsAccountActivityWhenOneSocketCloses() throws Exception {
+        // Given
+        Member owner = member("312");
+        try (Socket remaining = connect(owner, true)) {
+            try (Socket closing = connect(owner, true)) {
+                closing.send("SEND\ndestination:/app/presence/active\n\n\0");
+                await().atMost(Duration.ofSeconds(5))
+                        .untilAsserted(
+                                () ->
+                                        assertThat(
+                                                        jdbc.queryForObject(
+                                                                "select count(*) from member_activity",
+                                                                Long.class))
+                                                .isEqualTo(1));
+            }
+
+            // When
+            jdbc.update("update member_activity set last_active_at=?", NOW.minusSeconds(10));
+            remaining.send("SEND\ndestination:/app/presence/active\n\n\0");
+
+            // Then
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () ->
+                                    assertThat(
+                                                    jdbc.queryForObject(
+                                                            "select last_active_at from member_activity",
+                                                            LocalDateTime.class))
+                                            .isEqualTo(NOW));
+            assertThat(jdbc.queryForObject("select count(*) from member_activity", Long.class))
+                    .isEqualTo(1);
         }
     }
 
@@ -173,6 +256,21 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         String token = tokens.issue(owner.getId()).value();
         try (Socket socket = open(token, csrf(token), "http://localhost:5173")) {
             socket.subscribe("/user/queue/chat-events");
+            assertThat(socket.frames.poll(2, TimeUnit.SECONDS)).contains("ERROR");
+        }
+    }
+
+    @Test
+    @DisplayName("CONNECT 전 활성 SEND도 CSRF 검증을 건너뛸 수 없다")
+    void rejectsActivityBeforeConnect() throws Exception {
+        // Given
+        Member owner = member("313");
+        String token = tokens.issue(owner.getId()).value();
+        try (Socket socket = open(token, csrf(token), "http://localhost:5173")) {
+            // When
+            socket.send("SEND\ndestination:/app/presence/active\n\n\0");
+
+            // Then
             assertThat(socket.frames.poll(2, TimeUnit.SECONDS)).contains("ERROR");
         }
     }

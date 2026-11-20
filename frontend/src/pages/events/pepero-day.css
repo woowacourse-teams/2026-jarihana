@@ -1,0 +1,255 @@
+/* 게임 화면이 한눈에 들어오도록 넓은 화면에서도 가운데의 한 열로 모은다. */
+.ui-page-container.pepero-day {
+  display: grid;
+  gap: var(--space-5);
+  max-width: calc(56rem + 2 * var(--page-gutter));
+  padding-block: var(--space-8) var(--space-12);
+}
+
+/* 게임과 순위. 좁은 화면에서는 위아래로 두고, 넓은 화면에서는 순위를 오른쪽 열에 붙여 둔다. */
+.pepero-day__layout,
+.pepero-day__main {
+  display: grid;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+@media (min-width: 1080px) {
+  .ui-page-container.pepero-day:has(.pepero-day__layout--with-ranking) {
+    max-width: calc(76rem + 2 * var(--page-gutter));
+  }
+
+  .pepero-day__layout--with-ranking {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .pepero-day__aside {
+    max-block-size: calc(100vh - var(--header-height) - 2 * var(--space-4));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-4));
+  }
+
+  .pepero-day__aside .pepero-day__ranking-list li {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .pepero-day__aside .pepero-day__duration {
+    display: none;
+  }
+}
+
+.pepero-day .ui-page-header {
+  padding-block: 0;
+}
+
+.pepero-day__loading {
+  block-size: 24rem;
+}
+
+.pepero-day__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: calc(var(--space-2) * -1) 0 0;
+  padding: 0;
+}
+
+.pepero-day__facts li {
+  background: var(--color-surface-sunken);
+  border-radius: 999px;
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-1) var(--space-3);
+}
+
+.pepero-day__card {
+  background: var(--color-surface);
+  border: var(--border-thin) solid var(--color-line);
+  border-radius: var(--radius-lg, 1.25rem);
+  min-width: 0;
+  padding: var(--space-5);
+}
+
+.pepero-day__countdown {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.pepero-day__countdown-label {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__countdown-time {
+  font-size: 2.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-extrabold);
+  margin: 0;
+}
+
+.pepero-day__closed h2 {
+  font-size: var(--text-h3);
+  margin: 0;
+}
+
+.pepero-day__closed p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__closed {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+/* 시작 카드: 게임 영역처럼 배경과 테두리 없이 가운데에 반으로 잘린 막대 그림, 제목, 버튼을 둔다. */
+.pepero-day__start {
+  background: transparent;
+  border-color: transparent;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  padding-block: var(--space-8);
+  text-align: center;
+}
+
+.pepero-day__start .cut-stick-artwork {
+  display: block;
+  inline-size: min(100%, 24rem);
+  margin-block-end: var(--space-3);
+}
+
+.pepero-day__start h2 {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.02em;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.pepero-day__start p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.pepero-day__start .ui-button {
+  margin-block-start: var(--space-3);
+  min-inline-size: min(100%, 16rem);
+}
+
+/* 게임 영역은 테두리 없이 페이지 위에 바로 둔다. */
+.pepero-day__card.pepero-day__game {
+  border-color: transparent;
+  display: grid;
+  gap: var(--space-3);
+  padding-inline: 0;
+}
+
+.pepero-day__ranking {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pepero-day__ranking .ui-section-header {
+  margin-bottom: 0;
+}
+
+.pepero-day__ranking-loading {
+  block-size: 12rem;
+}
+
+.pepero-day__me {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.pepero-day__me strong {
+  color: var(--color-text-brand);
+}
+
+.pepero-day__ranking-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pepero-day__ranking-list li {
+  align-items: center;
+  border-block-end: var(--border-thin) solid var(--color-line);
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  gap: var(--space-3);
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto 3.25rem;
+  padding-block: var(--space-2);
+}
+
+.pepero-day__ranking-list .pepero-day__ranking-item--me {
+  background: var(--color-brand-soft);
+}
+
+.pepero-day__rank {
+  font-weight: var(--font-weight-extrabold);
+  text-align: center;
+}
+
+.pepero-day__nickname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pepero-day__score {
+  font-weight: var(--font-weight-bold);
+}
+
+.pepero-day__duration {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  text-align: end;
+}
+
+.pepero-day__ranking-list .pepero-day__ranking-gap {
+  border-block-end: 0;
+  color: var(--color-text-muted);
+  display: block;
+  padding-block: 0;
+  text-align: center;
+}
+
+.pepero-day__dialog .ui-dialog__content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pepero-day__dialog-loading {
+  block-size: 16rem;
+}
+
+.pepero-day__dialog-standing {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.pepero-day__dialog-standing strong {
+  color: var(--color-text-brand);
+  font-size: var(--text-h3);
+}
+
+@media (max-width: 480px) {
+  .pepero-day__card {
+    padding: var(--space-4);
+  }
+
+  .pepero-day__countdown-time {
+    font-size: 2rem;
+  }
+}

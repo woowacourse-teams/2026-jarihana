@@ -59,6 +59,7 @@ export function updateTransport(form) {
     const avatar = device?.querySelector('.composer-avatar')?.getBoundingClientRect();
     layout.push({ side, diameter: width, inlet: start, outlet: anchor.outlet, capsuleDiameter: anchor.capsuleDiameter,
       avatar: avatar ? { x: avatar.x, y: avatar.y, width: avatar.width, height: avatar.height } : null,
+      ...(device?.avatarAppearance ? { appearance: device.avatarAppearance } : {}),
       active: innerWidth <= 700 ? form.dataset.side === side : device?.dataset.expanded === 'true', memberType: device?.dataset.memberType ?? 'CREW',
       frontPath: route.querySelector('.transport-route'),
       backPath: joint?.querySelector('.transport-route') ?? null });

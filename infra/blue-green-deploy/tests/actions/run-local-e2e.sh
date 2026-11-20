@@ -2,7 +2,7 @@
 # Explicit local-only Spring/Postgres/Nginx/Alloy/Prometheus integration; no remote credentials.
 set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
-JAVA_IMAGE=sha256:e64879618e035e98f435ae1dd0eae3b72baf917b45326083a519221293d6d8c0
+JAVA_IMAGE=${BG_E2E_JAVA_IMAGE:-sha256:e64879618e035e98f435ae1dd0eae3b72baf917b45326083a519221293d6d8c0}
 TOOLS_IMAGE=jarihana-actions-test:local
 BG_E2E_USER_TRAFFIC=${BG_E2E_USER_TRAFFIC:-true}
 BG_E2E_VIRTUAL_OBSERVATION=${BG_E2E_VIRTUAL_OBSERVATION:-true}
@@ -21,6 +21,7 @@ if [[ ${BG_E2E_INNER:-false} != true ]]; then
   docker run --rm --name "$BG_E2E_PREFIX-runner" \
     -v "$ROOT:/repo:ro" -v "$BG_E2E_DIR:$BG_E2E_DIR" -v /var/run/docker.sock:/var/run/docker.sock \
     -e BG_E2E_USER_TRAFFIC="$BG_E2E_USER_TRAFFIC" -e BG_E2E_VIRTUAL_OBSERVATION="$BG_E2E_VIRTUAL_OBSERVATION" -e BG_E2E_INNER=true -e BG_E2E_DIR="$BG_E2E_DIR" -e BG_E2E_PREFIX="$BG_E2E_PREFIX" -e BG_E2E_HOST_ROOT="$ROOT" \
+    -e BG_E2E_JAVA_IMAGE="$JAVA_IMAGE" \
     "$TOOLS_IMAGE" bash /repo/infra/blue-green-deploy/tests/actions/run-local-e2e.sh 2>&1 | tee "$evidence/run.log"
   exit
 fi
@@ -116,6 +117,8 @@ start_app() {
     -e "WORKER_CONTROL_TOKEN=$TOKEN" -e ACCESS_TOKEN_SECRET=local-fixture-jwt-secret-0123456789abcdef \
     -e INVITATION_TOKEN_KEY_PRIMARY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= \
     -e GITHUB_OAUTH_CLIENT_ID=fixture -e GITHUB_OAUTH_CLIENT_SECRET=fixture -e AWS_EC2_METADATA_DISABLED=true \
+    -e IMAGE_S3_BUCKET=techcourse-project-2026 -e IMAGE_S3_REGION=ap-northeast-2 -e IMAGE_S3_KEY_PREFIX=jarihana-dev/images \
+    -e IMAGE_CLEANUP_ENABLED=false \
     -e SERVER_SHUTDOWN=graceful -e SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE=90s -e OTEL_SDK_DISABLED=true \
     --entrypoint java "$JAVA_IMAGE" -Xmx256m -jar /tmp/fixture-backend.jar --spring.profiles.active=dev > "$DIR/$slot-id"
   for ((attempt=0;attempt<180;attempt++)); do

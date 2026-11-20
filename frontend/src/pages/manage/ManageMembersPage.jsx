@@ -143,7 +143,8 @@ export function ManageMembersPage() {
             ["ANDROID", "안드로이드"],
             ["COACH", "코치"],
             ["BOOTCAMP", "부트캠프"],
-            ["PROFESSIONAL", "현직자"]
+            ["PROFESSIONAL", "현직자"],
+            ["MEMBER", "멤버"]
           ].map(([value, label]) => (
             <button
               aria-pressed={course === value}

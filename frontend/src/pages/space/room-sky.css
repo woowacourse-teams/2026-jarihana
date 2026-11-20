@@ -1,0 +1,28 @@
+.room-sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center 72%, color-mix(in srgb, var(--sky-horizon) 55%, transparent), transparent 59%),
+    linear-gradient(180deg, var(--sky-top), var(--sky-middle) 53%, var(--sky-horizon));
+}
+.room-sky__precipitation {
+  position: absolute;
+  inset: -100px 0 0;
+  opacity: .57;
+  animation: room-sky-fall 1s linear infinite;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='136' height='72' viewBox='0 0 136 72'%3E%3Cg stroke='%23e4f3ff' stroke-linecap='round'%3E%3Cpath opacity='.56' d='M9 8l-5 14m46-20-7 18m57-8-8 19m39-6-5 13M29 38l-6 15m46-19-7 17m53-5-8 18M53 55l-4 10m38-11-5 13'/%3E%3Cpath opacity='.3' d='M30 12l-4 10m45-8-6 14m50-19-4 11M15 32l-4 9m36-10-4 10m47-4-6 13m44 4-4 10M14 56l-5 13'/%3E%3C/g%3E%3C/svg%3E") repeat;
+}
+.room-sky[data-weather="snow"] .room-sky__precipitation {
+  inset: -152px 0 0;
+  opacity: .85;
+  animation: room-sky-flurry 9s linear infinite;
+  background:
+    radial-gradient(circle at 13px 8px, #fff 1.5px, transparent 2px) 12px 3px / 67px 76px,
+    radial-gradient(circle at 11px 35px, #f3f6ffc9 1px, transparent 1.6px) 1px 12px / 79px 76px,
+    radial-gradient(circle at 30px 68px, #fff9 1.7px, transparent 2.5px) 0 0 / 127px 152px;
+}
+@keyframes room-sky-fall { to { transform: translateY(72px); } }
+@keyframes room-sky-flurry { to { transform: translateY(152px); } }
+@media (prefers-reduced-motion: reduce) { .room-sky__precipitation { animation: none; } }

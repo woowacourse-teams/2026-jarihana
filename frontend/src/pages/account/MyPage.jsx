@@ -1,13 +1,19 @@
+import { ClipboardList, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { useAuth } from "../../features/auth/index.js";
+import { MyAvatarCard } from "../../features/avatar/MyAvatarCard.jsx";
+import "./avatar.css";
+import { ProductArt } from "../../features/shop/ProductArt.jsx";
+import { useProfileEquipment } from "../../features/shop/hooks.js";
 import { useInfiniteGroups } from "../../features/group/index.js";
 import { useInfiniteMyRegistrations } from "../../features/registration/index.js";
 import { Card, Skeleton } from "../../shared/ui/index.js";
 import { AccountLayout } from "./AccountLayout.jsx";
 import { positiveFocusId, useNotificationFocus } from "./useNotificationFocus.js";
 import { MyActivityBoard } from "./MyActivityBoard.jsx";
+import { PointBalanceCard } from "./MyPointsPage.jsx";
 import {
   flattenPages,
   memberMetaLabel,
@@ -154,6 +160,8 @@ function ProfileAvatar({ member }) {
 
 export function MyPage() {
   const { member } = useAuth();
+  const { data: equipment } = useProfileEquipment();
+  const frame = equipment?.find((item) => item.slot === "frame");
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const focusGroupId = positiveFocusId(params.get("focusGroup"));
@@ -221,23 +229,34 @@ export function MyPage() {
     <AccountLayout
       title="마이페이지"
       description="가입한 모임과 신청 내역을 한곳에서 확인하세요."
+      headingAside={<PointBalanceCard />}
     >
       <div className="my-dashboard">
         <aside className="profile-column">
           <Card as="section" className="profile-card">
             <p className="account-eyebrow">나의 프로필</p>
-            <ProfileAvatar member={member} />
+            {frame ? (
+              <div className="profile-card__shop-frame">
+                <ProductArt
+                  {...frame.preview}
+                  label={`${frame.name}이 적용된 프로필`}
+                  portrait={<ProfileAvatar member={member} />}
+                />
+              </div>
+            ) : (
+              <ProfileAvatar member={member} />
+            )}
             <h2>{member.crewName}</h2>
             <p>{memberMetaLabel(member)}</p>
           </Card>
-          <div aria-hidden="true" className="profile-companion" />
+          <MyAvatarCard previewPaused={focusStatus === "loading"} />
         </aside>
         <div className="activity-column">
           {focusStatus === "loading" ? <p role="status">알림에 해당하는 항목을 찾고 있어요…</p> : null}
           {focusStatus === "missing" ? <p role="status">알림에 해당하는 항목을 찾을 수 없어요. 탈퇴했거나 기록이 삭제되었을 수 있어요.</p> : null}
           {focusStatus === "error" ? <p role="alert">알림에 해당하는 항목을 불러오지 못했어요. 페이지를 새로고침해 주세요.</p> : null}
           <Card as="section" className="dashboard-panel">
-            <h2>내 모임</h2>
+            <h2><UsersRound aria-hidden="true" size={19} />내 모임</h2>
             <div aria-label="내 모임 유형" className="dashboard-counts" role="tablist">
               {groupTabs.map((tab) => (
                 <button
@@ -268,7 +287,7 @@ export function MyPage() {
             />
           </Card>
           <Card as="section" className="dashboard-panel">
-            <h2>내 신청</h2>
+            <h2><ClipboardList aria-hidden="true" size={19} />내 신청</h2>
             <div aria-label="내 신청 상태" className="dashboard-counts" role="tablist">
               {registrationTabs.map((tab) => (
                 <button

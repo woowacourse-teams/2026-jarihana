@@ -3,14 +3,24 @@ package com.project.jarihana.sparring;
 import static io.restassured.RestAssured.given;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
+import com.project.jarihana.member.command.repository.MemberAvatarRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.AvatarAppearance;
+import com.project.jarihana.member.domain.AvatarCatalog;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberAvatar;
+import com.project.jarihana.sparring.stream.SparringStreams;
 import com.project.jarihana.support.IntegrationTestSupport;
 
 import io.restassured.RestAssured;
@@ -18,13 +28,19 @@ import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.postgresql.PGConnection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.BufferedReader;
 import java.io.EOFException;
@@ -35,20 +51,185 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import javax.sql.DataSource;
 
 class SparringAcceptanceTest extends IntegrationTestSupport {
     @Autowired MemberRepository members;
+    @Autowired MemberAvatarRepository avatars;
     @Autowired AccessTokenProvider tokens;
     @Autowired AuthCookieProperties cookies;
     @Autowired DataSource dataSource;
+    @MockitoSpyBean SparringStreams streams;
+    private final List<StreamSubscription> subscriptions = new CopyOnWriteArrayList<>();
+
+    @BeforeEach
+    void trackServerStreams() {
+        doAnswer(invocation -> {
+            SseEmitter emitter = (SseEmitter) invocation.callRealMethod();
+            var completed = new CompletableFuture<Void>();
+            emitter.onCompletion(() -> completed.complete(null));
+            subscriptions.add(new StreamSubscription(emitter, completed));
+            return emitter;
+        }).when(streams).subscribe(anyLong());
+    }
+
+    @AfterEach
+    void closeServerStreamsBeforeDatabaseReset() throws Exception {
+        // HTTP client close does not await server disconnect detection before @Sql reuses IDs.
+        for (var subscription : subscriptions) subscription.emitter().complete();
+        for (var subscription : subscriptions) subscription.completed().get(5, TimeUnit.SECONDS);
+        subscriptions.clear();
+    }
+
+    @Test
+    @DisplayName("SSE 정리 후 DB의 ID가 재사용되어도 새 글을 전달한다")
+    void deliversNewPostsAfterStreamCleanupAndDatabaseReset() throws Exception {
+        // Given
+        String token = member("이전", "previous-stream");
+        long topicId = createTopic(token);
+        insertPosts(topicId, 1040);
+        URI uri = URI.create(
+                "http://localhost:" + RestAssured.port + "/api/sparrings/" + topicId + "/events");
+        // Keep the previous client connected so server cleanup cannot depend on disconnect timing.
+        try (var http = HttpClient.newHttpClient()) {
+            var response = http.send(
+                    HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            Assertions.assertEquals(200, response.statusCode());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+                    Assertions.assertEquals(1040, readEvent(reader, "snapshot").getInt("postCount"));
+                    // When
+                    closeServerStreamsBeforeDatabaseReset();
+                    new ResourceDatabasePopulator(new ClassPathResource("sql/truncate.sql")).execute(dataSource);
+                    // Then
+                    assertAuthorAppearanceInHistoryAndStream();
+                });
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("비회원도 의견과 실시간 받아치기에서 각 작성자의 저장 아바타를 본다")
+    void exposesAuthorAppearanceInHistoryAndStream() throws Exception {
+        assertAuthorAppearanceInHistoryAndStream();
+    }
+
+    private void assertAuthorAppearanceInHistoryAndStream() throws Exception {
+        // Given
+        String mint = memberWithAvatar("민트", "avatar-mint", "curly");
+        String coral = memberWithAvatar("코랄", "avatar-coral", "bob");
+        String noAvatar = member("기본", "avatar-default");
+        long id = createTopic(mint);
+        vote(mint, id, "MINT");
+        vote(coral, id, "CORAL");
+        vote(noAvatar, id, "MINT");
+        long original = post(mint, id, "민트 의견", null, UUID.randomUUID())
+                .then().statusCode(201).extract().jsonPath().getLong("data.id");
+        post(noAvatar, id, "기본 의견", null, UUID.randomUUID()).then().statusCode(201);
+        URI uri = URI.create("http://localhost:" + RestAssured.port + "/api/sparrings/" + id + "/events");
+        try (var http = HttpClient.newHttpClient()) {
+            var response = http.send(
+                    HttpRequest.newBuilder(uri).header("Accept", "text/event-stream").GET().build(),
+                    HttpResponse.BodyHandlers.ofInputStream());
+            Assertions.assertEquals(200, response.statusCode());
+            try (var reader = new BufferedReader(new InputStreamReader(response.body()))) {
+                Assertions.assertTimeoutPreemptively(Duration.ofSeconds(8), () -> {
+                    var snapshot = readEvent(reader, "snapshot");
+                    Assertions.assertEquals("curly", snapshot.getString("posts[0].appearance.hair"));
+                    Assertions.assertNull(snapshot.get("posts[1].appearance"));
+
+                    // When
+                    long replyId = post(coral, id, "코랄 받아치기", original, UUID.randomUUID())
+                            .then().statusCode(201).extract().jsonPath().getLong("data.id");
+
+                    // Then
+                    var update = readEvent(reader, "update");
+                    while (update.getInt("postCount") < 3) update = readEvent(reader, "update");
+                    Assertions.assertEquals(
+                            List.of(replyId), update.getList("posts.id", Long.class), update::prettify);
+                    Assertions.assertEquals("CORAL", update.getString("posts[0].side"));
+                    Assertions.assertEquals("bob", update.getString("posts[0].appearance.hair"));
+                    Assertions.assertEquals("MINT", update.getString("posts[0].replyTo.side"));
+                    Assertions.assertEquals("curly", update.getString("posts[0].replyTo.appearance.hair"));
+                });
+            }
+        }
+        given().get("/sparrings/" + id + "/posts").then().statusCode(200)
+                .body("data.items[0].appearance.version", equalTo(1))
+                .body("data.items[0].appearance.hair", equalTo("bob"))
+                .body("data.items[0].replyTo.appearance.hair", equalTo("curly"))
+                .body("data.items[1].appearance", nullValue());
+        given().queryParam("afterId", original).get("/sparrings/" + id + "/posts").then().statusCode(200)
+                .body("data.items[1].appearance.hair", equalTo("bob"))
+                .body("data.items[1].replyTo.appearance.hair", equalTo("curly"));
+    }
+
+    @Test
+    @DisplayName("장식 아바타는 현재 토론의 투표자 중 최대 240명의 외형을 편 구분 없이 공개한다")
+    void exposesBoundedAvatarPoolsForCurrentVotes() {
+        // Given
+        String first = memberWithAvatar("첫투표", "pool-first", "curly");
+        long topic = createTopic(first);
+        vote(first, topic, "MINT");
+        List<String> mintNames = List.of("가나", "다라", "마바", "사아", "자차", "카타", "파하");
+        for (int index = 0; index < mintNames.size(); index++) {
+            vote(memberWithAvatar(mintNames.get(index), "pool-mint-" + index, "curly"), topic, "MINT");
+        }
+        vote(memberWithAvatar("아홉째", "pool-ninth", "parted"), topic, "MINT");
+        vote(memberWithAvatar("코랄", "pool-coral", "bob"), topic, "CORAL");
+        vote(member("기본외형", "pool-default"), topic, "CORAL");
+        String anotherTopicVoter = memberWithAvatar("다른주제", "pool-other-topic", "long");
+        vote(anotherTopicVoter, createTopic(anotherTopicVoter), "CORAL");
+        for (int index = 0; index < 230; index++) {
+            memberWithAvatar("추가" + (char) ('가' + index), "pool-extra-" + index, "curly");
+        }
+        new JdbcTemplate(dataSource).update("""
+                insert into sparring_vote (created_at, updated_at, topic_id, member_id, side)
+                select current_timestamp, current_timestamp, ?, id, 'MINT' from member
+                where github_id like 'pool-extra-%'
+                """, topic);
+        String lastVoter = memberWithAvatar("마지막", "pool-last", "long");
+        vote(lastVoter, topic, "CORAL");
+
+        // When / Then
+        String path = "/sparrings/" + topic + "/avatar-pools";
+        given().get(path).then().statusCode(200)
+                .body("data", not(hasKey("mint")))
+                .body("data", not(hasKey("coral")))
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0..7].hair", everyItem(equalTo("curly")))
+                .body("data.appearances[8].hair", equalTo("parted"))
+                .body("data.appearances[9].hair", equalTo("bob"))
+                .body("data.appearances.hair", everyItem(not(equalTo("long"))))
+                .body("data.appearances.version", everyItem(equalTo(1)))
+                .body("data.appearances", everyItem(not(hasKey("memberId"))))
+                .body("data.appearances", everyItem(not(hasKey("side"))));
+
+        vote(first, topic, "CORAL");
+        given().get("/sparrings/" + topic).then().statusCode(200)
+                .body("data.votesA", equalTo(238))
+                .body("data.votesB", equalTo(4));
+        given().get(path).then().statusCode(200)
+                .body("data.appearances", hasSize(240))
+                .body("data.appearances[0].hair", equalTo("curly"));
+        given().get("/sparrings/999999/avatar-pools").then().statusCode(404)
+                .body("error.code", equalTo("SPARRING_NOT_FOUND"));
+    }
 
     @Test
     @DisplayName("마감 일시를 저장하고 마감 이후 투표와 새 메시지를 거절한다")
@@ -221,20 +402,40 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("기존 스파링 테이블이 있어도 Flyway 스키마 적용은 기존 주제를 보존한다")
-    void migrationPreservesExistingSparringData() {
-        // Given
-        String token = member("가온", "sparring-migration");
-        long id = createTopic(token);
+    void migrationPreservesExistingSparringData() throws SQLException {
+        // Given: DDL은 다른 테스트의 SSE/비동기 조회가 사용하는 공유 스키마와 격리한다.
+        String schema = "sparring_reapply_" + UUID.randomUUID().toString().replace("-", "");
+        JdbcTemplate administrative = new JdbcTemplate(dataSource);
+        administrative.execute("create schema " + schema);
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                connection.setSchema(schema);
+                SingleConnectionDataSource isolated = new SingleConnectionDataSource(connection, true);
+                JdbcTemplate jdbc = new JdbcTemplate(isolated);
+                jdbc.execute("create table member (id bigint primary key)");
+                jdbc.update("insert into member (id) values (1)");
+                ResourceDatabasePopulator migration = new ResourceDatabasePopulator(
+                        new ClassPathResource("db/migration/V14__sparring.sql"));
+                migration.execute(isolated);
+                jdbc.update("""
+                        insert into sparring_topic (created_at, updated_at, title, claim_a, claim_b,
+                            description, revision, creator_id)
+                        values (localtimestamp, localtimestamp, '점심 20분 기다릴까?', '찬성', '반대', '', 1, 1)
+                        """);
+                var before = jdbc.queryForList("select * from sparring_topic");
 
-        // When
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V14__sparring.sql"))
-                .execute(dataSource);
+                // When
+                migration.execute(isolated);
 
-        // Then
-        given().get("/sparrings/" + id)
-                .then()
-                .statusCode(200)
-                .body("data.title", equalTo("점심 20분 기다릴까?"));
+                // Then
+                Assertions.assertEquals(before, jdbc.queryForList("select * from sparring_topic"));
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            administrative.execute("drop schema " + schema + " cascade");
+        }
     }
 
     @Test
@@ -358,6 +559,150 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("최신 60개가 민트여도 코랄의 최신 글부터 별도 페이지로 조회한다")
+    void paginatesOlderCoralPostsWithoutScanningMintPages() {
+        // Given
+        String token = member("편별조회", "sparring-side-history");
+        long id = createTopic(token);
+        insertPosts(id, 89);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.update(
+                """
+                update sparring_post set side = 'CORAL'
+                where id in (select id from sparring_post where topic_id = ? order by id limit 11)
+                """,
+                id);
+        List<Long> coralIds =
+                jdbc.queryForList(
+                        "select id from sparring_post where topic_id = ? and side = 'CORAL' order by id desc",
+                        Long.class,
+                        id);
+
+        // When
+        JsonPath first =
+                given().queryParam("side", "CORAL")
+                        .queryParam("size", 6)
+                        .get("/sparrings/" + id + "/posts")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath();
+        JsonPath second =
+                given().queryParam("side", "CORAL")
+                        .queryParam("size", 6)
+                        .queryParam("cursor", first.getString("data.nextCursor"))
+                        .get("/sparrings/" + id + "/posts")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .jsonPath();
+
+        // Then
+        Assertions.assertEquals(coralIds.subList(0, 6), first.getList("data.items.id", Long.class));
+        Assertions.assertEquals(coralIds.subList(6, 11), second.getList("data.items.id", Long.class));
+        Assertions.assertFalse(second.getBoolean("data.hasNext"));
+        Assertions.assertNull(second.getString("data.nextCursor"));
+        given().queryParam("size", 60)
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(200)
+                .body("data.items.side", equalTo(Collections.nCopies(60, "MINT")));
+    }
+
+    @Test
+    @DisplayName("편별 커서는 순회 시작 ID까지만 조회하고 이후 글은 다음 순회에서 조회한다")
+    void keepsIndependentSideCursorsWithinReplayBoundary() {
+        // Given
+        String token = member("순회경계", "sparring-cycle-boundary");
+        long id = createTopic(token);
+        insertPosts(id, 8);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        List<Long> ids =
+                jdbc.queryForList(
+                        "select id from sparring_post where topic_id = ? order by id", Long.class, id);
+        for (int index = 0; index < ids.size(); index += 2) {
+            jdbc.update("update sparring_post set side = 'CORAL' where id = ?", ids.get(index));
+        }
+        long boundary = ids.getLast();
+        insertPosts(id, 2);
+        jdbc.update(
+                "update sparring_post set side = 'CORAL' where id = (select max(id) from sparring_post where topic_id = ?)",
+                id);
+
+        // When
+        for (String side : List.of("MINT", "CORAL")) {
+            JsonPath first =
+                    given().queryParam("side", side)
+                            .queryParam("throughId", boundary)
+                            .queryParam("size", 2)
+                            .get("/sparrings/" + id + "/posts")
+                            .then()
+                            .statusCode(200)
+                            .extract()
+                            .jsonPath();
+            JsonPath second =
+                    given().queryParam("side", side)
+                            .queryParam("throughId", boundary)
+                            .queryParam("size", 2)
+                            .queryParam("cursor", first.getString("data.nextCursor"))
+                            .get("/sparrings/" + id + "/posts")
+                            .then()
+                            .statusCode(200)
+                            .extract()
+                            .jsonPath();
+
+            // Then
+            int offset = side.equals("MINT") ? 1 : 0;
+            Assertions.assertEquals(
+                    List.of(ids.get(6 + offset), ids.get(4 + offset)),
+                    first.getList("data.items.id", Long.class));
+            Assertions.assertEquals(
+                    List.of(ids.get(2 + offset), ids.get(offset)),
+                    second.getList("data.items.id", Long.class));
+            Assertions.assertFalse(second.getBoolean("data.hasNext"));
+            given().queryParam("side", side)
+                    .get("/sparrings/" + id + "/posts")
+                    .then()
+                    .statusCode(200)
+                    .body("data.items", hasSize(5));
+        }
+    }
+
+    @Test
+    @DisplayName("편과 순회 경계는 선택이며 잘못된 값과 복구 조회의 혼용은 거절한다")
+    void validatesReplaySideAndBoundary() {
+        // Given
+        String token = member("경계검증", "sparring-boundary-validation");
+        long id = createTopic(token);
+        insertPosts(id, 1);
+
+        // When / Then
+        given().queryParam("throughId", 0)
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(200)
+                .body("data.items", hasSize(0))
+                .body("data.hasNext", equalTo(false));
+        for (Map<String, Object> invalid :
+                List.<Map<String, Object>>of(
+                        Map.of("side", "BLUE"),
+                        Map.of("throughId", -1),
+                        Map.of("afterId", 0, "throughId", 0),
+                        Map.of("afterId", 0, "side", "MINT"))) {
+            given().queryParams(invalid)
+                    .get("/sparrings/" + id + "/posts")
+                    .then()
+                    .statusCode(400)
+                    .body("error.code", equalTo("INVALID_PARAMETER"));
+        }
+        given().queryParam("mine", true)
+                .queryParam("side", "MINT")
+                .get("/sparrings/" + id + "/posts")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
     @DisplayName("비회원 작성과 CSRF 없는 회원 작성은 거절한다")
     void protectsWrites() {
         // Given
@@ -394,6 +739,41 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
                 .post("/sparrings")
                 .then()
                 .statusCode(400);
+    }
+
+    @Test
+    @DisplayName("기본 설정에서 투표와 의견 저장 뒤 PostgreSQL 변경 알림을 발행한다")
+    void publishesNotificationsAfterVoteAndPostByDefault() throws Exception {
+        // Given
+        String token = member("알림", "sparring-notification");
+        long id = createTopic(token);
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("LISTEN sparring_revision");
+            var postgres = connection.unwrap(PGConnection.class);
+            try {
+                // When / Then: notification publication cannot be satisfied by revision reconciliation.
+                vote(token, id, "MINT");
+                awaitNotification(postgres, id);
+                post(token, id, "알림 발행", null, UUID.randomUUID()).then().statusCode(201);
+                awaitNotification(postgres, id);
+            } finally {
+                // Do not return a listening session to the application pool.
+                statement.execute("UNLISTEN sparring_revision");
+            }
+        }
+    }
+
+    private void awaitNotification(PGConnection postgres, long topicId) throws SQLException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            var notifications = postgres.getNotifications(1000);
+            if (notifications == null) continue;
+            for (var notification : notifications) {
+                if (notification.getParameter().equals(Long.toString(topicId))) return;
+            }
+        }
+        Assertions.fail("Committed change did not publish a PostgreSQL notification");
     }
 
     @Test
@@ -597,6 +977,19 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
         return tokens.issue(saved.getId()).value();
     }
 
+    private String memberWithAvatar(String name, String github, String hair) {
+        Member saved = members.save(Member.create(name, 23, github, Course.BACKEND));
+        var selections = new EnumMap<>(AvatarCatalog.basicSelections());
+        selections.put(AvatarCatalog.HAIR, hair);
+        avatars.save(MemberAvatar.of(saved.getId(), AvatarAppearance.of(1, selections)));
+        return tokens.issue(saved.getId()).value();
+    }
+
+    private void vote(String token, long topic, String side) {
+        request(token).body(Map.of("side", side)).post("/sparrings/" + topic + "/votes")
+                .then().statusCode(204);
+    }
+
     private Map<String, String> topic() {
         return Map.of(
                 "title",
@@ -638,4 +1031,6 @@ class SparringAcceptanceTest extends IntegrationTestSupport {
     }
 
     private record PostBody(String text, Long replyToId, UUID requestId) {}
+
+    private record StreamSubscription(SseEmitter emitter, CompletableFuture<Void> completed) {}
 }

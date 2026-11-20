@@ -1,26 +1,13 @@
 name: Production Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".github/workflows/frontend-prod-deploy.yml"
-      - "infra/docker-compose.yml"
-      - "infra/monitoring/alloy/config.alloy"
-      - "infra/monitoring/alloy/postgres-queries.yaml"
-      - "infra/scripts/verify-backend.sh"
-      - "infra/blue-green-deploy/scripts/**"
-      - "infra/blue-green-deploy/controller/**"
-      - "infra/blue-green-deploy/nginx/**"
-      - ".github/workflows/backend-prod-deploy.yml"
-      - ".github/workflows/backend-bluegreen-deploy.yml"
-      - ".github/workflows/backend-app-operation.yml"
-      - ".github/workflows/backend-bluegreen-phase.yml"
   workflow_dispatch:
     inputs:
+      deployment_engine:
+        description: '수동 배포 방식 (V1은 기존 방식, V2는 서버별로 잡을 묶는 방식)'
+        type: choice
+        options: [V1, V2]
+        default: V1
       blue_green_mode:
         description: 'bootstrap=최초 권한 등록, deploy=프론트엔드와 백엔드 공동 배포'
         type: choice
@@ -54,6 +41,8 @@ jobs:
     env:
       ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED }}
       MODE: ${{ inputs.blue_green_mode || 'deploy' }}
+    outputs:
+      engine: ${{ steps.engine.outputs.engine }}
     steps:
       - name: 새 운영 배포 허용 상태 확인
         shell: bash
@@ -64,13 +53,26 @@ jobs:
             echo '::error::새 운영 배포가 중단되어 있습니다. 현재 서비스는 유지하며 BLUE_GREEN_PROD_ENABLED=true 전에는 서버와 S3를 변경하지 않습니다.'
             exit 1
           fi
+      - name: 실행 유형에 맞는 배포 방식 선택
+        id: engine
+        env:
+          SELECTED: ${{ inputs.deployment_engine }}
+        shell: bash
+        run: |
+          case "$GITHUB_EVENT_NAME:${SELECTED:-}" in
+            workflow_dispatch:|workflow_dispatch:V1) engine=V1 ;;
+            workflow_dispatch:V2) engine=V2 ;;
+            *) echo '::error::지원하지 않는 배포 방식입니다.'; exit 1 ;;
+          esac
+          echo "engine=$engine" >> "$GITHUB_OUTPUT"
+
   blue-green:
     needs: release-enabled
     if: >-
       github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'push' && vars.BLUE_GREEN_PROD_ENABLED == 'true') ||
-      (github.event_name == 'workflow_dispatch' &&
-      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')))
+      needs.release-enabled.outputs.engine == 'V1' &&
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')
     permissions:
       contents: read
       packages: read
@@ -83,3 +85,71 @@ jobs:
       image_tag: ${{ inputs.image_tag }}
       mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit
+
+  blue-green-v2:
+    name: 수동 V2 배포
+    needs: release-enabled
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
+      needs.release-enabled.outputs.engine == 'V2' &&
+      inputs.blue_green_mode == 'deploy'
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-deploy-v2.yml
+    with:
+      environment: prod
+      frontend_only: ${{ inputs.frontend_only || false }}
+      backend_only: ${{ inputs.backend_only || false }}
+      image_tag: ${{ inputs.image_tag }}
+    secrets: inherit
+
+  bootstrap-v2:
+    name: 수동 V2 최초 등록
+    needs: release-enabled
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
+      needs.release-enabled.outputs.engine == 'V2' &&
+      inputs.blue_green_mode == 'bootstrap'
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-bootstrap-v2.yml
+    with:
+      frontend_only: ${{ inputs.frontend_only || false }}
+      backend_only: ${{ inputs.backend_only || false }}
+      image_tag: ${{ inputs.image_tag }}
+
+  release-summary:
+    needs: [release-enabled, blue-green]
+    if: always() && github.ref == 'refs/heads/main' && needs.release-enabled.outputs.engine != 'V2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: 준비 → 전환 → 관측 → 마무리 요약
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          gh api --paginate "$endpoint" --jq '.jobs[]' |
+            jq -sr --arg url "$run_url" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+              -f .github/scripts/production-release-summary.jq > "$RUNNER_TEMP/release-summary.md"
+          cat "$RUNNER_TEMP/release-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: 요약 조회 오류 표시
+        if: failure()
+        shell: bash
+        run: |
+          echo "운영 배포 요약을 생성하지 못했습니다. 중단 위치와 복구 여부는 [원본 실행 기록]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT)에서 확인하세요." >> "$GITHUB_STEP_SUMMARY"

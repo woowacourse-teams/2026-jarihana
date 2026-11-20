@@ -78,12 +78,7 @@ describe("domain API adapters", () => {
 
   it("keeps member signup out of the access-token refresh path", async () => {
     // Given
-    const values = {
-      crewName: "자리",
-      generation: 1,
-      course: "FRONTEND",
-      memberType: "CREW"
-    };
+    const values = { crewName: "자리" };
 
     // When
     await signupMember(values);
@@ -95,33 +90,21 @@ describe("domain API adapters", () => {
     );
   });
 
-  it("sends the bootcamp signup body unchanged", async () => {
-    // Given
-    const values = {
-      crewName: "도담",
-      memberType: "BOOTCAMP",
-      bootcamp: { name: "SSAFY", status: "IN_PROGRESS", cohort: "12기" },
-      field: "BACKEND"
-    };
-
+  it.each([
+    { crewName: "자리", memberType: "CREW", generation: 8, course: "FRONTEND" },
+    { crewName: "도담", memberType: "BOOTCAMP", field: "BACKEND" }
+  ])("sends only the nickname because the crew roster decides the member type: %o", (values) => {
     // When
-    await signupMember(values);
+    const signup = () => signupMember(values);
 
     // Then
-    expect(apiRequest).toHaveBeenCalledWith(
-      "members",
-      expect.objectContaining({ method: "post", json: values, skipAuthRefresh: true })
-    );
+    expect(signup).toThrow();
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid crew name before member signup reaches HTTP", () => {
     // Given
-    const values = {
-      crewName: "seat",
-      generation: 1,
-      course: "FRONTEND",
-      memberType: "CREW"
-    };
+    const values = { crewName: "seat" };
 
     // When
     const signup = () => signupMember(values);

@@ -18,6 +18,7 @@ import com.project.jarihana.invitation.command.service.dto.AcceptInvitationComma
 import com.project.jarihana.invitation.command.service.dto.AcceptInvitationResult;
 import com.project.jarihana.invitation.domain.InvitationAcceptance;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.points.command.service.PointRewardService;
 import com.project.jarihana.registration.command.repository.RegistrationCommandRepository;
 import com.project.jarihana.registration.domain.RegistrationStatus;
 import com.project.jarihana.invitation.command.service.dto.CreateInvitationResult;
@@ -53,6 +54,7 @@ public class InvitationCommandService {
     private final NotificationDeliveryCommandRepository deliveries;
     private final RegistrationCommandRepository registrations;
     private final ConcurrentCommandExecutor concurrentCommands;
+    private final PointRewardService pointRewards;
 
     public AcceptInvitationResult acceptInvitation(long memberId, long invitationId, AcceptInvitationCommand command) {
         try {
@@ -114,6 +116,7 @@ public class InvitationCommandService {
         approvePendingRegistrations(groupId, memberId, now);
         registrations.flush();
         GroupMember membership = groupMembers.save(GroupMember.createMember(group, member, now));
+        pointRewards.groupJoined(groupId, membership.getId(), memberId, now);
         events.publishEvent(new ChatLifecycleEvent(ChatLifecycleEvent.Type.JOINED, groupId, memberId));
         approvePendingRegistrations(groupId, memberId, now);
         acceptances.save(InvitationAcceptance.create(invitation, member, now));

@@ -7,7 +7,7 @@ export function AppFooter({ pwaGuideReference }) {
       <div className="app-footer__copy">
         <a className="app-footer__brand" data-ph-capture-attribute-action="group_home" href="/home">
           <img alt="" className="app-footer__brand-mark" src={faviconImage} />
-          <h2 className="app-footer__brand-title">자리 하나?</h2>
+          <h2 className="app-footer__brand-title">자리하나?</h2>
         </a>
 
         <p className="app-footer__tagline">우테코에서 만난 인연들이 함께 만든 자리를 찾아보세요.</p>
