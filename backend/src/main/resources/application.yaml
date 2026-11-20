@@ -133,6 +133,7 @@ jarihana:
     frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
     oauth-state-cookie-name: oauthState
     refresh-token-validity: P14D
+    refresh-token-reuse-grace: PT10S
     cookie:
       secure: true
       access-token-name: accessToken

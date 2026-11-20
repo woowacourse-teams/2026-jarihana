@@ -13,7 +13,9 @@ import com.project.jarihana.support.TestSupportConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +33,9 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
 
     @Autowired
     private RefreshTokenTestRepository refreshTokenTestRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private AuthProperties authProperties;
@@ -82,5 +87,27 @@ class RefreshTokenIssuerTest extends IntegrationTestSupport {
         // Then
         assertThat(first.value()).isNotEqualTo(second.value());
         assertThat(refreshTokenTestRepository.findAll()).hasSize(2);
+    }
+
+    @DisplayName("발급할 때마다 로그인 하나를 나타내는 패밀리를 새로 만들고 절대 만료를 정한다.")
+    @Test
+    void openFamilyForEachLogin() {
+        // Given
+        Member member = memberRepository.save(Member.create("가온", 8, "123456", Course.BACKEND));
+
+        // When
+        refreshTokenIssuer.issue(member);
+        refreshTokenIssuer.issue(member);
+
+        // Then
+        assertThat(jdbcTemplate.queryForList(
+                "select absolute_expires_at from refresh_token_family where member_id = ?",
+                LocalDateTime.class, member.getId()))
+                .containsExactly(
+                        TestSupportConfig.FIXED_NOW.plus(authProperties.refreshTokenValidity()),
+                        TestSupportConfig.FIXED_NOW.plus(authProperties.refreshTokenValidity()));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(distinct refresh_token_family_id) from refresh_token where member_id = ?",
+                Long.class, member.getId())).isEqualTo(2);
     }
 }
