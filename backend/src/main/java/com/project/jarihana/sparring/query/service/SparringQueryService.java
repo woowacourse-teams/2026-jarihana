@@ -2,6 +2,7 @@ package com.project.jarihana.sparring.query.service;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.image.query.service.ImageAccessService;
 import com.project.jarihana.sparring.query.repository.SparringQueryRepository;
 import com.project.jarihana.sparring.query.repository.dto.SparringPostProjection;
@@ -56,7 +57,7 @@ public class SparringQueryService {
                                 query.keyword(),
                                 query.filter(),
                                 LocalDateTime.now(clock),
-                                cursor.at(),
+                                cursor.at() == null ? CursorBounds.LATEST_TIME : cursor.at(),
                                 cursor.id(),
                                 PageRequest.ofSize(query.size() + 1))
                         .stream()

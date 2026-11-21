@@ -3,6 +3,7 @@ package com.project.jarihana.proposal.query.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.proposal.query.repository.ProposalCommentQueryRepository;
 import com.project.jarihana.proposal.query.repository.ProposalQueryRepository;
 import com.project.jarihana.proposal.query.repository.dto.ProposalCommentProjection;
@@ -36,8 +37,8 @@ public class ProposalCommentQueryService {
         List<ProposalCommentProjection> candidates = proposalCommentQueryRepository.findPage(
                 proposalId,
                 memberId,
-                cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(),
+                cursor == null ? CursorBounds.EARLIEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.FIRST_ID : cursor.id(),
                 Pageable.ofSize(query.size() + 1)
         );
         boolean hasNext = candidates.size() > query.size();

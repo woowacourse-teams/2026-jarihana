@@ -27,18 +27,14 @@ public interface ProposalCommentQueryRepository extends JpaRepository<ProposalCo
             join comment.proposal proposal
             where proposal.id = :proposalId
               and comment.deletedAt is null
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or comment.createdAt > :cursorCreatedAt
-                  or (comment.createdAt = :cursorCreatedAt and comment.id > :cursorId)
-              )
+              and (comment.createdAt, comment.id) > (:cursorCreatedAt, :cursorId)
             order by comment.createdAt asc, comment.id asc
             """)
     List<ProposalCommentProjection> findPage(
             @Param("proposalId") long proposalId,
             @Param("memberId") Long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 }

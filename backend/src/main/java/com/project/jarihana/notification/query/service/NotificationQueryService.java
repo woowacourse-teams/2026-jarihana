@@ -3,6 +3,7 @@ package com.project.jarihana.notification.query.service;
 import com.project.jarihana.activitypost.domain.ReactionEmoji;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.notification.domain.NotificationEventType;
 import com.project.jarihana.notification.query.repository.NotificationQueryRepository;
@@ -40,7 +41,8 @@ public class NotificationQueryService {
         }
         Cursor cursor = decode(query.cursor());
         Slice<NotificationProjection> page = notifications.findPage(memberId,
-                cursor == null ? null : cursor.createdAt(), cursor == null ? null : cursor.id(),
+                cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(),
                 query.clientVersion().includesAnnouncements(),
                 PageRequest.of(0, query.size()));
         List<NotificationProjection> items = page.getContent();
