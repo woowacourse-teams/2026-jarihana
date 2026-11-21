@@ -86,15 +86,60 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("신규 배치에서 제외한 가구는 기존 배치를 편집하고 다시 열 때 모든 설정을 보존한다")
+    void retainsExistingFurnitureAfterRetirement() {
+        ObjectNode original = (ObjectNode) mapper.readTree(ROOM);
+        ObjectNode photo = original.withArray("items").addObject().put("id", "photo-1").put("kind", "memory")
+                .put("x", 1.25).put("z", -3.75).put("rotation", 2).put("level", 1)
+                .put("color", "#987654").put("title", "첫 모임").put("note", "함께 찍은 사진")
+                .put("photo", "data:image/png;base64,AAAA").put("link", "https://example.org/gallery")
+                .put("scaleX", 1.25).put("scaleY", 1.5).put("scaleZ", 0.75).put("elevation", 0.5)
+                .put("finish", "oak").put("variant", 3);
+        save(leader, original.toString(), 0).then().statusCode(200);
+        jdbc.update("UPDATE space_furniture_catalog SET placeable = false WHERE kind = 'memory'");
+        try {
+            given().get("/group-spaces/furniture-catalog").then().statusCode(200)
+                    .body("data.items.find { it.kind == 'memory' }.placeable", equalTo(false))
+                    .body("data.items.find { it.kind == 'memory' }.minRoomVersion", equalTo(8))
+                    .body("data.items.find { it.kind == 'bookshelf' }.surfaces.size()", equalTo(4));
+            String loaded = request(leader).get(path()).then().statusCode(200).extract().asString();
+            ObjectNode room = (ObjectNode) mapper.readTree(loaded).path("data").get("room");
+            assertThat(room).isEqualTo(original);
+            room.put("name", "함께 꾸민 공간");
+            ((ObjectNode) room.path("items").get(0)).put("rotation", 1);
+            save(leader, room.toString(), 1).then().statusCode(200);
+            String reopened = request(leader).get(path()).then().statusCode(200)
+                    .body("data.revision", equalTo(2)).extract().asString();
+            assertThat(mapper.readTree(reopened).path("data").get("room")).isEqualTo(room);
+
+            // 같은 종류를 복제하거나 기존에 다른 가구가 사용한 ID로 바꿔 넣을 수 없다.
+            room.withArray("items").add(photo.deepCopy().put("id", "photo-2"));
+            save(leader, room.toString(), 2).then().statusCode(400);
+            room.withArray("items").remove(2);
+            ((ObjectNode) room.path("items").get(0)).put("kind", "memory");
+            save(leader, room.toString(), 2).then().statusCode(400);
+            room.withArray("items").removeAll();
+            save(leader, room.toString(), 2).then().statusCode(200);
+            room.withArray("items").add(photo);
+            save(leader, room.toString(), 3).then().statusCode(400);
+        } finally {
+            jdbc.update("UPDATE space_furniture_catalog SET placeable = true WHERE kind = 'memory'");
+        }
+    }
+
+    @Test
     @DisplayName("공유 공간의 저장 도면과 신규 기본 도면을 구별한다")
     void returnsPinnedAndDefaultBlueprints() {
         // Given / When / Then
         given().get("/group-spaces/blueprints/lounge/default").then().statusCode(200)
                 .body("data.blueprintRef.templateKey", equalTo("lounge"))
                 .body("data.blueprintRef.version", equalTo(12))
-                .body("data.geometry.stairs.steps", equalTo(26));
+                .body("data.geometry.stairs.steps", equalTo(26))
+                .body("data.spawn.z", equalTo(6.8f)).body("data.defaultRoom.items.size()", equalTo(32));
         given().get(path()).then().statusCode(200)
-                .body("data.blueprintRef.version", equalTo(11)).body("data.room", nullValue());
+                .body("data.blueprintRef.version", equalTo(11)).body("data.room", nullValue())
+                .body("data.revision", equalTo(0)).body("data.defaultRoom.version", equalTo(11))
+                .body("data.defaultRoom.items.size()", equalTo(24));
         save(leader, ROOM, 0).then().statusCode(200)
                 .body("data.blueprintRef.templateKey", equalTo("boardgame"))
                 .body("data.blueprintRef.version", equalTo(8));
@@ -148,6 +193,11 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                 FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12
                 ON CONFLICT DO NOTHING
                 """, published);
+        jdbc.update("""
+                INSERT INTO space_blueprint_runtime SELECT template_key, ?, spawn, default_room
+                FROM space_blueprint_runtime WHERE template_key = 'lounge' AND blueprint_version = 12
+                ON CONFLICT DO NOTHING
+                """, published);
         jdbc.update("UPDATE space_blueprint_default SET blueprint_version=? WHERE template_key='lounge'", published);
         try {
             // When / Then
@@ -174,11 +224,13 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("도면 이관은 기존 저장 원문·시각·revision을 보존하고 구버전 쓰기를 연결한다")
+    @DisplayName("도면과 가구 이관은 기존 저장 원문·시각·revision을 보존하고 구버전 쓰기를 연결한다")
     void backfillPreservesStoredRoomAndTracksLegacyWriter() throws Exception {
         // Given
         String original = Files.readString(Path.of("src/main/resources/db/migration/V40__group_space.sql"));
         String blueprints = Files.readString(Path.of("src/main/resources/db/migration/V45__versioned_space_blueprints.sql"));
+        String furniture = Files.readString(Path.of("src/main/resources/db/migration/V46__space_furniture_catalog.sql"));
+        String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_blueprint_migration_test");
@@ -222,6 +274,24 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                     assertThat(jdbc.queryForList("""
                             SELECT version FROM space_blueprint_migration_test.space_blueprint_migration
                             """, Integer.class)).containsExactly(1);
+                    statement.execute(furniture);
+                    statement.execute(runtime);
+                    try (var policies = statement.executeQuery("SELECT count(*), count(default_room) FROM space_blueprint_runtime")) {
+                        assertThat(policies.next()).isTrue();
+                        assertThat(policies.getInt(1)).isEqualTo(43);
+                        assertThat(policies.getInt(2)).isEqualTo(8);
+                    }
+                    try (var counts = statement.executeQuery("""
+                            SELECT count(*), count(*) FILTER (WHERE min_room_version = 8)
+                            FROM space_furniture_catalog
+                            """)) {
+                        assertThat(counts.next()).isTrue();
+                        assertThat(counts.getInt(1)).isEqualTo(122);
+                        assertThat(counts.getInt(2)).isEqualTo(20);
+                    }
+                    assertThatThrownBy(() -> statement.execute("DELETE FROM space_furniture_catalog WHERE kind = 'gameTable'"))
+                            .isInstanceOfSatisfying(SQLException.class,
+                                    exception -> assertThat(exception.getSQLState()).isEqualTo("P0001"));
                     try (var rows = statement.executeQuery("""
                             SELECT room_json,revision,updated_at::date,blueprint_template_key,blueprint_version
                             FROM group_space
@@ -384,6 +454,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     @Test
     void migrationSupportsSavingAndDeletingGroupWithoutOrphanedSpace() throws Exception {
         String migration = Files.readString(Path.of("src/main/resources/db/migration/V40__group_space.sql"));
+        String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_migration_test");

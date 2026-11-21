@@ -8,11 +8,6 @@ export const COMMON_FUNCTION_ASSETS = Object.freeze([
     description: "지금 흐르는 음악 · 함께 듣는 재생목록", color: "#b7803d", action: "space_music_open" }
 ].map(Object.freeze));
 
-export const COMMON_ASSET_CATALOG = Object.freeze([
-  { kind: "activityBoard", name: "활동 사진 보드", width: 2.4, depth: 0.7, height: 2.5, category: "furniture", collection: "essentials" },
-  { kind: "clubDashboard", name: "모임 대시보드", width: 1.8, depth: 0.7, height: 2.3, category: "furniture", collection: "essentials" }
-].map(Object.freeze));
-
 export const commonFunctionForItem = (item) => COMMON_FUNCTION_ASSETS.find((entry) => entry.kind === item?.kind);
 
 export function commonAssetStatus(items) {

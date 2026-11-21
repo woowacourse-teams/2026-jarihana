@@ -15,20 +15,41 @@ const geometrySchema = z.object({
   island: z.object({ surface: bounds, walkable: bounds, bottomY: z.number() }).passthrough().optional(),
   terrace: bounds.extend({ fixtures: z.array(wall) }).optional()
 }).passthrough().refine((geometry) => !geometry.mezzanine || (geometry.stairs && geometry.mezzaninePaths && geometry.pillars && geometry.railings && geometry.stairRails));
-const blueprintSchema = z.object({ blueprintRef: blueprintRefSchema, geometry: geometrySchema });
+const spawnSchema = z.object({ x: z.number(), z: z.number() });
+const initialRoomSchema = z.object({ template: z.string(), version: z.number().int(), items: z.array(z.object({}).passthrough()) }).passthrough();
+export const pinnedBlueprintSchema = z.object({ blueprintRef: blueprintRefSchema, geometry: geometrySchema, spawn: spawnSchema });
+const blueprintSchema = pinnedBlueprintSchema.extend({ defaultRoom: initialRoomSchema }).refine(blueprint => blueprint.blueprintRef.templateKey === blueprint.defaultRoom.template);
 
 export function fetchDefaultSpaceBlueprint(templateKey) {
   return apiRequest(`group-spaces/blueprints/${encodeURIComponent(templateKey)}/default`, { schema: blueprintSchema });
 }
 
+const furniture = z.object({
+  kind: z.string().min(1), name: z.string().min(1), category: z.enum(["furniture", "memories"]),
+  placeable: z.boolean(), minRoomVersion: z.number().int().positive(),
+  width: z.number().positive(), depth: z.number().positive(), height: z.number().positive(),
+  surfaces: z.array(z.number().positive()), collection: z.string().optional(),
+  mount: z.enum(["wall", "ceiling"]).optional(), prop: z.boolean().optional(),
+  underlay: z.boolean().optional(), connectedSurface: z.boolean().optional(), walkableHeight: z.number().positive().optional()
+});
+const furnitureCatalogSchema = z.object({
+  items: z.array(furniture).min(1).refine(items => new Set(items.map(item => item.kind)).size === items.length)
+});
+
+export function fetchFurnitureCatalog() {
+  return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema });
+}
+
 export const groupSpaceSchema = z.object({
   blueprintRef: blueprintRefSchema.nullish(), geometry: geometrySchema.nullish(),
+  spawn: spawnSchema.nullish(), defaultRoom: initialRoomSchema.nullish(),
   room: z.record(z.string(), z.unknown()).nullable(),
   revision: z.number().int().nonnegative(),
   canEdit: z.boolean(),
   updatedAt: localDateTimeSchema.nullable()
 }).refine((space) => (space.room !== null || space.revision === 0) &&
-  Boolean(space.blueprintRef) === Boolean(space.geometry) &&
+  Boolean(space.blueprintRef) === Boolean(space.geometry) && Boolean(space.blueprintRef) === Boolean(space.spawn) &&
+  (space.room !== null || (space.defaultRoom?.template === "lounge" && space.blueprintRef?.templateKey === "lounge")) &&
   (!space.blueprintRef || space.blueprintRef.templateKey === (space.room?.template ?? "lounge")));
 
 export function fetchGroupSpace(groupId) {
@@ -57,8 +78,10 @@ function normalizeMemoryLink(item) {
   }
 }
 
-export function saveGroupSpace(groupId, { room, expectedRevision, blueprintRef, replaceLayout }) {
-  const payload = Array.isArray(room.items) ? { ...room, items: room.items.map(normalizeMemoryLink) } : room;
+export function saveGroupSpace(groupId, { room, expectedRevision, blueprintRef, replaceLayout }, previousRoom) {
+  const savedLinks = new Map(previousRoom?.items.filter(item => item.kind === "memory").map(item => [item.id, item.link]));
+  const payload = Array.isArray(room.items) ? { ...room, items: room.items.map(item =>
+    savedLinks.get(item.id) === item.link ? item : normalizeMemoryLink(item)) } : room;
   if (new TextEncoder().encode(JSON.stringify(payload)).length > MAX_SPACE_BYTES) {
     throw new Error("사진을 조금 줄여 주세요. 공간 전체는 2MB까지 저장할 수 있어요.");
   }

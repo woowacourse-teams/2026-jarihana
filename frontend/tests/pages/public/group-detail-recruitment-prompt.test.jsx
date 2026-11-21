@@ -1,3 +1,4 @@
+import seeds from "../../fixtures/clubhouse-seeds.cjs";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { GroupDetailPage } from "../../../src/pages/groups/GroupDetailPage.jsx";
@@ -47,6 +48,8 @@ jest.mock("../../../src/pages/space/SpaceStudioPage.jsx", () => ({
 }));
 jest.mock("../../../src/features/group-space/index.js", () => ({
   fetchGroupSpace: jest.fn(),
+  fetchDefaultSpaceBlueprint: jest.fn(),
+  useFurnitureCatalog: () => ({ isFetchedAfterMount: true, data: require("../../fixtures/clubhouse-seeds.cjs").furnitureCatalog }),
   useGroupSpace: jest.fn(),
   useSaveGroupSpace: jest.fn()
 }));
@@ -117,14 +120,18 @@ const setup = () => screen.queryByRole("dialog", { name: "어떤 아지트에서
 const scene = () => screen.getByRole("main", { name: "아지트 미리보기", hidden: true });
 const startWithDefault = () => act(async () => fireEvent.click(screen.getByRole("button", { name: "기본 아지트로 시작하기" })));
 const saveSpace = jest.fn();
+function savedSnapshot(room, revision) {
+  return { ...seeds.blueprint(room.template, room.version), defaultRoom: null, room, revision, canEdit: true, updatedAt: null };
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
   spaceHooks.fetchGroupSpace.mockReset();
+  spaceHooks.fetchDefaultSpaceBlueprint.mockImplementation(async template => seeds.blueprint(template));
   saveSpace.mockReset();
-  saveSpace.mockImplementation(async ({ room }) => ({ room, revision: 1, canEdit: true, updatedAt: null }));
+  saveSpace.mockImplementation(async ({ room }) => savedSnapshot(room, 1));
   spaceHooks.useGroupSpace.mockReturnValue({
-    data: { canEdit: true, revision: 0, room: null, updatedAt: null },
+    data: { ...seeds.blueprint("lounge", 11), canEdit: true, revision: 0, room: null, updatedAt: null },
     isFetchedAfterMount: true
   });
   spaceHooks.useSaveGroupSpace.mockReturnValue({ mutateAsync: saveSpace });
@@ -153,7 +160,7 @@ it("방금 만든 모임에서 기본 아지트로 시작하면 기본 배치를
 
   await startWithDefault();
 
-  expect(saveSpace).toHaveBeenCalledWith({ expectedRevision: 0, room: expect.objectContaining({
+  expect(saveSpace).toHaveBeenCalledWith({ expectedRevision: 0, blueprintRef: seeds.blueprint("lounge").blueprintRef, room: expect.objectContaining({
     template: "lounge", version: 12, items: expect.arrayContaining([expect.objectContaining({ level: 1 })])
   }) });
   expect(setup()).not.toBeInTheDocument();
@@ -181,7 +188,7 @@ it.each(["다른 페이지로 이동", "닫기 버튼", "Escape", "바깥 영역
     const [{ room }] = saveSpace.mock.calls[0];
     returnVisit.unmount();
     spaceHooks.useGroupSpace.mockReturnValue({
-      data: { canEdit: true, revision: 1, room, updatedAt: null },
+      data: savedSnapshot(room, 1),
       isFetchedAfterMount: true
     });
 
@@ -200,15 +207,16 @@ it("모임원이 모임을 열면 미완료 상태여도 선택 화면을 표시
 it("고른 아지트의 저장이 끝나면 상세 미리보기를 바꾸고 모집 안내를 연다", async () => {
   let finishSave;
   saveSpace.mockImplementation(({ room }) => new Promise((resolve) => {
-    finishSave = () => resolve({ room, revision: 1, canEdit: true, updatedAt: "2026-11-12T10:00:00" });
+    finishSave = () => resolve(savedSnapshot(room, 1));
   }));
   renderDetail();
 
   fireEvent.click(screen.getByRole("button", { name: "클라이밍" }));
   expect(screen.getByRole("button", { name: "클라이밍" })).toHaveAttribute("aria-pressed", "true");
-  fireEvent.click(screen.getByRole("button", { name: "이 아지트로 시작하기" }));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "이 아지트로 시작하기" })));
   expect(saveSpace).toHaveBeenCalledWith({
     expectedRevision: 0,
+    blueprintRef: seeds.blueprint("climbing").blueprintRef,
     room: expect.objectContaining({ name: baseGroup.name, template: "climbing" })
   });
   expect(prompt()).not.toBeInTheDocument();
@@ -241,7 +249,7 @@ it("저장이 실패하면 선택을 유지하고 재시도할 수 있다", asyn
 
 it("이미 저장된 아지트가 있으면 초기 설정에서 다시 저장하지 않는다", () => {
   spaceHooks.useGroupSpace.mockReturnValue({
-    data: { canEdit: true, revision: 1, room: createInitialRoom("photo"), updatedAt: null },
+    data: savedSnapshot(createInitialRoom("photo"), 1),
     isFetchedAfterMount: true
   });
   renderDetail({ state: { justCreated: true } });
@@ -256,7 +264,7 @@ it("이미 저장된 아지트가 있으면 초기 설정에서 다시 저장하
 it("초기 저장이 충돌하면 이미 저장된 같은 테마의 공간과 revision을 불러온다", async () => {
   const room = { ...createInitialRoom(), name: "먼저 저장한 방" };
   saveSpace.mockRejectedValueOnce({ status: 409, code: "GROUP_SPACE_CONFLICT" });
-  spaceHooks.fetchGroupSpace.mockResolvedValue({ room, revision: 4, canEdit: true, updatedAt: null });
+  spaceHooks.fetchGroupSpace.mockResolvedValue(savedSnapshot(room, 4));
   renderDetail({ state: { justCreated: true } });
 
   await startWithDefault();
@@ -268,9 +276,9 @@ it("초기 저장이 충돌하면 이미 저장된 같은 테마의 공간과 re
   expect(scene()).toHaveAttribute("data-room-name", room.name);
   expect(scene()).toHaveAttribute("data-input-blocked", "false");
 
-  saveSpace.mockResolvedValueOnce({ room, revision: 5, canEdit: true, updatedAt: null });
+  saveSpace.mockResolvedValueOnce(savedSnapshot(room, 5));
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "편집기 테스트 저장" })));
-  expect(saveSpace).toHaveBeenLastCalledWith({ room, expectedRevision: 4 });
+  expect(saveSpace).toHaveBeenLastCalledWith({ room: expect.objectContaining({ name: room.name, items: room.items }), expectedRevision: 4, blueprintRef: seeds.blueprint("lounge").blueprintRef });
 });
 
 it("아지트 조회가 실패하면 선택과 모집 안내를 열지 않는다", () => {

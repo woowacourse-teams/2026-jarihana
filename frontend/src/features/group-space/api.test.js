@@ -1,12 +1,13 @@
 /** @jest-environment node */
 import { apiRequest, createApiClient } from "../../shared/api/index.js";
-import { fetchDefaultSpaceBlueprint, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
+import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
 
 jest.mock("../../shared/api/index.js", () => ({
   ...jest.requireActual("../../shared/api/index.js"), apiRequest: jest.fn()
 }));
 
-const emptySpace = { room: null, revision: 0, canEdit: true, updatedAt: null };
+const seeded = require("../../../tests/fixtures/clubhouse-seeds.cjs").blueprint;
+const emptySpace = { ...seeded("lounge", 11), room: null, revision: 0, canEdit: true, updatedAt: null };
 const reply = (data, status = 200, code) => new Response(JSON.stringify({
   success: !code, data: code ? null : data, error: code ? { code, message: "server detail" } : null
 }), { status, headers: { "content-type": "application/json" } });
@@ -45,8 +46,9 @@ test("default geometry is read separately and PUT sends only its reference", asy
   const bounds = { minX: -10, maxX: 10, minZ: -8, maxZ: 5 };
   const geometry = { building: { ...bounds, height: 7 }, entrance: bounds, walls: [], clearPaths: [] };
   const blueprintRef = { templateKey: "lounge", version: 13 };
-  wire.mockResolvedValueOnce(reply({ blueprintRef, geometry }));
-  expect(await fetchDefaultSpaceBlueprint("lounge")).toEqual({ blueprintRef, geometry });
+  const release = { ...seeded("lounge"), blueprintRef, geometry };
+  wire.mockResolvedValueOnce(reply(release));
+  expect(await fetchDefaultSpaceBlueprint("lounge")).toEqual(release);
   expect(wire.mock.calls[0][0].url).toBe("https://app.test/api/group-spaces/blueprints/lounge/default");
   const room = { template: "lounge", version: 11 };
   let body;
@@ -70,7 +72,7 @@ test.each([[409, "GROUP_SPACE_CONFLICT"], [403, "GROUP_SPACE_FORBIDDEN"]])(
   }
 );
 
-test.each([{ ...emptySpace, blueprintRef: { templateKey: "lounge", version: 13 } }, { ...emptySpace, revision: -1 }, { ...emptySpace, room: [] },
+test.each([{ ...emptySpace, spawn: null }, { ...emptySpace, revision: -1 }, { ...emptySpace, room: [] },
   { ...emptySpace, canEdit: "true" }, { ...emptySpace, revision: 2 }])(
   "invalid server state cannot become an editable fallback", async (data) => {
     wire.mockImplementationOnce(() => Promise.resolve(reply(data)));
@@ -110,3 +112,26 @@ test.each(["javascript:alert(1)", "https://user:secret@example.com/private", "no
     expect(sentBody.room.items[0].link).toBe(link);
   }
 );
+
+test("the public catalog includes retired kinds and rejects duplicate or malformed definitions", async () => {
+  const retired = { ...require("../../../tests/fixtures/clubhouse-seeds.cjs").furnitureCatalog[0], placeable: false };
+  wire.mockResolvedValueOnce(reply({ items: [retired] }));
+  await expect(fetchFurnitureCatalog()).resolves.toEqual({ items: [retired] });
+  expect(wire.mock.calls[0][0].url).toBe("https://app.test/api/group-spaces/furniture-catalog");
+  for (const items of [[], [retired, retired], [{ ...retired, surfaces: null }]]) {
+    wire.mockResolvedValueOnce(reply({ items }));
+    await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  }
+});
+
+test("resaving a stored memory preserves its exact link string", async () => {
+  const memory = { id: "memory", kind: "memory", link: "https://Example.com" };
+  const room = { items: [memory] };
+  let sent;
+  wire.mockImplementationOnce(async request => {
+    sent = await request.json();
+    return reply({ ...emptySpace, room, revision: 2 });
+  });
+  await saveGroupSpace(41, { room, expectedRevision: 1 }, room);
+  expect(sent.room.items).toEqual([memory]);
+});

@@ -2,7 +2,7 @@ import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
-import { geometryVersion, getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
+import { geometryVersion, getRoomLayout, PLAYER, roomSpawn, roomZoneAt } from "./roomLayout";
 import { isWalkablePosition, moveWalker, walkFloorHeight } from "./roomNavigation";
 import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip, updateWalkPropAppearance } from "./roomModels";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
@@ -26,7 +26,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   const cameraRay = new THREE.Raycaster();
   const sight = new THREE.Ray();
   const pointerNdc = new THREE.Vector2();
-  let position = { ...PLAYER.spawn };
+  let position = { ...roomSpawn(getRoom()) };
   let yaw = 0;
   let pitch = 0;
   let view = "perspective";
@@ -217,12 +217,13 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   function spawn() {
     const room = getRoom();
     const front = getRoomLayout(room).building.maxZ;
+    const start = roomSpawn(room);
     const legal = (candidate) => isWalkablePosition(candidate, room);
     const arrival = visiting && [12, 14, 10, 8, 6]
-      .map((offset) => ({ x: PLAYER.spawn.x, z: front + offset })).find(legal);
+      .map((offset) => ({ x: start.x, z: front + offset })).find(legal);
     const alternative = () => [2, 4, 6, 8, 10, 12].flatMap((offset) =>
-      [0, -2, 2, -4, 4].map((x) => ({ x: PLAYER.spawn.x + x, z: front + offset }))).find(legal);
-    position = arrival || (!legal(PLAYER.spawn) && alternative()) || { ...PLAYER.spawn };
+      [0, -2, 2, -4, 4].map((x) => ({ x: start.x + x, z: front + offset }))).find(legal);
+    position = arrival || (!legal(start) && alternative()) || { ...start };
     yaw = 0;
     pitch = arrival ? 0.21 : 0;
   }

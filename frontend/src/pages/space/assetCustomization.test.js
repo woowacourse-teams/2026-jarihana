@@ -1,7 +1,8 @@
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import previousRooms from './fixtures/rooms-v9.json';
 import * as THREE from 'three';
-import { DETAIL_ASSETS, createDetailAsset } from './detailAssets';
-import { ASSET_SURFACES, transformAttachedItems } from './assetCustomization';
+import { DETAIL_KINDS, createDetailAsset } from './detailAssets';
+import { transformAttachedItems } from './assetCustomization';
 import { canPlace, createInitialRoom, footprint, placedItemElevation, validateRoom, historyReducer } from './roomState';
 import { getRoomLayout, PLAYER } from './roomLayout';
 import { moveWalker } from './roomNavigation';
@@ -39,7 +40,7 @@ test('parent resize fails atomically when a child would fall off and undo restor
 });
 test('shelf slots place different contents above one another without false floor collisions',()=>{
   const shelf={id:'shelf',kind:'openDisplayShelf',x:0,z:0,rotation:0};
-  const props=ASSET_SURFACES.openDisplayShelf.map((_,i)=>({...mug,id:`cup-${i}`,parentId:'shelf',x:0,z:0,surfaceIndex:i}));
+  const props=furnitureType("openDisplayShelf").surfaces.map((_,i)=>({...mug,id:`cup-${i}`,parentId:'shelf',x:0,z:0,surfaceIndex:i}));
   const room={...sample(),items:[shelf,...props]};
   expect(validateRoom(room)).toEqual(room);
   expect(props.map(item=>placedItemElevation(item,room))).toEqual([0.25,0.95,1.65,2.35,3.05]);
@@ -61,7 +62,7 @@ test.each(['climbing','boardgame','dining','band','study','photo'])('%s new enve
 
 beforeAll(()=>jest.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(null));
 afterAll(()=>jest.restoreAllMocks());
-test.each(DETAIL_ASSETS)('$kind geometry stays within its collision size',asset=>{
+test.each(DETAIL_KINDS.map(furnitureType))('$kind geometry stays within its collision size',asset=>{
   for(const variant of [0,1,2,3,4,5]) {
   const model=createDetailAsset(asset.kind,{variant});const box=new THREE.Box3().setFromObject(model);
   try {expect(box.min.x).toBeGreaterThanOrEqual(-asset.width/2-0.01);expect(box.max.x).toBeLessThanOrEqual(asset.width/2+0.01);

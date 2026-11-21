@@ -4,6 +4,9 @@ import { LandingClubhouseScene } from "../../../src/pages/landing/LandingClubhou
 import { createRoomScene } from "../../../src/pages/space/roomScene";
 
 jest.mock("../../../src/pages/space/roomScene", () => ({ createRoomScene: jest.fn() }));
+const mockCatalogClient = { fetchQuery: jest.fn().mockResolvedValue([]) };
+jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => mockCatalogClient }));
+jest.mock("../../../src/features/group-space/hooks.js", () => ({ furnitureCatalogQuery: {} }));
 jest.mock("../../../src/pages/space/roomState", () => ({ createInitialRoom: () => ({ id: "lounge" }) }));
 
 const ROOM = { id: "lounge" };

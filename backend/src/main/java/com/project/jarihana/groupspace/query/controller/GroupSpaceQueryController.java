@@ -1,6 +1,7 @@
 package com.project.jarihana.groupspace.query.controller;
 
 import com.project.jarihana.common.response.ApiResponse;
+import com.project.jarihana.groupspace.query.controller.dto.FurnitureCatalogResponse;
 import com.project.jarihana.groupspace.query.controller.dto.GroupSpaceResponse;
 import com.project.jarihana.groupspace.query.controller.dto.SpaceBlueprintResponse;
 import com.project.jarihana.groupspace.query.service.GroupSpaceQueryService;
@@ -14,6 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class GroupSpaceQueryController {
     private final GroupSpaceQueryService service;
+
+    @GetMapping("/group-spaces/furniture-catalog")
+    public ResponseEntity<ApiResponse<FurnitureCatalogResponse>> findFurnitureCatalog() {
+        return ResponseEntity.ok(ApiResponse.success(FurnitureCatalogResponse.from(service.findFurnitureCatalog())));
+    }
 
     @GetMapping("/group-spaces/blueprints/{templateKey}/default")
     public ResponseEntity<ApiResponse<SpaceBlueprintResponse>> findDefaultBlueprint(@PathVariable String templateKey) {

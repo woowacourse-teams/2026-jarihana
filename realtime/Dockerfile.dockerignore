@@ -10,4 +10,5 @@
 !contracts
 !contracts/realtime
 !contracts/realtime/v1
-!contracts/realtime/v1/*.json
+!contracts/realtime/v1/asset-capabilities.json
+!contracts/realtime/v1/surface-anchors.json

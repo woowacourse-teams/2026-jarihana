@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { useAuth } from "../../../src/features/auth";
@@ -22,10 +23,12 @@ jest.mock("../../../src/features/auth", () => ({
 }));
 
 function renderLanding() {
+  const client = new QueryClient();
   return render(
     <ToastProvider>
       <LandingPage />
-    </ToastProvider>
+    </ToastProvider>,
+    { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> }
   );
 }
 

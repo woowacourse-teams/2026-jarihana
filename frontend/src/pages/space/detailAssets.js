@@ -1,39 +1,16 @@
 import * as THREE from 'three';
 import { createSurfaceMaterial } from './architecturalMaterials';
 
-export const DETAIL_ASSETS = Object.freeze([
-  ['longCredenza', '긴 수납 카운터', 4.8, 1, 1.02, 'common'],
-  ['worktop', '긴 작업대', 4.8, 1.1, 0.96, 'common'],
-  ['openDisplayShelf', '빈 오픈 선반', 2.4, 0.7, 3.12, 'common'],
-  ['wallShelf', '벽 선반', 2.4, 0.65, 0.1, 'common', 'wall'],
-  ['propBooks', '책과 잡지', 0.55, 0.4, 0.28, 'props'],
-  ['propBookRow', '세워 꽂은 책 묶음', 0.56, 0.35, 0.6, 'props'],
-  ['propBottle', '유리병과 물병', 0.22, 0.22, 0.45, 'props'],
-  ['propCup', '개인 머그', 0.34, 0.22, 0.22, 'props'],
-  ['propPlant', '작은 화분', 0.55, 0.55, 0.75, 'props'],
-  ['propPlates', '접시와 음식', 0.6, 0.6, 0.21, 'props'],
-  ['propGameBox', '보드게임 상자', 0.65, 0.48, 0.58, 'props'],
-  ['propCamera', '카메라와 렌즈', 0.55, 0.54, 0.32, 'props'],
-  ['propLaptop', '노트북', 0.65, 0.48, 0.44, 'props'],
-  ['propFrame', '탁상 액자', 0.38, 0.18, 0.44, 'props'],
-  ['propLamp', '탁상 스탠드', 0.45, 0.45, 0.62, 'props'],
-  ['propGameBoard', '게임판과 말', 1.5, 1.1, 0.12, 'props'],
-  ['propMonitor', '모니터와 키보드', 0.9, 0.65, 0.75, 'props'],
-  ['propCanisters', '식재료 보관병', 0.65, 0.4, 0.42, 'props'],
-  ['propPedals', '이펙터와 케이블', 0.9, 0.6, 0.16, 'props'],
-  ['hangingLamp', '높이 조절 펜던트', 0.75, 0.75, 1.5, 'architecture', 'ceiling'],
-  ['trackLight', '이동식 4구 조명 레일', 4, 0.45, 0.38, 'architecture', 'ceiling'],
-  ['ceilingBeam', '노출 천장 보', 6, 0.2, 0.34, 'architecture', 'ceiling'],
-  ['acousticCloud', '천장 흡음 패널', 2.6, 1.15, 0.52, 'architecture', 'ceiling'],
-  ['wallPrint', '갤러리 포스터', 1.15, 0.12, 1.45, 'architecture', 'wall'],
-  ['pictureLight', '액자 벽등', 0.9, 0.6, 0.3, 'architecture', 'wall'],
-  ['acousticTile', '벽 흡음 패널', 1.6, 0.2, 2.2, 'architecture', 'wall'],
-  ['loftPartition', '복층 방 벽 모듈', 4, 0.22, 4.4, 'architecture'],
-  ['loftGlassPartition', '복층 방 유리벽 모듈', 4, 0.22, 4.4, 'architecture']
-].map(([kind, name, width, depth, height, collection, mount]) => Object.freeze({kind, name, width, depth, height, collection, category: 'furniture', ...(mount ? {mount} : {}), ...(collection === 'props' ? {prop: true} : {})})));
+export const DETAIL_KINDS = Object.freeze([
+  "longCredenza", "worktop", "openDisplayShelf", "wallShelf", "propBooks", "propBookRow",
+  "propBottle", "propCup", "propPlant", "propPlates", "propGameBox", "propCamera",
+  "propLaptop", "propFrame", "propLamp", "propGameBoard", "propMonitor", "propCanisters",
+  "propPedals", "hangingLamp", "trackLight", "ceilingBeam", "acousticCloud", "wallPrint",
+  "pictureLight", "acousticTile", "loftPartition", "loftGlassPartition"
+]);
 
 export function createDetailAsset(kind, { color, variant = 0, suspension = 1.5, food = 'pizza' } = {}) {
-  if (!DETAIL_ASSETS.some((entry) => entry.kind === kind)) return null;
+  if (!DETAIL_KINDS.includes(kind)) return null;
   const root = new THREE.Group(); root.name = kind;
   const palette = ['#c99562', '#788967', '#b87258', '#647d91', '#c4b48f', '#775e79'];
   const tint = color || palette[variant % palette.length];

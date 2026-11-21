@@ -1,6 +1,7 @@
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import * as THREE from "three";
 import { createInitialRoom, canPlace, validateRoom } from "./roomState";
-import { createReferenceFurnishing, REFERENCE_FURNISHINGS } from "./referenceFurnishings";
+import { createReferenceFurnishing, REFERENCE_KINDS } from "./referenceFurnishings";
 import { disposeObject } from "./roomModels";
 
 test.each(["climbing", "boardgame", "dining", "band", "study", "photo"])("%s reference layout can be edited and saved without overlap or blocked reserved paths", (template) => {
@@ -12,7 +13,7 @@ test.each(["climbing", "boardgame", "dining", "band", "study", "photo"])("%s ref
 beforeAll(() => jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null));
 afterAll(() => jest.restoreAllMocks());
 
-test.each(REFERENCE_FURNISHINGS)("$kind fits its editable footprint including foliage and fixtures", (asset) => {
+test.each(REFERENCE_KINDS.map(furnitureType))("$kind fits its editable footprint including foliage and fixtures", (asset) => {
   const object = createReferenceFurnishing(asset.kind);
   try {
     const bounds = new THREE.Box3().setFromObject(object);

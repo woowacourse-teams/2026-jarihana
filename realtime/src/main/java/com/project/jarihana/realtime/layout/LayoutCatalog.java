@@ -16,35 +16,19 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public final class LayoutCatalog {
-    private final JsonNode runtime;
     private final JsonNode capabilities;
     private final JsonNode surfaceAnchors;
 
     public LayoutCatalog(ObjectMapper mapper) throws IOException {
-        try (var source = new ClassPathResource("contracts/space-runtime.json").getInputStream();
-             var rules = new ClassPathResource("contracts/asset-capabilities.json").getInputStream();
+        try (var rules = new ClassPathResource("contracts/asset-capabilities.json").getInputStream();
              var anchors = new ClassPathResource("contracts/surface-anchors.json").getInputStream()) {
-            runtime = mapper.readTree(source);
             capabilities = mapper.readTree(rules);
             surfaceAnchors = mapper.readTree(anchors);
         }
     }
 
-    public RoomLayout readBundled(long revision, JsonNode source) {
-        JsonNode room = source == null || source.isNull() ? runtime.path("defaultRoom") : source;
-        if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
-        String key = room.path("version").asInt() + ":" + room.path("template").asString("lounge");
-        JsonNode geometry = runtime.path("layouts").path(key);
-        if (geometry.isMissingNode()) throw new RuleViolation("UNSUPPORTED_LAYOUT");
-        return read(revision, room, geometry, RoomLayout.Origin.BUNDLED);
-    }
-
-    public RoomLayout read(long revision, JsonNode source, JsonNode geometry) {
-        return read(revision, source, geometry, RoomLayout.Origin.DATABASE);
-    }
-
-    private RoomLayout read(long revision, JsonNode source, JsonNode geometry, RoomLayout.Origin origin) {
-        JsonNode room = source == null || source.isNull() ? runtime.path("defaultRoom") : source;
+    public RoomLayout read(long revision, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
+        JsonNode geometry = blueprint.geometry();
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
         Map<String, JsonNode> instances = new LinkedHashMap<>();
         for (JsonNode item : room.path("items")) {
@@ -52,7 +36,7 @@ public final class LayoutCatalog {
         }
         Map<String, RoomAsset> assets = new LinkedHashMap<>();
         for (JsonNode item : instances.values()) {
-            RoomAsset asset = asset(item, geometry, instances);
+            RoomAsset asset = asset(item, geometry, instances, furniture);
             assets.put(asset.id(), asset);
         }
         JsonNode building = geometry.path("building");
@@ -61,14 +45,12 @@ public final class LayoutCatalog {
                 0, 1, 1, 1, 0.3, 0.3, 1.2, Set.of("switchable"), List.of(), List.of(), List.of(), 0,
                 false, 0, List.of(), 0, 0, 0);
         assets.put(light.id(), light);
-        JsonNode spawn = runtime.path("player").path("spawn");
-        return new RoomLayout(revision, assets, geometry, new Vec3(spawn.path("x").asDouble(), 0, spawn.path("z").asDouble()),
-                capabilities.path("items"), origin);
+        return new RoomLayout(revision, assets, geometry, blueprint.spawn(), capabilities.path("items"));
     }
 
-    private RoomAsset asset(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances) {
+    private RoomAsset asset(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture) {
         String kind = item.path("kind").asString();
-        JsonNode definition = runtime.path("assets").path(kind);
+        JsonNode definition = furniture.path(kind);
         if (definition.isMissingNode()) throw new RuleViolation("UNSUPPORTED_ASSET");
         JsonNode rules = capabilities.path("assets").path(kind);
         double width = definition.path("width").asDouble(), depth = definition.path("depth").asDouble();
@@ -83,37 +65,37 @@ public final class LayoutCatalog {
         for (JsonNode anchor : surfaceAnchors.path(kind)) {
             surfaces.add(new Vec3(anchor.path("x").asDouble(), anchor.path("y").asDouble(), anchor.path("z").asDouble()));
         }
-        double interactionFloor = features.contains("surface") ? floorElevation(item, geometry, instances) : 0;
+        double interactionFloor = features.contains("surface") ? floorElevation(item, geometry, instances, furniture) : 0;
         return new RoomAsset(item.path("id").asString(), kind,
-                new Vec3(item.path("x").asDouble(), elevation(item, geometry, instances, new HashSet<>()), item.path("z").asDouble()),
+                new Vec3(item.path("x").asDouble(), elevation(item, geometry, instances, furniture, new HashSet<>()), item.path("z").asDouble()),
                 item.path("rotation").asDouble(), scale(item, "scaleX"), scale(item, "scaleY"), scale(item, "scaleZ"),
                 width, depth, height, features, seats, strings(rules.path("storage").path("kinds")),
                 strings(rules.path("producer").path("kinds")), rules.path("storage").path("capacity").asInt(8),
-                !definition.path("mounted").asBoolean(false) && !definition.path("underlay").asBoolean(false),
+                !definition.hasNonNull("mount") && !underlay(definition),
                 definition.path("walkableHeight").asDouble(0), surfaces, interactionFloor,
                 rules.path("producer").path("durationMs").asLong(4000), rules.path("cooldownMs").asLong(30000));
     }
 
-    private double elevation(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, Set<String> visited) {
+    private double elevation(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture, Set<String> visited) {
         if (!visited.add(item.path("id").asString())) throw new RuleViolation("INVALID_LAYOUT");
         JsonNode parent = instances.get(item.path("parentId").asString(""));
         if (parent != null) {
-            JsonNode surfaces = runtime.path("assets").path(parent.path("kind").asString()).path("surfaces");
+            JsonNode surfaces = furniture.path(parent.path("kind").asString()).path("surfaces");
             int index = item.path("surfaceIndex").asInt(0);
             if (index < 0 || index >= surfaces.size()) throw new RuleViolation("INVALID_LAYOUT");
-            return elevation(parent, geometry, instances, visited) + surfaces.get(index).asDouble() * scale(parent, "scaleY");
+            return elevation(parent, geometry, instances, furniture, visited) + surfaces.get(index).asDouble() * scale(parent, "scaleY");
         }
-        return floorElevation(item, geometry, instances) + item.path("elevation").asDouble(0);
+        return floorElevation(item, geometry, instances, furniture) + item.path("elevation").asDouble(0);
     }
 
-    private double floorElevation(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances) {
+    private double floorElevation(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture) {
         double base = item.path("level").asInt(0) == 1 ? geometry.path("mezzanine").path("height").asDouble() : 0;
-        return base + supportHeight(item, instances);
+        return base + supportHeight(item, instances, furniture);
     }
 
-    private double supportHeight(JsonNode item, Map<String, JsonNode> instances) {
-        JsonNode ownDefinition = runtime.path("assets").path(item.path("kind").asString());
-        if (ownDefinition.path("underlay").asBoolean() || ownDefinition.path("mounted").asBoolean() ||
+    private double supportHeight(JsonNode item, Map<String, JsonNode> instances, JsonNode furniture) {
+        JsonNode ownDefinition = furniture.path(item.path("kind").asString());
+        if (underlay(ownDefinition) || ownDefinition.hasNonNull("mount") ||
                 ownDefinition.path("connectedSurface").asBoolean()) return 0;
         double ownWidth = ownDefinition.path("width").asDouble() * scale(item, "scaleX");
         double ownDepth = ownDefinition.path("depth").asDouble() * scale(item, "scaleZ");
@@ -121,7 +103,7 @@ public final class LayoutCatalog {
         double support = 0;
         for (JsonNode platform : instances.values()) {
             if (platform == item || item.path("level").asInt() != platform.path("level").asInt()) continue;
-            JsonNode definition = runtime.path("assets").path(platform.path("kind").asString());
+            JsonNode definition = furniture.path(platform.path("kind").asString());
             double height = definition.path("walkableHeight").asDouble(0);
             if (height <= 0) continue;
             double width = definition.path("width").asDouble() * scale(platform, "scaleX");
@@ -133,6 +115,10 @@ public final class LayoutCatalog {
             }
         }
         return support;
+    }
+
+    private static boolean underlay(JsonNode definition) {
+        return definition.path("underlay").asBoolean(false) || definition.hasNonNull("walkableHeight");
     }
 
     private static double scale(JsonNode item, String field) {

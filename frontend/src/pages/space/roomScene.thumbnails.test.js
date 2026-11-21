@@ -26,7 +26,7 @@ jest.mock("./roomModels", () => {
 });
 jest.mock("./roomState", () => ({
   ...jest.requireActual("./roomState"),
-  CATALOG: ["sofa", "table", "plant"].map((kind) => ({ kind }))
+  CATALOG: ["sofa", "table", "plant"].map((kind) => ({ kind, placeable: true }))
 }));
 
 let createFurnitureThumbnails;

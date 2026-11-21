@@ -15,16 +15,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: PR 변경 범위
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.scope.outputs.backend }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      e2e: ${{ steps.scope.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/pr-ci-scope.sh "$GITHUB_EVENT_NAME" "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+  # GitHub accepts skipped required checks. Only skip on an explicit, successful "false".
   backend:
     name: Backend Test
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.backend != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      RUN_CHECK: ${{ needs.changes.outputs.backend }}
 
     defaults:
       run:
         working-directory: backend
 
     steps:
+      - &require_valid_scope
+        name: 변경 감지 결과 검증
+        if: needs.changes.result != 'success' || env.RUN_CHECK != 'true'
+        working-directory: .
+        run: |
+          echo "::error::Missing or failed PR change detection"
+          exit 1
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -41,14 +72,19 @@ jobs:
 
   frontend:
     name: Frontend Verify
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.frontend != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      RUN_CHECK: ${{ needs.changes.outputs.frontend }}
 
     defaults:
       run:
         working-directory: frontend
 
     steps:
+      - *require_valid_scope
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -78,14 +114,19 @@ jobs:
 
   frontend-e2e:
     name: Frontend E2E
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.e2e != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      RUN_CHECK: ${{ needs.changes.outputs.e2e }}
 
     defaults:
       run:
         working-directory: frontend
 
     steps:
+      - *require_valid_scope
       - name: Checkout
         uses: actions/checkout@v4
 
