@@ -175,7 +175,7 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
   </>;
 }
 
-export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
+export function GroupSpaceLoader({ groupId, memberId, clubhouse, onSavedLayout, setup }) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const catalog = useFurnitureCatalog();
   const group = useGroup(groupId);
@@ -193,6 +193,10 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
   useEffect(() => {
     if (unavailableStatus) onSceneStatus?.(unavailableStatus);
   }, [onSceneStatus, unavailableStatus]);
+  const savedLayoutLoaded = Boolean(!unavailableStatus && snapshot?.room && snapshot.revision > 0);
+  useEffect(() => {
+    if (savedLayoutLoaded) onSavedLayout?.(true);
+  }, [onSavedLayout, savedLayoutLoaded]);
   if (failed) {
     return <SpaceError clubhouse={clubhouse} groupId={groupId} error={accessError ?? errors[0]}
       onRetry={() => { void group.refetch(); void space.refetch(); if (catalog.isError) void catalog.refetch(); }} />;

@@ -17,9 +17,9 @@ let mockLocation = { pathname: "/groups/41", search: "", state: null };
 
 jest.mock("../../../src/pages/groups/GroupClubhouse.jsx", () => ({
   __esModule: true,
-  default: ({ auth, children, group, groupId, setup }) => <>
+  default: ({ auth, children, group, groupId, onSavedLayout, setup }) => <>
     <h1 id="group-title" tabIndex={-1}>{group.name}</h1>
-    <MockGroupSpaceLoader groupId={groupId} memberId={auth.member?.id} setup={setup} clubhouse={{ inputBlocked: false }} />
+    <MockGroupSpaceLoader groupId={groupId} memberId={auth.member?.id} onSavedLayout={onSavedLayout} setup={setup} clubhouse={{ inputBlocked: false }} />
     {children}
   </>,
   GroupPhotoDetail: ({ children, group }) => <><h1 id="group-title" tabIndex={-1}>{group.name}</h1>{children}</>
@@ -165,6 +165,7 @@ it("방금 만든 모임에서 기본 아지트로 시작하면 기본 배치를
   }) });
   expect(setup()).not.toBeInTheDocument();
   expect(prompt()).toBeVisible();
+  expect(mockNavigate).toHaveBeenCalledWith("/groups/41", { replace: true, state: null });
   expect(screen.getByText("모집을 시작해야 다른 사람이 이 모임에 신청할 수 있어요.")).toBeVisible();
 });
 
@@ -247,18 +248,41 @@ it("저장이 실패하면 선택을 유지하고 재시도할 수 있다", asyn
   expect(prompt()).toBeVisible();
 });
 
-it("이미 저장된 아지트가 있으면 초기 설정에서 다시 저장하지 않는다", () => {
+it("이미 저장된 아지트가 있으면 재방문할 때 다시 저장하거나 모집을 안내하지 않는다", () => {
   spaceHooks.useGroupSpace.mockReturnValue({
     data: savedSnapshot(createInitialRoom("photo"), 1),
     isFetchedAfterMount: true
   });
-  renderDetail({ state: { justCreated: true } });
+  renderDetail();
 
   expect(setup()).not.toBeInTheDocument();
   expect(saveSpace).not.toHaveBeenCalled();
   expect(prompt()).not.toBeInTheDocument();
   expect(screen.getByRole("main", { name: "아지트 미리보기" })).toHaveAttribute("data-template", "photo");
   expect(scene()).toHaveAttribute("data-input-blocked", "false");
+});
+
+it("모임 생성과 함께 저장된 아지트가 열리면 초기 설정 없이 모집을 안내한다", () => {
+  jest.useFakeTimers();
+  try {
+    spaceHooks.useGroupSpace.mockReturnValue({
+      data: savedSnapshot(createInitialRoom("photo"), 1),
+      isFetchedAfterMount: true
+    });
+    renderDetail({ state: { justCreated: true } });
+
+    expect(setup()).not.toBeInTheDocument();
+    expect(saveSpace).not.toHaveBeenCalled();
+    expect(scene()).toHaveAttribute("data-template", "photo");
+    expect(prompt()).not.toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith("/groups/41", { replace: true, state: null });
+
+    act(() => jest.advanceTimersByTime(500));
+
+    expect(prompt()).toBeVisible();
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("초기 저장이 충돌하면 이미 저장된 같은 테마의 공간과 revision을 불러온다", async () => {

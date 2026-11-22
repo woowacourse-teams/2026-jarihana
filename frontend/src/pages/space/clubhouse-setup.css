@@ -2,9 +2,13 @@
   z-index: calc(var(--z-toast) + 1);
 }
 
-.ui-dialog.clubhouse-setup {
+.ui-dialog.clubhouse-setup,
+.clubhouse-setup__cards {
   --setup-accent: #b34034;
   --setup-selected: #fff3ef;
+}
+
+.ui-dialog.clubhouse-setup {
   max-width: 66rem;
   padding: clamp(1rem, 3vw, 2rem);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, Home, Image, Megaphone, MessageCircle, Plus, Settings, Share2, Users } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -77,6 +77,7 @@ function GroupDetail({ auth, groupId, memberId }) {
   const origin = groupTransitionOrigin(location.state);
   const justCreatedReference = useRef(location.state?.justCreated === true);
   const toast = useToast();
+  const [hasSavedLayout, setHasSavedLayout] = useState(false);
   const [recruitmentPromptOpen, setRecruitmentPromptOpen] = useState(false);
   const [setupDismissed, setSetupDismissed] = useState(false);
   const [invitationOpenScope, setInvitationOpenScope] = useState(null);
@@ -97,6 +98,7 @@ function GroupDetail({ auth, groupId, memberId }) {
   const canInvite = auth.status === "authenticated" && isApprovedMember && !isArchived;
   const invitationScope = `${groupId}:${memberId ?? "guest"}:${auth.sessionVersion ?? 0}`;
   const setupPending = !setupDismissed && group?.clubhouseSetupEnabled && isLeader && !isArchived && !photoDetail;
+  const hasActiveRecruitment = Boolean(group?.activeRecruitment);
 
   useEffect(() => {
     if (loadedGroupId && !redirectSpace && !recruitmentPromptOpen) {
@@ -104,15 +106,19 @@ function GroupDetail({ auth, groupId, memberId }) {
     }
   }, [loadedGroupId, recruitmentPromptOpen, redirectSpace]);
 
-  /* 세션은 아지트가 없어서 상세 화면이 열린 뒤 바로 모집을 안내한다. */
-  useEffect(() => {
-    if (!photoDetail || redirectSpace || !justCreatedReference.current || !memberId) return;
+  const clearJustCreated = useCallback(() => {
+    if (!justCreatedReference.current) return;
     justCreatedReference.current = false;
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
-    if (!isLeader || isArchived || group.activeRecruitment) return;
+  }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if ((!photoDetail && !hasSavedLayout) || redirectSpace || !justCreatedReference.current || !memberId) return;
+    clearJustCreated();
+    if (!isLeader || isArchived || hasActiveRecruitment) return;
     const timer = setTimeout(() => setRecruitmentPromptOpen(true), RECRUITMENT_PROMPT_DELAY);
     return () => clearTimeout(timer);
-  }, [group, isArchived, isLeader, location.pathname, location.search, memberId, navigate, photoDetail, redirectSpace]);
+  }, [clearJustCreated, hasActiveRecruitment, hasSavedLayout, isArchived, isLeader, memberId, photoDetail, redirectSpace]);
 
   if (groupQuery.isLoading) {
     return (
@@ -149,6 +155,7 @@ function GroupDetail({ auth, groupId, memberId }) {
   }
 
   function completeSetup() {
+    clearJustCreated();
     setSetupDismissed(true);
     if (!group.activeRecruitment) setRecruitmentPromptOpen(true);
   }
@@ -258,6 +265,7 @@ function GroupDetail({ auth, groupId, memberId }) {
       groupId={groupId}
       isMember={Boolean(memberId && (isApprovedMember || isLeader))}
       key={invitationScope}
+      onSavedLayout={location.state?.justCreated === true ? setHasSavedLayout : undefined}
       setup={setupPending ? { onComplete: completeSetup, onDismiss: () => setSetupDismissed(true) } : undefined}
     >
       {detail}

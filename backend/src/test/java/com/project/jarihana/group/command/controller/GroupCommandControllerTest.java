@@ -27,6 +27,8 @@ import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -162,11 +164,104 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .hasSize(1);
         assertThat(locationHistoryRepository.findAllByGroupIdOrderByEffectiveFromAtAscIdAsc(groupId))
                 .singleElement().extracting("location").isEqualTo("서울 캠퍼스");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM group_space WHERE group_id = ?", Long.class, groupId))
+                .isZero();
     }
 
-    @DisplayName("업로드되지 않은 대표 이미지 키로 그룹을 개설할 수 없다.")
+    @DisplayName("선택한 기본 도면과 배치를 모임 생성 즉시 첫 아지트로 조회할 수 있다.")
+    @ParameterizedTest
+    @CsvSource({"CLUB, lounge, 12", "STUDY, climbing, 11", "CLUB, boardgame, 11", "STUDY, dining, 11",
+            "CLUB, band, 11", "STUDY, study, 11", "CLUB, photo, 11"})
+    void createsGroupWithSelectedClubhouse(String type, String template, int version) {
+        Member member = memberRepository.save(Member.create("가온", 8, "clubhouse-creator", Course.BACKEND));
+        String token = accessTokenProvider.issue(member.getId()).value();
+        String csrf = csrfToken();
+        String roomName = "가".repeat(29);
+
+        int groupId = given().cookie(authCookieProperties.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"type":"%s","name":"%s🎉 모임","introduction":"아지트 소개","meetingType":"ONLINE",
+                         "clubhouseTemplateKey":"%s"}
+                        """.formatted(type, roomName, template))
+                .post("/groups").then().statusCode(201).extract().path("data.id");
+
+        var preset = given().get("/group-spaces/blueprints/{template}/default", template)
+                .then().statusCode(200).extract();
+        given().cookie(authCookieProperties.accessTokenName(), token)
+                .get("/groups/{groupId}/space", groupId)
+                .then().statusCode(200)
+                .body("data.canEdit", is(true))
+                .body("data.revision", is(1))
+                .body("data.blueprintRef.templateKey", is(template))
+                .body("data.blueprintRef.version", is(version))
+                .body("data.room.template", is(template))
+                .body("data.room.version", is(version))
+                .body("data.room.name", is(roomName))
+                .body("data.room.items", equalTo(preset.path("data.defaultRoom.items")))
+                .body("data.geometry", equalTo(preset.path("data.geometry")))
+                .body("data.defaultRoom", nullValue());
+    }
+
+    @DisplayName("일부 가구를 신규 배치할 수 없으면 초기 배치의 해당 가구와 위에 놓인 소품을 함께 제외한다.")
     @Test
-    void rejectsCreateWithUnknownRepresentativeImageKey() {
+    void excludesRetiredFurnitureAndItsPropsFromNewClubhouse() {
+        Member member = memberRepository.save(Member.create("가온", 8, "clubhouse-retired-furniture", Course.BACKEND));
+        String token = accessTokenProvider.issue(member.getId()).value();
+        String csrf = csrfToken();
+        jdbc.update("UPDATE space_furniture_catalog SET placeable = false WHERE kind = 'coffeeTable'");
+
+        try {
+            int groupId = given().cookie(authCookieProperties.accessTokenName(), token)
+                    .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                    .contentType("application/json")
+                    .body("""
+                            {"type":"CLUB","name":"클라이밍 모임","introduction":"아지트 소개","meetingType":"ONLINE",
+                             "clubhouseTemplateKey":"climbing"}
+                            """)
+                    .post("/groups").then().statusCode(201).extract().path("data.id");
+
+            given().cookie(authCookieProperties.accessTokenName(), token)
+                    .get("/groups/{groupId}/space", groupId)
+                    .then().statusCode(200)
+                    .body("data.room.items.kind", hasItem("propBooks"))
+                    .body("data.room.items.kind", not(hasItem("coffeeTable")))
+                    .body("data.room.items.parentId", not(hasItem("lounge-table")));
+        } finally {
+            jdbc.update("UPDATE space_furniture_catalog SET placeable = true WHERE kind = 'coffeeTable'");
+        }
+    }
+
+    @DisplayName("공개되지 않은 아지트와 같이해요의 아지트 선택은 그룹을 생성하지 않는다.")
+    @ParameterizedTest
+    @CsvSource({"STUDY, unpublished", "SESSION, lounge"})
+    void rejectsUnavailableClubhouseTemplate(String type, String template) {
+        Member member = memberRepository.save(Member.create("가온", 8, "clubhouse-invalid-creator", Course.BACKEND));
+        String token = accessTokenProvider.issue(member.getId()).value();
+        String csrf = csrfToken();
+        String schedule = type.equals("SESSION")
+                ? "\"sessionSchedule\": {\"sessionDate\":\"2026-08-20\",\"startTime\":\"19:00:00\",\"endTime\":\"21:00:00\"},"
+                : "";
+
+        given().cookie(authCookieProperties.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"type":"%s","name":"아지트 선택 불가 모임","introduction":"아지트 소개","meetingType":"ONLINE",
+                         %s
+                         "clubhouseTemplateKey":"%s"}
+                        """.formatted(type, schedule, template))
+                .post("/groups").then().statusCode(400)
+                .body("error.code", is("INVALID_PARAMETER"));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM groups WHERE name = '아지트 선택 불가 모임'", Long.class))
+                .isZero();
+    }
+
+    @DisplayName("아지트 저장 이후 대표 이미지 검증에 실패하면 그룹과 아지트 모두 롤백한다.")
+    @Test
+    void rollsBackGroupAndClubhouseForUnknownRepresentativeImageKey() {
         // Given
         Member member = memberRepository.save(Member.create("가온", 8, "github-controller-image-not-found", Course.BACKEND));
         String accessToken = accessTokenProvider.issue(member.getId()).value();
@@ -186,6 +281,7 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                           "description": null,
                           "meetingType": "ONLINE",
                           "location": null,
+                          "clubhouseTemplateKey": "lounge",
                           "representativeImageKey": "groups/tmp/not-found.webp",
                           "recurringSchedule": {
                             "daysOfWeek": ["MONDAY"],
@@ -203,6 +299,8 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("IMAGE_NOT_FOUND");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM groups WHERE name = '이미지 검증 그룹'", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM group_space", Long.class)).isZero();
     }
 
     @DisplayName("모임장은 그룹 기본 정보 전체 교체 결과를 상세 응답으로 받는다.")

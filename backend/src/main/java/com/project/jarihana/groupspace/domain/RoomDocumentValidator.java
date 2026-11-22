@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class RoomDocumentValidator {
     public static final int MAX_BYTES = 2_097_152;
+    public static final int MAX_NAME_LENGTH = 30;
     private static final int LOUNGE_LOFT_VERSION = 12;
     private static final Pattern COLOR = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern PHOTO = Pattern.compile("data:image/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}");
@@ -40,7 +41,7 @@ public class RoomDocumentValidator {
                 "food", "coverPhoto", "notice", "atmosphere", "items"));
         integer(room.get("version"), 8, LOUNGE_LOFT_VERSION);
         int version = room.get("version").intValue();
-        require(!text(room.get("name"), 30).isBlank());
+        require(!text(room.get("name"), MAX_NAME_LENGTH).isBlank());
         String template = choice(room.get("template"), version >= 9
                 ? Set.of("lounge", "climbing", "boardgame", "dining", "band", "study", "photo")
                 : Set.of("lounge", "climbing", "boardgame", "dining", "band"));

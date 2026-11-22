@@ -11,6 +11,7 @@ import com.project.jarihana.groupspace.command.repository.GroupSpaceCommandRepos
 import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceCommand;
 import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceResult;
 import com.project.jarihana.groupspace.domain.BlueprintRef;
+import com.project.jarihana.groupspace.domain.FurnitureType;
 import com.project.jarihana.groupspace.domain.GroupSpace;
 import com.project.jarihana.groupspace.domain.RoomDocumentValidator;
 import com.project.jarihana.groupspace.domain.SpaceBlueprint;
@@ -18,10 +19,15 @@ import com.project.jarihana.groupspace.query.repository.FurnitureCatalogReposito
 import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +39,48 @@ public class GroupSpaceCommandService {
     private final FurnitureCatalogRepository furniture;
     private final RoomDocumentValidator validator;
     private final Clock clock;
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void initializeForNewGroup(Group group, String templateKey, LocalDateTime now) {
+        if (group.getType() == GroupType.SESSION) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "같이해요 모임에는 아지트를 선택할 수 없습니다.");
+        }
+        SpaceBlueprint blueprint = blueprints.getDefault(templateKey);
+        ObjectNode room = (ObjectNode) blueprint.defaultRoom().deepCopy();
+        room.put("name", roomName(group.getName()));
+        List<FurnitureType> catalog = furniture.findAll();
+        retainPlaceableItems(room, catalog);
+        String roomJson = validator.validateAndSerialize(room, null, catalog);
+        validateLevels(room, blueprint);
+        spaces.saveAndFlush(GroupSpace.create(group, roomJson, blueprint.ref(), now));
+    }
+
+    private static String roomName(String groupName) {
+        String name = groupName.strip();
+        int end = Math.min(name.length(), RoomDocumentValidator.MAX_NAME_LENGTH);
+        if (end < name.length() && Character.isSurrogatePair(name.charAt(end - 1), name.charAt(end))) {
+            end--;
+        }
+        return name.substring(0, end);
+    }
+
+    private static void retainPlaceableItems(ObjectNode room, List<FurnitureType> catalog) {
+        int version = room.path("version").asInt();
+        Set<String> kinds = catalog.stream()
+                .filter(type -> type.placeable() && version >= type.minRoomVersion())
+                .map(FurnitureType::kind)
+                .collect(Collectors.toSet());
+        List<JsonNode> available = room.path("items").valueStream()
+                .filter(item -> kinds.contains(item.path("kind").asString()))
+                .toList();
+        Set<String> ids = available.stream().map(item -> item.path("id").asString()).collect(Collectors.toSet());
+        var items = room.putArray("items");
+        for (JsonNode item : available) {
+            if (!item.has("parentId") || ids.contains(item.path("parentId").asString())) {
+                items.add(item);
+            }
+        }
+    }
 
     @Transactional
     public SaveGroupSpaceResult saveGroupSpace(long memberId, long groupId, SaveGroupSpaceCommand command) {
@@ -57,18 +105,22 @@ public class GroupSpaceCommandService {
         JsonNode previousRoom = current == null ? null : validator.readRoom(current.getRoomJson());
         String roomJson = validator.validateAndSerialize(command.room(), previousRoom, furniture.findAll());
         var blueprint = selectBlueprint(current, previousRoom, command);
-        if (!blueprint.geometry().hasNonNull("mezzanine")) {
-            for (var item : command.room().path("items")) {
-                if (item.path("level").asInt(0) == 1) {
-                    throw new BusinessException(ErrorCode.INVALID_PARAMETER, "단층 도면에 2층 가구를 배치할 수 없습니다.");
-                }
-            }
-        }
+        validateLevels(command.room(), blueprint);
         GroupSpace saved = spaces.saveAndFlush(current == null
                 ? GroupSpace.create(group, roomJson, blueprint.ref(), LocalDateTime.now(clock))
                 : current.replaceRoom(roomJson, blueprint.ref()));
         return new SaveGroupSpaceResult(command.room(), saved.getRevision(), true, saved.getUpdatedAt(),
                 blueprint.ref(), blueprint.geometry(), blueprint.spawn());
+    }
+
+    private static void validateLevels(JsonNode room, SpaceBlueprint blueprint) {
+        if (!blueprint.geometry().hasNonNull("mezzanine")) {
+            for (var item : room.path("items")) {
+                if (item.path("level").asInt(0) == 1) {
+                    throw new BusinessException(ErrorCode.INVALID_PARAMETER, "단층 도면에 2층 가구를 배치할 수 없습니다.");
+                }
+            }
+        }
     }
 
     private SpaceBlueprint selectBlueprint(GroupSpace current, JsonNode previousRoom, SaveGroupSpaceCommand command) {

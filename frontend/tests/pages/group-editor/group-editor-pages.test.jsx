@@ -284,10 +284,35 @@ describe("NewGroupPage", () => {
     } finally { Object.defineProperty(window, "matchMedia", media); }
   });
 
+  it("같이해요를 거쳐 동아리로 바꿔도 고른 아지트 테마를 보내요", async () => {
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    const themePicker = () => within(screen.getByRole("group", { name: "아지트 테마" }));
+    expect(themePicker().getByRole("button", { name: "기본 아지트" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(themePicker().getByRole("button", { name: "클라이밍" }));
+
+    await user.click(screen.getByRole("button", { name: "모임 종류: 스터디" }));
+    await user.click(screen.getByRole("button", { name: "같이해요", exact: true }));
+    expect(screen.queryByRole("group", { name: "아지트 테마" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "모임 종류: 같이해요" }));
+    await user.click(screen.getByRole("button", { name: "동아리", exact: true }));
+    expect(themePicker().getByRole("button", { name: "클라이밍" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.type(screen.getByLabelText("모임 이름"), "클라이밍 동아리");
+    await user.type(screen.getByLabelText("한 줄 소개"), "같이 올라요");
+    submitForm("group-create-form");
+
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledWith(expect.objectContaining({
+      type: "CLUB",
+      clubhouseTemplateKey: "climbing"
+    })));
+  });
+
   it("submits the exact SESSION create body when the session form is valid", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
+    await user.click(screen.getByRole("button", { name: "클라이밍" }));
     await user.click(screen.getByRole("button", { name: "모임 종류: 스터디" }));
     await user.click(screen.getByRole("button", { name: "같이해요", exact: true }));
     await user.type(screen.getByLabelText("모임 이름"), "성능 튜닝 세션");
@@ -356,6 +381,7 @@ describe("NewGroupPage", () => {
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({
       type: "STUDY",
+      clubhouseTemplateKey: "lounge",
       recurringSchedule: null,
       sessionSchedule: null
     });
@@ -554,7 +580,7 @@ describe("NewGroupPage", () => {
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
     await act(async () => finishRequest({ id: 73, status: "ACTIVE" }));
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
     );
   });
 
@@ -570,7 +596,7 @@ describe("NewGroupPage", () => {
 
     // Then
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: null })
+      expect(mockNavigate).toHaveBeenCalledWith("/groups/73", { state: { justCreated: true } })
     );
     expect(mockShowToast).toHaveBeenCalledWith({ title: "모임을 만들었어요.", tone: "success" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

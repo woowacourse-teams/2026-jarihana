@@ -22,7 +22,8 @@ public record CreateGroupRequest(
         @Size(max = 255) String location,
         @Size(max = 255) String representativeImageKey,
         @Valid RecurringScheduleRequest recurringSchedule,
-        @Valid SessionScheduleRequest sessionSchedule
+        @Valid SessionScheduleRequest sessionSchedule,
+        @Size(max = 32) String clubhouseTemplateKey
 ) {
 
     public CreateGroupCommand toCommand() {
@@ -35,7 +36,8 @@ public record CreateGroupRequest(
                 location,
                 representativeImageKey,
                 recurringSchedule == null ? null : recurringSchedule.toCommand(),
-                sessionSchedule == null ? null : sessionSchedule.toCommand()
+                sessionSchedule == null ? null : sessionSchedule.toCommand(),
+                clubhouseTemplateKey
         );
     }
 

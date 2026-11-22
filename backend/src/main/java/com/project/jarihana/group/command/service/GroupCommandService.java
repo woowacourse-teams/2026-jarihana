@@ -24,6 +24,7 @@ import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.groupspace.command.service.GroupSpaceCommandService;
 import com.project.jarihana.image.client.ImageKeyPolicy;
 import com.project.jarihana.image.command.service.ImageLifecycleService;
 import com.project.jarihana.image.command.service.ImageMarkdown;
@@ -72,6 +73,7 @@ public class GroupCommandService {
 
     private final MemberRepository memberRepository;
     private final GroupCommandRepository groupCommandRepository;
+    private final GroupSpaceCommandService groupSpaces;
     private final GroupEventRepository groupEventRepository;
     private final GroupRecurringSeriesRepository recurringSeriesRepository;
     private final GroupRecurringPeriodRepository recurringPeriodRepository;
@@ -93,6 +95,7 @@ public class GroupCommandService {
     public GroupCommandService(
             MemberRepository memberRepository,
             GroupCommandRepository groupCommandRepository,
+            GroupSpaceCommandService groupSpaces,
             GroupEventRepository groupEventRepository,
             GroupRecurringSeriesRepository recurringSeriesRepository,
             GroupRecurringPeriodRepository recurringPeriodRepository,
@@ -113,6 +116,7 @@ public class GroupCommandService {
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
+        this.groupSpaces = groupSpaces;
         this.groupEventRepository = groupEventRepository;
         this.recurringSeriesRepository = recurringSeriesRepository;
         this.recurringPeriodRepository = recurringPeriodRepository;
@@ -142,6 +146,9 @@ public class GroupCommandService {
 
         LocalDateTime now = LocalDateTime.now(clock);
         Group group = groupCommandRepository.save(createGroup(command, now));
+        if (command.clubhouseTemplateKey() != null) {
+            groupSpaces.initializeForNewGroup(group, command.clubhouseTemplateKey(), now);
+        }
         GroupImages images = promoteGroupImages(
                 memberId,
                 group.getId(),

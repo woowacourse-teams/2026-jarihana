@@ -338,8 +338,27 @@
     font-weight: var(--font-weight-bold);
 }
 
+.group-editor__clubhouse,
 .group-editor__tabs {
     margin-block-start: var(--space-8);
+}
+
+.group-editor__clubhouse h2 {
+    font-size: var(--text-h3);
+    margin: 0 0 var(--space-3);
+}
+
+.group-editor__clubhouse .clubhouse-setup__cards {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+}
+
+.group-editor__clubhouse .clubhouse-setup__cards > .clubhouse-setup__card {
+    grid-column: auto;
+}
+
+.group-editor__clubhouse .clubhouse-setup__card img {
+    aspect-ratio: 1.3;
+    height: auto;
 }
 
 .group-editor__actions {
