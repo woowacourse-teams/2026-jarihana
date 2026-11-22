@@ -14,7 +14,7 @@
 - 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정은 Docker와 Compose를 실행할 수 있어야 한다.
 - 준비 잡은 GitHub `dev`·`prod` Environment에서 DB와 Origin 설정을 읽는다. 환경별 JDBC 주소와 입장 키를 계산하여 실행·시도별 `/dev/shm` 경로로 전달한다. 배포 잡이 끝나면 해당 실행의 설정을 지운다.
 - CloudFront 원본은 `HTTP only`, 포트 `8080`, 빈 Origin path로 지정한다. 정확한 `/ws/realtime` 경로를 사용하고 캐시를 끈다. `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
-- GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`은 API 입장 주소와 프론트의 `APP_REALTIME_WEBSOCKET_URL`에 사용된다. 비어 있으면 프론트는 현재 Origin을 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
+- GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`에 공용 WSS 주소를 설정한다. 백엔드는 입장 응답에 이 주소를 담고, 브라우저는 받은 주소로 연결한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
 후보 이미지의 `--check-runtime`으로 개발·운영 DB 이관 상태와 조회 권한을 확인한다. 두 DB 중 하나라도 사전 검사에 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 

@@ -59,7 +59,6 @@ jobs:
 
       - name: 프론트엔드 빌드
         env:
-          APP_REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
           APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
           APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
           APP_SENTRY_DSN: ${{ vars.SENTRY_FRONTEND_DSN }}

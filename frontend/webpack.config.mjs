@@ -20,7 +20,6 @@ const publicEnvironmentKeys = [
   "APP_SENTRY_DSN",
   "APP_SENTRY_RELEASE",
   "APP_DEPLOY_ENV",
-  "APP_REALTIME_WEBSOCKET_URL",
   "DISABLE_REACT_DEVTOOLS"
 ];
 
