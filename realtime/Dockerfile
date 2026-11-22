@@ -3,7 +3,6 @@ WORKDIR /workspace
 COPY realtime/gradlew realtime/settings.gradle realtime/build.gradle ./realtime/
 COPY realtime/gradle ./realtime/gradle
 COPY realtime/src/main ./realtime/src/main
-COPY backend/src/main/resources/contracts/clubhouse/blueprints ./backend/src/main/resources/contracts/clubhouse/blueprints
 WORKDIR /workspace/realtime
 RUN chmod +x gradlew && ./gradlew bootJar --no-daemon
 

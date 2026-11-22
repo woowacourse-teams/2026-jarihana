@@ -24,9 +24,10 @@ case "${1:-}" in
       case "$file" in
         .gitattributes|.github/workflows/ci.yml|.github/scripts/pr-ci-scope.sh|.github/scripts/pr-ci-scope.test.cjs)
           backend=true; frontend=true; e2e=true ;;
-        # Jest and the mock browser API both read these production inputs.
-        backend/src/main/resources/contracts/clubhouse/blueprints/*|\
-        backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql)
+        # Jest and the mock browser API both read the seeded furniture and blueprint rows.
+        backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql|\
+        backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql|\
+        backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql)
           backend=true; frontend=true; e2e=true ;;
         backend/src/test/resources/group-space-v9-catalog.json|\
         backend/src/main/resources/rhythm-harpoon/ranked-chart.json|\

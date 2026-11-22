@@ -1,8 +1,0 @@
-{
-  "templateKey": "boardgame",
-  "blueprintVersion": 8,
-  "geometrySchemaVersion": 1,
-  "geometry": {"displayName":"보드게임 라이브러리","groundName":"1층 게임 라운지","building":{"minX":-10,"maxX":10,"minZ":-13,"maxZ":5,"height":9.6},"mezzanine":{"minX":-10,"maxX":10,"minZ":-13,"maxZ":-7,"height":4.5},"stairs":{"minX":-9.7,"maxX":-7.7,"minZ":-7,"maxZ":0.6,"height":4.5,"steps":28},"walls":[{"x":0,"z":-13,"width":20.2,"depth":0.24,"height":9.6},{"x":-10,"z":-4,"width":0.24,"depth":18,"height":9.6,"cutaway":true},{"x":10,"z":-4,"width":0.24,"depth":18,"height":9.6},{"x":-6.75,"z":5,"width":6.5,"depth":0.24,"height":9.6,"cutaway":true},{"x":4.75,"z":5,"width":10.5,"depth":0.24,"height":9.6,"cutaway":true}],"pillars":[{"x":-7.4,"z":-7.1,"width":0.24,"depth":0.24,"height":4.5},{"x":0.3,"z":-7.1,"width":0.24,"depth":0.24,"height":4.5},{"x":9.8,"z":-7.1,"width":0.24,"depth":0.24,"height":4.5}],"railings":[{"x":-9.85,"z":-7,"width":0.3,"depth":0.12,"height":1},{"x":1.15,"z":-7,"width":17.7,"depth":0.12,"height":1}],"stairRails":[{"x":-9.7,"z":-3.2,"width":0.12,"depth":7.6,"height":1},{"x":-7.7,"z":-3.2,"width":0.12,"depth":7.6,"height":1}],"clearPaths":[{"minX":-3.25,"maxX":-0.75,"minZ":3.45,"maxZ":8.2},{"minX":-9.7,"maxX":9.7,"minZ":3.45,"maxZ":4.85},{"minX":-9.95,"maxX":-7.4,"minZ":-7,"maxZ":4.85},{"minX":-0.9,"maxX":0.2,"minZ":-6.8,"maxZ":3.45}],"mezzaninePaths":[{"minX":-10,"maxX":10,"minZ":-7.9,"maxZ":-7}],"facilityWalk":[{"minX":-7.4,"maxX":9.7,"minZ":-7.85,"maxZ":-7.15}],"facilityPlacement":[{"minX":-7.4,"maxX":9.7,"minZ":-7.85,"maxZ":-7.15}],"entrance":{"minX":-10,"maxX":10,"minZ":5,"maxZ":8.2}},
-  "spawn": {"x":-2,"z":6.8},
-  "defaultRoom": null
-}

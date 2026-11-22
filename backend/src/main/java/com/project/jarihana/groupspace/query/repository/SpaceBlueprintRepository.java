@@ -1,39 +1,37 @@
 package com.project.jarihana.groupspace.query.repository;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.groupspace.domain.BlueprintRef;
 import com.project.jarihana.groupspace.domain.SpaceBlueprint;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.HashMap;
-import java.util.Map;
-import org.springframework.core.io.ClassPathResource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
+@RequiredArgsConstructor
 public class SpaceBlueprintRepository {
-    private static final String BLUEPRINT_DIRECTORY = "contracts/clubhouse/blueprints/";
-
     private final JdbcClient jdbc;
-    private final Map<BlueprintRef, SpaceBlueprint> published;
-
-    public SpaceBlueprintRepository(JdbcClient jdbc, ObjectMapper mapper) {
-        this.jdbc = jdbc;
-        this.published = loadPublished(mapper);
-    }
+    private final ObjectMapper mapper;
+    private final Cache<BlueprintRef, SpaceBlueprint> published = Caffeine.newBuilder().maximumSize(256).build();
 
     public SpaceBlueprint get(BlueprintRef ref) {
-        SpaceBlueprint blueprint = published.get(ref);
-        if (blueprint == null) {
-            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "요청한 도면 버전이 없습니다.");
-        }
-        JsonNode defaultRoom = blueprint.defaultRoom();
-        return new SpaceBlueprint(ref, blueprint.geometry().deepCopy(), blueprint.spawn().deepCopy(),
-                defaultRoom == null ? null : defaultRoom.deepCopy());
+        return published.get(ref, this::loadPublished);
+    }
+
+    private SpaceBlueprint loadPublished(BlueprintRef ref) {
+        return jdbc.sql("""
+                SELECT template_key, blueprint_version, geometry, geometry_schema_version, spawn, default_room
+                FROM space_blueprint JOIN space_blueprint_runtime USING (template_key, blueprint_version)
+                WHERE template_key = ? AND blueprint_version = ?
+                """)
+                .params(ref.templateKey(), ref.version()).query(this::read).optional()
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER, "요청한 도면 버전이 없습니다."));
     }
 
     public SpaceBlueprint getDefault(String templateKey) {
@@ -47,52 +45,13 @@ public class SpaceBlueprintRepository {
         return blueprint;
     }
 
-    private static Map<BlueprintRef, SpaceBlueprint> loadPublished(ObjectMapper mapper) {
-        JsonNode index = readResource(mapper, "index.json");
-        if (!index.isArray() || index.isEmpty()) {
-            throw new IllegalStateException("발행 도면 목록이 비어 있거나 잘못되었습니다.");
+    private SpaceBlueprint read(ResultSet row, int index) throws SQLException {
+        if (row.getInt("geometry_schema_version") != 1) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "지원하지 않는 도면 형식입니다.");
         }
-        Map<BlueprintRef, SpaceBlueprint> blueprints = new HashMap<>();
-        for (JsonNode entry : index) {
-            if (!entry.isString()) {
-                throw new IllegalStateException("발행 도면 목록에는 파일 경로가 필요합니다.");
-            }
-            String path = entry.asString();
-            SpaceBlueprint blueprint = read(readResource(mapper, path));
-            BlueprintRef ref = blueprint.ref();
-            if (!path.equals(ref.templateKey() + "/v" + ref.version() + ".json")) {
-                throw new IllegalStateException("발행 도면 경로와 내용이 일치하지 않습니다: " + path);
-            }
-            if (blueprints.putIfAbsent(ref, blueprint) != null) {
-                throw new IllegalStateException("중복 발행 도면: " + ref);
-            }
-        }
-        return Map.copyOf(blueprints);
-    }
-
-    private static JsonNode readResource(ObjectMapper mapper, String path) {
-        try (var stream = new ClassPathResource(BLUEPRINT_DIRECTORY + path).getInputStream()) {
-            return mapper.readTree(stream);
-        } catch (IOException exception) {
-            throw new UncheckedIOException("발행 도면 리소스를 읽을 수 없습니다: " + path, exception);
-        }
-    }
-
-    private static SpaceBlueprint read(JsonNode entry) {
-        JsonNode templateKey = entry.required("templateKey");
-        JsonNode version = entry.required("blueprintVersion");
-        JsonNode schemaVersion = entry.required("geometrySchemaVersion");
-        JsonNode geometry = entry.required("geometry");
-        JsonNode spawn = entry.required("spawn");
-        JsonNode defaultRoom = entry.required("defaultRoom");
-        if (!templateKey.isString() || templateKey.asString().isBlank() || !version.isIntegralNumber()
-                || !version.canConvertToInt() || version.intValue() < 1 || !schemaVersion.isIntegralNumber()
-                || !schemaVersion.canConvertToInt() || schemaVersion.intValue() != 1 || !geometry.isObject()
-                || !spawn.path("x").isNumber() || !spawn.path("z").isNumber()
-                || !(defaultRoom.isNull() || defaultRoom.isObject())) {
-            throw new IllegalStateException("발행 도면 형식이 잘못되었습니다: " + templateKey + " " + version);
-        }
-        BlueprintRef ref = new BlueprintRef(templateKey.asString(), version.intValue());
-        return new SpaceBlueprint(ref, geometry, spawn, defaultRoom.isNull() ? null : defaultRoom);
+        String defaultRoom = row.getString("default_room");
+        return new SpaceBlueprint(new BlueprintRef(row.getString("template_key"), row.getInt("blueprint_version")),
+                mapper.readTree(row.getString("geometry")), mapper.readTree(row.getString("spawn")),
+                defaultRoom == null ? null : mapper.readTree(defaultRoom));
     }
 }

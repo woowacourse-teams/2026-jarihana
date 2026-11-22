@@ -13,7 +13,6 @@ import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.auth.AdmissionTokenVerifier;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
-import com.project.jarihana.realtime.layout.BlueprintCatalog;
 import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.TestBlueprints;
 import com.project.jarihana.realtime.room.persistence.RoomReadRepository;
@@ -51,9 +50,10 @@ class RoomRegistryTest {
         when(roomReads.admission(eq(RealtimeEnvironment.DEV), anyString(), anyString())).thenReturn(admission());
         when(roomReads.layout(eq(RealtimeEnvironment.DEV), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null, BlueprintRef.UNSAVED_ROOM));
         var catalog = new LayoutCatalog(mapper);
+        when(roomReads.blueprint(any(), eq(BlueprintRef.UNSAVED_ROOM))).thenReturn(TestBlueprints.runtime("11:lounge"));
         when(roomReads.furniture(any(), any())).thenReturn(TestBlueprints.FURNITURE);
         registry = new RoomRegistry(properties, new AdmissionTokenVerifier(properties, clock), roomReads,
-                new BlueprintCatalog(mapper), catalog, mapper, clock, metrics);
+                catalog, mapper, clock, metrics);
     }
 
     @AfterEach

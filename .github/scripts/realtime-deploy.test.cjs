@@ -53,8 +53,6 @@ test("native action filters separate develop deployment from PR verification", (
     ["backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", false, true],
     ["backend/src/main/resources/db/migration/V99__unrelated.sql", false, false],
-    ["backend/src/main/resources/contracts/clubhouse/blueprints/lounge/v12.json", true, true],
-    ["infra/database/clubhouse-blueprints/contract.sql", false, true],
     ["contracts/realtime/v1/asset-capabilities.json", false, false],
     ["contracts/realtime/v1/surface-anchors.json", false, false],
     ["realtime/src/main/resources/contracts/asset-capabilities.json", true, true],
@@ -118,10 +116,6 @@ test("resume resolves only the latest published digest and its original configur
     { ...resume, GITHUB_REF: "refs/heads/feature" },
     { ...resume, GITHUB_EVENT_NAME: "pull_request" },
   ]) assert.notEqual(select(invalid).status, 0);
-
-  commit("backend/src/main/resources/contracts/clubhouse/blueprints/lounge/v12.json", "{}");
-  assert.match(select(resume).stderr, /Develop contains newer realtime deployment changes/);
-  git("checkout", "--quiet", "--detach", head);
 
   git("mv", "realtime/src/main/resources/contracts/asset-capabilities.json", "archived-definitions.json");
   git("commit", "--quiet", "-m", "move a packaged resource out of the image");

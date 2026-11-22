@@ -17,8 +17,6 @@ import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
-import com.project.jarihana.groupspace.domain.BlueprintRef;
-import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -41,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class GroupSpaceControllerTest extends IntegrationTestSupport {
@@ -60,7 +59,6 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     @Autowired AuthCookieProperties cookies;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
-    @Autowired SpaceBlueprintRepository blueprints;
     private Member leader;
     private Member member;
     private Member outsider;
@@ -150,19 +148,34 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     @Test
     @DisplayName("이전 프론트의 암시적 시설 구역을 v6~8 도면에 보존한다")
     void legacyBlueprintsIncludeTheFixedFacilityBounds() {
-        for (String template : List.of("lounge", "dining", "band", "study", "photo")) {
-            var facility = mapper.readTree(template.equals("band")
-                    ? """
-                    [{"minX":-9.3,"maxX":2.8,"minZ":-7.8,"maxZ":-4.6}]
-                    """
-                    : """
-                    [{"minX":-9.4,"maxX":-4.2,"minZ":-7.8,"maxZ":-6.5}]
-                    """);
-            for (int version : List.of(6, 7, 8)) {
-                var geometry = blueprints.get(new BlueprintRef(template, version)).geometry();
-                assertThat(geometry.get("facilityWalk")).isEqualTo(facility);
-                assertThat(geometry.get("facilityPlacement")).isEqualTo(facility);
-            }
+        // Given / When / Then
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM space_blueprint
+                WHERE blueprint_version IN (6, 7, 8)
+                    AND template_key IN ('lounge', 'dining', 'band', 'study', 'photo')
+                    AND geometry->'facilityWalk' = geometry->'facilityPlacement'
+                    AND geometry->'facilityWalk' = CASE WHEN template_key = 'band'
+                        THEN '[{"minX":-9.3,"maxX":2.8,"minZ":-7.8,"maxZ":-4.6}]'::jsonb
+                        ELSE '[{"minX":-9.4,"maxX":-4.2,"minZ":-7.8,"maxZ":-6.5}]'::jsonb END
+                """, Integer.class)).isEqualTo(15);
+    }
+
+    @Test
+    @DisplayName("형식 1 도면은 필수 좌표를 검사하고 새 형식 도면은 지원 전까지 읽지 않는다")
+    void rejectsInvalidGeometryAndFutureSchemas() {
+        // Given / When / Then
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO space_blueprint VALUES ('bad-building', 1, 1, '{}')
+                """)).isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE space_blueprint SET geometry=geometry WHERE template_key='lounge' AND blueprint_version=11
+                """)).isInstanceOf(DataAccessException.class);
+        jdbc.update("INSERT INTO space_blueprint VALUES ('future-schema', 1, 2, '{}') ON CONFLICT DO NOTHING");
+        jdbc.update("INSERT INTO space_blueprint_default VALUES ('future-schema', 1) ON CONFLICT DO NOTHING");
+        try {
+            given().get("/group-spaces/blueprints/future-schema/default").then().statusCode(400);
+        } finally {
+            jdbc.update("DELETE FROM space_blueprint_default WHERE template_key='future-schema'");
         }
     }
 
@@ -173,7 +186,18 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         save(leader, ROOM, 0).then().statusCode(200);
         ObjectNode replacement = (ObjectNode) mapper.readTree(ROOM);
         replacement.put("template", "lounge").put("version", 12);
-        int published = 11;
+        int published = 13001;
+        jdbc.update("""
+                INSERT INTO space_blueprint
+                SELECT template_key, ?, geometry_schema_version, geometry
+                FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12
+                ON CONFLICT DO NOTHING
+                """, published);
+        jdbc.update("""
+                INSERT INTO space_blueprint_runtime SELECT template_key, ?, spawn, default_room
+                FROM space_blueprint_runtime WHERE template_key = 'lounge' AND blueprint_version = 12
+                ON CONFLICT DO NOTHING
+                """, published);
         jdbc.update("UPDATE space_blueprint_default SET blueprint_version=? WHERE template_key='lounge'", published);
         try {
             // When / Then
@@ -186,20 +210,14 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
             request(leader).body(body.toString()).put(path()).then().statusCode(409);
             ref.put("version", published);
             request(leader).body(body.toString()).put(path()).then().statusCode(200)
-                    .body("data.room.version", equalTo(12)).body("data.blueprintRef.version", equalTo(published))
-                    .body("data.geometry.mezzanine", nullValue());
+                    .body("data.room.version", equalTo(12)).body("data.blueprintRef.version", equalTo(published));
 
             jdbc.update("UPDATE space_blueprint_default SET blueprint_version=12 WHERE template_key='lounge'");
             save(leader, replacement.toString(), 2).then().statusCode(409);
             body.put("expectedRevision", 2).put("replaceLayout", false);
-            ObjectNode table = (ObjectNode) replacement.path("items").get(0);
-            table.put("level", 1);
-            request(leader).body(body.toString()).put(path()).then().statusCode(400);
-            table.put("level", 0);
             request(leader).body(body.toString()).put(path()).then().statusCode(200)
                     .body("data.revision", equalTo(3)).body("data.blueprintRef.version", equalTo(published));
-            request(member).get(path()).then().statusCode(200)
-                    .body("data.blueprintRef.version", equalTo(published)).body("data.geometry.mezzanine", nullValue());
+            request(member).get(path()).then().statusCode(200).body("data.blueprintRef.version", equalTo(published));
         } finally {
             jdbc.update("UPDATE space_blueprint_default SET blueprint_version=12 WHERE template_key='lounge'");
         }
@@ -256,15 +274,6 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                     assertThat(jdbc.queryForList("""
                             SELECT version FROM space_blueprint_migration_test.space_blueprint_migration
                             """, Integer.class)).containsExactly(1);
-                    assertThatThrownBy(() -> statement.execute("""
-                            INSERT INTO space_blueprint VALUES ('bad-building', 1, 1, '{}')
-                            """)).isInstanceOfSatisfying(SQLException.class,
-                            exception -> assertThat(exception.getSQLState()).isEqualTo("23514"));
-                    assertThatThrownBy(() -> statement.execute("""
-                            UPDATE space_blueprint SET geometry=geometry
-                            WHERE template_key='lounge' AND blueprint_version=11
-                            """)).isInstanceOfSatisfying(SQLException.class,
-                            exception -> assertThat(exception.getSQLState()).isEqualTo("P0001"));
                     statement.execute(furniture);
                     statement.execute(runtime);
                     try (var policies = statement.executeQuery("SELECT count(*), count(default_room) FROM space_blueprint_runtime")) {

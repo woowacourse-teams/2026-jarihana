@@ -46,7 +46,7 @@ public class GroupSpaceCommandService {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, "같이해요 모임에는 아지트를 선택할 수 없습니다.");
         }
         SpaceBlueprint blueprint = blueprints.getDefault(templateKey);
-        ObjectNode room = (ObjectNode) blueprint.defaultRoom();
+        ObjectNode room = (ObjectNode) blueprint.defaultRoom().deepCopy();
         room.put("name", roomName(group.getName()));
         List<FurnitureType> catalog = furniture.findAll();
         retainPlaceableItems(room, catalog);

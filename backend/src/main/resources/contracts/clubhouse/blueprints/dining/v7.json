@@ -1,8 +1,0 @@
-{
-  "templateKey": "dining",
-  "blueprintVersion": 7,
-  "geometrySchemaVersion": 1,
-  "geometry": {"building":{"minX":-10,"maxX":10,"minZ":-8,"maxZ":5,"height":6.4,"wingHeight":4.2},"walls":[{"x":-3,"z":-8,"width":14.2,"depth":0.24,"height":6.4},{"x":7,"z":-8,"width":6,"depth":0.24,"height":4.2},{"x":-10,"z":-1.5,"width":0.24,"depth":13,"height":6.4},{"x":10,"z":-1.5,"width":0.24,"depth":13,"height":4.2,"cutaway":true},{"x":-6.75,"z":5,"width":6.5,"depth":0.24,"height":6.4,"cutaway":true},{"x":1.75,"z":5,"width":4.5,"depth":0.24,"height":6.4,"cutaway":true},{"x":7,"z":5,"width":6,"depth":0.24,"height":4.2,"cutaway":true},{"x":4,"z":-6.75,"width":0.2,"depth":2.5,"height":4.2},{"x":4,"z":-1.25,"width":0.2,"depth":4.5,"height":4.2},{"x":4,"z":4,"width":0.2,"depth":2,"height":4.2},{"x":7,"z":-1.5,"width":6,"depth":0.2,"height":4.2}],"clearPaths":[{"minX":-3.25,"maxX":-0.75,"minZ":-4.5,"maxZ":8.2},{"minX":-0.75,"maxX":5,"minZ":-5.3,"maxZ":-3.7},{"minX":-0.75,"maxX":5,"minZ":1.2,"maxZ":2.8}],"entrance":{"minX":-10,"maxX":10,"minZ":5,"maxZ":8.2},"facilityWalk":[{"minX":-9.4,"maxX":-4.2,"minZ":-7.8,"maxZ":-6.5}],"facilityPlacement":[{"minX":-9.4,"maxX":-4.2,"minZ":-7.8,"maxZ":-6.5}]},
-  "spawn": {"x":-2,"z":6.8},
-  "defaultRoom": null
-}
