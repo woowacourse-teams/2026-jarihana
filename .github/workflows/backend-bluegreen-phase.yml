@@ -67,6 +67,7 @@ jobs:
       APP_RESULT: ${{ inputs.app_result }}
       TARGET_RESULT: ${{ inputs.target_result }}
       GH_TOKEN: ${{ github.token }}
+      REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
     steps:
       - uses: actions/checkout@v4
         with:

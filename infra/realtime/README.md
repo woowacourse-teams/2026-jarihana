@@ -9,19 +9,18 @@
 
 ## 공용 컨테이너 배포
 
-[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 화면이나 npm 의존성만 변경되면 생성된 계약을 검사한다. 서버 테스트·DB 마이그레이션 변경은 Gradle·두 DB WebSocket·Alloy 검증까지 실행한다. 서버 실행 코드, JAR에 포함되는 계약 JSON, 배포 설정이 바뀐 develop push와 develop 수동 실행만 ARM64 이미지를 발행한다. 배포 잡은 개발과 운영이 함께 쓰는 컨테이너를 교체한다. 워크플로 파일이 기본 브랜치인 `main`에 반영된 후에는 Actions에서 `develop`을 선택해 수동으로 실행할 수 있다. PR에서는 GitHub 호스팅 러너에서 검증만 실행한다.
+[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 PR에서 서버 테스트와 두 PostgreSQL의 WebSocket 동작을 검증한다. develop 자동 배포는 이미지 빌드 입력과 공용 Compose·Alloy·배포 스크립트·워크플로가 바뀔 때 시작한다. 아직 이미지에 포함되는 공유 JSON도 빌드 입력이다.
 
-- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정으로 Docker와 Compose를 실행할 수 있어야 한다.
-- 준비 잡은 기존 GitHub `dev`·`prod` Environment에서 `RDS_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_ORIGIN`, `ACCESS_TOKEN_SECRET`을 읽는다. 환경별 JDBC 주소와 입장 키를 계산해 배포 잡에 전달한다. 배포 잡은 두 Origin을 합쳐 `REALTIME_ALLOWED_ORIGINS`로 설정한다.
-- CloudFront에 EC2 원본을 `HTTP only`, 포트 `8080`, 빈 Origin path로 등록한다. Behavior 경로는 `/ws/realtime`, 캐시 정책은 `CachingDisabled`로 지정한다. Origin request policy에서 `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
+- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정은 Docker와 Compose를 실행할 수 있어야 한다.
+- 준비 잡은 GitHub `dev`·`prod` Environment에서 DB와 Origin 설정을 읽는다. 환경별 JDBC 주소와 입장 키를 계산하여 실행·시도별 `/dev/shm` 경로로 전달한다. 배포 잡이 끝나면 해당 실행의 설정을 지운다.
+- CloudFront 원본은 `HTTP only`, 포트 `8080`, 빈 Origin path로 지정한다. 정확한 `/ws/realtime` 경로를 사용하고 캐시를 끈다. `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
+- GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`은 API 입장 주소와 프론트의 `APP_REALTIME_WEBSOCKET_URL`에 사용된다. 비어 있으면 프론트는 현재 Origin을 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-- 기존 API 배포의 GitHub `dev`와 `prod` Environment에 각각 `REALTIME_WEBSOCKET_URL`을 지정한다. 두 환경에 같은 WSS 주소를 줄 수 있다. API는 입장 조건을 만족하는 요청에 토큰을 발급한다. 브라우저 연결에는 공용 컨테이너와 CloudFront 경로가 필요하다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
+후보 검사는 이미지의 원본 커밋을 기준으로 한다. 기존 이미지에는 `--check-blueprints`를, V49 소품 마이그레이션이 포함된 이미지에는 `--check-runtime`을 사용한다. 두 DB의 사전 검사가 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
-서버는 정확히 `/ws/realtime`에 연결을 받는다. `/ws/realtime/*`만 등록하면 끝에 `/`가 없는 이 주소와 일치하지 않으므로 정확한 경로의 Behavior가 필요하다. 기존 프론트 배포의 CDN 사전 검사는 정확한 경로와 기존 wildcard 경로를 모두 허용하지만, 이 검사를 통과했다고 실제 WebSocket 연결까지 확인한 것은 아니다.
+개발 DB는 develop 백엔드 배포에서 이관한다. V48 또는 V49를 처음 추가한 main push는 **Production Release V2**가 백엔드만 배포하도록 처리한다. 양쪽 DB가 준비된 뒤 **Realtime Deploy → Run workflow**에서 develop과 후보의 `resume_digest`를 지정한다. 다시 빌드하지 않고 같은 후보의 원본을 확인하고 두 환경의 자격을 새로 준비한다. 실제 교체 직전에 최신 develop의 배포 입력도 다시 확인한다.
 
-배포 잡은 새 이미지로 각 환경에서 현재 필요한 스키마와 읽기 권한을 검사한다. 예를 들어 개발이 V45, 운영이 V40이면 개발에서는 DB 도면 조회를, 운영에서는 기존 가구·입장 정보 조회를 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
-
-준비 잡은 설정을 EC2의 메모리 파일시스템 `/dev/shm`에 실행 번호와 시도 번호별로 저장한다. 배포 잡이 끝날 때 삭제하며, 강제 종료로 남은 설정은 다음 준비 잡이 1시간 경과 후 정리한다. 재시도할 때는 **Re-run all jobs**를 선택해 이번 시도의 설정을 다시 준비한다.
+V49가 소스에 포함된 프론트의 게시 전에는 같은 경로의 공용 HTTP GET이 CORS와 계약 버전 2를 반환하는지, 해당 환경 API가 두 카탈로그를 반환하는지 검사한다. 그 뒤 개발 프론트는 **Frontend Development Deploy**, 운영 프론트는 **Production Release V2**의 `frontend_only=true`로 게시할 수 있다.
 
 ## 로컬 빌드와 설정 확인
 

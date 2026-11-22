@@ -7,6 +7,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-dev-deploy.yml"
+      - "infra/blue-green-deploy/scripts/actions/frontend-realtime.sh"
   workflow_dispatch:
 
 permissions:
@@ -58,6 +59,7 @@ jobs:
 
       - name: 프론트엔드 빌드
         env:
+          APP_REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
           APP_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
           APP_GITHUB_REDIRECT_URI: ${{ vars.OAUTH_GITHUB_REDIRECT_URI }}
           APP_SENTRY_DSN: ${{ vars.SENTRY_FRONTEND_DSN }}
@@ -103,6 +105,11 @@ jobs:
       S3_DESTINATION: s3://techcourse-project-2026/jarihana-dev/frontend
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: AWS 배포 대상 확인
         run: |
           set -euo pipefail
@@ -130,6 +137,14 @@ jobs:
           test -d dist/assets
           test -s dist/sw.js
           test -s dist/manifest.webmanifest
+
+      - name: 개발 프론트 출처에서 공용 아지트 정의 확인
+        env:
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+          REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
+        run: |
+          source infra/blue-green-deploy/scripts/actions/frontend-realtime.sh
+          verify_frontend_realtime_for_checkout "$GITHUB_WORKSPACE" "$FRONTEND_ORIGIN" "$REALTIME_WEBSOCKET_URL"
 
       - name: S3 배포
         run: aws s3 sync dist "${S3_DESTINATION}" --delete --region "${AWS_REGION}" --only-show-errors

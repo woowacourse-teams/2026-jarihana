@@ -90,15 +90,32 @@ fe_aws() {
   esac
 }
 curl() {
-  local path='' output=''
+  local path='' output='' headers='' origin='' definitions
   while (( $# )); do
     case $1 in
       "$FE_PUBLIC"/*) path=${1#"$FE_PUBLIC/"}; shift;;
       --output) output=$2; shift 2;;
-      --proto|--max-redirs|--connect-timeout|--max-time|--max-filesize|--header) shift 2;;
+      --dump-header) headers=$2; shift 2;;
+      --header) origin=$2; shift 2;;
+      --proto|--max-redirs|--connect-timeout|--max-time|--max-filesize) shift 2;;
       *) shift;;
     esac
   done
+  if [[ $path == ws/realtime ]]; then
+    [[ $origin == 'Origin: https://jarihana.com' ]]
+    printf '%s\n' "$origin" >>"$CASE_DIR/realtime-origins"
+    printf 'HTTP/2 %s\r\nAccess-Control-Allow-Origin: %s\r\n\r\n' "${REALTIME_HTTP_STATUS:-200}" "${REALTIME_CORS_ORIGIN-*}" >"$headers"
+    definitions='{"success":true,"data":{"catalogContractVersion":2}}'
+    printf '%s\n' "${REALTIME_RESPONSE-$definitions}" >"$output"
+    printf '%s' "${REALTIME_HTTP_STATUS:-200}"
+    return
+  fi
+  if [[ $path == api/group-spaces/furniture-catalog ]]; then
+    definitions='{"success":true,"data":{"portableCatalogVersion":1,"portableItems":{"camera":{"portable":true,"throwable":false,"consumable":false,"camera":true}},"interactionCatalogVersion":1,"items":[{"kind":"sofa","interaction":{"capabilities":["seatable"],"seatCount":3}},{"kind":"cameraCabinet","interaction":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4,"kinds":["camera"]}}}]}}'
+    printf '%s\n' "${CATALOG_RESPONSE-$definitions}" >"$output"
+    printf '%s' "${CATALOG_HTTP_STATUS:-200}"
+    return
+  fi
   printf 'public\t%s\n' "$path" >>"$CASE_DIR/requests"
   if [[ ${BAD_PUBLIC:-} == "$path" ]]; then path=index.html; fi
   [[ -f "$CASE_DIR/s3/$FE_LIVE/$path" ]] || return 1
@@ -117,6 +134,8 @@ fixture_files() {
 setup() {
   CASE_DIR="$TEST_DIR/$1"; mkdir -m700 "$CASE_DIR"
   mkdir -m700 "$CASE_DIR/state"
+  GITHUB_WORKSPACE="$CASE_DIR/checkout"
+  mkdir "$GITHUB_WORKSPACE"
   STATE_FILE="$CASE_DIR/state/state.json"
   echo 1000 >"$CASE_DIR/clock"
   BG_LIVE_CACHED_AT=0
@@ -129,6 +148,11 @@ setup() {
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
   unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION CDN_BEHAVIORS CDN_EXTRA_ORIGINS REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
+}
+catalog_migration_in_checkout() {
+  local migrations="$GITHUB_WORKSPACE/backend/src/main/resources/db/migration"
+  mkdir -p "$migrations"
+  touch "$migrations/V49__space_portable_item_catalog.sql"
 }
 rejects() {
   local status=0
@@ -609,12 +633,51 @@ backend_only_fixture() {
 }
 backend_only_keeps_frontend_files() {
   backend_only_fixture
+  catalog_migration_in_checkout
+  REALTIME_HTTP_STATUS=400
   fe_stage; fe_publish; fe_finalize
+  [[ ! -e $CASE_DIR/realtime-origins ]]
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   [[ ! -e $(manifest_file) ]]
   ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .pending==null and .backend_image==$image' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
   jq -e '.frontend.changed==false and .frontend.published==false and .frontend.finalized==true' "$STATE_FILE" >/dev/null
+}
+frontend_before_catalog_migration_publishes_without_realtime() {
+  fe_stage
+  REALTIME_HTTP_STATUS=400 fe_publish
+  [[ ! -e $CASE_DIR/realtime-origins ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *new* ]]
+}
+frontend_requires_realtime_before_writing_live_files() {
+  catalog_migration_in_checkout
+  fe_stage
+  local before; before=$(write_count)
+  REALTIME_HTTP_STATUS=400 rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_CORS_ORIGIN=https://other.example rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_RESPONSE='<html>fallback</html>' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"items":{}}}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_RESPONSE='{"success":true,"data":{"catalogContractVersion":2,"items":{}}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_HTTP_STATUS=503 rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"items":[{"kind":"sofa"}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"interactionCatalogVersion":1,"items":[{"kind":"sofa"}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"portableCatalogVersion":1,"portableItems":{"camera":{"portable":true,"throwable":"false","consumable":false}},"interactionCatalogVersion":1,"items":[{"kind":"sofa"}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"portableCatalogVersion":1,"portableItems":{"camera":{"portable":true,"throwable":false,"consumable":false}},"interactionCatalogVersion":1,"items":[{"kind":"cameraCabinet","interaction":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":0}}}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"portableCatalogVersion":1,"portableItems":{"camera":{"portable":true,"throwable":false,"consumable":false}},"interactionCatalogVersion":1,"items":[{"kind":"sofa","interaction":{"capabilities":["seatable"]}}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  fe_publish
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *new* ]]
 }
 backend_only_rollback_keeps_frontend_files() {
   backend_only_fixture
@@ -649,7 +712,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
+for test in frontend_before_catalog_migration_publishes_without_realtime frontend_requires_realtime_before_writing_live_files candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

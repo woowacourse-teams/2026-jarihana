@@ -42,7 +42,13 @@ if [[ "$BG_MODE" == deploy ]]; then
     shared=(infra .github/scripts/production-frontend-build.cjs .github/workflows/backend-{prod-deploy,prod-deploy-v2,bluegreen-deploy,bluegreen-deploy-v2,app-operation,bluegreen-phase,bluegreen-app-v2,bluegreen-prepare-v2}.yml)
     backend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- backend "${shared[@]}")
     frontend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- frontend .github/workflows/frontend-prod-deploy.yml "${shared[@]}")
-    if [[ -z "$backend_changes" && -n "$frontend_changes" ]]; then
+    catalog_migrations_added=$(git diff --no-renames --diff-filter=A --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
+      backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql \
+      backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql)
+    if [[ -n "$catalog_migrations_added" ]]; then
+      echo '::notice::Apply clubhouse catalog migrations with the existing frontend before resuming shared realtime.'
+      backend_only=true
+    elif [[ -z "$backend_changes" && -n "$frontend_changes" ]]; then
       frontend_only=true
     elif [[ -z "$frontend_changes" && -n "$backend_changes" ]]; then
       backend_only=true

@@ -10,6 +10,7 @@ FE_S3_TRANSPORT=curl
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-transfer.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-s3.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/frontend-cache.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/frontend-realtime.sh"
 
 fe_aws_cli() { AWS_MAX_ATTEMPTS=1 aws --region ap-northeast-2 --cli-connect-timeout 3 --cli-read-timeout 30 --no-cli-pager "$@"; }
 fe_aws() {
@@ -320,6 +321,8 @@ fe_publish() {
     return
   fi
   fe_prepare_candidate
+  verify_frontend_realtime_for_checkout "$GITHUB_WORKSPACE" "$FE_PUBLIC" "${REALTIME_WEBSOCKET_URL:-}" ||
+    bg_die 'Public clubhouse catalogs must be available before frontend publication'
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.publication_started=true' <<<"$STATE")"
   fe_publish_files "$FE_CANDIDATE_DIRECTORY" "$FE_TEMP/download-manifest.json"
