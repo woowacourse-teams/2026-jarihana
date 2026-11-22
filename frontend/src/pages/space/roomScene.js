@@ -771,13 +771,13 @@ export function createRoomScene(container, callbacks) {
     // Decorative occupants follow actual stools, never implied online members.
     const colors = ["#83a375", "#b99acb", "#e7c6a2", nextRoom.avatarColor];
     nextRoom.items.filter((item) => ["stool", "gameChair", "roundChair"].includes(item.kind)).sort((a, b) => Number(a.z >= getRoomLayout(nextRoom).building.maxZ) - Number(b.z >= getRoomLayout(nextRoom).building.maxZ)).slice(0, 6).forEach((seat, index) => {
-      const fit = seatedAvatarPlacement(seat, 0, placedItemElevation(seat, nextRoom));
+      const fit = seatedAvatarPlacement(seat, 0, nextRoom);
       const character = createMascot({ color: colors[index % colors.length], pose: "seated" });
       character.position.set(fit.position.x, fit.position.y, fit.position.z);
       character.scale.setScalar(fit.scale);
       character.userData.roomLevel = seat.level || 0;
       character.userData.seatId = seat.id;
-      character.rotation.y = seat.rotation * Math.PI / 2;
+      character.rotation.y = Math.PI - fit.yaw;
       mascotLayer.add(character);
     });
     mascotLayer.visible = !realtime;

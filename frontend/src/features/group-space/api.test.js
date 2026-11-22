@@ -133,7 +133,7 @@ test.each([
   const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply(assetDefinitions));
   try {
     const received = await fetchAssetDefinitions();
-    expect(received.capabilities.assets.sofa.seats).toEqual(assetDefinitions.capabilities.assets.sofa.seats);
+    expect(received.capabilities.assets.sofa).toEqual({ capabilities: ["seatable"], seatCount: 3 });
     expect(received.capabilities.items.camera.camera).toBe(true);
     expect(received.capabilities.assets.bookshelf).toMatchObject({ surface: { slots: 4 }, storage: { capacity: 8 } });
     expect(Object.keys(received)).toEqual(["capabilities"]);

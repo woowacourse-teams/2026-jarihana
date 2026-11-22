@@ -254,7 +254,8 @@ async function connect(url, memberId, roomId = "1", options = {}) {
   clients.push(client);
   await waitFor(() => socket.readyState === WebSocket.OPEN || client.closed, "socket open");
   assert.equal(client.closed, false);
-  socket.send(JSON.stringify({ type: "AUTH_JOIN", protocolVersion: 1, token: token(memberId, roomId, options) }));
+  socket.send(JSON.stringify({ type: "AUTH_JOIN", protocolVersion: 1, token: token(memberId, roomId, options),
+    ...(options.seatRefs && { seatRefs: true }) }));
   if (options.expectedError) {
     await waitFor(() => client.close || client.state, "access denied closes connection");
     assert.deepEqual(client.close, { code: options.expectedCloseCode ?? 4001, reason: options.expectedError });
@@ -390,7 +391,9 @@ try {
   assert.deepEqual(data, { capabilities: JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")) });
   assert.equal(data.capabilities.assets.cafeCabinet.surface.slots, 1);
   assert.equal(data.capabilities.assets.cafeCabinet.storage.capacity, 8);
-  receipt.push("public cross-origin GET returns the capability rules, including separate surface and storage limits");
+  assert.equal(data.capabilities.assets.sofa.seatCount, 3);
+  assert.equal(data.capabilities.assets.sofa.seats, undefined);
+  receipt.push("public cross-origin GET returns seat counts and separate surface and storage limits without presentation coordinates");
   const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
@@ -494,7 +497,7 @@ try {
 
   const jti = randomUUID();
   const [a, productionA] = await Promise.all([
-    connect(url, "101", "1", { jti }),
+    connect(url, "101", "1", { jti, seatRefs: true }),
     connect(url, "101", "1", { environment: "prod", jti })
   ]);
   await connect(url, "101", "1", { jti, expectedError: "TOKEN_REPLAYED" });
@@ -529,13 +532,33 @@ try {
   assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
   receipt.push("participant avatars come from the verified environment and update without movement or layout changes");
 
+  const beforeSitting = participant(a, "101");
+  assert.equal((await command(a, { action: "SIT", assetId: "seat", slot: 3 })).code, "INVALID_SLOT");
   assert.equal((await command(a, { action: "SIT", assetId: "seat", slot: 1 })).success, true);
   assert.equal((await command(productionA, { action: "SIT", assetId: "seat", slot: 1 })).success, true);
-  const devSeat = await waitFor(() => a.state.participants.find((participant) => participant.memberId === "101")?.seat, "development seat");
+  const canonicalSeat = await waitFor(() => participant(a, "101")?.seat, "canonical seat");
+  assert.deepEqual(canonicalSeat, { assetId: "seat", slot: 1 });
+  assert.deepEqual(participant(a, "101").position, beforeSitting.position);
+  assert.equal(participant(a, "101").yaw, beforeSitting.yaw);
+  const devSeat = await waitFor(() => participant(b, "101")?.seat, "legacy seat");
+  assert.deepEqual(devSeat.approach, beforeSitting.position);
+  assert.deepEqual(participant(b, "101").position, devSeat.position);
+  assert.equal(participant(b, "101").yaw, devSeat.yaw);
+  const staleSeatCommand = await command(a, { action: "STAND" }, { layoutRevision: revision - 1 });
+  assert.equal(staleSeatCommand.code, "LAYOUT_MISMATCH");
+  await checkLiveRoom(a, context(a), revision);
+  assert.deepEqual(participant(a, "101").seat, canonicalSeat);
+  const blockedMoveStart = a.messages.length;
+  a.socket.send(JSON.stringify({ type: "MOVE", ...context(a), moveSeq: 1, payload: {
+    ...beforeSitting.position, yaw: beforeSitting.yaw, locomotion: "walking"
+  } }));
+  await waitFor(() => a.messages.slice(blockedMoveStart).find(
+    message => message.type === "ERROR" && message.code === "SEATED"), "seated movement is rejected");
+  receipt.push("canonical and legacy peers see different seat views of the same actor; resync preserves seat references and movement is blocked while seated");
   const prodSeat = await waitFor(() => productionA.state.participants.find((participant) => participant.memberId === "101")?.seat, "production seat");
   assert.ok(Math.abs(devSeat.position.x - prodSeat.position.x - 0.25) < 0.0001);
   const conflict = await command(b, { action: "SIT", assetId: "seat", slot: 1 });
-  assert.equal(conflict.success, false);
+  assert.equal(conflict.code, "OCCUPIED");
   const c = await connect(url, "103");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "101").seat.assetId, "seat");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "103").displayName, "103");

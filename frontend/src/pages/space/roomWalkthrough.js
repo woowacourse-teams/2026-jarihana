@@ -300,7 +300,6 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function stand() {
     if (!seated) return;
-    position = seated.approach;
     seated = null;
     sharedPose = "relaxed";
   }
@@ -337,9 +336,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     if (!target) return;
     if (realtime && target.sharedItem) { sharedCommand({ action: "PICKUP", itemId: target.itemId }); return; }
-    if (target.seat) {
+    if (target.seatCount) {
       if (realtime) {
-        const slot = availableSeat(target, position, realtime.store.getState());
+        const slot = availableSeat(target, position, realtime.store.getState(), getRoom());
         if (slot === undefined) { showFeedback("빈자리가 없어요."); return; }
         sharedCommand({ action: "SIT", assetId: target.id, slot });
         return;
@@ -350,7 +349,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
         return;
       }
       stop();
-      approaching = { ...seat, item: target.item };
+      approaching = seat;
       syncCamera();
       frame = requestAnimationFrame(tick);
     } else if (target.choices?.length) {
@@ -442,7 +441,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const floorHeight = position.y || 0;
     const translating = [...keys].some((key) => WALK_KEYS.has(key) || key === "ArrowUp" || key === "ArrowDown") || Boolean(approaching || walkStep) || stepUntil > 0;
     const locomotion = jumpHeight ? "jumping" : translating ? sprintKeys.size ? "running" : "walking" : "idle";
-    const fit = seated ? fitSeatedAvatar(seated.item, seated) : null;
+    const fit = seated ? fitSeatedAvatar(getRoom(), seated) : null;
     const location = fit?.position ?? position;
     const now = performance.now();
     const time = realtime?.store.serverNow() ?? now;
@@ -468,7 +467,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     avatar.position.set(location.x, (location.y || 0) + jumpHeight, location.z);
     avatar.scale.setScalar(fit?.scale ?? 1);
-    avatar.rotation.y = Math.PI - (seated?.yaw ?? yaw);
+    avatar.rotation.y = Math.PI - (fit?.yaw ?? yaw);
     if (!appearance) {
       animateMascot(avatar, seated ? "idle" : locomotion, time, motion);
       const hand = avatar.getObjectByName("greeting-hand");
@@ -596,10 +595,11 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       const dx = approach.x - position.x, dz = approach.z - position.z;
       const remaining = Math.hypot(dx, dz);
       if (remaining < 0.025) {
-        seated = approaching;
+        const { assetId, slot, yaw: seatYaw } = approaching;
+        seated = { assetId, slot };
         approaching = null;
         position = approach;
-        yaw = seated.yaw;
+        yaw = seatYaw;
         pitch = -0.1;
       } else {
         yaw = Math.atan2(dx, -dz);
@@ -773,16 +773,18 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       consuming = consumptionFrame(consumption, realtime.store.serverNow(), reduceMotion?.matches).active;
       previousState = state;
       const reset = state.type === "ROOM_SNAPSHOT" || appliedEpoch !== state.roomEpoch || appliedRevision !== state.layoutRevision ||
-        actor.seat?.assetId !== seated?.item?.id || actor.seat?.slot !== seated?.slot;
+        actor.seat?.assetId !== seated?.assetId || actor.seat?.slot !== seated?.slot;
       // Movement frames can trail our unacknowledged input. Corrections arrive as snapshots.
       if (reset) {
         movementPath.length = 0;
         approaching = null;
         walkStep = undefined;
-        seated = actor.seat ? { ...actor.seat, item: getRoom()?.items.find((item) => item.id === actor.seat.assetId) } : null;
-        position = { ...(actor.seat?.approach ?? actor.position) };
-        yaw = actor.yaw;
-        const floor = walkFloorHeight(position, getRoom());
+        const room = getRoom();
+        seated = actor.seat;
+        position = { ...actor.position };
+        const fit = seated ? fitSeatedAvatar(room, seated) : null;
+        yaw = fit?.yaw ?? actor.yaw;
+        const floor = walkFloorHeight(position, room);
         jumpHeight = actor.locomotion === "jumping" && !seated ? Math.max(0, position.y - floor) : 0;
         position.y = floor;
         jumpVelocity = 0;
@@ -843,7 +845,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (!active() || !interactive || room.items !== furniture || enteringFromWeb) {
         const hadInteraction = menu || nearby || feedback || held;
         if (enteringFromWeb || (!keepPose && (!active() || room.items !== furniture))) { stand(); setHeld(null); }
-        else if (seated && !room.items.includes(seated.item)) stand();
+        else if (seated && !room.items.some((item) => item.id === seated.assetId)) stand();
         if (hadInteraction) {
           menu = null;
           nearby = null;

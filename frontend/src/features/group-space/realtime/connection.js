@@ -77,7 +77,7 @@ export function createRoomConnection({ groupId, store, admission = requestRoomAd
       const active = () => !stopped && current === generation && socket === activeSocket;
       activeSocket.onopen = () => {
         if (!active()) { activeSocket.close(); return; }
-        send({ type: "AUTH_JOIN", protocolVersion: 1, token: ticket.token });
+        send({ type: "AUTH_JOIN", protocolVersion: 1, token: ticket.token, seatRefs: true });
         clearTimeout(authTimer);
         authTimer = setTimeout(() => activeSocket.close(), 10000);
         lastReceived = now();

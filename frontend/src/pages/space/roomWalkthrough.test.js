@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { AVATAR_BASIC_APPEARANCE } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkthrough } from "./roomWalkthrough";
+import { createRemotePlayers } from "./roomRemotePlayers.js";
 import { createInitialRoom } from "./roomState";
 import { bindRoomBlueprint, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition } from "./roomNavigation";
@@ -823,8 +824,7 @@ test("shared pickup waits for authority and a removed seat restores the server s
     walk.command("greet"); await Promise.resolve(); await Promise.resolve();
     expect(command).toHaveBeenCalledWith({ action: "EMOTE", kind: "wave" });
     expect(scene.getObjectByName("greeting-hand")).toBeUndefined();
-    state = { ...state, type: "ROOM_STATE", participants: [{ ...actor, heldItemId: "cookie", seat: { assetId: "sofa", slot: 0,
-      position: { x: -.81, y: .335, z: .33 }, approach: { x: 0, y: 0, z: 2 }, yaw: Math.PI } }],
+    state = { ...state, type: "ROOM_STATE", participants: [{ ...actor, heldItemId: "cookie", seat: { assetId: "sofa", slot: 0 } }],
       items: [{ id: "cookie", kind: "cookie", remaining: .5 }] };
     walk.applyRealtimeState(state);
     expect(scene.getObjectByName("walk-prop")).toBeDefined();
@@ -834,6 +834,45 @@ test("shared pickup waits for authority and a removed seat restores the server s
     expect(scene.getObjectByName("mascot").position.toArray()).toEqual([2, 0, 8]);
     expect(scene.getObjectByName("walk-prop")).toBeUndefined();
   } finally { walk.dispose(); }
+});
+
+test("first person, local and remote avatars share the fit of a rotated, scaled loft seat", () => {
+  jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+  const scene = new THREE.Scene();
+  const container = document.createElement("div");
+  const sofa = { id: "sofa", kind: "sofa", x: -2, z: -6, rotation: 1, level: 1, scaleX: 1.35, scaleY: 0.75, scaleZ: 1.2 };
+  const room = { ...createInitialRoom("lounge"), version: 12, items: [sofa] };
+  const actor = { memberId: "1", avatarColor: "#536bd6", displayName: "test", position: { x: -1, y: 4.45, z: -5.3 },
+    yaw: 0, locomotion: "idle", seat: { assetId: "sofa", slot: 2 }, heldItemId: null, emote: null, pose: "relaxed" };
+  const state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", participants: [actor], items: [], assets: {} };
+  const store = { getState: () => state, serverNow: () => 1000 };
+  const walk = createWalkthrough(scene, container, { getRoom: () => room, getObstacles: () => [], render: jest.fn() });
+  const players = createRemotePlayers(scene, jest.fn(), () => room);
+  try {
+    walk.update("firstPerson", actor.avatarColor);
+    walk.setRealtime({ connection: { move: jest.fn() }, store });
+    walk.applyRealtimeState(state);
+    players.setStore({ ...store, getState: () => ({ ...state, selfId: "other" }), interpolate: () => actor });
+    advance(1000);
+
+    const x = -1.604, y = 4.73685, z = -7.0935;
+    expect(walk.camera.position.x).toBeCloseTo(x);
+    expect(walk.camera.position.y).toBeCloseTo(y + 1.16 * 0.66);
+    expect(walk.camera.position.z).toBeCloseTo(z);
+    expect(walk.camera.getWorldDirection(new THREE.Vector3()).x).toBeCloseTo(1);
+
+    walk.update("thirdPerson", actor.avatarColor);
+    const local = scene.getObjectByName("mascot");
+    const remote = scene.getObjectByName("remote-player-1");
+    expect(local.position.x).toBeCloseTo(x);
+    expect(local.position.y).toBeCloseTo(y);
+    expect(local.position.z).toBeCloseTo(z);
+    expect(local.rotation.y).toBeCloseTo(Math.PI / 2);
+    expect(local.scale.x).toBeCloseTo(0.66);
+    expect(remote.position.toArray()).toEqual(local.position.toArray());
+    expect(remote.rotation.y).toBe(local.rotation.y);
+    expect(remote.scale.x).toBe(local.scale.x);
+  } finally { players.dispose(); walk.dispose(); }
 });
 
 test("rapid shared direction clicks move at walking speed and end at idle", () => {

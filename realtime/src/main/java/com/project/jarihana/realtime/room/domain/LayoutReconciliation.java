@@ -14,9 +14,8 @@ final class LayoutReconciliation {
         Map<String, AssetState> assets = new HashMap<>();
         for (ParticipantState actor : room.participants()) {
             ParticipantState updated = actor;
-            if (actor.seat() != null && changed(room.layout(), next, actor.seat().assetId())) {
-                updated = actor.stand(next.safe(actor.seat().approach()), now);
-            } else if (actor.seat() == null && !next.valid(actor.position(), false)) {
+            if (!next.valid(actor.position(), false) ||
+                    (actor.seat() != null && changed(room.layout(), next, actor.seat().assetId()))) {
                 updated = actor.stand(next.safe(actor.position()), now);
             }
             participants.add(updated);

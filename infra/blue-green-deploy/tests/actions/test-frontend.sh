@@ -105,7 +105,7 @@ curl() {
     [[ $origin == 'Origin: https://jarihana.com' ]]
     printf '%s\n' "$origin" >>"$CASE_DIR/realtime-origins"
     printf 'HTTP/2 %s\r\nAccess-Control-Allow-Origin: %s\r\n\r\n' "${REALTIME_HTTP_STATUS:-200}" "${REALTIME_CORS_ORIGIN-*}" >"$headers"
-    definitions='{"success":true,"data":{"capabilities":{"version":1,"assets":{"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}},"items":{"camera":{}}}}}'
+    definitions='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}},"items":{"camera":{}}}}}'
     printf '%s\n' "${REALTIME_RESPONSE-$definitions}" >"$output"
     printf '%s' "${REALTIME_HTTP_STATUS:-200}"
     return
@@ -638,9 +638,11 @@ frontend_requires_realtime_before_writing_live_files() {
   [[ $(write_count) == "$before" ]]
   REALTIME_RESPONSE='<html>fallback</html>' rejects fe_publish
   [[ $(write_count) == "$before" ]]
-  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"table":{"capabilities":["surface"]}},"items":{"camera":{}}},"surfaceAnchors":{"table":[{}]}}}' rejects fe_publish
+  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"storage":{"capacity":4}}},"items":{"camera":{}}},"surfaceAnchors":{"cameraCabinet":[{}]}}}' rejects fe_publish
   [[ $(write_count) == "$before" ]]
-  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":0}}},"items":{"camera":{}}}}}' rejects fe_publish
+  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":0}}},"items":{"camera":{}}}}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seats":[{}]},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}},"items":{"camera":{}}}}}' rejects fe_publish
   [[ $(write_count) == "$before" ]]
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   fe_publish

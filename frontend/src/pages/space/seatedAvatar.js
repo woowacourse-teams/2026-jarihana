@@ -1,5 +1,6 @@
 import { assetScale, localToWorld } from "./assetCustomization.js";
-import { capabilitiesFor } from "./roomCapabilities.js";
+import { placedItemElevation } from "./roomState.js";
+import seatModelAnchors from "./seatModelAnchors.json";
 
 function curvedHeight(z, y, radiusY, centerZ, radiusZ) {
   return y + radiusY * Math.sqrt(Math.max(0, 1 - ((z - centerZ) / radiusZ) ** 2));
@@ -17,24 +18,24 @@ function seatHeight(kind, seat, hipBack) {
   return seat.y;
 }
 
-// The server owns the seat and its floor elevation. Fit only the visible avatar to the model.
-export function seatedAvatarPlacement(item, slot, elevation) {
-  const { seats, seatFit } = capabilitiesFor(item.kind);
-  const seat = seats[slot];
+export function seatedAvatarPlacement(item, slot, room) {
+  const model = item && seatModelAnchors[item.kind];
+  const seat = model?.seats[slot];
+  if (!seat) return null;
+  const { seatFit } = model;
   const { x, y, z } = assetScale(item);
   const scale = Math.min(1, x, y, z) * seatFit.maxScale;
   const forward = Math.max(seat.z * z, seatFit.front * z - 0.4 * scale);
   const hipBack = (forward - 0.14 * scale) / z;
   const height = seatHeight(item.kind, seat, hipBack);
   return {
-    position: { ...localToWorld(item, seat.x, forward / z), y: elevation + height * y + seat.avatarOffsetY * scale + 0.005 },
-    scale
+    position: { ...localToWorld(item, seat.x, forward / z),
+      y: placedItemElevation(item, room) + height * y + seat.avatarOffsetY * scale + 0.005 },
+    scale, slot, localX: seat.x, yaw: seat.yaw - item.rotation * Math.PI / 2
   };
 }
 
-export function fitSeatedAvatar(item, seat) {
-  const anchor = item && capabilitiesFor(item.kind).seats?.[seat.slot];
-  if (!anchor) return { position: seat.position, scale: 1 };
-  const elevation = seat.position.y - anchor.y * (item.scaleY ?? 1) - anchor.avatarOffsetY;
-  return seatedAvatarPlacement(item, seat.slot, elevation);
+export function fitSeatedAvatar(room, seat) {
+  const furniture = room?.items.find((asset) => asset.id === seat.assetId);
+  return seatedAvatarPlacement(furniture, seat.slot, room);
 }

@@ -41,18 +41,16 @@ export function fetchFurnitureCatalog() {
 }
 
 const assetKinds = z.array(z.string());
-const anchor = z.object({ x: z.number(), y: z.number(), z: z.number() });
 const assetDefinitionsSchema = z.object({
   capabilities: z.object({
     version: z.literal(1),
     assets: z.record(z.string(), z.object({
       capabilities: assetKinds,
-      seats: z.array(anchor.extend({ yaw: z.number(), avatarOffsetY: z.number().default(0) })).optional(),
-      seatFit: z.object({ front: z.number(), maxScale: z.number() }).optional(),
+      seatCount: z.number().int().positive().optional(),
       surface: z.object({ slots: z.number().int().positive() }).optional(),
       storage: z.object({ kinds: assetKinds, capacity: z.number().int().positive() }).optional(),
       producer: z.object({ kinds: assetKinds }).optional()
-    }).refine((definition) => (!definition.seats?.length || Boolean(definition.seatFit)) &&
+    }).refine((definition) => (definition.capabilities.includes("seatable") === Boolean(definition.seatCount)) &&
       (definition.capabilities.includes("surface") === Boolean(definition.surface)))),
     items: z.record(z.string(), z.object({
       throwable: z.boolean(), consumable: z.boolean(), camera: z.boolean().optional()

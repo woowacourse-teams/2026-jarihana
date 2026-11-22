@@ -63,7 +63,7 @@ public final class RoomRuntime {
                 peer.joined();
                 hasJoined = true;
                 if (previous != null && previous != peer) previous.close(4002, "CONNECTION_REPLACED");
-                peer.send(state.snapshot("ROOM_SNAPSHOT", admission.memberId(), peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
                 broadcast();
             } catch (RuleViolation error) { reject(peer, error.code(), true); }
             }
@@ -126,7 +126,7 @@ public final class RoomRuntime {
             }
             String type = Values.text(message, "type");
             if (type.equals("RESYNC")) {
-                peer.send(state.snapshot("ROOM_SNAPSHOT", memberId, peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
                 return;
             }
             if (type.equals("PING")) {
@@ -157,7 +157,7 @@ public final class RoomRuntime {
             else peer.send(Map.of("type", "ERROR", "code", error.code(), "message", error.code(),
                     "reason", error.reason(), "retryable", false), false, clock.millis());
             if (error.code().equals("INVALID_MOVEMENT") || error.code().equals("LAYOUT_MISMATCH")) {
-                peer.send(state.snapshot("ROOM_SNAPSHOT", memberId, peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
             }
             if (error.code().equals("ACCESS_EXPIRED")) peer.close(4001, error.code());
         }
@@ -211,7 +211,9 @@ public final class RoomRuntime {
                 if (changed) broadcast();
                 if (lastFrame != state.frameSeq()) {
                     lastFrame = state.frameSeq();
-                    for (Peer peer : peers.values()) peer.send(state.movement(peer.identity().memberId(), peer.generation(), now), true, now);
+                    for (Peer peer : peers.values()) {
+                        peer.send(state.movement(peer.identity().memberId(), peer.generation(), now, peer.seatRefs()), true, now);
+                    }
                 }
                 if (peers.isEmpty() && pendingJoins.get() == 0 && (hasJoined || now - createdAt >= 5000)) terminate("EMPTY");
             } finally { ticking.set(false); }
@@ -220,7 +222,11 @@ public final class RoomRuntime {
 
     private void broadcast() {
         long now = clock.millis();
-        for (Peer peer : peers.values()) peer.send(state.snapshot("ROOM_STATE", peer.identity().memberId(), peer.generation(), now), false, now);
+        for (Peer peer : peers.values()) snapshot(peer, "ROOM_STATE", now);
+    }
+
+    private void snapshot(Peer peer, String type, long now) {
+        peer.send(state.snapshot(type, peer.identity().memberId(), peer.generation(), now, peer.seatRefs()), false, now);
     }
 
     private void control(Runnable action) {

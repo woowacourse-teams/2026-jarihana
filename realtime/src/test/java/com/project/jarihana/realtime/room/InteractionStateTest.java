@@ -193,7 +193,7 @@ class InteractionStateTest {
         command("TAKE", "assetId", "shelf", "kind", "cookie");
         String id = held(); command("THROW", "velocity", Map.of("x", 4, "y", 3, "z", 0));
         room.join(TestRooms.admission("3"), "c", 1300);
-        assertThat(room.snapshot("ROOM_SNAPSHOT", "3", "c", 1300).get("items")).asList().contains(room.item(id));
+        assertThat(room.snapshot("ROOM_SNAPSHOT", "3", "c", 1300, true).get("items")).asList().contains(room.item(id));
         assertThat(room.item(id).location()).isEqualTo(ItemState.Location.THROWN);
         room.tick(5000);
         assertThat(room.item(id).location()).isEqualTo(ItemState.Location.WORLD);
@@ -227,7 +227,7 @@ class InteractionStateTest {
     }
 
     private ItemState wireItem(String id) {
-        List<?> items = (List<?>) room.snapshot("ROOM_SNAPSHOT", "1", "a", 1300).get("items");
+        List<?> items = (List<?>) room.snapshot("ROOM_SNAPSHOT", "1", "a", 1300, true).get("items");
         return items.stream().map(ItemState.class::cast).filter(item -> item.id().equals(id)).findFirst().orElseThrow();
     }
 
@@ -240,7 +240,7 @@ class InteractionStateTest {
 
     private static RoomAsset moved(RoomAsset asset, Vec3 position, double rotation, double scaleY) {
         return new RoomAsset(asset.id(), asset.kind(), position, rotation, asset.scaleX(), scaleY,
-                asset.scaleZ(), asset.width(), asset.depth(), asset.height(), asset.capabilities(), asset.seats(), asset.supplies(),
+                asset.scaleZ(), asset.width(), asset.depth(), asset.height(), asset.capabilities(), asset.seatCount(), asset.supplies(),
                 asset.products(), asset.storageCapacity(), asset.obstacle(), asset.platformHeight(), asset.surfaceSlots(),
                 asset.interactionFloor(), asset.productionMs(), asset.cooldownMs());
     }

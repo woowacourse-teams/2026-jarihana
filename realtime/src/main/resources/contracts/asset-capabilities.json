@@ -46,180 +46,49 @@
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": -0.81,
-          "y": 0.675,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        },
-        {
-          "x": 0,
-          "y": 0.675,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        },
-        {
-          "x": 0.81,
-          "y": 0.675,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.53,
-        "maxScale": 0.88
-      }
+      "seatCount": 3
     },
     "clubSofa": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": -1.04,
-          "y": 0.635,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        },
-        {
-          "x": 0,
-          "y": 0.635,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        },
-        {
-          "x": 1.04,
-          "y": 0.635,
-          "z": 0.33,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.545,
-        "maxScale": 1
-      }
+      "seatCount": 3
     },
     "armchair": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": 0,
-          "y": 0.66,
-          "z": 0.34,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.51,
-        "maxScale": 0.8
-      }
+      "seatCount": 1
     },
     "beanbag": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": 0,
-          "y": 0.62,
-          "z": 0.39,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.6,
-        "maxScale": 0.95
-      }
+      "seatCount": 1
     },
     "roundChair": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": 0,
-          "y": 0.602,
-          "z": 0.465,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.64,
-        "maxScale": 0.87
-      }
+      "seatCount": 1
     },
     "bench": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": -0.48,
-          "y": 0.78,
-          "z": 0.08,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        },
-        {
-          "x": 0.48,
-          "y": 0.78,
-          "z": 0.08,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.4,
-        "maxScale": 1
-      }
+      "seatCount": 2
     },
     "stool": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": 0,
-          "y": 0.7,
-          "z": 0.08,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.325,
-        "maxScale": 1
-      }
+      "seatCount": 1
     },
     "gameChair": {
       "capabilities": [
         "seatable"
       ],
-      "seats": [
-        {
-          "x": 0,
-          "y": 0.548,
-          "z": 0.28,
-          "yaw": 3.141592653589793,
-          "avatarOffsetY": -0.34
-        }
-      ],
-      "seatFit": {
-        "front": 0.39,
-        "maxScale": 0.65
-      }
+      "seatCount": 1
     },
     "table": {
       "capabilities": [

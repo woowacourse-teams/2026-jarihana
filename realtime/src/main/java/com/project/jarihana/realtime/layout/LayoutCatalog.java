@@ -45,7 +45,7 @@ public final class LayoutCatalog {
         JsonNode building = geometry.path("building");
         RoomAsset light = new RoomAsset("room-general-light-switch", "room-general-light-switch",
                 new Vec3(-0.38, 0, building.path("maxZ").asDouble() - 0.2),
-                0, 1, 1, 1, 0.3, 0.3, 1.2, Set.of("switchable"), List.of(), List.of(), List.of(), 0,
+                0, 1, 1, 1, 0.3, 0.3, 1.2, Set.of("switchable"), 0, List.of(), List.of(), 0,
                 false, 0, 0, 0, 0, 0);
         assets.put(light.id(), light);
         return new RoomLayout(revision, assets, geometry, blueprint.spawn(), capabilities.path("items"));
@@ -59,16 +59,12 @@ public final class LayoutCatalog {
         double width = definition.path("width").asDouble(), depth = definition.path("depth").asDouble();
         double height = definition.path("height").asDouble();
         Set<String> features = new HashSet<>(strings(rules.path("capabilities")));
-        List<Vec3> seats = new ArrayList<>();
-        for (JsonNode seat : rules.path("seats")) {
-            seats.add(new Vec3(seat.path("x").asDouble(), seat.path("y").asDouble() +
-                    seat.path("avatarOffsetY").asDouble(0) / scale(item, "scaleY"), seat.path("z").asDouble()));
-        }
-        double interactionFloor = features.contains("surface") ? floorElevation(item, geometry, instances, furniture) : 0;
+        double interactionFloor = features.contains("surface") || features.contains("seatable")
+                ? floorElevation(item, geometry, instances, furniture) : 0;
         return new RoomAsset(item.path("id").asString(), kind,
                 new Vec3(item.path("x").asDouble(), elevation(item, geometry, instances, furniture, new HashSet<>()), item.path("z").asDouble()),
                 item.path("rotation").asDouble(), scale(item, "scaleX"), scale(item, "scaleY"), scale(item, "scaleZ"),
-                width, depth, height, features, seats, strings(rules.path("storage").path("kinds")),
+                width, depth, height, features, rules.path("seatCount").asInt(0), strings(rules.path("storage").path("kinds")),
                 strings(rules.path("producer").path("kinds")), rules.path("storage").path("capacity").asInt(0),
                 !definition.hasNonNull("mount") && !underlay(definition),
                 definition.path("walkableHeight").asDouble(0), rules.path("surface").path("slots").asInt(0), interactionFloor,

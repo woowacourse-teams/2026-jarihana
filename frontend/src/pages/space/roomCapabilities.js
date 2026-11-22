@@ -1,16 +1,17 @@
 import { capabilitiesFor } from "../../features/group-space/assetDefinitions.js";
-import { localToWorld } from "./assetCustomization.js";
+import { seatedAvatarPlacement } from "./seatedAvatar.js";
 
 export { capabilitiesFor, portableDefinition } from "../../features/group-space/assetDefinitions.js";
 
 const LABELS = { cup: "빈 컵", coffee: "아메리카노", latte: "라테", tea: "차", cookie: "쿠키", book: "책", camera: "카메라" };
 const BOOKSHELF_PLACES = ["아래 선반 왼쪽", "아래 선반 오른쪽", "위 선반", "책장 위"];
 
-export function availableSeat(target, position, state) {
+export function availableSeat(target, position, state, room) {
   const occupied = new Set(state.participants.filter((actor) => actor.seat?.assetId === target.id).map((actor) => actor.seat.slot));
-  return (capabilitiesFor(target.item.kind).seats ?? []).map((seat, slot) => ({ slot, ...localToWorld(target.item, seat.x, seat.z) }))
-    .filter((seat) => !occupied.has(seat.slot))
-    .sort((a, b) => Math.hypot(a.x - position.x, a.z - position.z) - Math.hypot(b.x - position.x, b.z - position.z))[0]?.slot;
+  const distance = ({ x, z }) => Math.hypot(x - position.x, z - position.z);
+  return Array.from({ length: target.seatCount }, (_, slot) => seatedAvatarPlacement(target.item, slot, room))
+    .filter((seat) => seat && !occupied.has(seat.slot))
+    .sort((a, b) => distance(a.position) - distance(b.position))[0]?.slot;
 }
 
 export function sharedInteractionTarget(target, state) {
@@ -57,5 +58,5 @@ export function sharedInteractionTarget(target, state) {
   if (caps.includes("switchable")) add("toggle", asset.on === false ? "조명 켜기" : "조명 끄기", { action: "TOGGLE" }, "space_general_lighting_toggle");
   if (caps.includes("camera")) add("capture", "사진 찍기", { action: "CAPTURE" }, "space_camera_capture");
   if (caps.length === 1 && caps[0] === "surface" && !choices.length) return null;
-  return { ...target, choices, carry: false, hint: definition.producer && !cup ? "빈 컵을 들거나 기계 위에 놓고 사용해 주세요." : "지금 사용할 수 있는 물건이 없어요.", label: target.seat ? "앉기" : choices.length ? "사용하기" : target.label };
+  return { ...target, choices, carry: false, hint: definition.producer && !cup ? "빈 컵을 들거나 기계 위에 놓고 사용해 주세요." : "지금 사용할 수 있는 물건이 없어요.", label: target.seatCount ? "앉기" : choices.length ? "사용하기" : target.label };
 }

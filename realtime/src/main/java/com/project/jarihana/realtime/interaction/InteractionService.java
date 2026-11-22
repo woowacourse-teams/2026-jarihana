@@ -23,7 +23,7 @@ public final class InteractionService {
         catch (IllegalArgumentException error) { throw new RuleViolation("UNSUPPORTED_ACTION"); }
         switch (action) {
             case SIT -> sit(room, actor, payload);
-            case STAND -> room.put(actor.stand(room.layout().safe(actor.seat() == null ? actor.position() : actor.seat().approach()), now));
+            case STAND -> room.put(actor.stand(room.layout().safe(actor.position()), now));
             case POSE -> pose(room, actor, payload);
             case TAKE -> itemActions.take(room, actor, payload);
             case PICKUP -> itemActions.pickup(room, actor, payload);
@@ -42,13 +42,16 @@ public final class InteractionService {
     }
 
     private void sit(RoomState room, ParticipantState actor, Map<String, Object> payload) {
-        RoomAsset asset = nearby(room, actor, payload, "seatable");
+        RoomAsset asset = room.layout().asset(Values.text(payload, "assetId"), "seatable");
+        Vec3 current = actor.position();
+        Vec3 approach = new Vec3(current.x(), room.layout().floorAt(current), current.z());
+        if (!asset.seatReachable(approach)) throw new RuleViolation("TOO_FAR");
+        if (!room.layout().valid(approach, false)) throw new RuleViolation("NO_SAFE_POSITION");
         int slot = Values.slot(payload);
-        Vec3 position = asset.seat(slot);
+        if (slot >= asset.seatCount()) throw new RuleViolation("INVALID_SLOT");
         if (room.participants().stream().anyMatch(other -> !other.memberId().equals(actor.memberId()) && other.seat() != null &&
                 other.seat().assetId().equals(asset.id()) && other.seat().slot() == slot)) throw new RuleViolation("OCCUPIED");
-        Vec3 approach = room.layout().safe(actor.seat() == null ? actor.position() : actor.seat().approach());
-        room.put(actor.sit(new ParticipantState.Seat(asset.id(), slot, position, approach, Math.PI - asset.rotation() * Math.PI / 2)));
+        room.put(actor.sit(new ParticipantState.Seat(asset.id(), slot), approach));
     }
 
     private void pose(RoomState room, ParticipantState actor, Map<String, Object> payload) {

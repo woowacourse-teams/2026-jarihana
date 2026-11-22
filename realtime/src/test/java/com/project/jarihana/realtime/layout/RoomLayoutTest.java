@@ -66,6 +66,20 @@ class RoomLayoutTest {
     }
 
     @Test
+    void raisedRotatedSeatCanOnlyBeReachedFromItsOwnFloor() {
+        RoomLayout layout = readFixture(1, mapper.valueToTree(Map.of("version", 12, "template", "lounge", "items",
+                List.of(Map.of("id", "sofa", "kind", "sofa", "x", 0, "z", -6.1, "level", 1,
+                        "rotation", 1, "scaleX", 1.2, "scaleY", 2, "scaleZ", 1.5)))));
+        RoomAsset seat = layout.asset("sofa", "seatable");
+        double floor = layout.geometry().path("mezzanine").path("height").asDouble();
+        Vec3 approach = new Vec3(1.6, floor, -6.1);
+
+        assertThat(layout.valid(approach, false)).isTrue();
+        assertThat(seat.seatReachable(approach)).isTrue();
+        assertThat(seat.seatReachable(new Vec3(1.6, 0, -6.1))).isFalse();
+    }
+
+    @Test
     void readsLoftGeometryOnlyForSavedVersionTwelveLounges() {
         RoomLayout defaultLayout = readFixture(0, null);
         RoomLayout savedLayout = readFixture(1, mapper.valueToTree(Map.of(

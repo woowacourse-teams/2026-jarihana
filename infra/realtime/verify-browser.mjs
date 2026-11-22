@@ -90,7 +90,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
       assert.equal(await response.request().headerValue("cookie"), null);
       assert.equal(await response.request().headerValue("authorization"), null);
       const { data } = await response.json();
-      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.seats?.length));
+      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.seatCount > 0));
       assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.surface?.slots > 0));
       assert.equal(data.surfaceAnchors, undefined);
       await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
@@ -111,7 +111,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
         socket.on("framesent", ({ payload }) => {
           try {
             const message = JSON.parse(payload.toString());
-            sent.push({ memberId, type: message.type, payload: message.payload, moveSeq: message.moveSeq });
+            sent.push({ memberId, type: message.type, payload: message.payload, moveSeq: message.moveSeq, seatRefs: message.seatRefs });
           } catch { /* non-JSON transport frames */ }
         });
         socket.on("framereceived", ({ payload }) => {
@@ -136,6 +136,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     };
     const latest = (id) => frames.filter((frame) => frame.memberId === id && ["ROOM_STATE", "ROOM_SNAPSHOT"].includes(frame.message.type)).at(-1)?.message;
     await until(() => latest("1")?.participants.length === 2 && latest("2")?.participants.length === 2, "two participants");
+    assert.deepEqual(sent.filter((frame) => frame.type === "AUTH_JOIN").map((frame) => frame.seatRefs), [true, true]);
     receipt.push("two isolated browser sessions join the same real room");
     for (const memberId of ["1", "2"]) {
       const appearances = latest(memberId).participants.map((actor) => [actor.memberId, actor.avatarAppearance?.outfit]);

@@ -24,8 +24,10 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 AUTH_JOIN 이후 클라이언트 메시지는 `{type,roomEpoch,connectionGeneration,layoutRevision,...}`를 갖는다. 서버는 인증된 소켓의 사용자·방을 기준으로 처리하고 수신자가 신원을 바꿀 수 없다.
 
 ```json
-{"type":"AUTH_JOIN","protocolVersion":1,"token":"<short-lived token>"}
+{"type":"AUTH_JOIN","protocolVersion":1,"token":"<short-lived token>","seatRefs":true}
 ```
+
+`seatRefs`는 선택 항목이다. `true`로 입장한 연결은 좌석을 가구 ID와 슬롯 번호로 받는다. 생략한 연결의 좌석 호환 필드는 아래 서버 상태를 따른다.
 
 ```json
 {"type":"MOVE","roomEpoch":"...","connectionGeneration":"...","layoutRevision":1,"moveSeq":1,"payload":{"x":-2,"y":0,"z":6.8,"yaw":0,"locomotion":"idle"}}
@@ -62,7 +64,7 @@ layoutRevision, controlSeq, frameSeq, serverTime, selfId,
 participants: [{
   memberId, displayName, avatarColor, avatarAppearance?:object|null,
   position:{x,y,z}, yaw, locomotion,
-  seat:{assetId,slot,position,approach,yaw}|null,
+  seat:{assetId,slot}|null,
   heldItemId:string|null, pose,
   emote:{kind,startedAt,expiresAt}|null
 }],
@@ -75,7 +77,7 @@ items: [{
 assets:{ [assetId]:{open,on,wateredAt,production} }
 ```
 
-participant.position은 착석 시 seat.position과 같다. seat.approach는 일어날 때의 후보 위치다. production은 진행 중 `{id,itemId,kind,startedAt,completesAt}` 또는 null이다.
+새 연결의 `position`과 `yaw`는 서버 판정용 자세다. 착석 중 `position`은 가구에 접근한 안전한 바닥 위치를 유지한다. 기존 연결의 호환 응답에는 `seat.position`, `seat.approach`, `seat.yaw`와 기존 브라우저가 기대하는 참가자의 착석 `position`, `yaw`를 포함한다. 입장, RESYNC, 오류 복구, 브로드캐스트와 이동 프레임은 접속할 때 고른 직렬화 방식을 유지한다. production은 진행 중 `{id,itemId,kind,startedAt,completesAt}` 또는 null이다.
 
 `SURFACE`와 `STORAGE` 소품의 위치는 `assetId`와 `slot`으로 식별한다. WebSocket의 `position`은 기존 브라우저가 계속 읽을 수 있도록 두 상태에도 전송한다. 새 브라우저는 상판의 표시와 클릭 판정에 현재 가구 배치와 로컬 좌표를 사용한다. `WORLD`와 `THROWN`은 서버의 월드 좌표로 표시한다.
 
@@ -96,11 +98,11 @@ participant.position은 착석 시 seat.position과 같다. seat.approach는 일
 
 ## 가구·물건과 배치 교체
 
-- realtime의 [asset-capabilities.json](../../../realtime/src/main/resources/contracts/asset-capabilities.json)은 종류별 기능과 좌석 설정을 정의한다. `surface.slots`와 `storage.capacity`는 각각 상판과 수납의 칸 수다. 같은 종류도 배치 인스턴스 ID는 다르다.
+- realtime의 [asset-capabilities.json](../../../realtime/src/main/resources/contracts/asset-capabilities.json)은 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 같은 종류도 배치 인스턴스 ID는 다르다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
-- 좌석 y는 좌판 높이이며 avatarOffsetY는 캐릭터 원점 보정이다. 서버 좌석의 worldY는 배치 elevation + y*scaleY + avatarOffsetY로 계산한다. 화면에서는 `seatFit`으로 좌판 앞쪽과 팔걸이 간격에 맞춰 착석 위치를 보정한다. 좁거나 낮은 가구에서는 앉아 있는 동안만 캐릭터를 줄인다.
+- 프론트에서 좌석 번호에 맞는 높이와 상대 좌표를 현재 가구 위치·회전·배율·층에 적용한다. `avatarOffsetY`는 캐릭터 원점, `seatFit`은 좌판 앞쪽과 팔걸이 간격에 맞춘 보정이다. 1인칭 카메라, 로컬 3인칭 아바타, 원격 참가자가 같은 계산을 사용한다.
 - 환경 DB의 `space_furniture_catalog.definition`에서 치수·장착 방식·부착면 높이를 읽고, 모임에 연결된 도면 버전에서 지형과 시작 위치를 읽는다.
-- 좌석을 옮기거나 삭제·종류 변경하면 점유를 해제하고 유효한 위치로 보정한다.
+- 서버는 좌석 범위·가구와의 거리·같은 층·중복 점유를 검사하고, 앉아 있는 동안 이동을 거절한다. 일어나거나 좌석이 이동·삭제·종류 변경되면 점유를 해제하고 안전한 접근 위치로 복귀시킨다.
 - realtime은 가구 ID, 상판·수납 구분과 슬롯 번호로 범위와 점유를 검사한다. 같은 가구의 상판 0번과 수납 0번을 각각 점유할 수 있다. 프론트의 가구 기준 좌표는 소품 밑면을 받치는 위치다. 가구를 옮기거나 돌리거나 크기를 바꿔도 슬롯이 남으면 소품은 가구를 따라간다.
 - 선반에 놓인 소품은 같은 층에서 가구에 다가가 집을 수 있다. 높은 선반은 가구 메뉴에서도 소품을 집을 수 있다. 카페 음료는 생산 가구의 상판 슬롯에 놓인다.
 - 가구가 삭제되거나 현재 슬롯을 잃으면 그곳에 놓였거나 수납된 소품을 방에서 제거한다. 바닥에 있거나 던져졌거나 손에 든 소품은 `sourceAssetId`로 출처만 기록하며 출처 가구를 삭제한 뒤에도 방에 남는다.

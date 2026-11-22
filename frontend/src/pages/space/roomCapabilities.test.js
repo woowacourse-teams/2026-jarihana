@@ -1,11 +1,29 @@
-import { sharedInteractionTarget } from "./roomCapabilities";
+import { availableSeat, sharedInteractionTarget } from "./roomCapabilities";
 import { itemInteraction } from "./walkInteractions";
 import { createInitialRoom } from "./roomState";
+import seatModelAnchors from "./seatModelAnchors.json";
 
 const room = createInitialRoom("dining");
 const item = { id: "table", kind: "feastTable", x: 0, z: 0, rotation: 0 };
 const target = itemInteraction(item, 0, false, room);
 const state = { selfId: "1", participants: [{ memberId: "1", heldItemId: null }], items: [], assets: {} };
+
+test("the local seat models cover every advertised seat slot", () => {
+  const { capabilities } = require("../../../tests/fixtures/clubhouse-seeds.cjs").assetDefinitions;
+  const advertised = Object.fromEntries(Object.entries(capabilities.assets).filter(([, asset]) => asset.seatCount)
+    .map(([kind, asset]) => [kind, asset.seatCount]));
+  const modeled = Object.fromEntries(Object.entries(seatModelAnchors).map(([kind, model]) => [kind, model.seats.length]));
+  expect(modeled).toEqual(advertised);
+});
+
+test("the nearest available seat is selected from the advertised slots", () => {
+  const sofa = { id: "sofa", kind: "sofa", x: 0, z: 0, rotation: 1 };
+  const sofaTarget = itemInteraction(sofa, 0, false, room);
+  const position = { x: 0.5, z: -1 };
+  const participants = [{ memberId: "2", seat: { assetId: "sofa", slot: 2 } }];
+  expect(availableSeat(sofaTarget, position, state, room)).toBe(2);
+  expect(availableSeat(sofaTarget, position, { ...state, participants }, room)).toBe(1);
+});
 
 test("an empty surface offers no snack menu or empty use prompt", () => {
   expect(target.label).not.toBe("간식 고르기");

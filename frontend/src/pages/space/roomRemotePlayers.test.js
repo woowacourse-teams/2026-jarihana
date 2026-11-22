@@ -16,6 +16,8 @@ const actor = (memberId, x) => ({ memberId, displayName: memberId, avatarColor: 
   yaw: 0, locomotion: "walking", seat: null, heldItemId: null, pose: "relaxed", emote: null });
 const state = (extra = {}) => ({ type: "ROOM_SNAPSHOT", roomEpoch: "e", connectionGeneration: "g", layoutRevision: 1,
   controlSeq: 1, frameSeq: 1, serverTime: 1000, selfId: "1", participants: [actor("1", 0), actor("2", 3)], items: [], assets: {}, ...extra });
+const seat = { assetId: "stool", slot: 0 };
+const seatedRoom = { template: "lounge", version: 12, items: [{ id: "stool", kind: "stool", x: 4, z: 1, rotation: 0 }] };
 
 test("remote handheld, placed, dropped and thrown props all receive the room lighting", () => {
   const scene = new THREE.Scene();
@@ -94,19 +96,18 @@ test("remote actors render server positions and disappear on leave or runtime cl
 });
 test("late join shows seated actors holding a partially consumed cookie", () => {
   const scene = new THREE.Scene(); const store = createRoomStore({ now: () => 1000 });
-  store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: "cookie", seat: { position: { x: 4, y: .34, z: 1 }, yaw: 1 } }],
+  store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: "cookie", seat }],
     items: [{ id: "cookie", kind: "cookie", location: "HELD", holderId: "2", remaining: .25 }] }));
-  const players = createRemotePlayers(scene, jest.fn()); players.setStore(store); frame(1000);
-  expect(scene.getObjectByName("remote-player-2").position.toArray()).toEqual([4, .34, 1]);
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom); players.setStore(store); frame(1000);
+  expect(scene.getObjectByName("remote-player-2").position.x).toBe(4);
   expect(scene.getObjectByName("shared-held-prop").scale.x).toBe(.5); players.dispose();
 });
 
 test("raising and lowering a cup moves the hand and cup together", () => {
   const scene = new THREE.Scene();
   const store = createRoomStore({ now: () => 1000 });
-  const seat = { position: { x: 4, y: .34, z: 1 }, yaw: Math.PI };
   const cup = { id: "cup", kind: "cup", location: "HELD", holderId: "2", remaining: 0 };
-  const players = createRemotePlayers(scene, jest.fn());
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom);
   const update = (pose) => {
     store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: cup.id, seat, pose }], items: [cup] }));
     players.refresh();
@@ -180,11 +181,10 @@ test("thrown item uses shared timestamps and ballistic gravity", () => {
 test("personalized remote avatars share the rig and keep a raised cup attached", () => {
   const scene = new THREE.Scene();
   const store = createRoomStore({ now: () => 1000 });
-  const seat = { position: { x: 4, y: .34, z: 1 }, yaw: Math.PI };
   const cup = { id: "cup", kind: "cup", location: "HELD", holderId: "2", remaining: 0 };
   const seated = { ...actor("2", 4), avatarAppearance: AVATAR_PRESETS[0].appearance, heldItemId: cup.id, seat };
   const standing = { ...actor("3", -4), avatarAppearance: AVATAR_PRESETS[1].appearance };
-  const players = createRemotePlayers(scene, jest.fn());
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom);
   const update = (pose, time, participants = [{ ...seated, pose }, standing]) => {
     store.apply(state({ participants, items: [cup] }));
     players.refresh();

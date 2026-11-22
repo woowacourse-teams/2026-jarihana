@@ -4,6 +4,7 @@ import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.interaction.InteractionService;
 import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.transport.protocol.LegacyItemView;
+import com.project.jarihana.realtime.transport.protocol.ParticipantView;
 import com.project.jarihana.realtime.transport.protocol.Values;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -152,9 +153,10 @@ public final class RoomState {
         return true;
     }
 
-    public Map<String, Object> snapshot(String type, String memberId, String generation, long now) {
+    public Map<String, Object> snapshot(String type, String memberId, String generation, long now, boolean seatRefs) {
         Map<String, Object> result = context(type, memberId, generation, now);
-        result.put("participants", participants.values().stream().map(ParticipantState::view).toList());
+        result.put("participants", participants.values().stream()
+                .map(actor -> ParticipantView.snapshot(actor, layout, seatRefs)).toList());
         result.put("items", items.values().stream().map(item -> LegacyItemView.project(item, layout)).toList());
         result.put("assets", Map.copyOf(assets));
         return result;
@@ -175,10 +177,10 @@ public final class RoomState {
         return result;
     }
 
-    public Map<String, Object> movement(String memberId, String generation, long now) {
+    public Map<String, Object> movement(String memberId, String generation, long now, boolean seatRefs) {
         Map<String, Object> result = context("MOVEMENT_FRAME", memberId, generation, now);
-        result.put("participants", participants.values().stream().map(actor -> Map.of("memberId", actor.memberId(),
-                "position", actor.position(), "yaw", actor.yaw(), "locomotion", actor.locomotion())).toList());
+        result.put("participants", participants.values().stream()
+                .map(actor -> ParticipantView.movement(actor, layout, seatRefs)).toList());
         return result;
     }
 

@@ -155,12 +155,13 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       const entry = players.get(actor.memberId);
       if (!entry) continue;
       const sampled = store.interpolate(actor.memberId) ?? actor;
-      const furniture = actor.seat && room?.items.find((asset) => asset.id === actor.seat.assetId);
-      const fit = actor.seat ? fitSeatedAvatar(furniture, actor.seat) : null;
+      const fit = actor.seat ? fitSeatedAvatar(room, actor.seat) : null;
+      entry.model.visible = !actor.seat || Boolean(fit);
+      if (!entry.model.visible) continue;
       const position = fit?.position ?? sampled.position;
       entry.model.position.set(position.x, position.y, position.z);
       entry.model.scale.setScalar(fit?.scale ?? 1);
-      entry.model.rotation.y = Math.PI - (actor.seat?.yaw ?? sampled.yaw);
+      entry.model.rotation.y = Math.PI - (fit?.yaw ?? sampled.yaw);
       const locomotion = actor.seat ? "idle" : sampled.locomotion;
       const motion = sampleLocomotion(entry.locomotionBlend, locomotion, time, Boolean(actor.seat) || reduceMotion?.matches);
       active ||= motion.active;

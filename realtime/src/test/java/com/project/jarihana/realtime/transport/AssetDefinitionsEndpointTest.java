@@ -51,6 +51,10 @@ class AssetDefinitionsEndpointTest {
             JsonNode shelf = data.path("capabilities").path("assets").path("pantryShelf");
             assertThat(shelf.path("surface").path("slots").asInt()).isEqualTo(4);
             assertThat(shelf.path("storage").path("capacity").asInt()).isEqualTo(8);
+            JsonNode sofa = data.path("capabilities").path("assets").path("sofa");
+            assertThat(sofa.path("seatCount").asInt()).isEqualTo(3);
+            assertThat(sofa.has("seats")).isFalse();
+            assertThat(sofa.has("seatFit")).isFalse();
         }
     }
 

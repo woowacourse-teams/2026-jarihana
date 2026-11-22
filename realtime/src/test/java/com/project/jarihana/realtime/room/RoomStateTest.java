@@ -5,6 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.project.jarihana.realtime.room.domain.RoomState;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
+import com.project.jarihana.realtime.room.domain.ItemState;
+import com.project.jarihana.realtime.room.domain.ParticipantState;
+import com.project.jarihana.realtime.room.domain.Vec3;
+import com.project.jarihana.realtime.layout.RoomLayout;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +53,34 @@ class RoomStateTest {
     }
 
     @Test
+    void sittingRetainsThePhysicalApproachForThrowingAndStanding() {
+        RoomState room = TestRooms.room();
+        room.join(TestRooms.admission("1"), "a", 1000);
+        Vec3 approach = room.participants().getFirst().position();
+        var idle = Map.<String, Object>of("x", approach.x(), "y", approach.y(), "z", approach.z(), "yaw", 0, "locomotion", "idle");
+        room.command("1", "a", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cookie"), 1100);
+        var seat = Map.<String, Object>of("action", "SIT", "assetId", "sofa", "slot", 1);
+        assertThatThrownBy(() -> room.command("1", "a", Map.of("action", "SIT", "assetId", "sofa", "slot", 3), 1100))
+                .hasMessage("INVALID_SLOT");
+        room.command("1", "a", seat, 1100);
+
+        assertThat(room.participants().getFirst().seat()).isEqualTo(new ParticipantState.Seat("sofa", 1));
+        assertThat(room.participants().getFirst().position()).isEqualTo(approach);
+        assertThat(room.layout().valid(approach, false)).isTrue();
+        assertThatThrownBy(() -> room.move("1", "a", 1, idle, 1100)).hasMessage("SEATED");
+        room.command("1", "a", Map.of("action", "THROW"), 1200);
+        ItemState thrown = room.items().getFirst();
+        assertThat(thrown.location()).isEqualTo(ItemState.Location.THROWN);
+        assertThat(thrown.position()).isEqualTo(approach.add(new Vec3(0, 0.8, 0)));
+        assertThat(thrown.velocity()).isEqualTo(new Vec3(0, 3, -5));
+
+        room.command("1", "a", Map.of("action", "STAND"), 1300);
+        assertThat(room.participants().getFirst().seat()).isNull();
+        assertThat(room.participants().getFirst().position()).isEqualTo(approach);
+        assertThat(room.move("1", "a", 1, idle, 1400)).isTrue();
+    }
+
+    @Test
     @DisplayName("교체된 연결의 종료가 새 참여자를 제거하지 않는다")
     void staleDisconnectDoesNotRemoveReplacement() {
         // Given
@@ -72,7 +105,23 @@ class RoomStateTest {
         room.replaceLayout(TestRooms.layout(2, 4), 1200);
         // Then
         assertThat(room.participants().getFirst().seat()).isNull();
+        assertThat(room.layout().valid(room.participants().getFirst().position(), false)).isTrue();
         assertThat(room.layoutRevision()).isEqualTo(2);
+    }
+
+    @Test
+    void removingSeatReleasesTheOccupantAtTheirSafeApproach() {
+        RoomState room = TestRooms.room();
+        room.join(TestRooms.admission("1"), "a", 1000);
+        Vec3 approach = room.participants().getFirst().position();
+        room.command("1", "a", Map.of("action", "SIT", "assetId", "sofa", "slot", 0), 1100);
+        RoomLayout previous = room.layout();
+        var assets = new LinkedHashMap<>(previous.assets());
+        assets.remove("sofa");
+        room.replaceLayout(new RoomLayout(2, assets, previous.geometry(), previous.arrival(), previous.itemRules()), 1200);
+
+        assertThat(room.participants().getFirst().seat()).isNull();
+        assertThat(room.participants().getFirst().position()).isEqualTo(approach);
     }
 
     @Test

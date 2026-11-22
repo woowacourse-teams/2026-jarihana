@@ -107,7 +107,9 @@ public final class RoomRegistry {
             String type = Values.text(message, "type");
             if (type.equals("AUTH_JOIN")) {
                 if (Values.number(message, "protocolVersion") != 1) throw new RuleViolation("PROTOCOL_MISMATCH");
-                if (!peer.beginAuth()) throw new RuleViolation("ALREADY_AUTHENTICATED");
+                Object seatFlag = message.getOrDefault("seatRefs", false);
+                if (!(seatFlag instanceof Boolean seatRefs)) throw new RuleViolation("INVALID_MESSAGE");
+                if (!peer.beginAuth(seatRefs)) throw new RuleViolation("ALREADY_AUTHENTICATED");
                 Object raw = message.get("token");
                 if (!(raw instanceof String token) || token.length() > 4096) throw new RuleViolation("INVALID_TOKEN");
                 submit(() -> authenticate(peer, token), () -> reject(peer, "OVERLOADED"));

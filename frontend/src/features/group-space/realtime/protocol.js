@@ -8,7 +8,7 @@ const movement = z.object({ memberId: id, position: point, yaw: z.number().finit
 const participant = movement.extend({
   displayName: z.string().max(200), avatarColor: z.string().regex(/^#[\da-f]{6}$/i),
   avatarAppearance: z.unknown().transform(readAvatarAppearance).optional(),
-  seat: z.object({ assetId: id, slot: z.number().int().nonnegative(), position: point, approach: point, yaw: z.number().finite() }).nullable(),
+  seat: z.object({ assetId: id, slot: z.number().int().nonnegative() }).nullable(),
   heldItemId: id.nullable(), pose: z.string().max(40),
   emote: z.object({ kind: z.string().max(40), startedAt: z.number(), expiresAt: z.number() }).nullable()
 });

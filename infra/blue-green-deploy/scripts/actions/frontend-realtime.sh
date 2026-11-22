@@ -34,6 +34,8 @@ verify_frontend_realtime() (
     .success == true and .data.capabilities.version == 1 and
     (.data.capabilities.assets | type == "object" and length > 0) and
     (.data.capabilities.items | type == "object" and length > 0) and
+    (.data.capabilities.assets | [.[] | select(.capabilities | index("seatable"))] |
+      length > 0 and all(.[]; .seatCount | type == "number" and . > 0 and floor == .)) and
     (.data.capabilities.assets | [.[] | select(.capabilities | index("surface"))] |
       length > 0 and all(.[]; .surface.slots | type == "number" and . > 0 and floor == .)) and
     (.data.capabilities.assets | [.[] | select(.capabilities | index("storage"))] |
