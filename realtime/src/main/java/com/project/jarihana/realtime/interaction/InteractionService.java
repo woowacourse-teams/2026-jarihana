@@ -103,7 +103,7 @@ public final class InteractionService {
         }
         if (held) {
             int slot = freeSlot(room, asset);
-            room.put(item.place(ItemState.Location.SURFACE, asset.surface(slot), asset.id(), slot));
+            room.put(item.attach(ItemState.Location.SURFACE, asset.id(), slot));
             room.put(actor.hold(null));
         }
         room.put(asset.id(), state.producing(new AssetState.Production(UUID.randomUUID().toString(), item.id(), kind,
@@ -129,15 +129,19 @@ public final class InteractionService {
     }
 
     static int freeSlot(RoomState room, RoomAsset asset) {
-        return freeSlot(room, asset, false);
+        return freeSlot(room, asset, ItemState.Location.SURFACE);
     }
 
-    static int freeSlot(RoomState room, RoomAsset asset, boolean storage) {
-        for (int slot = 0; slot < (storage ? asset.slots() : asset.surfaces().size()); slot++) {
-            int candidate = slot;
-            if (room.items().stream().noneMatch(item -> asset.id().equals(item.assetId()) && item.slot() != null && item.slot() == candidate &&
-                    item.location() == (storage ? ItemState.Location.STORAGE : ItemState.Location.SURFACE))) return slot;
+    static int freeSlot(RoomState room, RoomAsset asset, ItemState.Location location) {
+        int count = location == ItemState.Location.STORAGE ? asset.storageCapacity() : asset.surfaceSlots();
+        for (int slot = 0; slot < count; slot++) {
+            if (!occupied(room, asset.id(), location, slot)) return slot;
         }
         throw new RuleViolation("SURFACE_FULL");
+    }
+
+    static boolean occupied(RoomState room, String assetId, ItemState.Location location, int slot) {
+        return room.items().stream().anyMatch(item -> item.location() == location &&
+                assetId.equals(item.assetId()) && Integer.valueOf(slot).equals(item.slot()));
     }
 }

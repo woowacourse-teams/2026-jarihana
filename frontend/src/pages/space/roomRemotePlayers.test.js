@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createRemotePlayers, thrownItemPosition } from "./roomRemotePlayers.js";
+import { walkPropBaseOffset } from "./roomModels.js";
 import { createRoomStore } from "../../features/group-space/realtime/roomStore.js";
+import propSurfaceAnchors from "./propSurfaceAnchors.json";
 
 let frame;
 beforeEach(() => {
@@ -31,6 +33,52 @@ test("remote handheld, placed, dropped and thrown props all receive the room lig
     expect(prop).toBeDefined();
     prop.traverse((object) => { if (object.material) expect(prepare).toHaveBeenCalledWith(object.material); });
   }
+  players.dispose();
+});
+
+test("surface slot counts have a local model anchor for every slot", () => {
+  const { capabilities } = require("../../../tests/fixtures/clubhouse-seeds.cjs").assetDefinitions;
+  const slotCounts = Object.fromEntries(Object.entries(capabilities.assets).filter(([, asset]) => asset.surface)
+    .map(([kind, asset]) => [kind, asset.surface.slots]));
+  const anchorCounts = Object.fromEntries(Object.entries(propSurfaceAnchors).map(([kind, anchors]) => [kind, anchors.length]));
+  expect(anchorCounts).toEqual(slotCounts);
+});
+
+test("placed props and their pick targets both follow the furniture after moving, scaling and rotating it", () => {
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => 1000 });
+  const furniture = { id: "shelf", kind: "bookshelf", x: 1, z: -1, rotation: 0, elevation: 0.25 };
+  const room = { template: "lounge", version: 12, items: [furniture] };
+  const item = { id: "cup", kind: "cup", location: "SURFACE", assetId: "shelf", slot: 1, remaining: 0,
+    position: { x: -10, y: 0, z: 9 } };
+  store.apply(state({ items: [item, { ...item, id: "stored", location: "STORAGE", slot: 1 }] }));
+  const players = createRemotePlayers(scene, jest.fn(), () => room);
+  players.setStore(store); frame(1000);
+  const prop = scene.getObjectByName("shared-item-cup");
+  const expectPlacement = (x, y, z, floor) => {
+    const [target] = players.targets();
+    expect(players.targets()).toHaveLength(1);
+    expect(prop.position.x).toBeCloseTo(x);
+    expect(prop.position.y).toBeCloseTo(y + walkPropBaseOffset(item.kind));
+    expect(prop.position.z).toBeCloseTo(z);
+    expect(target.x).toBeCloseTo(prop.position.x);
+    expect(target.z).toBeCloseTo(prop.position.z);
+    expect(target.floor).toBeCloseTo(floor);
+    expect(target.minY).toBeCloseTo(y - 0.1);
+    expect(target.maxY).toBeCloseTo(y + 0.35);
+  };
+  expectPlacement(1.51, 0.99, -0.885, 0);
+  expect(scene.getObjectByName("shared-item-stored")).toBeUndefined();
+
+  room.items = [{ ...furniture, x: 3, z: -6, rotation: 1, scaleX: 1.5, scaleY: 1.25, scaleZ: 2, level: 1 }];
+  players.refresh(); frame(1050);
+  expectPlacement(3.23, 5.625, -6.765, 4.45);
+  expect(prop.rotation.y).toBeCloseTo(Math.PI / 2);
+
+  room.items = [];
+  players.refresh(); frame(1100);
+  expect(prop.visible).toBe(false);
+  expect(players.targets()).toEqual([]);
   players.dispose();
 });
 

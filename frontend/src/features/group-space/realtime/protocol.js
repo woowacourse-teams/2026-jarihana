@@ -12,10 +12,13 @@ const participant = movement.extend({
   heldItemId: id.nullable(), pose: z.string().max(40),
   emote: z.object({ kind: z.string().max(40), startedAt: z.number(), expiresAt: z.number() }).nullable()
 });
-const item = z.object({ id, kind: z.string().max(40), holderId: id.nullable(),
-  location: z.enum(["HELD", "WORLD", "SURFACE", "STORAGE", "THROWN"]), position: point,
+const itemState = z.object({ id, kind: z.string().max(40), holderId: id.nullable(),
   assetId: id.nullable(), slot: z.number().int().nonnegative().nullable(), remaining: z.number().min(0).max(1),
   velocity: point.nullable(), startedAt: z.number().nullable() });
+const item = z.discriminatedUnion("location", [
+  itemState.extend({ location: z.enum(["HELD", "WORLD", "THROWN"]), position: point }),
+  itemState.extend({ location: z.enum(["SURFACE", "STORAGE"]), assetId: id, slot: z.number().int().nonnegative() })
+]);
 const context = {
   protocolVersion: z.literal(1), roomId: id, roomEpoch: id, connectionGeneration: id,
   layoutRevision: z.number().int().nonnegative(), controlSeq: z.number().int().nonnegative(),

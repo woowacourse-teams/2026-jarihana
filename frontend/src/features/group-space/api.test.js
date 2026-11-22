@@ -135,7 +135,8 @@ test.each([
     const received = await fetchAssetDefinitions();
     expect(received.capabilities.assets.sofa.seats).toEqual(assetDefinitions.capabilities.assets.sofa.seats);
     expect(received.capabilities.items.camera.camera).toBe(true);
-    expect(received.surfaceAnchors.bookshelf).toEqual(assetDefinitions.surfaceAnchors.bookshelf);
+    expect(received.capabilities.assets.bookshelf).toMatchObject({ surface: { slots: 4 }, storage: { capacity: 8 } });
+    expect(Object.keys(received)).toEqual(["capabilities"]);
     const request = fetch.mock.calls[0][0];
     expect(request.url).toBe(expectedUrl);
     expect(request.method).toBe("GET");

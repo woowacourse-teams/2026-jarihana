@@ -1,4 +1,4 @@
-import { capabilitiesFor, surfaceSlots } from "../../features/group-space/assetDefinitions.js";
+import { capabilitiesFor } from "../../features/group-space/assetDefinitions.js";
 import { localToWorld } from "./assetCustomization.js";
 
 export { capabilitiesFor, portableDefinition } from "../../features/group-space/assetDefinitions.js";
@@ -36,13 +36,13 @@ export function sharedInteractionTarget(target, state) {
     if (producing) add("cancel-production", `${LABELS[producing.kind] ?? "음료"} 준비 중 · 취소`, { action: "CANCEL_PRODUCTION" }, "space_production_cancel");
     else if (cup) for (const kind of definition.producer.kinds) add(`produce-${kind}`, `${LABELS[kind]} 내리기`, { action: "PRODUCE", itemId: cup.id, kind }, "space_coffee_produce");
   }
-  if (caps.includes("surface")) {
-    const surfaces = surfaceSlots(target.item.kind);
+  if (definition.surface) {
+    const { slots } = definition.surface;
     const placedItems = state.items.filter((item) => item.assetId === target.id && item.location === "SURFACE");
-    surfaces.forEach((_, slot) => {
+    for (let slot = 0; slot < slots; slot++) {
       const placed = placedItems.find((item) => item.slot === slot);
       const location = target.item.kind === "bookshelf" ? BOOKSHELF_PLACES[slot]
-        : surfaces.length > 1 ? `${slot + 1}번째 자리` : "";
+        : slots > 1 ? `${slot + 1}번째 자리` : "";
       if (held && !placed) {
         add(`place-${slot}`, location ? `${location}에 놓기` : "위에 놓기",
           { action: "PLACE", slot, itemId: held.id }, "space_item_place");
@@ -51,7 +51,7 @@ export function sharedInteractionTarget(target, state) {
         add(`pickup-${slot}`, location ? `${location}에서 ${name} 집기` : `${name} 집기`,
           { action: "PICKUP", itemId: placed.id }, "space_item_pick_up");
       }
-    });
+    }
   }
   if (caps.includes("careable")) add("water", "물 주기", { action: "WATER" }, "space_plant_water");
   if (caps.includes("switchable")) add("toggle", asset.on === false ? "조명 켜기" : "조명 끄기", { action: "TOGGLE" }, "space_general_lighting_toggle");

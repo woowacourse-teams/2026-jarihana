@@ -48,7 +48,7 @@ test("PR jobs follow the app, unit-test and mocked-browser inputs", (t) => {
     ["backend/src/test/resources/rhythm-harpoon/golden-replays.json", sharedFixture],
     ["frontend/tests/fixtures/clubhouse-seeds.cjs", browserAndFrontend],
     ["realtime/src/main/resources/contracts/asset-capabilities.json", browserAndFrontend],
-    ["realtime/src/main/resources/contracts/surface-anchors.json", browserAndFrontend],
+    ["realtime/src/main/resources/contracts/legacy-surface-anchors.json", none],
     ["contracts/realtime/v1/asset-capabilities.json", none],
     ["contracts/realtime/v1/surface-anchors.json", none],
     ["backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql", all],

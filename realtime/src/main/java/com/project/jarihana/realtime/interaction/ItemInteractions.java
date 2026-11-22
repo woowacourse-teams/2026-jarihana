@@ -22,7 +22,7 @@ final class ItemInteractions {
                 item.location() == ItemState.Location.STORAGE && item.kind().equals(kind)).findFirst().orElse(null);
         if (stored == null) {
             long existing = room.items().stream().filter(item -> asset.id().equals(item.sourceAssetId())).count();
-            if (existing >= asset.slots()) throw new RuleViolation("STORAGE_EMPTY");
+            if (existing >= asset.storageCapacity()) throw new RuleViolation("STORAGE_EMPTY");
             stored = new ItemState(UUID.randomUUID().toString(), kind, actor.memberId(), asset.id(), ItemState.Location.HELD,
                     actor.position(), null, null, kind.equals("cup") ? 0 : 1, null, 0);
         }
@@ -38,12 +38,12 @@ final class ItemInteractions {
         if (item.location() == ItemState.Location.SURFACE) {
             RoomAsset asset = room.layout().asset(item.assetId(), "surface");
             if (!asset.surfaceReachable(actor.position())) throw new RuleViolation("TOO_FAR");
+        } else if (item.location() == ItemState.Location.STORAGE) {
+            RoomAsset asset = room.layout().asset(item.assetId(), "storage");
+            if (!asset.reachable(actor.position())) throw new RuleViolation("TOO_FAR");
+            openStorage(room, asset);
         } else if (item.position().distance(actor.position()) > 3) {
             throw new RuleViolation("TOO_FAR");
-        }
-        if (item.location() == ItemState.Location.STORAGE) {
-            RoomAsset asset = room.layout().asset(item.assetId(), "storage");
-            openStorage(room, asset);
         }
         if (item.assetId() != null) {
             AssetState.Production production = room.assetState(item.assetId()).production();
@@ -57,19 +57,18 @@ final class ItemInteractions {
         ItemState item = held(room, actor, payload);
         RoomAsset asset = InteractionService.nearby(room, actor, payload, "surface");
         int slot = payload.containsKey("slot") ? Values.slot(payload) : InteractionService.freeSlot(room, asset);
-        Vec3 point = asset.surface(slot);
-        if (room.items().stream().anyMatch(other -> other.location() == ItemState.Location.SURFACE &&
-                asset.id().equals(other.assetId()) && other.slot() != null && other.slot() == slot)) {
+        if (slot < 0 || slot >= asset.surfaceSlots()) throw new RuleViolation("INVALID_SLOT");
+        if (InteractionService.occupied(room, asset.id(), ItemState.Location.SURFACE, slot)) {
             throw new RuleViolation("OCCUPIED");
         }
-        room.put(item.place(ItemState.Location.SURFACE, point, asset.id(), slot));
+        room.put(item.attach(ItemState.Location.SURFACE, asset.id(), slot));
         room.put(actor.hold(null));
     }
 
     void drop(RoomState room, ParticipantState actor, Map<String, Object> payload) {
         ItemState item = held(room, actor, payload);
         Vec3 point = room.layout().safe(actor.position().add(new Vec3(Math.sin(actor.yaw()) * 0.6, 0, -Math.cos(actor.yaw()) * 0.6)));
-        room.put(item.place(ItemState.Location.WORLD, point, null, null));
+        room.put(item.dropAt(point));
         room.put(actor.hold(null));
     }
 
@@ -102,8 +101,8 @@ final class ItemInteractions {
         RoomAsset asset = InteractionService.nearby(room, actor, payload, "storage");
         openStorage(room, asset);
         if (!asset.supplies().contains(item.kind())) throw new RuleViolation("INVALID_ITEM_KIND");
-        int slot = InteractionService.freeSlot(room, asset, true);
-        room.put(item.place(ItemState.Location.STORAGE, asset.storage(slot), asset.id(), slot));
+        int slot = InteractionService.freeSlot(room, asset, ItemState.Location.STORAGE);
+        room.put(item.attach(ItemState.Location.STORAGE, asset.id(), slot));
         room.put(actor.hold(null));
     }
 

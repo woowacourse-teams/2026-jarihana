@@ -91,7 +91,8 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
       assert.equal(await response.request().headerValue("authorization"), null);
       const { data } = await response.json();
       assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.seats?.length));
-      assert.ok(Object.keys(data.surfaceAnchors).length);
+      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.surface?.slots > 0));
+      assert.equal(data.surfaceAnchors, undefined);
       await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
       assert.deepEqual(sockets, []);
       receipt.push(`${name} renders after an anonymous GET without opening a WebSocket`);

@@ -360,9 +360,10 @@ try {
   const { success, data } = await definitions.json();
   assert.equal(success, true);
   const contracts = path.join(root, "realtime/src/main/resources/contracts");
-  assert.deepEqual(data.capabilities, JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")));
-  assert.deepEqual(data.surfaceAnchors, JSON.parse(await readFile(path.join(contracts, "surface-anchors.json"), "utf8")));
-  receipt.push("public cross-origin GET returns both packaged definitions without credentials");
+  assert.deepEqual(data, { capabilities: JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")) });
+  assert.equal(data.capabilities.assets.cafeCabinet.surface.slots, 1);
+  assert.equal(data.capabilities.assets.cafeCabinet.storage.capacity, 8);
+  receipt.push("public cross-origin GET returns the capability rules, including separate surface and storage limits");
   const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
@@ -577,6 +578,24 @@ try {
   assert.equal(a.state.items.find((item) => item.id === cupId)?.kind, "cup");
   receipt.push("moving a producer cancels work and preserves the cup past the old deadline");
 
+  const prop = (id) => a.state.items.find((item) => item.id === id);
+  assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
+  assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 1, itemId: cupId })).code, "INVALID_SLOT");
+  assert.equal(self().heldItemId, cupId);
+  assert.equal((await command(a, { action: "PRODUCE", assetId: "counter", kind: "coffee", itemId: cupId })).success, true);
+  await waitFor(() => prop(cupId)?.kind === "coffee", "coffee finishes");
+  assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "counter", 0]);
+  assert.equal((await command(a, { action: "OPEN", assetId: "counter" })).success, true);
+  assert.equal((await command(a, { action: "TAKE", assetId: "counter", kind: "tea" })).success, true);
+  await waitFor(() => self().heldItemId, "held tea");
+  const teaId = self().heldItemId;
+  assert.equal((await command(a, { action: "PLACE", assetId: "counter", slot: 0, itemId: teaId })).code, "OCCUPIED");
+  assert.equal((await command(a, { action: "RETURN", assetId: "counter", itemId: teaId })).success, true);
+  await waitFor(() => prop(teaId)?.location === "STORAGE", "tea is stored");
+  assert.deepEqual([prop(teaId).assetId, prop(teaId).slot], ["counter", 0]);
+  assert.deepEqual([prop(cupId).assetId, prop(cupId).slot], ["counter", 0]);
+  receipt.push("coffee production finishes on the surface and storage can independently occupy slot zero");
+
   assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
   assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 0, itemId: cupId })).success, true);
   await waitFor(() => a.state.items.find((item) => item.id === cupId)?.assetId === "table", "cup on surface");
@@ -585,13 +604,25 @@ try {
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface moved");
-  assert.ok(Math.abs(a.state.items.find((item) => item.id === cupId).position.x - surfaceX + 0.5) < 0.0001);
+  assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "table", 0]);
+  assert.ok(Math.abs(prop(cupId).position.x - surfaceX + 0.5) < 0.0001);
   room.items = room.items.filter((asset) => asset.id !== "table");
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface removed");
-  assert.equal(a.state.items.find((item) => item.id === cupId)?.location, "WORLD");
-  receipt.push("surface attachment follows furniture and becomes a world item after removal");
+  assert.equal(prop(cupId), undefined);
+  assert.equal(prop(teaId).location, "STORAGE");
+  room.items = room.items.filter((asset) => asset.id !== "counter");
+  revision += 1;
+  saveLayout();
+  await waitFor(() => a.state.layoutRevision === revision, "storage removed");
+  assert.equal(prop(teaId), undefined);
+  assert.equal(prop(itemId).location, "WORLD");
+  room.items.push({ id: "counter", kind: "cafeCabinet", x: 0, z: 5.8, rotation: 0 });
+  revision += 1;
+  saveLayout();
+  await waitFor(() => a.state.layoutRevision === revision, "producer restored for reconnect");
+  receipt.push("furniture movement preserves its slot and legacy wire position follows; deleting furniture removes only attached and stored props");
 
   const replacement = await connect(url, "101");
   await waitFor(() => a.closed, "old connection replacement");

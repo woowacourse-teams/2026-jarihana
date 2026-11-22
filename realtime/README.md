@@ -29,13 +29,13 @@ Spring 설정 `realtime.*`로 제한값을 조절할 수 있다. 기본 제한�
 
 ## 상태와 순서
 
-공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 이 모듈의 `src/main/resources/contracts/asset-capabilities.json`과 `src/main/resources/contracts/surface-anchors.json`이 가구 기능과 상호작용 지점의 원본이다. 브라우저는 일반 HTTP `GET /ws/realtime`로 두 정의를 읽는다. 이 공개 조회는 입장 토큰 없이 사용할 수 있으며 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 기존 연결 흐름을 사용한다. surface `slot`은 상호작용 지점 배열의 인덱스이며 각 지점에 물건 하나를 둔다. storage 용량은 별도로 관리한다.
+공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 브라우저는 일반 HTTP `GET /ws/realtime`로 `src/main/resources/contracts/asset-capabilities.json`의 가구 기능과 소품 규칙을 읽는다. 이 공개 조회는 입장 토큰 없이 사용할 수 있으며 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 기존 연결 흐름을 사용한다. 상판 `surface.slots`와 수납 `storage.capacity`는 서로 다른 0부터 시작하는 슬롯 범위와 점유를 갖는다. 방 상태는 가구 ID와 슬롯을 보관한다. 기존 브라우저가 요구하는 월드 좌표는 WebSocket 응답을 만들 때만 `legacy-surface-anchors.json`으로 계산한다.
 
 방마다 bounded mailbox 하나에서 상태를 변경한다. DB 조회와 WebSocket 송신은 별도 bounded executor를 사용한다. 연속 MOVE는 command 경계를 넘지 않고 최신 입력으로 합치며 출력 movement도 control 메시지 경계 뒤에서만 합친다. 초기 snapshot을 먼저 큐에 넣고 이후 full state와 movement frame을 보낸다. `roomEpoch`, 연결 generation, 배치 revision, command ID와 move sequence가 오래된 요청을 거부한다. command 결과는 사용자별 128개/60초 보관하며 중복 적용을 막는다. 같은 사용자 새 연결이 기존 연결을 교체하고, 오래된 인증 응답은 새 연결을 교체하지 못한다.
 
 JWT의 HS256 서명, issuer/audience/만료를 검증한 뒤 확인된 환경의 DB에서 회원, 모임 상태와 저장된 회원 아바타를 읽는다. jti는 발급 환경별로 만료까지 한 번만 사용한다. 동일한 모임 ID라도 개발과 운영의 방 상태는 각각 관리한다. 권한과 회원 아바타는 기본 20초마다 다시 읽고 배치는 기본 10초마다 조회한다. DB 조회가 실패하면 기존 권한 유효 기한이 연장되지 않는다. 회원 탈퇴, 모임 종료·삭제를 확인하면 연결을 닫는다.
 
-배치 revision이 증가하면 새 가구 구조와 임시 상태를 같은 mailbox에서 재조정한다. 옮기거나 삭제한 좌석은 해제하고 안전한 바닥으로 이동시킨다. 선반 위 물건은 같은 종류/같은 슬롯이 남으면 새 높이와 위치로 이동하고, 그렇지 않으면 안전한 바닥으로 내려놓는다. 손에 든 물건은 유지한다. 바뀌거나 제거한 생산기는 제작을 취소하고 빈 컵을 보존한다. 제작 완료와 던지기 착지는 별도 지연 콜백 대신 현재 방 상태의 tick에서 처리하므로 취소된 제작이 나중에 살아나지 않는다.
+배치 revision이 증가하면 새 가구 구조와 임시 상태를 같은 mailbox에서 재조정한다. 옮기거나 삭제한 좌석은 해제하고 안전한 바닥으로 이동시킨다. 가구를 옮겨도 같은 종류의 가구 ID와 슬롯이 남아 있으면 상판·수납 소품을 유지한다. 가구를 제거하면 해당 가구의 상판·수납 소품을 제거한다. 손에 들거나 바닥에 놓거나 던진 소품은 출처 가구를 삭제해도 유지한다. 생산기를 옮기거나 제거하면 제작을 취소한다. 제작 완료와 던지기 착지는 별도 지연 콜백 대신 현재 방 상태의 tick에서 처리하므로 취소된 제작이 나중에 살아나지 않는다.
 
 저장 배치 문서는 v11과 기본 아지트 v12를 지원한다. 입장한 환경의 DB에서 모임의 도면 버전, 시작 위치와 가구 규격을 읽는다. 미저장 모임은 단층 `lounge:11`의 기본 가구 배치를 사용하며 조회 시 방을 저장하지 않는다. 배치 목록에서 제외한 가구도 같은 규격으로 판정한다. 서버는 환경과 도면 버전별로 발행본을 재사용하고 처음 보는 가구 종류가 있으면 해당 환경의 카탈로그를 다시 읽는다. v10 이하 문서는 공동 입장 시 `LAYOUT_UPGRADE_REQUIRED`를 반환한다. 모임장은 기존 가구를 그대로 편집·저장할 수 있다. 공동 입장을 사용하려면 편집기에서 템플릿 전체 교체를 선택하고 저장한다. 이때 가구는 선택한 템플릿의 기본 배치로 교체된다.
 

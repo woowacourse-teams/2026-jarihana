@@ -17,21 +17,18 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public final class LayoutCatalog {
     private final JsonNode capabilities;
-    private final JsonNode surfaceAnchors;
 
     public LayoutCatalog(ObjectMapper mapper) throws IOException {
-        try (var rules = new ClassPathResource("contracts/asset-capabilities.json").getInputStream();
-             var anchors = new ClassPathResource("contracts/surface-anchors.json").getInputStream()) {
+        try (var rules = new ClassPathResource("contracts/asset-capabilities.json").getInputStream()) {
             capabilities = mapper.readTree(rules);
-            surfaceAnchors = mapper.readTree(anchors);
         }
     }
 
     public AssetDefinitions assetDefinitions() {
-        return new AssetDefinitions(capabilities.deepCopy(), surfaceAnchors.deepCopy());
+        return new AssetDefinitions(capabilities.deepCopy());
     }
 
-    public record AssetDefinitions(JsonNode capabilities, JsonNode surfaceAnchors) {}
+    public record AssetDefinitions(JsonNode capabilities) {}
 
     public RoomLayout read(long revision, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
         JsonNode geometry = blueprint.geometry();
@@ -49,7 +46,7 @@ public final class LayoutCatalog {
         RoomAsset light = new RoomAsset("room-general-light-switch", "room-general-light-switch",
                 new Vec3(-0.38, 0, building.path("maxZ").asDouble() - 0.2),
                 0, 1, 1, 1, 0.3, 0.3, 1.2, Set.of("switchable"), List.of(), List.of(), List.of(), 0,
-                false, 0, List.of(), 0, 0, 0);
+                false, 0, 0, 0, 0, 0);
         assets.put(light.id(), light);
         return new RoomLayout(revision, assets, geometry, blueprint.spawn(), capabilities.path("items"));
     }
@@ -67,18 +64,14 @@ public final class LayoutCatalog {
             seats.add(new Vec3(seat.path("x").asDouble(), seat.path("y").asDouble() +
                     seat.path("avatarOffsetY").asDouble(0) / scale(item, "scaleY"), seat.path("z").asDouble()));
         }
-        List<Vec3> surfaces = new ArrayList<>();
-        for (JsonNode anchor : surfaceAnchors.path(kind)) {
-            surfaces.add(new Vec3(anchor.path("x").asDouble(), anchor.path("y").asDouble(), anchor.path("z").asDouble()));
-        }
         double interactionFloor = features.contains("surface") ? floorElevation(item, geometry, instances, furniture) : 0;
         return new RoomAsset(item.path("id").asString(), kind,
                 new Vec3(item.path("x").asDouble(), elevation(item, geometry, instances, furniture, new HashSet<>()), item.path("z").asDouble()),
                 item.path("rotation").asDouble(), scale(item, "scaleX"), scale(item, "scaleY"), scale(item, "scaleZ"),
                 width, depth, height, features, seats, strings(rules.path("storage").path("kinds")),
-                strings(rules.path("producer").path("kinds")), rules.path("storage").path("capacity").asInt(8),
+                strings(rules.path("producer").path("kinds")), rules.path("storage").path("capacity").asInt(0),
                 !definition.hasNonNull("mount") && !underlay(definition),
-                definition.path("walkableHeight").asDouble(0), surfaces, interactionFloor,
+                definition.path("walkableHeight").asDouble(0), rules.path("surface").path("slots").asInt(0), interactionFloor,
                 rules.path("producer").path("durationMs").asLong(4000), rules.path("cooldownMs").asLong(30000));
     }
 

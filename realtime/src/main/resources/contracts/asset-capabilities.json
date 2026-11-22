@@ -224,37 +224,58 @@
     "table": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "diningTable": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "feastTable": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "gameTable": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "coffeeTable": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "cafeTable": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "kitchenIsland": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "kitchenCounter": {
       "capabilities": [
@@ -262,6 +283,9 @@
         "storage",
         "openable"
       ],
+      "surface": {
+        "slots": 3
+      },
       "storage": {
         "kinds": [
           "cup",
@@ -276,6 +300,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "cup"
@@ -297,6 +324,9 @@
         "storage",
         "openable"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "cup",
@@ -344,6 +374,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 4
+      },
       "storage": {
         "kinds": [
           "cup",
@@ -358,6 +391,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 4
+      },
       "storage": {
         "kinds": [
           "book"
@@ -392,6 +428,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "book"
@@ -404,6 +443,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "book"
@@ -416,6 +458,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "book"
@@ -428,6 +473,9 @@
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "camera"
@@ -441,6 +489,9 @@
         "storage",
         "openable"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "book"
@@ -451,33 +502,51 @@
     "studyDesk": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "focusDesk": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "photoEditDesk": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "photoPrintBench": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "mixingDesk": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "gameCredenza": {
       "capabilities": [
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 1
+      },
       "storage": {
         "kinds": [
           "book"
@@ -488,13 +557,19 @@
     "longCredenza": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "openDisplayShelf": {
       "capabilities": [
         "surface",
         "storage"
       ],
+      "surface": {
+        "slots": 5
+      },
       "storage": {
         "kinds": [
           "book"
@@ -505,12 +580,18 @@
     "worktop": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "wallShelf": {
       "capabilities": [
         "surface"
-      ]
+      ],
+      "surface": {
+        "slots": 1
+      }
     },
     "plant": {
       "capabilities": [

@@ -9,8 +9,16 @@ public record ItemState(String id, String kind, String holderId, String sourceAs
                 null, remaining, null, 0);
     }
 
-    public ItemState place(Location target, Vec3 point, String targetAssetId, Integer targetSlot) {
-        return new ItemState(id, kind, null, sourceAssetId, target, point, targetAssetId, targetSlot, remaining, null, 0);
+    public boolean attached() {
+        return location == Location.SURFACE || location == Location.STORAGE;
+    }
+
+    public ItemState attach(Location target, String targetAssetId, int targetSlot) {
+        return new ItemState(id, kind, null, sourceAssetId, target, null, targetAssetId, targetSlot, remaining, null, 0);
+    }
+
+    public ItemState dropAt(Vec3 point) {
+        return new ItemState(id, kind, null, sourceAssetId, Location.WORLD, point, null, null, remaining, null, 0);
     }
 
     public ItemState consume(String emptyKind) {

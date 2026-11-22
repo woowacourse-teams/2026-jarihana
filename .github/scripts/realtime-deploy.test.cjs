@@ -56,7 +56,7 @@ test("native action filters separate develop deployment from PR verification", (
     ["contracts/realtime/v1/asset-capabilities.json", false, false],
     ["contracts/realtime/v1/surface-anchors.json", false, false],
     ["realtime/src/main/resources/contracts/asset-capabilities.json", true, true],
-    ["realtime/src/main/resources/contracts/surface-anchors.json", true, true],
+    ["realtime/src/main/resources/contracts/legacy-surface-anchors.json", true, true],
     ["realtime/src/main/java/Room.java", true, true],
     ["realtime/src/test/java/RoomTest.java", false, true],
     ["realtime/build.gradle", true, true],

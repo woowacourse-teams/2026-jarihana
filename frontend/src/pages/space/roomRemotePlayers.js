@@ -2,11 +2,14 @@ import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
+import { localToWorld } from "./assetCustomization.js";
 import { getRoomLayout } from "./roomLayout.js";
 import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip, walkPropBaseOffset } from "./roomModels.js";
+import { placedItemElevation } from "./roomState.js";
 import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
 import { fitSeatedAvatar } from "./seatedAvatar.js";
 import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
+import propSurfaceAnchors from "./propSurfaceAnchors.json";
 
 export function thrownItemPosition(item, now) {
   if (item.location !== "THROWN" || !item.velocity || item.startedAt === null) return item.position;
@@ -14,6 +17,15 @@ export function thrownItemPosition(item, now) {
   return { x: item.position.x + item.velocity.x * elapsed,
     y: Math.max(0.08, item.position.y + item.velocity.y * elapsed - 9 * elapsed * elapsed),
     z: item.position.z + item.velocity.z * elapsed };
+}
+
+function sharedItemPlacement(item, room, now) {
+  if (item.location !== "SURFACE") return { position: thrownItemPosition(item, now) };
+  const furniture = room?.items.find((asset) => asset.id === item.assetId);
+  const anchor = furniture && propSurfaceAnchors[furniture.kind]?.[item.slot];
+  if (!anchor) return null;
+  return { furniture, position: { ...localToWorld(furniture, anchor.x, anchor.z),
+    y: placedItemElevation(furniture, room) + anchor.y * (furniture.scaleY ?? 1) } };
 }
 
 function nameLabel(name) {
@@ -190,8 +202,10 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
     for (const item of state.items) {
       const entry = objects.get(item.id);
       if (!entry) continue;
-      const position = thrownItemPosition(item, serverNow);
-      const furniture = item.location === "SURFACE" ? room?.items.find((asset) => asset.id === item.assetId) : null;
+      const placement = sharedItemPlacement(item, room, serverNow);
+      entry.model.visible = Boolean(placement);
+      if (!placement) continue;
+      const { furniture, position } = placement;
       const fit = furniture ? Math.min(1, furniture.scaleX ?? 1, furniture.scaleY ?? 1, furniture.scaleZ ?? 1) : 1;
       const size = fit * (item.kind === "cookie" ? Math.max(0.2, Math.sqrt(item.remaining)) : 1);
       const baseOffset = item.location === "THROWN" ? 0 : walkPropBaseOffset(item.kind) * size;
@@ -224,14 +238,16 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       if (!store) return [];
       const room = getRoom();
       const mezzanine = room ? getRoomLayout(room).mezzanine?.height : undefined;
-      return store.getState().items.filter((item) => ["WORLD", "SURFACE"].includes(item.location)).map((item) => {
-        const furniture = item.location === "SURFACE" ? room?.items.find((asset) => asset.id === item.assetId) : null;
-        return ({
-        id: `shared-${item.id}`, itemId: item.id, x: item.position.x, z: item.position.z,
-        floor: (furniture ? furniture.level === 1 : item.position.y >= mezzanine - 0.2) ? mezzanine ?? 0 : 0,
-        minY: item.position.y - 0.1, maxY: item.position.y + 0.35,
-        width: 0.45, depth: 0.45, label: "물건 집기", action: "space_item_pick_up", sharedItem: true
-        });
+      return store.getState().items.filter((item) => ["WORLD", "SURFACE"].includes(item.location)).flatMap((item) => {
+        const placement = sharedItemPlacement(item, room);
+        if (!placement) return [];
+        const { furniture, position } = placement;
+        return [{
+          id: `shared-${item.id}`, itemId: item.id, x: position.x, z: position.z,
+          floor: (furniture ? furniture.level === 1 : position.y >= mezzanine - 0.2) ? mezzanine ?? 0 : 0,
+          minY: position.y - 0.1, maxY: position.y + 0.35,
+          width: 0.45, depth: 0.45, label: "물건 집기", action: "space_item_pick_up", sharedItem: true
+        }];
       });
     },
     dispose() {

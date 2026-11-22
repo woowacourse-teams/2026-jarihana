@@ -35,7 +35,6 @@ case "${1:-}" in
           backend=true; frontend=true ;;
         # Frontend fixtures serve and test the public realtime HTTP contract.
         realtime/src/main/resources/contracts/asset-capabilities.json|\
-        realtime/src/main/resources/contracts/surface-anchors.json|\
         frontend/tests/fixtures/clubhouse-seeds.cjs)
           frontend=true; e2e=true ;;
         infra/cloudfront/spa-fallback.js|infra/cloudfront/group-share-preview.js|frontend/docs/rhythm-double-tap-mix.json)

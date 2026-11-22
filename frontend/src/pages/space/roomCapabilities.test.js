@@ -24,3 +24,16 @@ test("tables offer placing a held item and picking up a placed item", () => {
   expect(pickup.choices[0].command.action).toBe("PICKUP");
   expect(pickup.choices[0].label).toContain("쿠키 집기");
 });
+
+test("a stored book does not occupy the same-numbered shelf surface", () => {
+  const shelf = itemInteraction({ ...item, id: "shelf", kind: "bookshelf" }, 0, false, room);
+  const held = { id: "held", kind: "book", location: "HELD", holderId: "1" };
+  const stored = { id: "stored", kind: "book", location: "STORAGE", assetId: "shelf", slot: 0 };
+  const occupied = { id: "placed", kind: "book", location: "SURFACE", assetId: "shelf", slot: 1 };
+  const interaction = sharedInteractionTarget(shelf, { ...state, participants: [{ memberId: "1", heldItemId: held.id }],
+    items: [held, stored, occupied] });
+
+  expect(interaction.choices.filter(({ command }) => command.action === "PLACE").map(({ command }) => command.slot))
+    .toEqual([0, 2, 3]);
+  expect(interaction.choices.some(({ command }) => command.action === "RETURN")).toBe(true);
+});

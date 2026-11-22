@@ -3,6 +3,7 @@ package com.project.jarihana.realtime.room.domain;
 import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.interaction.InteractionService;
 import com.project.jarihana.realtime.layout.RoomLayout;
+import com.project.jarihana.realtime.transport.protocol.LegacyItemView;
 import com.project.jarihana.realtime.transport.protocol.Values;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,7 +54,7 @@ public final class RoomState {
         if (actor == null || !actor.connectionGeneration().equals(generation)) return false;
         if (actor.heldItemId() != null) {
             ItemState item = items.get(actor.heldItemId());
-            if (item != null) items.put(item.id(), item.place(ItemState.Location.WORLD, layout.safe(actor.position()), null, null));
+            if (item != null) items.put(item.id(), item.dropAt(layout.safe(actor.position())));
         }
         for (Map.Entry<String, AssetState> entry : assets.entrySet()) {
             AssetState.Production production = entry.getValue().production();
@@ -124,7 +125,7 @@ public final class RoomState {
             double seconds = (now - item.startedAt()) / 1000.0;
             Vec3 point = item.position().add(item.velocity().scale(seconds)).add(new Vec3(0, -9 * seconds * seconds, 0));
             if (point.y() <= layout.floorAt(point) || seconds >= 3) {
-                items.put(item.id(), item.place(ItemState.Location.WORLD, layout.safe(point), null, null));
+                items.put(item.id(), item.dropAt(layout.safe(point)));
                 changed = true;
             }
         }
@@ -132,7 +133,8 @@ public final class RoomState {
             AssetState.Production production = entry.getValue().production();
             if (production == null || production.completesAt() > now) continue;
             ItemState item = items.get(production.itemId());
-            if (item != null && entry.getKey().equals(item.assetId()) && item.kind().equals("cup")) {
+            if (item != null && item.location() == ItemState.Location.SURFACE &&
+                    entry.getKey().equals(item.assetId()) && item.kind().equals("cup")) {
                 items.put(item.id(), item.fill(production.kind()));
             }
             entry.setValue(entry.getValue().producing(null));
@@ -153,7 +155,7 @@ public final class RoomState {
     public Map<String, Object> snapshot(String type, String memberId, String generation, long now) {
         Map<String, Object> result = context(type, memberId, generation, now);
         result.put("participants", participants.values().stream().map(ParticipantState::view).toList());
-        result.put("items", List.copyOf(items.values()));
+        result.put("items", items.values().stream().map(item -> LegacyItemView.project(item, layout)).toList());
         result.put("assets", Map.copyOf(assets));
         return result;
     }

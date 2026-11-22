@@ -11,7 +11,6 @@ import java.util.Objects;
 final class LayoutReconciliation {
     void apply(RoomState room, RoomLayout next, long now) {
         List<ParticipantState> participants = new ArrayList<>();
-        List<ItemState> items = new ArrayList<>();
         Map<String, AssetState> assets = new HashMap<>();
         for (ParticipantState actor : room.participants()) {
             ParticipantState updated = actor;
@@ -23,21 +22,11 @@ final class LayoutReconciliation {
             participants.add(updated);
         }
         for (ItemState item : room.items()) {
-            if (item.location() == ItemState.Location.HELD) { items.add(item); continue; }
-            RoomAsset oldAsset = item.assetId() == null ? null : room.layout().assets().get(item.assetId());
-            RoomAsset nextAsset = item.assetId() == null ? null : next.assets().get(item.assetId());
-            boolean attached = item.location() == ItemState.Location.SURFACE || item.location() == ItemState.Location.STORAGE;
-            String capability = item.location() == ItemState.Location.STORAGE ? "storage" : "surface";
-            boolean storage = item.location() == ItemState.Location.STORAGE;
-            boolean compatible = attached && oldAsset != null && nextAsset != null && oldAsset.kind().equals(nextAsset.kind()) &&
-                    nextAsset.has(capability) && item.slot() != null && item.slot() >= 0 &&
-                    item.slot() < (storage ? nextAsset.slots() : nextAsset.surfaces().size()) &&
-                    (!storage || nextAsset.supplies().contains(item.kind()));
-            if (compatible) {
-                items.add(item.place(item.location(), storage ? nextAsset.storage(item.slot()) : nextAsset.surface(item.slot()), item.assetId(), item.slot()));
-            } else if (attached || item.location() == ItemState.Location.THROWN || !next.valid(item.position(), false)) {
-                items.add(item.place(ItemState.Location.WORLD, next.safe(item.position()), null, null));
-            } else items.add(item);
+            if (item.attached() && !attachmentExists(room.layout(), next, item)) {
+                room.removeItem(item.id());
+            } else if (item.location() == ItemState.Location.WORLD && !next.valid(item.position(), false)) {
+                room.put(item.dropAt(next.safe(item.position())));
+            }
         }
         for (Map.Entry<String, AssetState> entry : room.assetStates().entrySet()) {
             if (!next.assets().containsKey(entry.getKey())) continue;
@@ -46,9 +35,18 @@ final class LayoutReconciliation {
             assets.put(entry.getKey(), state);
         }
         participants.forEach(room::put);
-        items.forEach(room::put);
         room.assetStates().keySet().forEach(room::removeAssetState);
         assets.forEach(room::put);
+    }
+
+    private boolean attachmentExists(RoomLayout previous, RoomLayout next, ItemState item) {
+        RoomAsset oldAsset = previous.assets().get(item.assetId());
+        RoomAsset nextAsset = next.assets().get(item.assetId());
+        if (nextAsset == null || oldAsset == null || !oldAsset.kind().equals(nextAsset.kind())) return false;
+        if (item.location() == ItemState.Location.STORAGE) {
+            return nextAsset.has("storage") && item.slot() < nextAsset.storageCapacity() && nextAsset.supplies().contains(item.kind());
+        }
+        return nextAsset.has("surface") && item.slot() < nextAsset.surfaceSlots();
     }
 
     private boolean changed(RoomLayout previous, RoomLayout next, String id) {

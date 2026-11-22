@@ -45,8 +45,12 @@ class AssetDefinitionsEndpointTest {
             JsonNode envelope = mapper.readTree(response.body());
             assertThat(envelope.path("success").asBoolean()).isTrue();
             assertThat(envelope.path("error").isNull()).isTrue();
-            assertThat(envelope.path("data").path("capabilities")).isEqualTo(resource("asset-capabilities.json"));
-            assertThat(envelope.path("data").path("surfaceAnchors")).isEqualTo(resource("surface-anchors.json"));
+            JsonNode data = envelope.path("data");
+            assertThat(data.path("capabilities")).isEqualTo(resource("asset-capabilities.json"));
+            assertThat(data.has("surfaceAnchors")).isFalse();
+            JsonNode shelf = data.path("capabilities").path("assets").path("pantryShelf");
+            assertThat(shelf.path("surface").path("slots").asInt()).isEqualTo(4);
+            assertThat(shelf.path("storage").path("capacity").asInt()).isEqualTo(8);
         }
     }
 

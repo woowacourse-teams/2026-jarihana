@@ -49,14 +49,15 @@ const assetDefinitionsSchema = z.object({
       capabilities: assetKinds,
       seats: z.array(anchor.extend({ yaw: z.number(), avatarOffsetY: z.number().default(0) })).optional(),
       seatFit: z.object({ front: z.number(), maxScale: z.number() }).optional(),
-      storage: z.object({ kinds: assetKinds }).optional(),
+      surface: z.object({ slots: z.number().int().positive() }).optional(),
+      storage: z.object({ kinds: assetKinds, capacity: z.number().int().positive() }).optional(),
       producer: z.object({ kinds: assetKinds }).optional()
-    }).refine((definition) => !definition.seats?.length || Boolean(definition.seatFit))),
+    }).refine((definition) => (!definition.seats?.length || Boolean(definition.seatFit)) &&
+      (definition.capabilities.includes("surface") === Boolean(definition.surface)))),
     items: z.record(z.string(), z.object({
       throwable: z.boolean(), consumable: z.boolean(), camera: z.boolean().optional()
     }))
-  }),
-  surfaceAnchors: z.record(z.string(), z.array(anchor))
+  })
 });
 
 export function fetchAssetDefinitions() {

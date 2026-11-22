@@ -24,7 +24,7 @@
 
 현재 새 EC2의 애플리케이션은 realtime 하나이므로 별도 Nginx를 두지 않는다. 기존 CloudFront가 TLS와 경로별 원본 선택을 담당한다. WebSocket은 HTTP Upgrade 요청으로 시작하므로 `/ws/realtime` 경로로 전달할 수 있다. [AWS WebSocket 문서](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-working-with.websockets.html)
 
-서버 디렉터리는 `realtime/`, Java 패키지는 `com.project.jarihana.realtime`, 이미지·Compose 프로젝트·러너 라벨은 `jarihana-realtime`으로 통일한다. 공개 WebSocket은 `/ws/realtime`을 사용한다. Upgrade 없는 HTTP GET으로 같은 경로에서 가구 행동·접점 정의를 전달한다. 아지트 저장·조회는 `/api/groups/{groupId}/space/...`를 사용한다.
+서버 디렉터리는 `realtime/`, Java 패키지는 `com.project.jarihana.realtime`, 이미지·Compose 프로젝트·러너 라벨은 `jarihana-realtime`으로 통일한다. 공개 WebSocket은 `/ws/realtime`을 사용한다. Upgrade 없는 HTTP GET으로 같은 경로에서 가구 기능과 상판·수납 칸 규칙을 전달한다. 아지트 저장·조회는 `/api/groups/{groupId}/space/...`를 사용한다.
 
 정확한 `/ws/realtime` Behavior를 사용한다. CloudFront는 `Origin`을 전달하고 캐시를 끈다. 프론트는 같은 `REALTIME_WEBSOCKET_URL`을 빌드 시 받아 HTTPS로 조회한다. 운영에서는 새 프론트 배포 전에 해당 Origin에서 공용 HTTP 조회와 WSS 연결을 확인한다.
 
