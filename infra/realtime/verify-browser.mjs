@@ -178,11 +178,16 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     await composer.getByRole("button", { name: "닫기", exact: true }).click();
     receipt.push("camera is taken through shared UI, captures a preview and attaches to the activity form");
     for (let index = 0; index < pages.length; index += 1) {
-      await pages[index].keyboard.press("Escape");
-      await pages[index].getByRole("button", { name: "시점 설정", exact: true }).click();
-      await pages[index].getByRole("button", { name: "3인칭", exact: true }).click();
-      await pages[index].screenshot({ path: path.join(evidence, `browser-${index + 1}.png`), fullPage: true });
-      assert.equal(await pages[index].evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      const page = pages[index];
+      await page.bringToFront();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "시점 설정", exact: true }).press("Enter");
+      const thirdPerson = page.getByRole("button", { name: "3인칭", exact: true });
+      await thirdPerson.press("Enter");
+      await page.locator('[data-ph-capture-attribute-action="space_mode_third_person"][aria-pressed="true"]')
+        .waitFor({ state: "attached" });
+      await page.screenshot({ path: path.join(evidence, `browser-${index + 1}.png`), fullPage: true });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
     await pages[0].bringToFront();
     await pages[0].getByRole("button", { name: "꾸미기", exact: true }).click();
