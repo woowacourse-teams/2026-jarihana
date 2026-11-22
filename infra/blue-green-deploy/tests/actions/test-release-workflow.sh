@@ -229,9 +229,7 @@ git config commit.gpgsign false
 git config core.hooksPath /dev/null
 git add .
 git commit -qm initial
-catalog_dir=backend/src/main/resources/db/migration
-mkdir -p "$catalog_dir"
-for scope in frontend backend both workflow build-helper unrelated_migration v48 v49 after_catalogs; do
+for scope in frontend backend both workflow build-helper; do
   BEFORE_SHA=$(git rev-parse HEAD)
   case $scope in
     frontend) echo changed >> frontend/file ;;
@@ -239,10 +237,6 @@ for scope in frontend backend both workflow build-helper unrelated_migration v48
     both) echo both >> frontend/file; echo both >> backend/file ;;
     workflow) touch .github/workflows/backend-prod-deploy-v2.yml ;;
     build-helper) touch .github/scripts/production-frontend-build.cjs ;;
-    unrelated_migration) echo changed >> frontend/file; touch "$catalog_dir/V50__unrelated.sql" ;;
-    v48) echo changed >> frontend/file; touch "$catalog_dir/V48__space_furniture_interactions.sql" ;;
-    v49) echo changed >> frontend/file; touch "$catalog_dir/V49__space_portable_item_catalog.sql" ;;
-    after_catalogs) echo changed >> frontend/file; echo changed >> backend/file ;;
   esac
   git add .
   git commit -qm "$scope"
@@ -257,21 +251,6 @@ for scope in frontend backend both workflow build-helper unrelated_migration v48
   esac
   echo "PASS release-workflow automatic_v2_scope_$scope"
 done
-BEFORE_SHA=$(git rev-parse HEAD~3)
-: > "$GITHUB_OUTPUT"
-bash "$compact_resolve"
-grep -qx backend_only=false "$GITHUB_OUTPUT"
-grep -qx frontend_only=false "$GITHUB_OUTPUT"
-echo 'PASS release-workflow automatic_v2_catalogs_added_in_multi_commit_push'
-
-: > "$GITHUB_OUTPUT"
-: > "$DOCKER_TRACE"
-GITHUB_EVENT_NAME=workflow_dispatch INPUT_FRONTEND_ONLY=true bash "$compact_resolve"
-grep -qx frontend_only=true "$GITHUB_OUTPUT"
-grep -qx backend_only=false "$GITHUB_OUTPUT"
-[[ ! -s $DOCKER_TRACE ]]
-echo 'PASS release-workflow manual_v2_frontend_after_catalogs'
-
 BEFORE_SHA=0000000000000000000000000000000000000000
 : > "$GITHUB_OUTPUT"
 bash "$compact_resolve"

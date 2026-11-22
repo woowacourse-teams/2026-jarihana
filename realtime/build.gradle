@@ -33,7 +33,10 @@ tasks.named('test') {
 
 tasks.named('processTestResources') {
     from('../backend/src/main/resources/db/migration') {
-        include 'V45__versioned_space_blueprints.sql', 'V46__space_furniture_catalog.sql', 'V47__*.sql',
-                'V48__space_furniture_interactions.sql', 'V49__space_portable_item_catalog.sql'
+        include 'V*__versioned_space_blueprints.sql', 'V*__space_furniture_catalog.sql',
+                'V*__space_blueprint_runtime.sql', 'V*__space_furniture_interactions.sql',
+                'V*__space_portable_item_catalog.sql'
+        rename(/^V\d+__(.+)$/, '$1')
+        duplicatesStrategy = DuplicatesStrategy.FAIL
     }
 }

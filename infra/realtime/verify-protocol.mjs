@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawn } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const migrations = path.join(root, "backend/src/main/resources/db/migration");
+const migrationFiles = await readdir(migrations);
 const previousJar = process.env.REALTIME_PREVIOUS_JAR;
 const jarName = (await readdir(path.join(root, "realtime/build/libs"))).find((name) => name.endsWith(".jar") && !name.endsWith("-plain.jar"));
 assert.ok(jarName, "Run realtime ./gradlew bootJar before verification");
@@ -73,11 +75,7 @@ function seedAvatar(memberId, hair, outfit, environment = "dev") {
 }
 
 async function startDatabase() {
-  const migrations = path.join(root, "backend/src/main/resources/db/migration");
-  const schema = [];
-  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql"]) {
-    schema.push(await readFile(path.join(migrations, file), "utf8"));
-  }
+  const schema = await Promise.all(["baseline.sql", "member_avatar.sql", "group_space.sql"].map(readMigration));
   for (const db of Object.values(environments)) {
     const { databaseName, reader, password, container } = db;
     docker(["run", "--detach", "--rm", "--name", container, "--publish", "127.0.0.1::5432",
@@ -146,11 +144,15 @@ async function startDatabase() {
   }
 }
 
-const migrations = path.join(root, "backend/src/main/resources/db/migration");
+function readMigration(name) {
+  const files = migrationFiles.filter(file => file.replace(/^V\d+__/, "") === name);
+  assert.equal(files.length, 1, "Expected one migration for " + name);
+  return readFile(path.join(migrations, files[0]), "utf8");
+}
 
 async function migrateBlueprintKeys(environment) {
   const { databaseName, reader } = environments[environment];
-  const migration = await readFile(path.join(migrations, "V45__versioned_space_blueprints.sql"), "utf8");
+  const migration = await readMigration("versioned_space_blueprints.sql");
   sql(`BEGIN;
     ${migration}
     GRANT SELECT (blueprint_template_key, blueprint_version) ON group_space TO ${reader};
@@ -164,8 +166,8 @@ async function migrateBlueprintKeys(environment) {
 
 async function migrateBlueprintRuntime(environment, wallWidth) {
   const { databaseName } = environments[environment];
-  const catalog = await readFile(path.join(migrations, "V46__space_furniture_catalog.sql"), "utf8");
-  const runtime = await readFile(path.join(migrations, "V47__space_blueprint_runtime.sql"), "utf8");
+  const catalog = await readMigration("space_furniture_catalog.sql");
+  const runtime = await readMigration("space_blueprint_runtime.sql");
   sql(`BEGIN; ${catalog} COMMIT;`, databaseName);
   sql(`BEGIN; ${runtime} COMMIT;`, databaseName);
   assert.equal(sql("SELECT version FROM space_runtime_migration;", databaseName).trim(), "1");
@@ -201,18 +203,18 @@ async function migrateBlueprintRuntime(environment, wallWidth) {
 
 async function migrateFurnitureInteractions(environment) {
   const { databaseName } = environments[environment];
-  const migration = await readFile(path.join(migrations, "V48__space_furniture_interactions.sql"), "utf8");
+  const migration = await readMigration("space_furniture_interactions.sql");
   const before = sql("SELECT kind, display_order, min_room_version, placeable, definition FROM space_furniture_catalog ORDER BY kind;", databaseName);
   sql(`BEGIN; ${migration} COMMIT;`, databaseName);
   assert.equal(sql("SELECT version FROM space_furniture_catalog_migration;", databaseName).trim(), "1");
   const after = sql(`SELECT kind, display_order, min_room_version, placeable, definition - 'interaction'
     FROM space_furniture_catalog WHERE kind <> 'room-general-light-switch' ORDER BY kind;`, databaseName);
-  assert.equal(after, before, "V48 must preserve the existing furniture rows");
+  assert.equal(after, before, "Adding interactions must preserve the existing furniture rows");
 }
 
 async function migratePortableItems(environment) {
   const { databaseName } = environments[environment];
-  const migration = await readFile(path.join(migrations, "V49__space_portable_item_catalog.sql"), "utf8");
+  const migration = await readMigration("space_portable_item_catalog.sql");
   const furnitureQuery = "SELECT kind, definition FROM space_furniture_catalog ORDER BY kind;";
   const before = sql(furnitureQuery, databaseName);
   sql(`BEGIN; ${migration} COMMIT;`, databaseName);
@@ -525,7 +527,7 @@ try {
   let previousUrl;
   let previousDev;
   if (previousJar) {
-    // The previous release already requires V45 geometry for a cold join.
+    // The previous release already requires versioned blueprints for a cold join.
     const logOffset = serverLog.length;
     previousServer = startServer([], previousJar);
     const oldPort = await waitFor(() => serverLog.slice(logOffset).match(/Tomcat started on port (\d+)/)?.[1],
@@ -536,10 +538,12 @@ try {
     assert.equal(previousDev.state.layoutRevision, 1);
     assert.equal(previousProd.state.layoutRevision, productionRevision);
     previousProd.socket.close(1000, "LEAVE");
-    receipt.push("the previous develop JAR cold-joins existing saved rooms in both V45 databases");
+    receipt.push("the previous develop JAR cold-joins existing saved rooms before the runtime catalog changes");
   }
   await migrateBlueprintRuntime("dev", 1);
-  assert.notEqual(await checkRuntime(), 0);
+  await migrateFurnitureInteractions("dev");
+  await migratePortableItems("dev");
+  assert.notEqual(await checkRuntime(), 0, "Both databases must have the room runtime schema and catalog");
   if (previousDev) {
     assert.equal(previousServer.exitCode, null);
     assert.equal((await command(previousDev, { action: "SIT", assetId: "seat", slot: 0 })).success, true);
@@ -547,13 +551,7 @@ try {
     previousDev.socket.close(1000, "LEAVE");
   }
   await migrateBlueprintRuntime("prod", 3);
-  assert.notEqual(await checkRuntime(), 0, "V47 alone is not ready for DB interaction rules");
-  await migrateFurnitureInteractions("dev");
-  assert.notEqual(await checkRuntime(), 0, "V48 in development alone is not ready");
   await migrateFurnitureInteractions("prod");
-  assert.notEqual(await checkRuntime(), 0, "V48 in both databases still needs the portable item catalog");
-  await migratePortableItems("dev");
-  assert.notEqual(await checkRuntime(), 0, "V49 in development alone is not ready");
   await migratePortableItems("prod");
   if (previousUrl) {
     for (const environment of Object.keys(environments)) {
@@ -561,7 +559,7 @@ try {
       assert.equal(cold.state.layoutRevision, 2);
       cold.socket.close(1000, "LEAVE");
     }
-    receipt.push("the previous develop JAR still cold-joins both databases after V46–V49");
+    receipt.push("the previous develop JAR still cold-joins both databases after the runtime catalog changes");
   }
   for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"],
     ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"],
@@ -577,12 +575,12 @@ try {
   assert.notEqual(await checkRuntime(), 0, "a default must have an initialized room");
   sql("UPDATE space_blueprint_default SET blueprint_version = 12 WHERE template_key = 'lounge';");
   assert.equal(await checkRuntime(), 0);
-  receipt.push("preflight requires V48 and V49 in both databases and separate read grants for both catalogs, migration markers and blueprints");
+  receipt.push("preflight requires readable catalogs and initialized blueprints in both databases");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
     assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName), savedRows[environment]);
     assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 1;", databaseName).trim(), "lounge:11");
   }
-  receipt.push("both migrations pin existing saved rooms and preserve their furniture JSON and revision");
+  receipt.push("the migrations pin existing saved rooms and preserve their furniture JSON and revision");
   if (previousServer) await stopServer(previousServer);
   serverLog = "";
   server = startServer();

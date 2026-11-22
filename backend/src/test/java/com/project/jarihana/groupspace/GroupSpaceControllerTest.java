@@ -23,6 +23,10 @@ import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.specification.RequestSpecification;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.DayOfWeek;
@@ -32,8 +36,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -382,12 +385,12 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
     @DisplayName("도면과 가구 이관은 기존 저장 원문·시각·revision을 보존하고 구버전 쓰기를 연결한다")
     void backfillPreservesStoredRoomAndTracksLegacyWriter() throws Exception {
         // Given
-        String original = Files.readString(Path.of("src/main/resources/db/migration/V40__group_space.sql"));
-        String blueprints = Files.readString(Path.of("src/main/resources/db/migration/V45__versioned_space_blueprints.sql"));
-        String furniture = Files.readString(Path.of("src/main/resources/db/migration/V46__space_furniture_catalog.sql"));
-        String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
-        String interactions = Files.readString(Path.of("src/main/resources/db/migration/V48__space_furniture_interactions.sql"));
-        String portableItems = Files.readString(Path.of("src/main/resources/db/migration/V49__space_portable_item_catalog.sql"));
+        String original = migration("group_space.sql");
+        String blueprints = migration("versioned_space_blueprints.sql");
+        String furniture = migration("space_furniture_catalog.sql");
+        String runtime = migration("space_blueprint_runtime.sql");
+        String interactions = migration("space_furniture_interactions.sql");
+        String portableItems = migration("space_portable_item_catalog.sql");
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_blueprint_migration_test");
@@ -404,7 +407,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                         insert.executeUpdate();
                     }
 
-                    // An unmapped historical room rolls back V45, including its readiness marker.
+                    // An unmapped historical room rolls back the blueprint backfill and its readiness marker.
                     statement.execute("""
                             INSERT INTO group_space (group_id, room_json, revision, created_at, updated_at)
                             VALUES (2, '{"template":"lounge","version":999}', 1, now(), now())
@@ -525,6 +528,12 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
             }
             return null;
         });
+    }
+
+    private static String migration(String name) throws IOException {
+        var resources = new PathMatchingResourcePatternResolver().getResources("classpath:db/migration/V*__" + name);
+        assertThat(resources).as("migration %s", name).hasSize(1);
+        return resources[0].getContentAsString(StandardCharsets.UTF_8);
     }
 
     private String furnitureWithoutInteractions(Statement statement) throws SQLException {
@@ -661,8 +670,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
 
     @Test
     void migrationSupportsSavingAndDeletingGroupWithoutOrphanedSpace() throws Exception {
-        String migration = Files.readString(Path.of("src/main/resources/db/migration/V40__group_space.sql"));
-        String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
+        String migration = migration("group_space.sql");
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_migration_test");

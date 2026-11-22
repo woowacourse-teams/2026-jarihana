@@ -50,10 +50,6 @@ test("native action filters separate develop deployment from PR verification", (
   for (const [file, deploy, verify] of [
     ["frontend/src/pages/space/roomScene.js", false, false],
     ["backend/src/main/resources/db/migration/V1__baseline.sql", false, true],
-    ["backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql", false, true],
-    ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", false, true],
-    ["backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql", false, true],
-    ["backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V99__unrelated.sql", false, false],
     ["backend/src/main/resources/db/migration/V100__add_space_blueprint.sql", false, true],
     ["backend/src/main/resources/db/migration/V101__add_space_furniture.sql", false, true],
@@ -110,8 +106,7 @@ test("resume resolves only the latest published digest and its original configur
   assert.equal(record, `${revision} ${digest}\n`);
   commit("release-notes.md", "Production migration is ready");
   commit("frontend/src/pages/space/roomScene.js", "// frontend update");
-  commit("backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql", "-- SQL only");
-  commit("backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql", "-- SQL only");
+  commit("backend/src/main/resources/db/migration/V101__add_space_furniture.sql", "-- SQL only");
   commit("realtime/src/test/java/RoomTest.java", "// verification only");
   const head = commit("contracts/realtime/v1/legacy-portable-items.json", "{}");
   passes(select({ ...resume, GITHUB_SHA: head }));
