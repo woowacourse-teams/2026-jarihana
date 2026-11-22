@@ -1,5 +1,6 @@
 package com.project.jarihana.group.query.repository;
 
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
@@ -71,8 +72,8 @@ public class JpaGroupListRepository implements GroupListRepository {
                 criteria.excludedType(),
                 criteria.sessionDate(),
                 criteria.keyword(),
-                criteria.cursorCreatedAt(),
-                criteria.cursorId(),
+                criteria.cursorCreatedAt() == null ? CursorBounds.LATEST_TIME : criteria.cursorCreatedAt(),
+                criteria.cursorCreatedAt() == null ? CursorBounds.LAST_ID : criteria.cursorId(),
                 criteria.joinedOnly(),
                 criteria.role(),
                 criteria.currentMemberId(),

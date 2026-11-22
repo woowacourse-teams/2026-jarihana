@@ -3,6 +3,7 @@ package com.project.jarihana.invitation.query.service;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
@@ -52,8 +53,9 @@ public class InvitationQueryService {
         boolean managed = query.scope() == InvitationListScope.MANAGED_LINKS;
         String scope = "i:" + groupId + ":" + memberId + ":" + query.scope();
         InvitationCursor cursor = InvitationCursor.decode(query.cursor(), scope);
-        var page = invitations.findIssued(groupId, memberId, managed, cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(), PageRequest.of(0, query.size()));
+        var page = invitations.findIssued(groupId, memberId, managed,
+                cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(), PageRequest.of(0, query.size()));
         var items = page.getContent();
         String next = page.hasNext() ? InvitationCursor.encode(scope, items.getLast().createdAt(), items.getLast().id()) : null;
         LocalDateTime now = LocalDateTime.now(clock);
@@ -124,8 +126,9 @@ public class InvitationQueryService {
         String scope = "c:" + groupId + ":" + memberId + ":" + Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(keyword.getBytes(StandardCharsets.UTF_8));
         InvitationCursor cursor = InvitationCursor.decode(query.cursor(), scope);
-        var page = candidates.findCandidates(groupId, memberId, keyword, cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(), PageRequest.of(0, query.size()));
+        var page = candidates.findCandidates(groupId, memberId, keyword,
+                cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(), PageRequest.of(0, query.size()));
         var items = page.getContent();
         String next = page.hasNext() ? InvitationCursor.encode(scope, items.getLast().createdAt(), items.getLast().memberId()) : null;
         return new InvitationCandidateResult(items.stream().map(item -> new InvitationCandidateResult.Item(
@@ -138,8 +141,9 @@ public class InvitationQueryService {
         validateSize(query.size());
         String scope = "r:" + memberId;
         InvitationCursor cursor = InvitationCursor.decode(query.cursor(), scope);
-        var page = invitations.findReceived(memberId, cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id(), PageRequest.of(0, query.size()));
+        var page = invitations.findReceived(memberId,
+                cursor == null ? CursorBounds.LATEST_TIME : cursor.createdAt(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(), PageRequest.of(0, query.size()));
         var items = page.getContent();
         String next = page.hasNext() ? InvitationCursor.encode(scope, items.getLast().createdAt(), items.getLast().id()) : null;
         LocalDateTime now = LocalDateTime.now(clock);

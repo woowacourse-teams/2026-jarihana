@@ -74,4 +74,14 @@ class RoomStateTest {
         assertThat(room.participants().getFirst().seat()).isNull();
         assertThat(room.layoutRevision()).isEqualTo(2);
     }
+
+    @Test
+    void sameOrOlderLayoutRevisionKeepsTheCurrentLayout() {
+        var current = TestRooms.layout(2, 0);
+        var room = new RoomState("7", current, 10, 100);
+
+        assertThat(room.replaceLayout(TestRooms.layout(2, 4), 1200)).isFalse();
+        assertThat(room.replaceLayout(TestRooms.layout(1, 4), 1300)).isFalse();
+        assertThat(room.layout()).isSameAs(current);
+    }
 }

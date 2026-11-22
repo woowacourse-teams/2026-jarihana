@@ -42,18 +42,14 @@ public interface ProposalQueryRepository extends JpaRepository<Proposal, Long> {
             join proposal.author author
             where proposal.deletedAt is null
               and (:category is null or proposal.category = :category)
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or proposal.createdAt < :cursorCreatedAt
-                  or (proposal.createdAt = :cursorCreatedAt and proposal.id < :cursorId)
-              )
+              and (proposal.createdAt, proposal.id) < (:cursorCreatedAt, :cursorId)
             order by proposal.createdAt desc, proposal.id desc
             """)
     List<ProposalSummaryProjection> findPage(
             @Param("category") ProposalCategory category,
             @Param("memberId") Long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 

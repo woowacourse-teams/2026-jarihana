@@ -1,5 +1,6 @@
 package com.project.jarihana.notification.repository;
 
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -207,7 +208,8 @@ class NotificationPersistenceTest extends IntegrationTestSupport {
         notifications.save(notification(member("456"), "registration:5:approved"));
 
         // When
-        var first = queries.findPage(member.getId(), null, null, PageRequest.of(0, 2));
+        var first = queries.findPage(member.getId(), CursorBounds.LATEST_TIME, CursorBounds.LAST_ID,
+                PageRequest.of(0, 2));
         var cursor = first.getContent().getLast();
         var next = queries.findPage(member.getId(), cursor.createdAt(), cursor.id(), PageRequest.of(0, 2));
 

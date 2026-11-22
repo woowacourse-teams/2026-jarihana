@@ -108,7 +108,7 @@ GitHub Actions의 `CloudWatch Manage` (`cloudwatch-manage.yml`)를 수동 실행
 기본값은 prod의 환경만 확인하는 `cloudwatch-inspect`이며, 애플리케이션 로그 보존
 기본값은 14일이다.
 Agent 하나가 같은 EC2의 prod/dev를 수집하므로 환경별 배포 workflow와 독립적으로 관리한다.
-prod/dev 백엔드 배포는 각각 `backend-prod-deploy.yml`, `backend-dev-deploy.yml`에서 실행한다.
+prod/dev 백엔드 배포는 각각 `backend-prod-deploy-v2.yml`, `backend-dev-deploy.yml`에서 자동 실행한다. 운영 수동 배포는 `backend-prod-deploy.yml`을 사용한다.
 수동 실행 메뉴가 표시되려면 새 workflow 파일이 저장소 기본 브랜치인 `main`에 반영돼야 한다.
 
 알람 배포는 별도 `CloudWatch Alerts` workflow에서 수행한다. SNS 이메일 주소는

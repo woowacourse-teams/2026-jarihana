@@ -18,10 +18,10 @@ public interface InvitationCandidateRepository extends Repository<Member, Long> 
             from Member m
             where m.withdrawnAt is null and m.id <> :memberId and (:keyword = '' or locate(:keyword, m.crewName) > 0)
               and not exists (select gm.id from GroupMember gm where gm.group.id = :groupId and gm.member.id = m.id)
-              and (cast(:createdAt as timestamp) is null or m.createdAt < :createdAt or (m.createdAt = :createdAt and m.id < :id))
+              and (m.createdAt, m.id) < (:createdAt, :id)
             order by m.createdAt desc, m.id desc
             """)
     Slice<InvitationCandidateProjection> findCandidates(@Param("groupId") long groupId, @Param("memberId") long memberId,
-            @Param("keyword") String keyword, @Param("createdAt") LocalDateTime createdAt, @Param("id") Long id,
+            @Param("keyword") String keyword, @Param("createdAt") LocalDateTime createdAt, @Param("id") long id,
             Pageable pageable);
 }

@@ -60,7 +60,7 @@ infra/realtime/                     Docker Compose, Alloy, 검증 도구
                                     검증, GHCR 발행, 설정 전달, 공용 배포
 ```
 
-저장소를 나누지 않고 빌드·프로세스·배포 단위를 나눈다. backend의 JPA 엔티티를 realtime에 공유하지 않는다. 프론트의 가구 카탈로그에서 판정용 JSON을 생성해 Java와 JavaScript가 같은 좌석·표면 정보를 사용한다. 이 JSON의 생성 결과와 배치 문서 버전은 함께 검증한다.
+저장소를 나누지 않고 빌드·프로세스·배포 단위를 나눈다. backend의 JPA 엔티티를 realtime에 공유하지 않는다. 프론트의 가구 카탈로그에서 판정용 JSON을 생성해 Java와 JavaScript가 같은 좌석·표면 정보를 사용한다. 건물 경계·벽·층·통로는 각 환경 PostgreSQL의 발행 도면에서 읽는다. 모임의 가구 배치에는 도면 참조를 함께 저장한다.
 
 | 데이터 | 기준을 정하는 곳 | 저장 수명 |
 | --- | --- | --- |
@@ -79,6 +79,44 @@ infra/realtime/                     Docker Compose, Alloy, 검증 도구
 초기 M1의 입퇴장·이동·방향·점프·인사·원격 표시만으로는 이미 앉아 있거나 쿠키를 든 사람을 늦은 입장자에게 제대로 보여 줄 수 없었다. 착석과 보유 물건도 입장 스냅샷에 필요하다는 요청에 따라 M1·M2를 함께 개발했다. 대신 첫 구현에서 좌석 경쟁, 물건 소유권, 배치 변경, 재접속을 함께 다뤄야 했다.
 
 입장 스냅샷에는 참여자와 소품·가구 상태가 들어간다. 같은 방에서 한 좌석이나 물건을 둘이 동시에 차지할 수 없게 서버가 명령을 순서대로 판정한다. 이동은 클라이언트가 제안하고 서버가 속도·범위·배치 조건을 검사한다. 원격 위치는 보간하고, 공유 상호작용은 서버 결과를 적용한다. 경쟁 게임 수준의 연속 물리 시뮬레이션은 현재 범위에 없다.
+
+### 도면 발행과 모임별 배치
+
+```mermaid
+flowchart LR
+    DEFAULT["템플릿별 기본판<br/>space_blueprint_default"] -->|새 모임 또는 전체 교체| GROUP["모임별 도면 참조와 가구<br/>group_space"]
+    GROUP -->|테마와 버전으로 조회| PLAN["불변 도면<br/>space_blueprint"]
+    GROUP --> API["환경별 API"]
+    PLAN --> API
+    API -->|도면과 가구 배치| BROWSER["브라우저 · 렌더링과 편집"]
+    GROUP --> RT["공용 realtime · 이동과 충돌 판정"]
+    PLAN --> RT
+```
+
+| 데이터 | 버전이 바뀌는 시점 |
+| --- | --- |
+| `space_blueprint(template_key, blueprint_version)` | 벽·계단·층고를 수정하면 새 행을 발행한다. `geometry_schema_version`은 JSON 형식을 식별한다. |
+| `space_blueprint_default` | 새 모임 또는 사용자가 직접 선택한 템플릿 교체에 적용할 발행본을 지정한다. |
+| `group_space` | 가구 저장은 기존 도면 참조를 유지하고 `revision`을 증가시킨다. `room_json.version`은 기존 저장 문서 형식이다. |
+| `space_blueprint_migration` | V45 마지막에 버전 1 행을 넣는다. 세팅·이관·구버전 쓰기 호환을 완료한 트랜잭션이 커밋된 뒤 realtime 배포 검사에서 확인한다. |
+
+V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
+
+새 도면은 지원하는 테마와 형식 안에서 발행한다. 예를 들어 다음 SQL은 검수한 JSON을 psql 변수 `geometry`로 받아 기본 아지트 13판을 등록한다. 개발에서 기존 가구 배치·계단 보행·착석을 확인한 뒤 대상 환경에 같은 내용을 등록한다.
+
+```sql
+INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+VALUES ('lounge', 13, 1, :'geometry'::jsonb);
+```
+
+realtime 배포 전에 개발·운영 두 DB의 이관 완료 표시, 발행 도면, 모임별 도면 참조와 조회 권한을 검사한다. DB 권한·연결 오류는 장애로 처리하며, DB가 정상화되면 조회할 수 있다. 해당 환경의 API·realtime·프론트에서 DB 도면으로 기존 방이 정상 동작하는 것을 확인한 뒤 신규 선택을 활성화한다. 다음 변경은 기존 12판을 쓰는 모임의 FK에 영향을 주지 않는다.
+
+```sql
+UPDATE space_blueprint_default SET blueprint_version = 13
+WHERE template_key = 'lounge' AND blueprint_version = 12;
+```
+
+기본값을 12로 되돌리면 이후 신규 선택부터 적용된다. 이미 13을 선택한 모임은 13을 계속 사용한다. DB 전용 버전을 실제 모임에 배정한 뒤에는 DB 도면을 지원하는 앱 버전까지 롤백할 수 있다. 새 종류의 가구·상호작용이나 새 도면 형식은 먼저 클라이언트와 서버에 구현해야 한다.
 
 ### 가구를 옮겼을 때 누가 갱신하는가
 
@@ -131,7 +169,7 @@ infra/realtime/                     Docker Compose, Alloy, 검증 도구
 | 배포 스크립트 파일이 GHCR 때문에 필수인가 | `deploy.sh` 없이 workflow에 배포·헬스체크·롤백 포함 | 인프라 ADR 0008 |
 | Nginx와 EC2 80을 둘 것인가 | CloudFront를 사용하므로 새 프록시 없이 원본·Spring 모두 8080 | 인프라 ADR 0008 |
 | `multi-server`, `space`, `realtime` 중 무엇을 쓸 것인가 | 서버·패키지·러너는 realtime, WebSocket은 `/ws/realtime`으로 통일 | 인프라 ADR 0008 |
-| develop 반영에도 공용 서버를 재시작할 것인가 | 빠른 배포·검증을 위해 관련 경로 변경 시 재배포. 운영 방도 영향받음 | 인프라 ADR 0008 |
+| develop 반영에도 공용 서버를 재시작할 것인가 | 서버·운영 입력 변경 시 공용 재배포. 화면만 바뀌면 계약 검사 | 인프라 ADR 0008 |
 | 별도 실시간 모니터링 서버를 둘 것인가 | 새 EC2의 Alloy에서 기존 Prometheus·Loki·Grafana로 전송 | 인프라 ADR 0008 |
 | 화면 공유를 P2P·coturn으로 구현할 것인가 | LiveKit SFU 방향 채택. M1·M2 배포를 먼저 진행하고 M3는 보류 | 인프라 ADR 0009 |
 | 영상도 CloudFront URL prefix로 보낼 것인가 | HTTP 시그널링과 WebRTC 미디어 경로를 분리. 실제 미디어 포트는 미정 | 인프라 ADR 0009 |

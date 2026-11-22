@@ -42,17 +42,13 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
             where notification.member.id = :memberId
               and notification.deletedAt is null
               and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED
-              and (
-                  cast(:cursorCreatedAt as LocalDateTime) is null
-                  or notification.createdAt < :cursorCreatedAt
-                  or (notification.createdAt = :cursorCreatedAt and notification.id < :cursorId)
-              )
+              and (notification.createdAt, notification.id) < (:cursorCreatedAt, :cursorId)
             order by notification.createdAt desc, notification.id desc
             """)
     Slice<NotificationProjection> findPage(
             @Param("memberId") long memberId,
             @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             Pageable pageable
     );
 

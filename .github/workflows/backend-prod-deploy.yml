@@ -1,24 +1,6 @@
 name: Production Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".github/workflows/frontend-prod-deploy.yml"
-      - "infra/docker-compose.yml"
-      - "infra/monitoring/alloy/config.alloy"
-      - "infra/monitoring/alloy/postgres-queries.yaml"
-      - "infra/scripts/verify-backend.sh"
-      - "infra/blue-green-deploy/scripts/**"
-      - "infra/blue-green-deploy/controller/**"
-      - "infra/blue-green-deploy/nginx/**"
-      - ".github/workflows/backend-prod-deploy.yml"
-      - ".github/workflows/backend-bluegreen-deploy.yml"
-      - ".github/workflows/backend-app-operation.yml"
-      - ".github/workflows/backend-bluegreen-phase.yml"
   workflow_dispatch:
     inputs:
       deployment_engine:
@@ -78,7 +60,7 @@ jobs:
         shell: bash
         run: |
           case "$GITHUB_EVENT_NAME:${SELECTED:-}" in
-            push:*|workflow_dispatch:|workflow_dispatch:V1) engine=V1 ;;
+            workflow_dispatch:|workflow_dispatch:V1) engine=V1 ;;
             workflow_dispatch:V2) engine=V2 ;;
             *) echo '::error::지원하지 않는 배포 방식입니다.'; exit 1 ;;
           esac
@@ -89,9 +71,8 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-enabled.outputs.engine == 'V1' &&
-      ((github.event_name == 'push' && vars.BLUE_GREEN_PROD_ENABLED == 'true') ||
-      (github.event_name == 'workflow_dispatch' &&
-      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')))
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')
     permissions:
       contents: read
       packages: read
@@ -111,7 +92,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
       needs.release-enabled.outputs.engine == 'V2' &&
-      (inputs.blue_green_mode == 'bootstrap' || inputs.blue_green_mode == 'deploy')
+      inputs.blue_green_mode == 'deploy'
     permissions:
       contents: read
       packages: read
@@ -122,8 +103,24 @@ jobs:
       frontend_only: ${{ inputs.frontend_only || false }}
       backend_only: ${{ inputs.backend_only || false }}
       image_tag: ${{ inputs.image_tag }}
-      mode: ${{ inputs.blue_green_mode || 'deploy' }}
     secrets: inherit
+
+  bootstrap-v2:
+    name: 수동 V2 최초 등록
+    needs: release-enabled
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
+      needs.release-enabled.outputs.engine == 'V2' &&
+      inputs.blue_green_mode == 'bootstrap'
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    uses: ./.github/workflows/backend-bluegreen-bootstrap-v2.yml
+    with:
+      frontend_only: ${{ inputs.frontend_only || false }}
+      backend_only: ${{ inputs.backend_only || false }}
+      image_tag: ${{ inputs.image_tag }}
 
   release-summary:
     needs: [release-enabled, blue-green]

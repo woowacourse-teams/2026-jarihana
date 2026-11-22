@@ -5,7 +5,7 @@
 다음 main 머지로 배포가 실행되면 새 실행의 SHA를 자동으로 사용한다. 실행 도중 추가 머지가 들어와도
 이미 시작한 배포의 버전은 바뀌지 않는다. 제어태그나 자동 태그 교체 기능은 사용하지 않는다.
 
-자동 배포는 `BLUE_GREEN_PROD_ENABLED=true`이고 [운영 workflow](../../../.github/workflows/backend-prod-deploy.yml)의
+자동 배포는 `BLUE_GREEN_PROD_ENABLED=true`이고 [운영 workflow](../../../.github/workflows/backend-prod-deploy-v2.yml)의
 `paths`에 해당하는 파일이 변경된 main push에서 실행한다. 앱 Compose 변경은 이 경로에 포함된다.
 모든 main 머지가 배포를 실행하는 것은 아니며, frontend-only 배포는 기존 백엔드 컨테이너와 Compose를 유지한다.
 백엔드 이미지는 별도로 선택한 digest에 고정한다. Compose만 바꾼 배포는 이전 이미지 digest를 재사용할 수 있다.

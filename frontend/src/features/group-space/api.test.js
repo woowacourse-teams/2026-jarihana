@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { apiRequest, createApiClient } from "../../shared/api/index.js";
-import { fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
+import { fetchDefaultSpaceBlueprint, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
 
 jest.mock("../../shared/api/index.js", () => ({
   ...jest.requireActual("../../shared/api/index.js"), apiRequest: jest.fn()
@@ -41,6 +41,27 @@ test("PUT sends room and expectedRevision with CSRF and validates the saved resp
   expect(sentBody).toEqual({ room, expectedRevision: 2 });
 });
 
+test("default geometry is read separately and PUT sends only its reference", async () => {
+  const bounds = { minX: -10, maxX: 10, minZ: -8, maxZ: 5 };
+  const geometry = { building: { ...bounds, height: 7 }, entrance: bounds, walls: [], clearPaths: [] };
+  const blueprintRef = { templateKey: "lounge", version: 13 };
+  wire.mockResolvedValueOnce(reply({ blueprintRef, geometry }));
+  expect(await fetchDefaultSpaceBlueprint("lounge")).toEqual({ blueprintRef, geometry });
+  expect(wire.mock.calls[0][0].url).toBe("https://app.test/api/group-spaces/blueprints/lounge/default");
+  const room = { template: "lounge", version: 11 };
+  let body;
+  wire.mockImplementationOnce(async request => {
+    body = await request.clone().json();
+    return reply({ ...emptySpace, room, revision: 1, geometry, blueprintRef });
+  });
+  const saved = await saveGroupSpace(42, { room, expectedRevision: 0, blueprintRef });
+  expect(saved.geometry).toEqual(geometry);
+  expect(body).toEqual({ room, expectedRevision: 0, blueprintRef });
+  wire.mockImplementationOnce(async request => { body = await request.clone().json(); return reply(saved); });
+  await saveGroupSpace(42, { room, expectedRevision: 1, blueprintRef, replaceLayout: true });
+  expect(body).toEqual({ room, expectedRevision: 1, blueprintRef, replaceLayout: true });
+});
+
 test.each([[409, "GROUP_SPACE_CONFLICT"], [403, "GROUP_SPACE_FORBIDDEN"]])(
   "HTTP %s preserves its code and status without retrying a write", async (status, code) => {
     wire.mockImplementation(() => Promise.resolve(reply(null, status, code)));
@@ -49,7 +70,7 @@ test.each([[409, "GROUP_SPACE_CONFLICT"], [403, "GROUP_SPACE_FORBIDDEN"]])(
   }
 );
 
-test.each([{ ...emptySpace, revision: -1 }, { ...emptySpace, room: [] },
+test.each([{ ...emptySpace, blueprintRef: { templateKey: "lounge", version: 13 } }, { ...emptySpace, revision: -1 }, { ...emptySpace, room: [] },
   { ...emptySpace, canEdit: "true" }, { ...emptySpace, revision: 2 }])(
   "invalid server state cannot become an editable fallback", async (data) => {
     wire.mockImplementationOnce(() => Promise.resolve(reply(data)));

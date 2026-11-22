@@ -10,7 +10,10 @@ on:
       - "backend/src/main/resources/db/migration/V1__baseline.sql"
       - "backend/src/main/resources/db/migration/V39__member_avatar.sql"
       - "backend/src/main/resources/db/migration/V40__group_space.sql"
+      - "backend/src/main/resources/db/migration/V*__*blueprint*.sql"
       - "frontend/src/pages/space/**"
+      - "frontend/src/features/group-space/**"
+      - "frontend/package*.json"
       - ".github/workflows/realtime-deploy.yml"
   push:
     branches: [develop]
@@ -22,7 +25,7 @@ permissions:
 
 concurrency:
   group: realtime-${{ github.ref }}
-  cancel-in-progress: false
+  queue: max
 
 env:
   REALTIME_REPOSITORY: ghcr.io/woowacourse-teams/jarihana-realtime
@@ -30,16 +33,30 @@ env:
 
 jobs:
   verify:
+    outputs:
+      scope: ${{ steps.inputs.outputs.scope }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: inputs
+        name: 변경 범위 확인
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          scope=$(bash infra/realtime/change-scope.sh "$GITHUB_EVENT_NAME" "$BASE_SHA" "$HEAD_SHA")
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - uses: actions/setup-java@v5
+        if: steps.inputs.outputs.scope != 'contract'
         with:
           distribution: corretto
           java-version: "21"
@@ -48,17 +65,20 @@ jobs:
       - run: npm ci --prefix frontend
       - run: node contracts/realtime/export-runtime.cjs --check
       - run: ./gradlew test bootJar --no-daemon
+        if: steps.inputs.outputs.scope != 'contract'
         working-directory: realtime
       - name: 개발·운영 DB와 WebSocket 격리 검증
+        if: steps.inputs.outputs.scope != 'contract'
         run: node infra/realtime/verify-protocol.mjs
       - name: Alloy 설정 검증
+        if: steps.inputs.outputs.scope != 'contract'
         run: |
           docker run --rm -v "$PWD/infra/realtime/config.alloy:/etc/alloy/config.alloy:ro" \
             grafana/alloy:v1.20.1 validate /etc/alloy/config.alloy
 
   publish:
     needs: verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && needs.verify.outputs.scope == 'deploy'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
@@ -253,6 +273,8 @@ jobs:
 
           compose "$config_dir" "$REALTIME_IMAGE" config --quiet
           compose "$config_dir" "$REALTIME_IMAGE" pull
+          # Require migrated, readable blueprints and room references in both databases.
+          compose "$config_dir" "$REALTIME_IMAGE" run --rm --no-deps -T realtime --check-blueprints --server.port=0
 
           if compose "$config_dir" "$REALTIME_IMAGE" up -d --no-build --pull never --remove-orphans &&
             wait_for_health "$config_dir"; then

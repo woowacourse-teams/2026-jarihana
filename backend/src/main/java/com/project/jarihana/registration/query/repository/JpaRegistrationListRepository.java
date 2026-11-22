@@ -1,5 +1,6 @@
 package com.project.jarihana.registration.query.repository;
 
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
@@ -64,8 +65,8 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         Slice<Registration> registrations = registrationRepository.findPage(
                 criteria.recruitmentId(),
                 criteria.status(),
-                criteria.cursorRegisteredAt(),
-                criteria.cursorId(),
+                criteria.cursorRegisteredAt() == null ? CursorBounds.LATEST_TIME : criteria.cursorRegisteredAt(),
+                criteria.cursorRegisteredAt() == null ? CursorBounds.LAST_ID : criteria.cursorId(),
                 Pageable.ofSize(size)
         );
         List<RegistrationListProjection> projections = registrations.getContent().stream()
@@ -79,8 +80,8 @@ public class JpaRegistrationListRepository implements RegistrationListRepository
         Slice<Registration> registrations = registrationRepository.findMyPage(
                 criteria.memberId(),
                 criteria.status(),
-                criteria.cursorRegisteredAt(),
-                criteria.cursorId(),
+                criteria.cursorRegisteredAt() == null ? CursorBounds.LATEST_TIME : criteria.cursorRegisteredAt(),
+                criteria.cursorRegisteredAt() == null ? CursorBounds.LAST_ID : criteria.cursorId(),
                 Pageable.ofSize(size)
         );
         LocalDateTime now = LocalDateTime.now(clock);

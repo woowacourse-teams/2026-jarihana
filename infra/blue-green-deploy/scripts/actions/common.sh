@@ -143,17 +143,27 @@ bg_github() {
     printf '%s\n' "$body"
 }
 
+bg_workflow_file() {
+    case "$ENVIRONMENT:${GITHUB_EVENT_NAME:-}" in
+      prod:push) echo backend-prod-deploy-v2.yml ;;
+      prod:workflow_dispatch) echo backend-prod-deploy.yml ;;
+      dev:*) echo backend-dev-deploy.yml ;;
+      *) return 1 ;;
+    esac
+}
+
 bg_live() {
-    local actual path checked_at
+    local actual file path checked_at
     checked_at=$(bg_now)
-    path=".github/workflows/backend-$ENVIRONMENT-deploy.yml"
-    # The actual filenames use dev/prod, not the display environment name.
+    file=$(bg_workflow_file) || bg_die 'Unknown deployment event.'
+    path=".github/workflows/$file"
     actual=$(bg_github "/repos/$REPO/actions/runs/$RUN_ID")
     jq -e --argjson run "$RUN_ID" --arg sha "$GITHUB_SHA" --arg branch "$BRANCH" \
-      --arg path "$path" --arg ref "refs/heads/$BRANCH" --arg repo "$REPO" --argjson workflow "$WORKFLOW_ID" '
+      --arg env "$ENVIRONMENT" --arg event "${GITHUB_EVENT_NAME:-}" --arg path "$path" \
+      --arg ref "refs/heads/$BRANCH" --arg repo "$REPO" --argjson workflow "$WORKFLOW_ID" '
       .id == $run and .run_attempt == 1 and .head_sha == $sha and .head_branch == $branch and
       .workflow_id == $workflow and (.path == $path or .path == ($path + "@" + $ref)) and
-      (.event == "push" or .event == "workflow_dispatch") and
+      (.event == "push" or .event == "workflow_dispatch") and ($env == "dev" or .event == $event) and
       .repository.id == 1321030074 and .head_repository.id == 1321030074 and
       .repository.full_name == $repo and .head_repository.full_name == $repo and
       (.status | IN("queued", "in_progress", "waiting", "pending", "requested")) and
@@ -198,7 +208,7 @@ bg_machine() {
 }
 
 bg_init() {
-    local role=$1 file actual workflow expected name
+    local role=$1 file actual workflow expected name workflow_file
     ENVIRONMENT=${BG_ENVIRONMENT:?}; RUN_ID=${GITHUB_RUN_ID:?}; ATTEMPT=${GITHUB_RUN_ATTEMPT:?}
     [[ "$ENVIRONMENT" == dev || "$ENVIRONMENT" == prod ]] || bg_die 'Invalid deployment environment.'
     [[ "$RUN_ID" =~ ^[1-9][0-9]*$ && "$ATTEMPT" == 1 ]] || bg_die 'Workflow reruns are not allowed.'
@@ -220,10 +230,11 @@ bg_init() {
     actual=$(git -C "$SCRIPT_ROOT" rev-parse HEAD)
     [[ "$actual" == "$GITHUB_SHA" ]] || bg_die 'Checked-out deployment code does not match the deployment commit.'
     BRANCH=main; [[ "$ENVIRONMENT" != dev ]] || BRANCH=develop
-    expected="$REPO/.github/workflows/backend-$ENVIRONMENT-deploy.yml@refs/heads/$BRANCH"
+    workflow_file=$(bg_workflow_file) || bg_die 'Unknown deployment event.'
+    expected="$REPO/.github/workflows/$workflow_file@refs/heads/$BRANCH"
     [[ "${GITHUB_REF:-}" == "refs/heads/$BRANCH" && "${GITHUB_WORKFLOW_REF:-}" == "$expected" ]] || bg_die 'Use the approved environment workflow and branch.'
-    workflow=$(bg_github "/repos/$REPO/actions/workflows/backend-$ENVIRONMENT-deploy.yml")
-    WORKFLOW_ID=$(jq -er --arg path ".github/workflows/backend-$ENVIRONMENT-deploy.yml" \
+    workflow=$(bg_github "/repos/$REPO/actions/workflows/$workflow_file")
+    WORKFLOW_ID=$(jq -er --arg path ".github/workflows/$workflow_file" \
       'select(.path == $path and .state == "active") | .id | select(type == "number" and . > 0)' <<< "$workflow")
     bg_live
     if [[ "$role" == coordinator ]]; then

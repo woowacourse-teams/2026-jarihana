@@ -74,8 +74,7 @@ function lawnTexture() {
   return texture;
 }
 
-export function createFloatingIsland(building, terrace) {
-  const layout = getIslandLayout(building);
+export function createFloatingIsland(building, terrace, layout = getIslandLayout(building)) {
   const root = new THREE.Group();
   root.name = "floating-island";
   root.userData.outdoor = true;

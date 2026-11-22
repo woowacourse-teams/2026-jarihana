@@ -10,7 +10,7 @@ import { createCommonFunctionAsset } from "./commonFunctionModels";
 import { createClubhouseArchitecture } from "./clubhouseArchitecture";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { CLIMBING, BOARDGAME, getRoomLayout } from "./roomLayout";
+import { CLIMBING, BOARDGAME, geometryVersion, getRoomLayout } from "./roomLayout";
 import { createBoardgameFurniture, createBoardgameShell, createBoardgameFacility } from "./boardgameModels";
 import { createBuildingContext } from "./roomBuilding";
 import { CLIMBING_WALL_INNER_FACE } from "./themeArchitecture";
@@ -19,7 +19,7 @@ import { AVATAR_PALETTE } from "../../../public/sparring-arena/src/avatar-appear
 const CLIMBING_PANEL_REAR = -0.98;
 
 export function climbingPanelBacking(item, room, layout) {
-  if (room.template !== "climbing" || room.version !== 11 || item.level || !item.kind.startsWith("climbingWall")) return 0;
+  if (room.template !== "climbing" || geometryVersion(room) !== 11 || item.level || !item.kind.startsWith("climbingWall")) return 0;
   const side = item.rotation === 0 ? "back" : item.rotation === 1 ? "left" : null;
   if (!side) return 0;
 
@@ -579,25 +579,29 @@ function addLoungeGallery(room, floorColor, { mezzanine, stairs, railings }) {
   addStraightStaircase(room, stairs, "lounge-staircase", { treadColor: LOUNGE_TIMBER, frameColor: LOUNGE_TRIM, handrailColor: "#bd9b76" });
 }
 
-function addBuildingFloor(kit, floorColor, { minX, maxX }) {
+function addBuildingFloor(kit, floorColor, { minX, maxX, minZ, maxZ }) {
   const width = maxX - minX;
+  const depth = maxZ - minZ;
   const centerX = (minX + maxX) / 2;
-  kit.box(width + 0.3, 0.24, 13.3, "#a89782", centerX, -0.18, -1.5, 0.04);
-  addRoomSurface(kit, width, 0.1, 13, floorColor, centerX, -0.055, -1.5, "floor");
+  const centerZ = (minZ + maxZ) / 2;
+  kit.box(width + 0.3, 0.24, depth + 0.3, "#a89782", centerX, -0.18, centerZ, 0.04);
+  addRoomSurface(kit, width, 0.1, depth, floorColor, centerX, -0.055, centerZ, "floor");
+  const rowDepth = depth / 30;
+  const seamWidth = Math.min(0.008, rowDepth / 2);
   const seams = [];
   for (let row = 0; row < 30; row += 1) {
-    const z = -8 + row * 13 / 30;
-    addRoomSurface(kit, width, 0.01, 13 / 30 - 0.008, floorColor, centerX, -0.005, z + 13 / 60, "floor", [1.02, 0.98, 1, 0.95][row % 4]);
+    const z = minZ + row * rowDepth;
+    addRoomSurface(kit, width, 0.01, rowDepth - seamWidth, floorColor, centerX, -0.005, z + rowDepth / 2, "floor", [1.02, 0.98, 1, 0.95][row % 4]);
     seams.push(new THREE.Vector3(minX, 0.002, z), new THREE.Vector3(maxX, 0.002, z));
     for (let x = minX + 0.3 + (row % 3) * 0.8; x < maxX; x += 2.4) {
-      seams.push(new THREE.Vector3(x, 0.003, z), new THREE.Vector3(x, 0.003, z + 13 / 30));
+      seams.push(new THREE.Vector3(x, 0.003, z), new THREE.Vector3(x, 0.003, z + rowDepth));
     }
   }
   kit.group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seams),
     new THREE.LineBasicMaterial({ color: "#8b694c", transparent: true, opacity: 0.24 })));
 }
 
-function addRoomLamps(kit, { minX, height: hallHeight, wingHeight }) {
+function addRoomLamps(kit, { minX, height: hallHeight, wingHeight = hallHeight }) {
   const lights = modelKit("lounge-pendants");
   kit.group.add(lights.group);
   for (const [x, z, height, radius, color] of [
@@ -622,22 +626,42 @@ function addRoomLamps(kit, { minX, height: hallHeight, wingHeight }) {
   }
 }
 
-function addBuildingCeilings(kit, wallColor, { minX, height: hallHeight, wingHeight }) {
-  const upperWall = modelKit("hall-upper-wall");
-  upperWall.group.userData.walkthroughOnly = true;
-  kit.group.add(upperWall.group);
-  addRoomSurface(upperWall, 0.2, hallHeight - wingHeight, 13, wallColor,
-    4, (hallHeight + wingHeight) / 2, -1.5, "wall");
-  for (const [x, width, height] of [[(minX + 4) / 2, 4 - minX, hallHeight], [7, 6, wingHeight]]) {
+function addBuildingCeilings(kit, wallColor, { building, walls }) {
+  const { minX, maxX, minZ, maxZ, height: hallHeight, wingHeight } = building;
+  const depth = maxZ - minZ;
+  const centerZ = (minZ + maxZ) / 2;
+  const roofs = [];
+  // The low wing starts where its front or back wall meets the taller hall.
+  const wingWalls = walls.filter(wall => wall.height === wingHeight && wall.width > wall.depth &&
+    (wall.z === minZ || wall.z === maxZ));
+  const wingX = Math.max(minX, Math.min(maxX, ...wingWalls.map(wall => wall.x - wall.width / 2)));
+  if (wingX < maxX && wingHeight < hallHeight) {
+    if (wingX > minX) {
+      const upperWall = modelKit("hall-upper-wall");
+      upperWall.group.userData.walkthroughOnly = true;
+      kit.group.add(upperWall.group);
+      addRoomSurface(upperWall, 0.2, hallHeight - wingHeight, depth, wallColor,
+        wingX, (hallHeight + wingHeight) / 2, centerZ, "wall");
+      roofs.push([minX, wingX, hallHeight]);
+    }
+    roofs.push([wingX, maxX, wingHeight]);
+  } else {
+    roofs.push([minX, maxX, hallHeight]);
+  }
+  const beamPositions = [minZ + Math.min(0.4, depth / 4), maxZ - Math.min(0.1, depth / 4)];
+  for (let z = minZ + 3.5; z < maxZ - 0.4; z += 3.6) beamPositions.push(z);
+  for (const [left, right, height] of roofs) {
+    const x = (left + right) / 2;
+    const width = right - left;
     const roof = modelKit("building-ceiling");
     roof.group.userData.walkthroughOnly = true;
     kit.group.add(roof.group);
-    addRoomSurface(roof, width + 0.25, 0.2, 13.3, wallColor, x, height + 0.1, -1.5, "wall");
-    roof.box(width + 0.56, 0.1, 13.65, LOUNGE_TRIM, x, height + 0.24, -1.5, 0.018);
+    addRoomSurface(roof, width + 0.25, 0.2, depth + 0.3, wallColor, x, height + 0.1, centerZ, "wall");
+    roof.box(width + 0.56, 0.1, depth + 0.65, LOUNGE_TRIM, x, height + 0.24, centerZ, 0.018);
     for (let rib = -width / 2; rib <= width / 2; rib += 0.7) {
-      roof.box(0.045, 0.055, 13.63, "#59776c", x + rib, height + 0.3, -1.5, 0.006);
+      roof.box(0.045, 0.055, depth + 0.63, "#59776c", x + rib, height + 0.3, centerZ, 0.006);
     }
-    for (const z of [-7.6, -4.5, -0.9, 2.7, 4.9]) {
+    for (const z of beamPositions) {
       roof.box(width + 0.12, 0.27, 0.29, LOUNGE_TIMBER, x, height - 0.09, z, 0.025);
     }
   }
@@ -1269,15 +1293,16 @@ function createLegacyFacility(kind, { color, panelBacking } = {}) {
 }
 
 export function createRoomShell(options = {}) {
-  const shell = createRoomShellBase(options);
-  return finishArchitecture(shell, options.template ?? "lounge", getRoomLayout(options), options.atmosphere, options.onSurfaceReady);
+  const layout = getRoomLayout(options);
+  const shell = createRoomShellBase(options, layout);
+  return finishArchitecture(shell, options.template ?? "lounge", layout, options.atmosphere, options.onSurfaceReady);
 }
 
 function createRoomShellBase({
-  floorColor = "#cfa77c", wallColor = "#f1dfc3", template = "lounge", version = 11,
+  floorColor = "#cfa77c", wallColor = "#f1dfc3", template = "lounge",
   accentColor = "#536bd6", atmosphere = {}
-} = {}) {
-  if (["dining", "band", "study", "photo", "climbing", "boardgame"].includes(template)) return createClubhouseArchitecture(getRoomLayout(template, version), { template, floorColor, wallColor, atmosphere });
+} = {}, layout) {
+  if (["dining", "band", "study", "photo", "climbing", "boardgame"].includes(template)) return createClubhouseArchitecture(layout, { template, floorColor, wallColor, atmosphere });
   if (template === "climbing") return createClimbingShell({ floorColor, wallColor });
   const kit = modelKit("room-shell");
   if (template === "boardgame") {
@@ -1285,15 +1310,14 @@ function createRoomShellBase({
     kit.group.add(createBuildingContext(BOARDGAME.building));
     return kit.group;
   }
-  const layout = getRoomLayout(template, version);
   const { building } = layout;
   addBuildingFloor(kit, floorColor, building);
-  kit.group.add(createBuildingContext(building, "lounge"));
+  kit.group.add(createBuildingContext(building, "lounge", layout.terrace, layout.island));
   layout.walls.forEach((wall) => addBuildingWall(kit, wall, wallColor, building));
   addDoorFrames(kit, wallColor, building);
   addLoungeTimberwork(kit, building);
   if (layout.mezzanine) addLoungeGallery(kit, floorColor, layout);
-  addBuildingCeilings(kit, wallColor, building);
+  addBuildingCeilings(kit, wallColor, layout);
   addRoomLamps(kit, building);
   return kit.group;
 }

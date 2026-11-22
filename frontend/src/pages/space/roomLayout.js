@@ -294,7 +294,20 @@ export const BOARDGAME = Object.freeze({
     { minX: -7.4, maxX: 9.7, minZ: -7.85, maxZ: -7.15 }
   ]
 });
+// A draft may be spread, put on the undo stack and serialized as a room document.
+// The symbol follows copies without putting the server's geometry in JSON or PUT bodies.
+export const ROOM_BLUEPRINT = Symbol("roomBlueprint");
+
+export function bindRoomBlueprint(room, blueprint) {
+  return blueprint && room ? { ...room, [ROOM_BLUEPRINT]: blueprint } : room;
+}
+
+export function geometryVersion(room) {
+  return room?.[ROOM_BLUEPRINT]?.blueprintRef.version ?? room?.version;
+}
+
 export function getRoomLayout(template = "lounge", version = 11) {
+  if (template?.[ROOM_BLUEPRINT]) return template[ROOM_BLUEPRINT].geometry;
   if (template && typeof template === "object") {
     version = template.version ?? version;
     template = template.template ?? "lounge";
@@ -330,6 +343,7 @@ export function contains(area, bounds) {
   return bounds.minX >= area.minX && bounds.maxX <= area.maxX && bounds.minZ >= area.minZ && bounds.maxZ <= area.maxZ;
 }
 export function facilityBounds(template, placement = false, version = 9) {
+  if (template?.[ROOM_BLUEPRINT]) return template[ROOM_BLUEPRINT].geometry[placement ? "facilityPlacement" : "facilityWalk"] ?? [];
   if (template && typeof template === "object") { version = template.version ?? version; template = template.template; }
   if (version >= 9) return [];
   if (["climbing", "boardgame"].includes(template)) {

@@ -10,7 +10,10 @@ import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.groupspace.command.repository.GroupSpaceCommandRepository;
 import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceCommand;
 import com.project.jarihana.groupspace.command.service.dto.SaveGroupSpaceResult;
+import com.project.jarihana.groupspace.domain.BlueprintRef;
 import com.project.jarihana.groupspace.domain.GroupSpace;
+import com.project.jarihana.groupspace.domain.SpaceBlueprint;
+import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.groupspace.domain.RoomDocumentValidator;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -24,6 +27,7 @@ public class GroupSpaceCommandService {
     private final GroupCommandRepository groups;
     private final GroupMemberCommandRepository members;
     private final GroupSpaceCommandRepository spaces;
+    private final SpaceBlueprintRepository blueprints;
     private final RoomDocumentValidator validator;
     private final Clock clock;
 
@@ -48,8 +52,60 @@ public class GroupSpaceCommandService {
         if (command.expectedRevision() != revision) {
             throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "다른 곳에서 공간이 변경되었습니다. 최신 공간을 불러온 뒤 다시 저장해 주세요.");
         }
+        var blueprint = selectBlueprint(current, command);
+        if (!blueprint.geometry().hasNonNull("mezzanine")) {
+            for (var item : command.room().path("items")) {
+                if (item.path("level").asInt(0) == 1) {
+                    throw new BusinessException(ErrorCode.INVALID_PARAMETER, "단층 도면에 2층 가구를 배치할 수 없습니다.");
+                }
+            }
+        }
         GroupSpace saved = spaces.saveAndFlush(current == null
-                ? GroupSpace.create(group, roomJson, LocalDateTime.now(clock)) : current.replaceRoom(roomJson));
-        return new SaveGroupSpaceResult(command.room(), saved.getRevision(), true, saved.getUpdatedAt());
+                ? GroupSpace.create(group, roomJson, blueprint.ref(), LocalDateTime.now(clock))
+                : current.replaceRoom(roomJson, blueprint.ref()));
+        return new SaveGroupSpaceResult(command.room(), saved.getRevision(), true, saved.getUpdatedAt(),
+                blueprint.ref(), blueprint.geometry());
+    }
+
+    private SpaceBlueprint selectBlueprint(GroupSpace current, SaveGroupSpaceCommand command) {
+        var historical = BlueprintRef.historical(command.room());
+        var requested = command.blueprintRef();
+        if (requested != null && !historical.templateKey().equals(requested.templateKey())) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "방 문서와 도면의 테마가 일치해야 합니다.");
+        }
+        if (command.replaceLayout() && requested == null) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "전체 배치를 교체하려면 선택한 도면이 필요합니다.");
+        }
+        if (requested != null && (current == null || command.replaceLayout())) {
+            var selected = blueprints.getDefault(historical.templateKey());
+            if (!selected.ref().equals(requested)) {
+                throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "기본 도면이 변경되었습니다. 다시 선택해 주세요.");
+            }
+            requireCurrentDocument(historical);
+            return selected;
+        }
+        if (current == null) return blueprints.get(historical);
+
+        var previous = validator.readHistoricalRef(current.getRoomJson());
+        if (requested == null) {
+            if (!current.blueprintRef().equals(previous)) {
+                throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "현재 도면을 지원하는 편집기로 다시 열어 주세요.");
+            }
+            return blueprints.get(historical);
+        }
+        if (!current.blueprintRef().equals(requested)) {
+            throw new BusinessException(ErrorCode.GROUP_SPACE_CONFLICT, "저장한 방의 도면을 변경할 수 없습니다.");
+        }
+        if (!historical.equals(previous)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "배치를 편집할 때 방 문서 버전을 유지해 주세요.");
+        }
+        return blueprints.get(requested);
+    }
+
+    private static void requireCurrentDocument(BlueprintRef historical) {
+        int version = historical.templateKey().equals("lounge") ? 12 : 11;
+        if (historical.version() != version) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "현재 편집기에서 방을 다시 만들어 주세요.");
+        }
     }
 }

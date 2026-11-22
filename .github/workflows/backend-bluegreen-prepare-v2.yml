@@ -1,0 +1,199 @@
+name: 운영 배포 대상 확인과 계획
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: 운영 환경 이름(prod)
+      frontend_only:
+        type: boolean
+        default: false
+        description: 현재 백엔드를 유지하고 프론트만 배포
+      backend_only:
+        type: boolean
+        default: false
+        description: 현재 프론트를 유지하고 백엔드만 배포
+      image_tag:
+        type: string
+        default: ""
+        description: 운영 커밋의 백엔드 트리와 대조할 이미지 태그
+      mode:
+        type: string
+        default: deploy
+        description: 일반 배포(deploy) 또는 최초 등록(bootstrap)
+    outputs:
+      digest:
+        value: ${{ jobs.prepare.outputs.digest }}
+      old:
+        value: ${{ jobs.prepare.outputs.old }}
+      target:
+        value: ${{ jobs.prepare.outputs.target }}
+      frontend_only:
+        value: ${{ jobs.prepare.outputs.frontend_only }}
+      backend_only:
+        value: ${{ jobs.prepare.outputs.backend_only }}
+      artifact_id:
+        value: ${{ jobs.prepare.outputs.artifact_id }}
+# 일반 배포와 최초 등록은 각각 호출 잡에서 지정한 작업 권한을 상속한다.
+jobs:
+  prepare:
+    name: 배포 대상 확인과 계획
+    # 허용된 운영 배포만 조정 러너에 할당한다. 그 외 호출은 호스팅 러너에서 실행 경로를 검증한다.
+    runs-on: >-
+      ${{ inputs.environment == 'prod' && inputs.mode == 'deploy' &&
+          github.repository == 'woowacourse-teams/2026-jarihana' && github.ref == 'refs/heads/main' && github.run_attempt == '1' &&
+          ((github.event_name == 'push' && github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy-v2.yml@refs/heads/main') ||
+           (github.event_name == 'workflow_dispatch' && github.event.inputs.blue_green_mode == 'deploy' &&
+            github.workflow_ref == 'woowacourse-teams/2026-jarihana/.github/workflows/backend-prod-deploy.yml@refs/heads/main')) &&
+          'jarihana-bluegreen-coordinator' || 'ubuntu-24.04-arm' }}
+    environment: ${{ inputs.environment }}
+    timeout-minutes: ${{ inputs.mode == 'deploy' && 75 || 25 }}
+    outputs:
+      artifact_id: ${{ steps.frontend_build.outputs.artifact_id }}
+      digest: ${{ steps.phase.outputs.digest || (inputs.mode == 'bootstrap' && steps.image.outputs.digest) || '' }}
+      old: ${{ steps.phase.outputs.old }}
+      target: ${{ steps.phase.outputs.target }}
+      frontend_only: ${{ steps.image.outputs.frontend_only }}
+      backend_only: ${{ steps.image.outputs.backend_only }}
+    steps:
+      - name: 운영 배포 허용 여부와 실행 경로 확인
+        env:
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          MODE: ${{ inputs.mode }}
+          REQUESTED_MODE: ${{ github.event.inputs.blue_green_mode }}
+          ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED }}
+        shell: bash
+        run: |-
+          [[ "$BG_ENVIRONMENT" == prod && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_REPOSITORY" == woowacourse-teams/2026-jarihana ]]
+          case "$GITHUB_EVENT_NAME" in
+            push) caller=backend-prod-deploy-v2.yml ;;
+            workflow_dispatch)
+              [[ "$MODE" == "$REQUESTED_MODE" ]]
+              caller=backend-prod-deploy.yml
+              ;;
+            *) exit 1 ;;
+          esac
+          [[ "$GITHUB_WORKFLOW_REF" == "$GITHUB_REPOSITORY/.github/workflows/$caller@refs/heads/main" ]]
+          [[ "$MODE" == deploy || ( "$MODE" == bootstrap && "$GITHUB_EVENT_NAME" == workflow_dispatch ) ]]
+          [[ "$MODE" == bootstrap || "$ENABLED" == true ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+        name: 배포 커밋 가져오기
+      - name: 검증된 이미지의 고정 digest 선택
+        id: image
+        timeout-minutes: 10
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          GHCR_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.image_tag }}
+          INPUT_FRONTEND_ONLY: ${{ inputs.frontend_only }}
+          INPUT_BACKEND_ONLY: ${{ inputs.backend_only }}
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          BG_MODE: ${{ inputs.mode }}
+          BG_A_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_A_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          BG_B_RUNNER: ${{ vars[format('BLUE_GREEN_{0}_B_RUNNER', inputs.environment == 'dev' && 'DEV' || 'PROD')] }}
+          RDS_URL: ${{ vars.RDS_URL }}
+          BG_DEV_AUTO_ENABLED: ${{ vars.BLUE_GREEN_DEV_ENABLED || 'false' }}
+          BG_PROD_AUTO_ENABLED: ${{ vars.BLUE_GREEN_PROD_ENABLED || 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker_plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/release-registry.XXXXXX")
+          export DOCKER_CONFIG
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          if [[ -d "$docker_plugins" ]]; then
+            ln -s "$(cd -- "$docker_plugins" && pwd)" "$DOCKER_CONFIG/cli-plugins"
+          fi
+          jq -n '{auths: {"ghcr.io": {auth: ((env.GITHUB_ACTOR + ":" + env.GHCR_TOKEN) | @base64)}}}' > "$DOCKER_CONFIG/config.json"
+          unset GHCR_TOKEN
+          bash infra/blue-green-deploy/scripts/compact/resolve.sh
+      - name: 운영 프론트엔드 빌드 요청 및 결과 확인
+        id: frontend_build
+        if: inputs.mode == 'deploy' && steps.image.outputs.backend_only == 'false'
+        uses: actions/github-script@v7
+        timeout-minutes: 35
+        with:
+          script: |
+            const { buildFrontend } = require(process.env.GITHUB_WORKSPACE + '/.github/scripts/production-frontend-build.cjs');
+            const { artifact_id } = await buildFrontend({
+              github,
+              context,
+              onDispatch(runId) {
+                core.setOutput('run_id', runId);
+                core.notice(`프론트 빌드: ${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`);
+              },
+            });
+            core.setOutput('artifact_id', artifact_id);
+      - name: 대기 중단 시 요청한 프론트 빌드 취소
+        if: >-
+          always() && (steps.frontend_build.outcome == 'failure' || steps.frontend_build.outcome == 'cancelled') &&
+          steps.frontend_build.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          BUILD_RUN_ID: ${{ steps.frontend_build.outputs.run_id }}
+        with:
+          script: |
+            const { cancelFrontendBuild } = require(process.env.GITHUB_WORKSPACE + '/.github/scripts/production-frontend-build.cjs');
+            await cancelFrontendBuild({ github, context, runId: process.env.BUILD_RUN_ID });
+      - name: 프론트 빌드 파일을 받을 경로 준비
+        id: frontend_dist
+        if: steps.frontend_build.outcome == 'success'
+        env:
+          BUILD_RUN_ID: ${{ steps.frontend_build.outputs.run_id }}
+          ARTIFACT_ID: ${{ steps.frontend_build.outputs.artifact_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ && "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]] || exit 1
+          BG_FRONTEND_DIST="$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID"
+          printf 'BG_FRONTEND_DIST=%s\n' "$BG_FRONTEND_DIST" >> "$GITHUB_ENV"
+          rm -rf -- "$BG_FRONTEND_DIST"
+          mkdir -m 700 -- "$BG_FRONTEND_DIST"
+      - name: 확인된 프론트 빌드 파일 받기
+        if: steps.frontend_build.outcome == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.frontend_build.outputs.run_id }}
+          artifact-ids: ${{ steps.frontend_build.outputs.artifact_id }}
+          path: ${{ env.BG_FRONTEND_DIST }}
+          merge-multiple: true
+      - name: 운영 AWS CLI 준비
+        if: inputs.mode == 'deploy'
+        shell: bash
+        run: bash infra/blue-green-deploy/scripts/actions/install-awscli.sh
+      - name: 배포 계획 실행
+        id: phase
+        if: inputs.mode == 'deploy'
+        timeout-minutes: 25
+        env:
+          BG_ENVIRONMENT: ${{ inputs.environment }}
+          BG_MODE: ${{ inputs.mode }}
+          BG_PHASE: plan
+          BG_FRONTEND_ONLY: ${{ steps.image.outputs.frontend_only }}
+          BG_BACKEND_ONLY: ${{ steps.image.outputs.backend_only }}
+          BG_IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BG_FRONTEND_ONLY" =~ ^(true|false)$ && "$BG_BACKEND_ONLY" =~ ^(true|false)$ ]] || exit 1
+          if [[ "$BG_BACKEND_ONLY" == false ]]; then
+            [[ "${BG_FRONTEND_DIST:-}" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" && -s "$BG_FRONTEND_DIST/index.html" ]] || exit 1
+          fi
+          bash infra/blue-green-deploy/scripts/actions/coordinator.sh plan
+      - name: 내려받은 프론트 빌드 파일 정리
+        if: always() && inputs.mode == 'deploy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${BG_FRONTEND_DIST:-}" == "$RUNNER_TEMP/frontend-release-$GITHUB_RUN_ID" ]]; then
+            rm -rf -- "$BG_FRONTEND_DIST"
+          fi

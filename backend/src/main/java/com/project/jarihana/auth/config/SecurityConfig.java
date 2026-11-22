@@ -36,6 +36,7 @@ public class SecurityConfig {
             "/groups/*/calendar",
             "/groups/*/space",
             "/group-spaces/weather",
+            "/group-spaces/blueprints/*/default",
             "/groups/*/music",
             "/groups/*/music/events",
             "/groups/*/members",

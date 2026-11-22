@@ -13,6 +13,8 @@ import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.auth.AdmissionTokenVerifier;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
+import com.project.jarihana.realtime.layout.BlueprintRef;
+import com.project.jarihana.realtime.layout.TestBlueprints;
 import com.project.jarihana.realtime.room.persistence.RoomReadRepository;
 import com.project.jarihana.realtime.room.runtime.RoomRegistry;
 import io.jsonwebtoken.Jwts;
@@ -46,9 +48,11 @@ class RoomRegistryTest {
     void start() throws Exception {
         var properties = TestSettings.properties(TestSettings.DEV_TOKEN_KEY, TestSettings.PROD_TOKEN_KEY);
         when(roomReads.admission(eq(RealtimeEnvironment.DEV), anyString(), anyString())).thenReturn(admission());
-        when(roomReads.layout(eq(RealtimeEnvironment.DEV), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null));
+        when(roomReads.layout(eq(RealtimeEnvironment.DEV), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null, BlueprintRef.UNSAVED_ROOM));
+        var catalog = new LayoutCatalog(mapper);
+        when(roomReads.geometry(any(), eq(BlueprintRef.UNSAVED_ROOM))).thenReturn(TestBlueprints.geometry("11:lounge"));
         registry = new RoomRegistry(properties, new AdmissionTokenVerifier(properties, clock), roomReads,
-                new LayoutCatalog(mapper), mapper, clock, metrics);
+                catalog, mapper, clock, metrics);
     }
 
     @AfterEach
@@ -75,7 +79,7 @@ class RoomRegistryTest {
     @Test
     void activePlayersAndRoomsAreSeparatedByVerifiedEnvironment() throws Exception {
         when(roomReads.admission(eq(RealtimeEnvironment.PROD), anyString(), anyString())).thenReturn(admission());
-        when(roomReads.layout(eq(RealtimeEnvironment.PROD), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null));
+        when(roomReads.layout(eq(RealtimeEnvironment.PROD), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null, BlueprintRef.UNSAVED_ROOM));
         Capture dev = socket("dev"), prod = socket("prod"), invalid = socket("invalid");
         authenticate(dev, token());
         authenticate(prod, token(RealtimeEnvironment.PROD, TestSettings.PROD_TOKEN_KEY));
@@ -150,7 +154,7 @@ class RoomRegistryTest {
         assertThat(connection.snapshot.getCount()).isEqualTo(1);
     }
 
-    private Admission admission() { return new Admission("7", "1", "tester", "#536bd6", null, "MEMBER", 3000, 1, null); }
+    private Admission admission() { return new Admission("7", "1", "tester", "#536bd6", null, "MEMBER", 3000, 1, null, BlueprintRef.UNSAVED_ROOM); }
 
     private void authenticate(Capture capture, String token) {
         registry.open(capture.socket);

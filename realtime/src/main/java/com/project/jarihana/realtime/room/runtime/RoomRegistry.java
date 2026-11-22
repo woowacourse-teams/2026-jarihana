@@ -6,6 +6,7 @@ import com.project.jarihana.realtime.auth.AdmissionTokenVerifier.Identity;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
+import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.persistence.RoomReadRepository;
@@ -32,6 +33,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.CloseStatus;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
@@ -149,7 +151,7 @@ public final class RoomRegistry {
             }
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
             if (peer.isClosed() || stopped) return;
             acquire(roomKey(identity), layout).join(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -215,7 +217,7 @@ public final class RoomRegistry {
             Identity identity = peer.identity();
             Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
             validate(admission, peer);
-            RoomLayout layout = catalog.read(admission.layoutRevision(), admission.room());
+            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
             RoomRuntime room = rooms.get(roomKey(identity));
             if (room != null && !peer.isClosed()) room.renew(peer, admission, layout);
         } catch (RuleViolation error) { reject(peer, error.code()); }
@@ -226,10 +228,14 @@ public final class RoomRegistry {
     private void refreshLayout(RoomKey key, RoomRuntime room) {
         try {
             var stored = roomReads.layout(key.environment(), key.roomId());
-            room.layout(catalog.read(stored.revision(), stored.room()));
+            room.layout(readLayout(key.environment(), stored.revision(), stored.room(), stored.blueprint()));
         } catch (RuleViolation error) { room.terminate(error.code()); }
         catch (RuntimeException error) { warnOnDatabaseFailure(error, key.environment(), "layout_refresh"); }
         finally { room.endRefresh(); }
+    }
+
+    private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
+        return catalog.read(revision, room, roomReads.geometry(environment, blueprint));
     }
 
     private void submit(Runnable work, Runnable rejected) {
