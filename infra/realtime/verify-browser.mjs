@@ -9,19 +9,8 @@ export async function startBrowserPreview(root) {
   const directory = path.join(root, "frontend/dist");
   await stat(path.join(directory, "index.html"));
   const mime = { ".js": "application/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
-  let realtimeOrigin;
   const preview = createServer(async (request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
-    if (request.method === "GET" && pathname === "/ws/realtime") {
-      try {
-        const upstream = await fetch(new URL(pathname, realtimeOrigin), { signal: AbortSignal.timeout(5000) });
-        const body = Buffer.from(await upstream.arrayBuffer());
-        response.writeHead(upstream.status, Object.fromEntries(upstream.headers)).end(body);
-      } catch {
-        response.writeHead(502).end();
-      }
-      return;
-    }
     let target = path.resolve(directory, `.${decodeURIComponent(pathname)}`);
     if (!target.startsWith(`${directory}${path.sep}`)) target = path.join(directory, "index.html");
     try { if (!(await stat(target)).isFile()) target = path.join(directory, "index.html"); }
@@ -32,9 +21,6 @@ export async function startBrowserPreview(root) {
   await new Promise((resolve, reject) => { preview.once("error", reject); preview.listen(0, "127.0.0.1", resolve); });
   return {
     originUrl: `http://127.0.0.1:${preview.address().port}`,
-    setRealtimeOrigin(origin) {
-      realtimeOrigin = origin;
-    },
     async close() {
       preview.closeAllConnections();
       await new Promise((resolve) => preview.close(resolve));
@@ -43,7 +29,7 @@ export async function startBrowserPreview(root) {
 }
 
 // Uses the real production bundle and WebSocket server. Existing HTTP UI fixtures
-// supply account/group data; backend authorization is tested separately.
+// supply account/group data and catalog responses; backend APIs are tested separately.
 export async function verifyBrowser({ root, originUrl, url, token, snapshot, evidence }) {
   const require = createRequire(path.join(root, "frontend/package.json"));
   const { chromium } = require("playwright");
@@ -56,8 +42,8 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
   try {
     browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader"] });
     const success = (data) => ({ success: true, data, error: null });
-    const waitForDefinitions = (page) => page.waitForResponse((response) =>
-      response.url() === `${originUrl}/ws/realtime` && response.request().method() === "GET",
+    const waitForCatalog = (page) => page.waitForResponse((response) =>
+      response.url() === `${originUrl}/api/group-spaces/furniture-catalog` && response.request().method() === "GET",
     { timeout: 60000 });
     const openPlayMode = async (page) => {
       const play = page.getByRole("button", { name: "놀러가기", exact: true });
@@ -82,20 +68,16 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
           json: { success: false, data: null, error: { code: "REALTIME_DISABLED", message: "Realtime disabled" } }
         }));
       }
-      const definitions = waitForDefinitions(page);
+      const catalog = waitForCatalog(page);
       await page.goto(`${originUrl}${route}`, { waitUntil: "domcontentloaded" });
       if (solo) await openPlayMode(page);
-      const response = await definitions;
+      const response = await catalog;
       assert.equal(response.status(), 200);
-      assert.equal(await response.request().headerValue("cookie"), null);
-      assert.equal(await response.request().headerValue("authorization"), null);
       const { data } = await response.json();
-      assert.equal(data.capabilities.assets, undefined);
-      assert.equal(data.capabilities.items.coffee.emptyKind, "cup");
-      assert.equal(data.surfaceAnchors, undefined);
+      assert.equal(data.portableItems.coffee.emptyKind, "cup");
       await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
       assert.deepEqual(sockets, []);
-      receipt.push(`${name} renders after an anonymous GET without opening a WebSocket`);
+      receipt.push(`${name} renders after the catalog API GET without opening a WebSocket`);
       process.stdout.write(`Browser ${name} rendered\n`);
       await context.close();
     }

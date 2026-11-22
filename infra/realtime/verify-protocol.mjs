@@ -591,7 +591,6 @@ try {
     return serverLog.match(/Tomcat started on port (\d+)/)?.[1];
   }, "Spring startup", 45000);
   const realtimeOrigin = `http://127.0.0.1:${port}`;
-  browserPreview?.setRealtimeOrigin(realtimeOrigin);
   for (const environment of Object.keys(environments)) {
     const marker = await fetch(`${realtimeOrigin}/ws/realtime`, {
       headers: { Origin: `https://${environment}.frontend.example` },
