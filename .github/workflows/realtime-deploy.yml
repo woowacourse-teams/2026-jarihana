@@ -273,7 +273,7 @@ jobs:
 
           compose "$config_dir" "$REALTIME_IMAGE" config --quiet
           compose "$config_dir" "$REALTIME_IMAGE" pull
-          # Accept each environment at its own migration stage. Unreadable data must fail the preflight.
+          # Require migrated, readable blueprints and room references in both databases.
           compose "$config_dir" "$REALTIME_IMAGE" run --rm --no-deps -T realtime --check-blueprints --server.port=0
 
           if compose "$config_dir" "$REALTIME_IMAGE" up -d --no-build --pull never --remove-orphans &&

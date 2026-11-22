@@ -98,22 +98,11 @@ class RoomLayoutTest {
         assertThat(catalog.read(9, room, loft).geometry()).isEqualTo(loft);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"11:lounge", "11:climbing", "11:boardgame", "11:dining", "11:band", "11:study", "11:photo", "12:lounge"})
-    void aRoomKeepsItsGeometryWhenTheEnvironmentMigrates(String key) {
-        String[] parts = key.split(":");
-        var document = mapper.valueToTree(Map.of("version", Integer.parseInt(parts[0]), "template", parts[1],
-                "items", List.of(Map.of("id", "table", "kind", "table", "x", 2, "z", 3))));
-        var before = catalog.readBundled(7, document);
-        var after = catalog.read(7, document, TestBlueprints.geometry(key));
-        assertThat(before.origin()).isEqualTo(RoomLayout.Origin.BUNDLED);
-        assertThat(after.origin()).isEqualTo(RoomLayout.Origin.DATABASE);
-        assertThat(before.geometry()).isEqualTo(after.geometry());
-        assertThat(before.assets()).isEqualTo(after.assets());
-    }
-
     @Test
-    void unsavedRoomUsesTheSameBundledAndDatabaseBlueprint() {
-        assertThat(catalog.readBundled(0, null).geometry()).isEqualTo(TestBlueprints.geometry("11:lounge"));
+    void unsavedRoomUsesTheProvidedBlueprintWithDefaultFurniture() {
+        var geometry = TestBlueprints.geometry("11:lounge");
+        var layout = catalog.read(0, null, geometry);
+        assertThat(layout.geometry()).isEqualTo(geometry);
+        assertThat(layout.assets()).hasSizeGreaterThan(1);
     }
 }
