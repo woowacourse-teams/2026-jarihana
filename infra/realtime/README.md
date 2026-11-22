@@ -9,14 +9,14 @@
 
 ## 공용 컨테이너 배포
 
-[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 PR에서 서버 테스트와 두 PostgreSQL의 WebSocket 동작을 검증한다. develop 자동 배포는 이미지 빌드 입력과 공용 Compose·Alloy·배포 스크립트·워크플로가 바뀔 때 시작한다. 아직 이미지에 포함되는 공유 JSON도 빌드 입력이다.
+[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 PR에서 서버 테스트와 두 PostgreSQL의 WebSocket 동작을 검증한다. develop 자동 배포는 이미지 빌드 입력과 공용 Compose·Alloy·배포 스크립트·워크플로가 바뀔 때 시작한다.
 
 - 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정은 Docker와 Compose를 실행할 수 있어야 한다.
 - 준비 잡은 GitHub `dev`·`prod` Environment에서 DB와 Origin 설정을 읽는다. 환경별 JDBC 주소와 입장 키를 계산하여 실행·시도별 `/dev/shm` 경로로 전달한다. 배포 잡이 끝나면 해당 실행의 설정을 지운다.
 - CloudFront 원본은 `HTTP only`, 포트 `8080`, 빈 Origin path로 지정한다. 정확한 `/ws/realtime` 경로를 사용하고 캐시를 끈다. `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
 - GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`은 API 입장 주소와 프론트의 `APP_REALTIME_WEBSOCKET_URL`에 사용된다. 비어 있으면 프론트는 현재 Origin을 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-후보 검사는 이미지의 원본 커밋을 기준으로 한다. 기존 이미지에는 `--check-blueprints`를, V49 소품 마이그레이션이 포함된 이미지에는 `--check-runtime`을 사용한다. 두 DB의 사전 검사가 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
+후보 이미지의 `--check-runtime`으로 개발·운영 DB 이관 상태와 조회 권한을 확인한다. 두 DB 중 하나라도 사전 검사에 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
 개발 DB는 develop 백엔드 배포에서 이관한다. V48 또는 V49를 처음 추가한 main push는 **Production Release V2**가 백엔드만 배포하도록 처리한다. 양쪽 DB가 준비된 뒤 **Realtime Deploy → Run workflow**에서 develop과 후보의 `resume_digest`를 지정한다. 다시 빌드하지 않고 같은 후보의 원본을 확인하고 두 환경의 자격을 새로 준비한다. 실제 교체 직전에 최신 develop의 배포 입력도 다시 확인한다.
 

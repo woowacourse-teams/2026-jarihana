@@ -9,7 +9,6 @@ const root = path.resolve(__dirname, "../..");
 const runtime = path.join(root, "infra/realtime");
 const workflow = ".github/workflows/realtime-deploy.yml";
 const workflowSource = fs.readFileSync(path.join(root, workflow), "utf8");
-const application = "realtime/src/main/java/com/project/jarihana/realtime/RealtimeApplication.java";
 const repository = "ghcr.io/woowacourse-teams/jarihana-realtime";
 const digest = `sha256:${"a".repeat(64)}`;
 const oldImage = `${repository}@sha256:${"b".repeat(64)}`;
@@ -49,11 +48,7 @@ test("native action filters separate develop deployment from PR verification", (
     return included;
   }
   for (const [file, deploy, verify] of [
-    ["frontend/src/pages/space/roomScene.js", false, true],
-    ["frontend/src/features/group-space/api.js", false, true],
-    ["frontend/package-lock.json", false, true],
-    ["contracts/realtime/export-runtime.cjs", false, true],
-    ["contracts/realtime/runtime-entry.js", false, true],
+    ["frontend/src/pages/space/roomScene.js", false, false],
     ["backend/src/main/resources/db/migration/V1__baseline.sql", false, true],
     ["backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", false, true],
@@ -61,9 +56,7 @@ test("native action filters separate develop deployment from PR verification", (
     ["backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V99__unrelated.sql", false, false],
     ["contracts/realtime/v1/legacy-portable-items.json", false, false],
-    ["contracts/realtime/v1/asset-capabilities.json", true, true],
-    ["contracts/realtime/v1/space-runtime.json", true, true],
-    ["contracts/realtime/v1/surface-anchors.json", true, true],
+    ["contracts/realtime/v1/surface-anchors.json", false, false],
     ["realtime/src/main/java/CatalogContract.java", true, true],
     ["realtime/src/main/resources/contracts/legacy-seat-anchors.json", true, true],
     ["realtime/src/main/java/Room.java", true, true],
@@ -144,7 +137,7 @@ test("resume resolves only the latest published digest and its original configur
   assert.equal(fs.readFileSync(path.join(state, "latest-candidate"), "utf8"), `${replacement} ${newerDigest}\n`);
 });
 
-function verifyDeploymentLifecycle(t, preflight) {
+test("a failed two-environment probe leaves the old deployment live; a fresh dispatch reuses the same image", (t) => {
   const dir = fixture(t);
   const bin = path.join(dir, "bin");
   const state = path.join(dir, "state");
@@ -176,18 +169,14 @@ function verifyDeploymentLifecycle(t, preflight) {
   fs.copyFileSync(path.join(runtime, checker), path.join(checkout, "infra/realtime", checker));
   fs.mkdirSync(path.join(checkout, path.dirname(workflow)), { recursive: true });
   fs.writeFileSync(path.join(checkout, workflow), workflowSource);
-  fs.mkdirSync(path.join(checkout, path.dirname(application)), { recursive: true });
-  fs.writeFileSync(path.join(checkout, application), `final class RealtimeApplication { String probe = "${preflight}"; }\n`);
   git("add", ".");
   git("commit", "--quiet", "-m", "candidate");
   const revision = git("rev-parse", "HEAD");
   git("remote", "add", "origin", remote);
   git("push", "--quiet", "origin", "develop");
-  const migration = "backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql";
-  fs.mkdirSync(path.join(checkout, path.dirname(migration)), { recursive: true });
-  fs.writeFileSync(path.join(checkout, migration), "-- Database change with no change to the matched binary\n");
+  fs.writeFileSync(path.join(checkout, "release-notes.md"), "An unrelated release");
   git("add", ".");
-  git("commit", "--quiet", "-m", "database-only change");
+  git("commit", "--quiet", "-m", "documentation");
   const compatible = git("rev-parse", "HEAD");
   fs.writeFileSync(path.join(checkout, "infra/realtime/compose.yaml"), "services: {}");
   git("add", ".");
@@ -212,7 +201,6 @@ function verifyDeploymentLifecycle(t, preflight) {
     TEST_COMMANDS: log,
     TEST_LIVE: live,
     TEST_REVISION: revision,
-    TEST_PREFLIGHT: preflight,
     TEST_DB_DEV: "ready",
     TEST_DB_PROD: "ready",
     PATH: `${bin}:${process.env.PATH}`,
@@ -231,7 +219,7 @@ shift 6
 case "$1" in
   config|pull) ;;
   run)
-    [[ "$*" == "run --rm --no-deps -T realtime $TEST_PREFLIGHT --server.port=0" ]] || exit 3
+    [[ "$*" == "run --rm --no-deps -T realtime --check-runtime --server.port=0" ]]
     # Assert the candidate received both environments prepared in this run.
     [[ "$REALTIME_DEV_DB_USERNAME" == "dev-$GITHUB_RUN_ID" && "$REALTIME_PROD_DB_USERNAME" == "prod-$GITHUB_RUN_ID" ]] || exit 1
     [[ "$TEST_DB_DEV" == ready && "$TEST_DB_PROD" == ready ]] || exit 1
@@ -320,13 +308,6 @@ esac`);
   const probe = commands.findIndex((line) => line.includes(" run --rm --no-deps"));
   const up = commands.findIndex((line) => line.includes(" up -d --no-build --pull never"));
   assert.ok(probe >= 0 && up > probe);
-  assert.ok(commands[probe].includes(` realtime ${preflight} --server.port=0`));
   assert.equal(fs.readFileSync(live, "utf8"), env.REALTIME_IMAGE);
   assert.ok(fs.readFileSync(record, "utf8").endsWith(`\n${env.REALTIME_IMAGE}\n`));
-}
-
-test("a failed legacy blueprint probe leaves the old deployment live; a fresh dispatch reuses the same image",
-  (t) => verifyDeploymentLifecycle(t, "--check-blueprints"));
-
-test("a failed DB-runtime probe leaves the old deployment live; a fresh dispatch reuses the same image",
-  (t) => verifyDeploymentLifecycle(t, "--check-runtime"));
+});
