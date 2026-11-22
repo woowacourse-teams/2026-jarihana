@@ -3,7 +3,13 @@ const { readFileSync } = require("node:fs");
 const path = require("node:path");
 
 const migrations = path.resolve(__dirname, "../../../backend/src/main/resources/db/migration");
+const realtimeResources = path.resolve(__dirname, "../../../realtime/src/main/resources/contracts");
 const sql = name => readFileSync(path.join(migrations, name), "utf8");
+const realtimeJson = (name) => JSON.parse(readFileSync(path.join(realtimeResources, name), "utf8"));
+const assetDefinitions = {
+  capabilities: realtimeJson("asset-capabilities.json"),
+  surfaceAnchors: realtimeJson("surface-anchors.json")
+};
 const furnitureCatalog = JSON.parse(sql("V46__space_furniture_catalog.sql").split("$catalog$")[1]);
 const defaults = JSON.parse(sql("V47__space_blueprint_runtime.sql").split("$defaults$")[1]);
 const geometries = new Map();
@@ -21,4 +27,4 @@ function blueprint(templateKey, version = templateKey === "lounge" ? 12 : 11) {
   };
 }
 
-module.exports = { furnitureCatalog, blueprint };
+module.exports = { assetDefinitions, furnitureCatalog, blueprint };

@@ -348,7 +348,22 @@ try {
     if (!server.pid || server.exitCode !== null) throw new Error(`Server exited: ${serverLog.slice(-8000)}`);
     return serverLog.match(/Tomcat started on port (\d+)/)?.[1];
   }, "Spring startup", 45000);
-  const healthUrl = `http://127.0.0.1:${port}/actuator/health`;
+  const realtimeOrigin = `http://127.0.0.1:${port}`;
+  browserPreview?.setRealtimeOrigin(realtimeOrigin);
+  const definitions = await fetch(`${realtimeOrigin}/ws/realtime`, {
+    headers: { Origin: "https://frontend.example" },
+    signal: AbortSignal.timeout(5000)
+  });
+  assert.equal(definitions.status, 200);
+  assert.equal(definitions.headers.get("access-control-allow-origin"), "*");
+  assert.equal(definitions.headers.get("access-control-allow-credentials"), null);
+  const { success, data } = await definitions.json();
+  assert.equal(success, true);
+  const contracts = path.join(root, "realtime/src/main/resources/contracts");
+  assert.deepEqual(data.capabilities, JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")));
+  assert.deepEqual(data.surfaceAnchors, JSON.parse(await readFile(path.join(contracts, "surface-anchors.json"), "utf8")));
+  receipt.push("public cross-origin GET returns both packaged definitions without credentials");
+  const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
   assert.equal(health.status, 200);

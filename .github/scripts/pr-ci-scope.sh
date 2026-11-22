@@ -33,7 +33,9 @@ case "${1:-}" in
         backend/src/main/resources/rhythm-harpoon/ranked-chart.json|\
         backend/src/test/resources/rhythm-harpoon/golden-replays.json)
           backend=true; frontend=true ;;
-        contracts/realtime/v1/asset-capabilities.json|contracts/realtime/v1/surface-anchors.json|\
+        # Frontend fixtures serve and test the public realtime HTTP contract.
+        realtime/src/main/resources/contracts/asset-capabilities.json|\
+        realtime/src/main/resources/contracts/surface-anchors.json|\
         frontend/tests/fixtures/clubhouse-seeds.cjs)
           frontend=true; e2e=true ;;
         infra/cloudfront/spa-fallback.js|infra/cloudfront/group-share-preview.js|frontend/docs/rhythm-double-tap-mix.json)

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { localDateTimeSchema } from "../../entities/common/schemas.js";
-import { apiRequest } from "../../shared/api/index.js";
+import { apiRequest, createApiClient } from "../../shared/api/index.js";
 
 export const MAX_SPACE_BYTES = 2 * 1024 * 1024;
 
@@ -38,6 +38,38 @@ const furnitureCatalogSchema = z.object({
 
 export function fetchFurnitureCatalog() {
   return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema });
+}
+
+const assetKinds = z.array(z.string());
+const anchor = z.object({ x: z.number(), y: z.number(), z: z.number() });
+const assetDefinitionsSchema = z.object({
+  capabilities: z.object({
+    version: z.literal(1),
+    assets: z.record(z.string(), z.object({
+      capabilities: assetKinds,
+      seats: z.array(anchor.extend({ yaw: z.number(), avatarOffsetY: z.number().default(0) })).optional(),
+      seatFit: z.object({ front: z.number(), maxScale: z.number() }).optional(),
+      storage: z.object({ kinds: assetKinds }).optional(),
+      producer: z.object({ kinds: assetKinds }).optional()
+    }).refine((definition) => !definition.seats?.length || Boolean(definition.seatFit))),
+    items: z.record(z.string(), z.object({
+      throwable: z.boolean(), consumable: z.boolean(), camera: z.boolean().optional()
+    }))
+  }),
+  surfaceAnchors: z.record(z.string(), z.array(anchor))
+});
+
+export function fetchAssetDefinitions() {
+  const configuredUrl = process.env.APP_REALTIME_WEBSOCKET_URL;
+  let origin = "";
+  if (configuredUrl) {
+    const url = new URL(configuredUrl);
+    if (url.protocol === "wss:") url.protocol = "https:";
+    if (url.protocol === "ws:") url.protocol = "http:";
+    origin = url.origin;
+  }
+  const client = createApiClient({ baseUrl: `${origin}/ws`, credentials: "omit" });
+  return client.request("realtime", { schema: assetDefinitionsSchema, authRetry: false });
 }
 
 export const groupSpaceSchema = z.object({

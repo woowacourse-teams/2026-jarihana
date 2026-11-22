@@ -1,11 +1,10 @@
-import definitions from "../../../../contracts/realtime/v1/asset-capabilities.json";
-import surfaceAnchors from "../../../../contracts/realtime/v1/surface-anchors.json";
+import { capabilitiesFor, surfaceSlots } from "../../features/group-space/assetDefinitions.js";
 import { localToWorld } from "./assetCustomization.js";
+
+export { capabilitiesFor, portableDefinition } from "../../features/group-space/assetDefinitions.js";
 
 const LABELS = { cup: "빈 컵", coffee: "아메리카노", latte: "라테", tea: "차", cookie: "쿠키", book: "책", camera: "카메라" };
 const BOOKSHELF_PLACES = ["아래 선반 왼쪽", "아래 선반 오른쪽", "위 선반", "책장 위"];
-export function capabilitiesFor(kind) { return definitions.assets[kind] ?? { capabilities: [] }; }
-export function portableDefinition(kind) { return definitions.items[kind]; }
 
 export function availableSeat(target, position, state) {
   const occupied = new Set(state.participants.filter((actor) => actor.seat?.assetId === target.id).map((actor) => actor.seat.slot));
@@ -38,7 +37,7 @@ export function sharedInteractionTarget(target, state) {
     else if (cup) for (const kind of definition.producer.kinds) add(`produce-${kind}`, `${LABELS[kind]} 내리기`, { action: "PRODUCE", itemId: cup.id, kind }, "space_coffee_produce");
   }
   if (caps.includes("surface")) {
-    const surfaces = surfaceAnchors[target.item.kind] ?? [];
+    const surfaces = surfaceSlots(target.item.kind);
     const placedItems = state.items.filter((item) => item.assetId === target.id && item.location === "SURFACE");
     surfaces.forEach((_, slot) => {
       const placed = placedItems.find((item) => item.slot === slot);

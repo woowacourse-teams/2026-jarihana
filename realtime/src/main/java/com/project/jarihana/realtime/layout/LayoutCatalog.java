@@ -27,6 +27,12 @@ public final class LayoutCatalog {
         }
     }
 
+    public AssetDefinitions assetDefinitions() {
+        return new AssetDefinitions(capabilities.deepCopy(), surfaceAnchors.deepCopy());
+    }
+
+    public record AssetDefinitions(JsonNode capabilities, JsonNode surfaceAnchors) {}
+
     public RoomLayout read(long revision, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
         JsonNode geometry = blueprint.geometry();
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");

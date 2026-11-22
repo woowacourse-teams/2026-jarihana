@@ -6,6 +6,7 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 
 - 기존 API: `POST /api/groups/{groupId}/space/join-token`. 기존 로그인/CSRF 정책 사용. 일반 응답 envelope의 data는 `{token,websocketUrl,expiresAt}`. expiresAt은 Unix epoch milliseconds.
 - 클라이언트는 응답의 `websocketUrl`로 연결한다. realtime의 WebSocket 경로는 `/ws/realtime`이다.
+- 일반 HTTP `GET /ws/realtime`은 가구 동작과 상호작용 지점의 공개 조회다. `Upgrade` 헤더 없이 호출하며 응답은 `{success: true, data: {capabilities, surfaceAnchors}, error: null}`이다. 로그인과 입장 토큰 없이 요청할 수 있다. 다른 origin에서 조회할 때는 자격 증명을 생략한다. 혼자 둘러보기, 독립 스튜디오와 랜딩에서도 이 정의를 사용한다.
 - JWT HS256의 `iss`는 개발 `jarihana-api-dev`, 운영 `jarihana-api-prod`다. 공통 필드는 `aud=jarihana-realtime`, `sub=memberId`, `roomId=groupId`, `jti`, `iat/exp`(seconds)다. 입장 수명은 60초다.
 - realtime은 발급자와 환경별 입장 키로 서명을 함께 검증한 뒤 해당 환경의 PostgreSQL에서 회원, 모임, 역할, 저장 배치를 읽는다. 각 환경의 기존 API가 배치 저장과 스키마 변경을 담당한다.
 - 서버는 발급 환경과 `roomId`를 묶어서 방을 구분한다. 같은 모임이나 회원 ID도 환경이 다르면 별도 상태를 갖는다. WebSocket 경로와 메시지의 `roomId` 형식은 공통이다.
@@ -93,12 +94,12 @@ participant.position은 착석 시 seat.position과 같다. seat.approach는 일
 
 ## 가구·물건과 배치 교체
 
-- asset-capabilities.json은 종류별 capability·로컬 앵커 설정이다. 같은 종류도 배치 인스턴스 ID는 다르다.
+- realtime의 [asset-capabilities.json](../../../realtime/src/main/resources/contracts/asset-capabilities.json)은 종류별 capability·로컬 앵커 설정이다. 같은 종류도 배치 인스턴스 ID는 다르다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
 - 좌석 y는 좌판 높이이며 avatarOffsetY는 캐릭터 원점 보정이다. 서버 좌석의 worldY는 배치 elevation + y*scaleY + avatarOffsetY로 계산한다. 화면에서는 `seatFit`으로 좌판 앞쪽과 팔걸이 간격에 맞춰 착석 위치를 보정한다. 좁거나 낮은 가구에서는 앉아 있는 동안만 캐릭터를 줄인다.
 - 환경 DB의 `space_furniture_catalog.definition`에서 치수·장착 방식·부착면 높이를 읽고, 모임에 연결된 도면 버전에서 지형과 시작 위치를 읽는다.
 - 좌석을 옮기거나 삭제·종류 변경하면 점유를 해제하고 유효한 위치로 보정한다.
-- surface slot은 `surface-anchors.json`에 있는 종류별 로컬 x·y·z 배열의 인덱스이며 한 위치에 하나의 물건을 둔다. 좌표는 소품 밑면을 받치는 위치다. 가구 이동·회전·크기 변경 뒤 같은 종류·슬롯이 남으면 새 월드 좌표로 옮긴다. 삭제/종류 변경/기능 제거 시 안전한 바닥으로 옮긴다. storage 용량과 편집기에서 저장한 장식의 높이 배열은 별개다.
+- surface slot은 realtime의 [surface-anchors.json](../../../realtime/src/main/resources/contracts/surface-anchors.json)에 있는 종류별 로컬 x·y·z 배열의 인덱스이며 한 위치에 하나의 물건을 둔다. 좌표는 소품 밑면을 받치는 위치다. 가구 이동·회전·크기 변경 뒤 같은 종류·슬롯이 남으면 새 월드 좌표로 옮긴다. 삭제/종류 변경/기능 제거 시 안전한 바닥으로 옮긴다. storage 용량과 편집기에서 저장한 장식의 높이 배열은 별개다.
 - 선반에 놓인 소품은 같은 층에서 가구에 다가가 집을 수 있다. 높은 선반은 가구 메뉴에서도 소품을 집을 수 있다. 카페 음료 생성도 동일한 배치 좌표를 사용한다.
 - 손에 든 물건은 source 가구와 별개인 인스턴스다. source 삭제로 제거하지 않는다.
 - 생산 중 기계 이동·삭제는 취소하며 컵을 복구한다. 작업 ID·방 세대·배치 버전으로 오래된 완료를 차단한다.

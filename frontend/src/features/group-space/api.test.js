@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { apiRequest, createApiClient } from "../../shared/api/index.js";
-import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
+import { fetchAssetDefinitions, fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
 
 jest.mock("../../shared/api/index.js", () => ({
   ...jest.requireActual("../../shared/api/index.js"), apiRequest: jest.fn()
@@ -121,6 +121,29 @@ test("the public catalog includes retired kinds and rejects duplicate or malform
   for (const items of [[], [retired, retired], [{ ...retired, surfaces: null }]]) {
     wire.mockResolvedValueOnce(reply({ items }));
     await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  }
+});
+
+test.each([
+  ["wss://realtime.test/ws/realtime", "https://realtime.test/ws/realtime"],
+  ["ws://127.0.0.1:8090/ws/realtime", "http://127.0.0.1:8090/ws/realtime"]
+])("realtime definitions use ordinary HTTP and omit cookies from %s", async (websocketUrl, expectedUrl) => {
+  const { assetDefinitions } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const environment = jest.replaceProperty(process, "env", { ...process.env, APP_REALTIME_WEBSOCKET_URL: websocketUrl });
+  const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply(assetDefinitions));
+  try {
+    const received = await fetchAssetDefinitions();
+    expect(received.capabilities.assets.sofa.seats).toEqual(assetDefinitions.capabilities.assets.sofa.seats);
+    expect(received.capabilities.items.camera.camera).toBe(true);
+    expect(received.surfaceAnchors.bookshelf).toEqual(assetDefinitions.surfaceAnchors.bookshelf);
+    const request = fetch.mock.calls[0][0];
+    expect(request.url).toBe(expectedUrl);
+    expect(request.method).toBe("GET");
+    expect(request.credentials).toBe("omit");
+    expect(request.headers.has("upgrade")).toBe(false);
+  } finally {
+    fetch.mockRestore();
+    environment.restore();
   }
 });
 

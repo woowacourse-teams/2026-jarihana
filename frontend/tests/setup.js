@@ -15,6 +15,12 @@ jest.mock("../src/features/group-space/furnitureCatalog.js", () => {
   return catalog;
 });
 
+jest.mock("../src/features/group-space/assetDefinitions.js", () => {
+  const definitions = jest.requireActual("../src/features/group-space/assetDefinitions.js");
+  definitions.installAssetDefinitions(require("./fixtures/clubhouse-seeds.cjs").assetDefinitions);
+  return definitions;
+});
+
 require("@testing-library/jest-dom");
 
 const { TextDecoder, TextEncoder } = require("node:util");

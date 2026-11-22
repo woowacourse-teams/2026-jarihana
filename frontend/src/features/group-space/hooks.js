@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { installAssetDefinitions } from "./assetDefinitions.js";
 import { installFurnitureCatalog } from "./furnitureCatalog.js";
-import { fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "./api.js";
+import { fetchAssetDefinitions, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "./api.js";
 
 export const groupSpaceKeys = {
   detail: (groupId, memberId) => ["group-space", String(groupId), memberId]
@@ -8,7 +9,11 @@ export const groupSpaceKeys = {
 
 export const furnitureCatalogQuery = {
   queryKey: ["space-furniture-catalog"],
-  queryFn: async () => installFurnitureCatalog((await fetchFurnitureCatalog()).items),
+  queryFn: async () => {
+    const [catalog, definitions] = await Promise.all([fetchFurnitureCatalog(), fetchAssetDefinitions()]);
+    installAssetDefinitions(definitions);
+    return installFurnitureCatalog(catalog.items);
+  },
   staleTime: 0,
   refetchOnMount: "always",
   refetchOnWindowFocus: false,

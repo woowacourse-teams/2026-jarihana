@@ -90,15 +90,26 @@ fe_aws() {
   esac
 }
 curl() {
-  local path='' output=''
+  local path='' output='' headers='' origin='' definitions
   while (( $# )); do
     case $1 in
       "$FE_PUBLIC"/*) path=${1#"$FE_PUBLIC/"}; shift;;
       --output) output=$2; shift 2;;
-      --proto|--max-redirs|--connect-timeout|--max-time|--max-filesize|--header) shift 2;;
+      --dump-header) headers=$2; shift 2;;
+      --header) origin=$2; shift 2;;
+      --proto|--max-redirs|--connect-timeout|--max-time|--max-filesize) shift 2;;
       *) shift;;
     esac
   done
+  if [[ $path == ws/realtime ]]; then
+    [[ $origin == 'Origin: https://jarihana.com' ]]
+    printf '%s\n' "$origin" >>"$CASE_DIR/realtime-origins"
+    printf 'HTTP/2 %s\r\nAccess-Control-Allow-Origin: %s\r\n\r\n' "${REALTIME_HTTP_STATUS:-200}" "${REALTIME_CORS_ORIGIN-*}" >"$headers"
+    definitions='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{}},"items":{"camera":{}}},"surfaceAnchors":{"table":[]}}}'
+    printf '%s\n' "${REALTIME_RESPONSE-$definitions}" >"$output"
+    printf '%s' "${REALTIME_HTTP_STATUS:-200}"
+    return
+  fi
   printf 'public\t%s\n' "$path" >>"$CASE_DIR/requests"
   if [[ ${BAD_PUBLIC:-} == "$path" ]]; then path=index.html; fi
   [[ -f "$CASE_DIR/s3/$FE_LIVE/$path" ]] || return 1
@@ -609,12 +620,27 @@ backend_only_fixture() {
 }
 backend_only_keeps_frontend_files() {
   backend_only_fixture
+  REALTIME_HTTP_STATUS=400
   fe_stage; fe_publish; fe_finalize
+  [[ ! -e $CASE_DIR/realtime-origins ]]
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   [[ ! -e $(manifest_file) ]]
   ! grep -qvFx "$FE_ARCHIVE/state.json" "$CASE_DIR/writes"
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .pending==null and .backend_image==$image' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
   jq -e '.frontend.changed==false and .frontend.published==false and .frontend.finalized==true' "$STATE_FILE" >/dev/null
+}
+frontend_requires_realtime_before_writing_live_files() {
+  fe_stage
+  local before; before=$(write_count)
+  REALTIME_HTTP_STATUS=400 rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_CORS_ORIGIN=https://other.example rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  REALTIME_RESPONSE='<html>fallback</html>' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
+  fe_publish
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *new* ]]
 }
 backend_only_rollback_keeps_frontend_files() {
   backend_only_fixture
@@ -649,7 +675,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
+for test in frontend_requires_realtime_before_writing_live_files candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

@@ -7,6 +7,8 @@ const { execFileSync, spawnSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "../..");
 const runtime = path.join(root, "infra/realtime");
+const workflow = ".github/workflows/realtime-deploy.yml";
+const workflowSource = fs.readFileSync(path.join(root, workflow), "utf8");
 const repository = "ghcr.io/woowacourse-teams/jarihana-realtime";
 const digest = `sha256:${"a".repeat(64)}`;
 const oldImage = `${repository}@sha256:${"b".repeat(64)}`;
@@ -31,6 +33,47 @@ function passes(result) {
   assert.equal(result.status, 0, result.stderr);
 }
 
+test("native action filters separate develop deployment from PR verification", () => {
+  function includes(event, file) {
+    const section = workflowSource.split(`\n  ${event}:\n`)[1].split(/\n  \w/)[0];
+    assert.match(section, /branches: \[develop\]/);
+    let included = false;
+    for (const [, pattern] of section.matchAll(/^      - "([^"]+)"$/gm)) {
+      const negated = pattern.startsWith("!");
+      const glob = (negated ? pattern.slice(1) : pattern).split("**")
+        .map((part) => part.split("*").map((literal) => literal.replaceAll(".", "\\.")).join("[^/]*"))
+        .join(".*");
+      if (new RegExp(`^${glob}$`).test(file)) included = !negated;
+    }
+    return included;
+  }
+  for (const [file, deploy, verify] of [
+    ["frontend/src/pages/space/roomScene.js", false, false],
+    ["backend/src/main/resources/db/migration/V1__baseline.sql", false, true],
+    ["backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql", false, true],
+    ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", false, true],
+    ["backend/src/main/resources/db/migration/V99__unrelated.sql", false, false],
+    ["contracts/realtime/v1/asset-capabilities.json", false, false],
+    ["contracts/realtime/v1/surface-anchors.json", false, false],
+    ["realtime/src/main/resources/contracts/asset-capabilities.json", true, true],
+    ["realtime/src/main/resources/contracts/surface-anchors.json", true, true],
+    ["realtime/src/main/java/Room.java", true, true],
+    ["realtime/src/test/java/RoomTest.java", false, true],
+    ["realtime/build.gradle", true, true],
+    ["realtime/Dockerfile.dockerignore", true, true],
+    ["realtime/README.md", false, false],
+    ["infra/realtime/compose.yaml", true, true],
+    ["infra/realtime/config.alloy", true, true],
+    ["infra/realtime/verify-protocol.mjs", false, true],
+    ["infra/realtime/README.md", false, false],
+    [".github/scripts/realtime-deploy.test.cjs", false, true],
+    [workflow, true, true],
+  ]) {
+    assert.equal(includes("push", file), deploy, file);
+    assert.equal(includes("pull_request", file), verify, file);
+  }
+});
+
 test("resume resolves only the latest published digest and its original configuration revision on develop", (t) => {
   const dir = fixture(t);
   const state = path.join(dir, "state");
@@ -51,7 +94,8 @@ test("resume resolves only the latest published digest and its original configur
     return git("rev-parse", "HEAD");
   }
   commit("infra/realtime/check-candidate-revision.sh", fs.readFileSync(path.join(runtime, "check-candidate-revision.sh")));
-  const revision = commit("infra/realtime/change-scope.sh", fs.readFileSync(path.join(runtime, "change-scope.sh")));
+  commit(workflow, workflowSource);
+  const revision = commit("realtime/src/main/resources/contracts/asset-capabilities.json", "{}");
   const published = { GITHUB_EVENT_NAME: "push", GITHUB_SHA: revision, PUBLISHED_DIGEST: digest };
   const resume = { GITHUB_EVENT_NAME: "workflow_dispatch", RESUME_DIGEST: digest };
   const select = (vars) => runScript("select-candidate.sh", [state], { ...env, ...vars }, dir);
@@ -59,7 +103,11 @@ test("resume resolves only the latest published digest and its original configur
   passes(select(published));
   const record = fs.readFileSync(path.join(state, "latest-candidate"), "utf8");
   assert.equal(record, `${revision} ${digest}\n`);
-  const head = commit("release-notes.md", "Production migration is ready");
+  commit("release-notes.md", "Production migration is ready");
+  commit("frontend/src/pages/space/roomScene.js", "// frontend update");
+  commit("backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", "-- SQL only");
+  commit("realtime/src/test/java/RoomTest.java", "// verification only");
+  const head = commit("contracts/realtime/v1/asset-capabilities.json", "{}");
   passes(select({ ...resume, GITHUB_SHA: head }));
   assert.ok(fs.readFileSync(env.GITHUB_OUTPUT, "utf8").endsWith(`revision=${revision}\ndigest=${digest}\n`));
   for (const invalid of [
@@ -68,6 +116,14 @@ test("resume resolves only the latest published digest and its original configur
     { ...resume, GITHUB_REF: "refs/heads/feature" },
     { ...resume, GITHUB_EVENT_NAME: "pull_request" },
   ]) assert.notEqual(select(invalid).status, 0);
+
+  git("mv", "realtime/src/main/resources/contracts/asset-capabilities.json", "archived-definitions.json");
+  git("commit", "--quiet", "-m", "move a packaged resource out of the image");
+  assert.match(select(resume).stderr, /Develop contains newer realtime deployment changes/);
+  git("checkout", "--quiet", "--detach", head);
+  commit(workflow, workflowSource.replace('      - "realtime/gradle/**"', '      - "!realtime/gradle/**"'));
+  assert.match(select(resume).stderr, /Cannot read the realtime deploy path filter/);
+  git("checkout", "--quiet", "--detach", head);
 
   const replacement = commit("infra/realtime/compose.yaml", "services: {}");
   assert.notEqual(select(resume).status, 0);
@@ -106,9 +162,10 @@ test("a failed two-environment probe leaves the old deployment live; a fresh dis
   git("config", "user.email", "test@example.com");
   git("config", "user.name", "Test");
   fs.mkdirSync(path.join(checkout, "infra/realtime"), { recursive: true });
-  for (const file of ["check-candidate-revision.sh", "change-scope.sh"]) {
-    fs.copyFileSync(path.join(runtime, file), path.join(checkout, "infra/realtime", file));
-  }
+  const checker = "check-candidate-revision.sh";
+  fs.copyFileSync(path.join(runtime, checker), path.join(checkout, "infra/realtime", checker));
+  fs.mkdirSync(path.join(checkout, path.dirname(workflow)), { recursive: true });
+  fs.writeFileSync(path.join(checkout, workflow), workflowSource);
   git("add", ".");
   git("commit", "--quiet", "-m", "candidate");
   const revision = git("rev-parse", "HEAD");

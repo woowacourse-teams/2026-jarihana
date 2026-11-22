@@ -6,9 +6,5 @@
 !realtime/gradle
 !realtime/gradle/**
 !realtime/src
-!realtime/src/**
-!contracts
-!contracts/realtime
-!contracts/realtime/v1
-!contracts/realtime/v1/asset-capabilities.json
-!contracts/realtime/v1/surface-anchors.json
+!realtime/src/main
+!realtime/src/main/**

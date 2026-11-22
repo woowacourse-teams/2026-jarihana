@@ -56,12 +56,13 @@ const joinUrl = (baseUrl, path) => `${baseUrl.replace(/\/$/, "")}/${path.replace
 
 export const createApiClient = ({
   baseUrl = "/api/",
+  credentials = "include",
   cookieSource = () => (typeof document === "undefined" ? "" : document.cookie),
   fetch: fetcher,
   onSessionExpired = () => {}
 } = {}) => {
   const transport = ky.create({
-    credentials: "include",
+    credentials,
     retry: 0,
     throwHttpErrors: false,
     ...(fetcher ? { fetch: fetcher } : {})

@@ -29,7 +29,7 @@ Spring 설정 `realtime.*`로 제한값을 조절할 수 있다. 기본 제한�
 
 ## 상태와 순서
 
-공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 서버와 프론트는 가구 기능과 상호작용 지점에 `asset-capabilities.json`과 `surface-anchors.json`을 사용한다. surface `slot`은 상호작용 지점 배열의 인덱스이며 각 지점에 물건 하나를 둔다. storage 용량은 별도로 관리한다.
+공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 이 모듈의 `src/main/resources/contracts/asset-capabilities.json`과 `src/main/resources/contracts/surface-anchors.json`이 가구 기능과 상호작용 지점의 원본이다. 브라우저는 일반 HTTP `GET /ws/realtime`로 두 정의를 읽는다. 이 공개 조회는 입장 토큰 없이 사용할 수 있으며 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 기존 연결 흐름을 사용한다. surface `slot`은 상호작용 지점 배열의 인덱스이며 각 지점에 물건 하나를 둔다. storage 용량은 별도로 관리한다.
 
 방마다 bounded mailbox 하나에서 상태를 변경한다. DB 조회와 WebSocket 송신은 별도 bounded executor를 사용한다. 연속 MOVE는 command 경계를 넘지 않고 최신 입력으로 합치며 출력 movement도 control 메시지 경계 뒤에서만 합친다. 초기 snapshot을 먼저 큐에 넣고 이후 full state와 movement frame을 보낸다. `roomEpoch`, 연결 generation, 배치 revision, command ID와 move sequence가 오래된 요청을 거부한다. command 결과는 사용자별 128개/60초 보관하며 중복 적용을 막는다. 같은 사용자 새 연결이 기존 연결을 교체하고, 오래된 인증 응답은 새 연결을 교체하지 못한다.
 

@@ -9,8 +9,19 @@ export async function startBrowserPreview(root) {
   const directory = path.join(root, "frontend/dist");
   await stat(path.join(directory, "index.html"));
   const mime = { ".js": "application/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
+  let realtimeOrigin;
   const preview = createServer(async (request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
+    if (request.method === "GET" && pathname === "/ws/realtime") {
+      try {
+        const upstream = await fetch(new URL(pathname, realtimeOrigin), { signal: AbortSignal.timeout(5000) });
+        const body = Buffer.from(await upstream.arrayBuffer());
+        response.writeHead(upstream.status, Object.fromEntries(upstream.headers)).end(body);
+      } catch {
+        response.writeHead(502).end();
+      }
+      return;
+    }
     let target = path.resolve(directory, `.${decodeURIComponent(pathname)}`);
     if (!target.startsWith(`${directory}${path.sep}`)) target = path.join(directory, "index.html");
     try { if (!(await stat(target)).isFile()) target = path.join(directory, "index.html"); }
@@ -21,6 +32,9 @@ export async function startBrowserPreview(root) {
   await new Promise((resolve, reject) => { preview.once("error", reject); preview.listen(0, "127.0.0.1", resolve); });
   return {
     originUrl: `http://127.0.0.1:${preview.address().port}`,
+    setRealtimeOrigin(origin) {
+      realtimeOrigin = origin;
+    },
     async close() {
       preview.closeAllConnections();
       await new Promise((resolve) => preview.close(resolve));
@@ -40,7 +54,50 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
   const frames = [];
   const sent = [];
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader"] });
+    const success = (data) => ({ success: true, data, error: null });
+    const waitForDefinitions = (page) => page.waitForResponse((response) =>
+      response.url() === `${originUrl}/ws/realtime` && response.request().method() === "GET",
+    { timeout: 60000 });
+    const openPlayMode = async (page) => {
+      const play = page.getByRole("button", { name: "놀러가기", exact: true });
+      await play.focus({ timeout: 90000 });
+      await page.keyboard.press("Enter");
+    };
+    const noSocketScreens = [
+      { route: "/land", selector: '.landing-clubhouse-scene[data-scene-status="ready"] canvas', name: "anonymous landing" },
+      { route: "/space/studio", selector: '.room-canvas[data-canvas-status="ready"] canvas', name: "standalone editor" },
+      { route: `/groups/${group.id}`, selector: '.room-canvas[data-canvas-status="ready"] canvas', name: "solo walkthrough", solo: true }
+    ];
+    for (const { route, selector, name, solo } of noSocketScreens) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ko-KR", reducedMotion: "reduce" });
+      const page = await context.newPage();
+      const sockets = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("websocket", (socket) => sockets.push(socket.url()));
+      await installApiFixture(page, { auth: solo ? "authenticated" : "anonymous", realRealtimeDefinitions: true });
+      if (solo) {
+        await page.route(`**/api/groups/${group.id}/space/join-token`, (intercepted) => intercepted.fulfill({
+          status: 503,
+          json: { success: false, data: null, error: { code: "REALTIME_DISABLED", message: "Realtime disabled" } }
+        }));
+      }
+      const definitions = waitForDefinitions(page);
+      await page.goto(`${originUrl}${route}`, { waitUntil: "domcontentloaded" });
+      if (solo) await openPlayMode(page);
+      const response = await definitions;
+      assert.equal(response.status(), 200);
+      assert.equal(await response.request().headerValue("cookie"), null);
+      assert.equal(await response.request().headerValue("authorization"), null);
+      const { data } = await response.json();
+      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.seats?.length));
+      assert.ok(Object.keys(data.surfaceAnchors).length);
+      await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
+      assert.deepEqual(sockets, []);
+      receipt.push(`${name} renders after an anonymous GET without opening a WebSocket`);
+      process.stdout.write(`Browser ${name} rendered\n`);
+      await context.close();
+    }
     const pages = [];
     for (const memberId of ["1", "2"]) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ko-KR", reducedMotion: "reduce" });
@@ -60,14 +117,12 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
           try { frames.push({ memberId, message: JSON.parse(payload.toString()) }); } catch { /* non-JSON transport frames */ }
         });
       });
-      await installApiFixture(page);
-      const success = (data) => ({ success: true, data, error: null });
+      await installApiFixture(page, { realRealtimeDefinitions: true });
       await page.route("**/api/members/me", (route) => route.fulfill({ json: success({ member: { ...leader, id: Number(memberId), crewName: `tester-${memberId}` }, signupCompleted: true }) }));
       await page.route(`**/api/groups/${group.id}/space`, (route) => route.fulfill({ json: success({ ...snapshot, canEdit: memberId === "1", updatedAt: null }) }));
       await page.route(`**/api/groups/${group.id}/space/join-token`, (route) => route.fulfill({ json: success({ token: token(memberId, String(group.id)), websocketUrl: url, expiresAt: Date.now() + 60000 }) }));
       await page.goto(`${originUrl}/groups/${group.id}`);
-      await page.getByRole("button", { name: "놀러가기", exact: true }).waitFor({ timeout: 90000 });
-      await page.getByRole("button", { name: "놀러가기", exact: true }).click();
+      await openPlayMode(page);
       await page.getByText("함께 있는 아지트", { exact: true }).waitFor({ timeout: 45000 });
       await page.keyboard.press("Escape");
       pages.push(page);

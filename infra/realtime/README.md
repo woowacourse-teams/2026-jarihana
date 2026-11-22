@@ -1,6 +1,6 @@
 # 아지트 멀티플레이 실행 구성
 
-신규 EC2에서 Spring realtime 컨테이너 하나를 개발과 운영이 함께 사용한다. CloudFront가 브라우저의 WSS를 받고 `/ws/realtime`을 EC2의 HTTP 8080으로 전달한다. realtime은 입장 토큰의 서명과 발급자를 확인하고, 해당 환경의 PostgreSQL과 방에 연결한다. 같은 모임 ID를 쓰더라도 개발과 운영의 방 상태는 분리된다.
+신규 EC2에서 Spring realtime 컨테이너 하나를 개발과 운영이 함께 사용한다. CloudFront가 `/ws/realtime`의 브라우저 HTTPS와 WSS 요청을 EC2의 HTTP 8080으로 전달한다. realtime은 WebSocket 입장 토큰의 서명과 발급자를 확인하고, 해당 환경의 PostgreSQL과 방에 연결한다. 같은 모임 ID를 쓰더라도 개발과 운영의 방 상태는 분리된다.
 
 | 환경 | 토큰 발급자 | 읽기 설정 |
 | --- | --- | --- |
@@ -9,25 +9,25 @@
 
 ## 공용 컨테이너 배포
 
-PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQL의 WebSocket 동작을 검증한다. realtime 실행 코드, 가구 행동·접점 계약, 배포 설정이 바뀐 develop push는 공용 ARM64 이미지를 발행한다. [Realtime Deploy](../../.github/workflows/realtime-deploy.yml)
+PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQL의 WebSocket 동작을 검증한다. PR 검증은 realtime 테스트와 검증에 사용하는 SQL에도 실행한다. develop 자동 배포는 이미지 빌드 입력, 공용 Compose·Alloy·배포 스크립트, workflow에 대한 변경으로 시작한다. [Realtime Deploy](../../.github/workflows/realtime-deploy.yml)
 
 - 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정으로 Docker와 Compose를 실행할 수 있어야 한다.
 - 준비 잡은 기존 GitHub `dev`·`prod` Environment에서 `RDS_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_ORIGIN`, `ACCESS_TOKEN_SECRET`을 읽는다. 환경별 JDBC 주소와 입장 키를 계산해 배포 잡에 전달한다. 배포 잡은 두 Origin을 합쳐 `REALTIME_ALLOWED_ORIGINS`로 설정한다.
 - CloudFront에 EC2 원본을 `HTTP only`, 포트 `8080`, 빈 Origin path로 등록한다. Behavior 경로는 `/ws/realtime`, 캐시 정책은 `CachingDisabled`로 지정한다. Origin request policy에서 `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
 
-- 기존 API 배포의 GitHub `dev`와 `prod` Environment에 각각 `REALTIME_WEBSOCKET_URL`을 지정한다. 두 환경에 같은 WSS 주소를 줄 수 있다. API는 입장 조건을 만족하는 요청에 토큰을 발급한다. 브라우저 연결에는 공용 컨테이너와 CloudFront 경로가 필요하다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
+- GitHub `dev`와 `prod` Environment의 `REALTIME_WEBSOCKET_URL`은 API의 입장 주소와 프론트 빌드의 `APP_REALTIME_WEBSOCKET_URL`에 들어간다. 두 환경에 같은 WSS 주소를 줄 수 있다. 프론트는 이를 HTTPS 주소로 바꿔 가구 행동·접점 정의를 읽는다. 값이 비어 있으면 브라우저의 현재 Origin을 사용한다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-서버는 정확히 `/ws/realtime`에 연결을 받는다. `/ws/realtime/*`만 등록하면 끝에 `/`가 없는 이 주소와 일치하지 않으므로 정확한 경로의 Behavior가 필요하다. 기존 프론트 배포의 CDN 사전 검사는 정확한 경로와 기존 wildcard 경로를 모두 허용하지만, 이 검사를 통과했다고 실제 WebSocket 연결까지 확인한 것은 아니다.
+정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 공개 가구 행동·접점 정의를, WebSocket Upgrade는 실시간 입장을 처리한다. 교차 출처 조회를 위해 CloudFront가 개발·운영의 `Origin`을 전달하고 응답의 CORS 헤더를 유지하도록 설정한다. 개발·운영 프론트는 공개 직전에 실제 프론트 Origin으로 `GET /ws/realtime`을 요청한다. HTTP 200·CORS·정의 v1을 확인하기 전에는 새 프론트를 게시하지 않는다.
 
 후보 이미지는 `compose run --rm --no-deps -T realtime --check-runtime --server.port=0`으로 두 환경의 이관 상태와 읽기 권한을 검사한다. 선행 검사가 실패하면 현재 컨테이너와 연결이 유지된다. 교체 뒤 `/healthz` 검사에서 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
-개발은 develop 배포, 운영은 main의 Production Release에서 Flyway를 실행한다. 한쪽만 준비됐다면 후보의 Actions 요약에서 `sha256:…` digest를 확인한다. 두 DB 이관이 커밋된 뒤 **Realtime Deploy → Run workflow**에서 `develop`과 같은 `resume_digest`를 지정한다. 새 실행은 이미지 빌드를 생략하고 두 보호 환경에서 현재 자격을 다시 준비한다. 후보의 원본 커밋에 맞는 배포 설정과 이미지 라벨을 대조하고 양쪽 DB를 다시 검사한다.
+개발은 develop 백엔드 배포, 운영은 main의 **Production Release** 수동 실행에서 `backend_only`로 먼저 Flyway를 실행할 수 있다. 이 경로는 기존 프론트를 유지하고 공개 realtime 확인을 건너뛴다. 한쪽만 준비됐다면 후보의 Actions 요약에서 `sha256:…` digest를 확인한다. 두 DB 이관이 커밋된 뒤 **Realtime Deploy → Run workflow**에서 `develop`과 같은 `resume_digest`를 지정한다. 새 실행은 이미지 빌드를 생략하고 두 보호 환경에서 현재 자격을 다시 준비한다. 후보의 원본 커밋에 맞는 배포 설정과 이미지 라벨을 대조하고 양쪽 DB를 다시 검사한다. 공개 GET이 개발·운영 Origin 모두에서 통과하면 개발 프론트 배포와 운영 `frontend_only` 배포를 실행할 수 있다.
 
-환경 설정은 전용 러너의 `/dev/shm`에서 실행·시도별로 전달한 뒤 지운다. deploy 잡만 다시 실행하면 필요한 설정 파일이 없으므로, 재개는 위와 같이 새로운 수동 실행으로 시작한다. 더 최신 배포 변경으로 교체된 후보는 사용할 수 없다.
+환경 설정은 전용 러너의 `/dev/shm`에서 실행·시도별로 전달한 뒤 지운다. 재개는 새로운 수동 실행으로 시작한다. 후보 선택과 두 DB 검사 이후 실제 교체 직전에, 최신 develop과 후보 원본의 배포 입력을 비교한다. 비교 범위는 workflow의 `push.paths`를 사용한다. 프론트·문서·SQL 변경 뒤에도 기존 후보를 재개할 수 있다.
 
 ## 로컬 빌드와 설정 확인
 
-1. JDK 21·Node 24·Docker를 준비한다. 가구 치수와 부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47에 있다.
+1. JDK 21·Node 24·Docker를 준비한다. 가구 치수와 부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47에 있다. 모델별 상호작용과 접점 정의는 realtime 리소스의 `contracts/asset-capabilities.json`, `contracts/surface-anchors.json`에 있다.
 2. `realtime/`에서 `./gradlew test bootJar`를 실행한다. 이미지 빌드 방법과 앱의 제한값은 [realtime README](../../realtime/README.md)를 따른다.
 3. [예제 설정](.env.example)을 로컬 설정 파일로 복사하고 검증용 값과 이미지 digest를 입력한다.
 4. 저장소 루트에서 `docker compose --env-file <설정파일> -f infra/realtime/compose.yaml config --quiet`로 확인한다.

@@ -163,6 +163,7 @@ jobs:
       BG_IMAGE_DIGEST: ${{ needs.plan.outputs.digest || needs.prepare.outputs.digest }}
       GH_TOKEN: ${{ github.token }}
       BG_COMPACT_WORKFLOW: "true"
+      REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
     outputs:
       cleanup_deferred: ${{ steps.seal.outputs.cleanup_deferred }}
       sealed: ${{ steps.seal.outcome == 'success' }}

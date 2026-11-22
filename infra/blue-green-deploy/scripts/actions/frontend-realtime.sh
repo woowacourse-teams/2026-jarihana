@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+verify_frontend_realtime() (
+  set -euo pipefail
+  local origin=$1 websocket_url=${2:-} host status output
+  if [[ ! $origin =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$ ]]; then
+    echo '::error::FRONTEND_ORIGIN must be a public HTTPS origin.' >&2
+    return 1
+  fi
+  host=$origin
+  if [[ -n $websocket_url ]]; then
+    if [[ ! $websocket_url =~ ^wss://([a-zA-Z0-9.-]+(:[0-9]+)?)(/.*)?$ ]]; then
+      echo '::error::REALTIME_WEBSOCKET_URL must be a public WSS URL.' >&2
+      return 1
+    fi
+    host="https://${BASH_REMATCH[1]}"
+  fi
+  output=$(mktemp -d)
+  trap 'rm -rf -- "$output"' EXIT
+  if ! status=$(curl --disable --silent --show-error --proto '=https' --connect-timeout 5 --max-time 10 --max-filesize 1048576 \
+    --header "Origin: $origin" --dump-header "$output/headers" --output "$output/body" --write-out '%{http_code}' \
+    "$host/ws/realtime") || [[ $status != 200 ]]; then
+    echo "::error::Public realtime definitions are unavailable (HTTP ${status:-unavailable})." >&2
+    return 1
+  fi
+  if ! awk -v origin="$origin" '
+    /^HTTP\// { cors = 0 }
+    tolower($1) == "access-control-allow-origin:" {
+      sub(/\r$/, "", $2)
+      cors = ($2 == "*" || $2 == origin)
+    }
+    END { exit !cors }
+  ' "$output/headers" || ! jq -e '
+    .success == true and .data.capabilities.version == 1 and
+    (.data.capabilities.assets | type == "object" and length > 0) and
+    (.data.capabilities.items | type == "object" and length > 0) and
+    (.data.surfaceAnchors | type == "object" and length > 0)
+  ' "$output/body" >/dev/null 2>&1; then
+    echo '::error::Public realtime definitions have invalid JSON or CORS for the frontend origin.' >&2
+    return 1
+  fi
+)

@@ -3,21 +3,40 @@ name: Realtime Deploy
 on:
   pull_request:
     branches: [develop]
-    paths: &realtime_paths
+    paths:
       - "realtime/**"
-      - "contracts/realtime/**"
       - "infra/realtime/**"
+      - "!realtime/*.md"
+      - "!realtime/.gitignore"
+      - "!infra/realtime/*.md"
+      - "!infra/realtime/.env.example"
       - "backend/src/main/resources/db/migration/V1__baseline.sql"
       - "backend/src/main/resources/db/migration/V39__member_avatar.sql"
       - "backend/src/main/resources/db/migration/V40__group_space.sql"
-      - "backend/src/main/resources/db/migration/V*__*blueprint*.sql"
+      - "backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql"
       - "backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql"
-      - "backend/src/main/resources/db/migration/V*__*runtime*.sql"
+      - "backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql"
       - ".github/scripts/realtime-deploy.test.cjs"
       - ".github/workflows/realtime-deploy.yml"
   push:
     branches: [develop]
-    paths: *realtime_paths
+    # Candidate freshness reads this list. Use quoted literal paths or a trailing /**.
+    paths:
+      - "realtime/Dockerfile"
+      - "realtime/Dockerfile.dockerignore"
+      - "realtime/build.gradle"
+      - "realtime/settings.gradle"
+      - "realtime/gradlew"
+      - "realtime/gradle/**"
+      - "realtime/src/main/**"
+      - "infra/realtime/compose.yaml"
+      - "infra/realtime/config.alloy"
+      - "infra/realtime/check-candidate-revision.sh"
+      - "infra/realtime/deploy-candidate.sh"
+      - "infra/realtime/derive-token-key.mjs"
+      - "infra/realtime/prepare-settings.sh"
+      - "infra/realtime/select-candidate.sh"
+      - ".github/workflows/realtime-deploy.yml"
   workflow_dispatch:
     inputs:
       resume_digest:
@@ -38,31 +57,21 @@ env:
 
 jobs:
   verify:
-    outputs:
-      scope: ${{ steps.inputs.outputs.scope }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: inputs
-        name: 변경 범위 확인
+      - name: 후보 digest 형식 확인
+        if: github.event_name == 'workflow_dispatch' && inputs.resume_digest != ''
         env:
           RESUME_DIGEST: ${{ inputs.resume_digest }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$RESUME_DIGEST" ]]; then
-            [[ "$RESUME_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid candidate digest.' >&2; exit 1; }
-            scope=resume
-          else
-            scope=$(bash infra/realtime/change-scope.sh "$GITHUB_EVENT_NAME" "$BASE_SHA" "$HEAD_SHA")
-          fi
-          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+          [[ "$RESUME_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid candidate digest.' >&2; exit 1; }
+      - uses: actions/checkout@v4
+        if: &verify_runtime github.event_name != 'workflow_dispatch' || inputs.resume_digest == ''
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
-        if: &verify_runtime contains(fromJSON('["deploy","server-tests"]'), steps.inputs.outputs.scope)
+        if: *verify_runtime
         with:
           node-version: "24"
       - uses: actions/setup-java@v5
@@ -89,7 +98,7 @@ jobs:
 
   publish:
     needs: verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && needs.verify.outputs.scope == 'deploy'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && inputs.resume_digest == ''
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
@@ -124,7 +133,7 @@ jobs:
       always() && !cancelled() && github.ref == 'refs/heads/develop' &&
       github.event_name != 'pull_request' && needs.verify.result == 'success' &&
       (needs.publish.result == 'success' ||
-       (needs.verify.outputs.scope == 'resume' && needs.publish.result == 'skipped'))
+       (github.event_name == 'workflow_dispatch' && inputs.resume_digest != '' && needs.publish.result == 'skipped'))
     runs-on: [self-hosted, Linux, ARM64, jarihana-realtime]
     timeout-minutes: 5
     outputs:

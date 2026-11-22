@@ -356,6 +356,10 @@ export async function installApiFixture(pageInstance, options = {}) {
     })
   );
 
+  if (!options.realRealtimeDefinitions) {
+    await pageInstance.route("**/ws/realtime", (route) => json(route, success(seeds.assetDefinitions)));
+  }
+
   await pageInstance.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());

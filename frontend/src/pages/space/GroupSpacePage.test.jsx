@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
+import { fetchAssetDefinitions, fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
 import { groupSpaceKeys } from "../../features/group-space/hooks.js";
 import { routeRegistry } from "../../app/routes.js";
 import { GroupSpacePage } from "./GroupSpacePage.jsx";
@@ -18,7 +18,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
-jest.mock("../../features/group-space/api.js", () => ({ fetchDefaultSpaceBlueprint: jest.fn(), fetchFurnitureCatalog: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
+jest.mock("../../features/group-space/api.js", () => ({ fetchAssetDefinitions: jest.fn(), fetchDefaultSpaceBlueprint: jest.fn(), fetchFurnitureCatalog: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
 jest.mock("./roomState.js", () => {
   const actual = jest.requireActual("./roomState.js");
   return { ...actual, readSavedRoom: jest.fn(actual.readSavedRoom) };
@@ -60,7 +60,9 @@ const save = () => fireEvent.click(screen.getByRole("button", { name: "테스트
 
 beforeEach(() => {
   jest.clearAllMocks();
-  fetchFurnitureCatalog.mockResolvedValue({ items: require("../../../tests/fixtures/clubhouse-seeds.cjs").furnitureCatalog });
+  const { assetDefinitions, furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  fetchAssetDefinitions.mockResolvedValue(assetDefinitions);
+  fetchFurnitureCatalog.mockResolvedValue({ items: furnitureCatalog });
   useAuth.mockReturnValue({ member: { id: 7 } });
   useGroup.mockImplementation((id) => ({ data: { id: Number(id), name: `모임 ${id}`, memberCount: 6 }, refetch: jest.fn() }));
   fetchDefaultSpaceBlueprint.mockImplementation(template => Promise.resolve(seeded(template)));

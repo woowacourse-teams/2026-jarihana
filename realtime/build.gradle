@@ -31,13 +31,6 @@ tasks.named('test') {
     testLogging { exceptionFormat = 'full' }
 }
 
-tasks.named('processResources') {
-    from('../contracts/realtime/v1') {
-        include 'asset-capabilities.json', 'surface-anchors.json'
-        into 'contracts'
-    }
-}
-
 tasks.named('processTestResources') {
     from('../backend/src/main/resources/db/migration') {
         include 'V45__versioned_space_blueprints.sql', 'V46__space_furniture_catalog.sql', 'V47__*.sql'
