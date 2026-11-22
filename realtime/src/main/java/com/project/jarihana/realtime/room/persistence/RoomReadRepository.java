@@ -71,10 +71,10 @@ public final class RoomReadRepository {
                 }
             });
 
-    private final Map<RealtimeEnvironment, CatalogCache> furniture = new EnumMap<>(RealtimeEnvironment.class);
+    private final Map<RealtimeEnvironment, CatalogCache> catalogs = new EnumMap<>(RealtimeEnvironment.class);
 
     private static final class CatalogCache {
-        private volatile FurnitureCatalog current;
+        private volatile RuntimeCatalog current;
         private long lastAttempt;
     }
 
@@ -86,7 +86,7 @@ public final class RoomReadRepository {
         this.mapper = mapper;
         this.clock = clock;
         this.properties = properties;
-        for (RealtimeEnvironment environment : RealtimeEnvironment.values()) furniture.put(environment, new CatalogCache());
+        for (RealtimeEnvironment environment : RealtimeEnvironment.values()) catalogs.put(environment, new CatalogCache());
     }
 
     public Admission admission(RealtimeEnvironment environment, String roomId, String memberId) {
@@ -133,50 +133,56 @@ public final class RoomReadRepository {
         return blueprint;
     }
 
-    public FurnitureCatalog furniture(RealtimeEnvironment environment, JsonNode room) {
-        var cache = furniture.get(environment);
+    public RuntimeCatalog catalog(RealtimeEnvironment environment, JsonNode room) {
+        var cache = catalogs.get(environment);
         var current = cache.current;
         if (hasFurniture(current, room)) return current;
         synchronized (cache) {
             current = cache.current;
             if (hasFurniture(current, room)) return current;
             if (current == null || clock.millis() - cache.lastAttempt >= Math.min(10_000, properties.refreshIntervalMs())) {
-                current = loadFurniture(environment, cache);
+                current = loadCatalog(environment, cache);
             }
         }
         if (!hasFurniture(current, room)) throw new DataRetrievalFailureException("A furniture kind is missing from the catalog for " + environment);
         return current;
     }
 
-    private static boolean hasFurniture(FurnitureCatalog catalog, JsonNode room) {
+    private static boolean hasFurniture(RuntimeCatalog catalog, JsonNode room) {
         if (catalog == null) return false;
         for (JsonNode item : room.path("items")) {
-            if (!catalog.definitions().has(item.path("kind").asString())) return false;
+            if (!catalog.furniture().has(item.path("kind").asString())) return false;
         }
         return true;
     }
 
-    public void refreshFurniture(RealtimeEnvironment environment) {
-        var cache = furniture.get(environment);
+    public void refreshCatalog(RealtimeEnvironment environment) {
+        var cache = catalogs.get(environment);
         synchronized (cache) {
-            loadFurniture(environment, cache);
+            loadCatalog(environment, cache);
         }
     }
 
-    private FurnitureCatalog loadFurniture(RealtimeEnvironment environment, CatalogCache cache) {
+    private RuntimeCatalog loadCatalog(RealtimeEnvironment environment, CatalogCache cache) {
         cache.lastAttempt = clock.millis();
-        JsonNode current = databases.client(environment).sql("""
-                SELECT jsonb_object_agg(kind, definition || jsonb_build_object('placeable', placeable))
-                FROM space_furniture_catalog
+        var previous = cache.current;
+        long generation = previous == null ? 1 : previous.generation() + 1;
+        // Both catalogs must come from the same PostgreSQL statement snapshot.
+        var current = databases.client(environment).sql("""
+                SELECT (SELECT jsonb_object_agg(kind, definition || jsonb_build_object('placeable', placeable))
+                        FROM space_furniture_catalog) AS furniture,
+                       (SELECT COALESCE(jsonb_object_agg(kind, definition), '{}'::jsonb)
+                        FROM space_portable_item_catalog) AS portable_items
                 WHERE EXISTS (SELECT 1 FROM space_furniture_catalog_migration WHERE version = 1)
-                """).query((row, index) -> readRoom(row.getString(1)))
-                .optional().orElseThrow(() -> new DataRetrievalFailureException("Empty furniture catalog for " + environment));
-        if (!current.has("room-general-light-switch")) {
-            throw new DataRetrievalFailureException("The room light is missing from the catalog for " + environment);
+                  AND EXISTS (SELECT 1 FROM space_portable_item_catalog_migration WHERE version = 1)
+                """).query((row, index) -> new RuntimeCatalog(generation, readRoom(row.getString("furniture")),
+                        readRoom(row.getString("portable_items"))))
+                .optional().orElseThrow(() -> new DataRetrievalFailureException("Runtime catalog markers are missing for " + environment));
+        if (current.furniture() == null || !current.furniture().has("room-general-light-switch")) {
+            throw new DataRetrievalFailureException("Runtime catalogs are incomplete for " + environment);
         }
-        FurnitureCatalog previous = cache.current;
-        if (previous == null || !previous.definitions().equals(current)) {
-            cache.current = new FurnitureCatalog(previous == null ? 1 : previous.generation() + 1, current);
+        if (previous == null || !previous.furniture().equals(current.furniture()) || !previous.portableItems().equals(current.portableItems())) {
+            cache.current = current;
         }
         return cache.current;
     }
@@ -215,5 +221,5 @@ public final class RoomReadRepository {
     }
 
     public record StoredLayout(long revision, JsonNode room, BlueprintRef blueprint) {}
-    public record FurnitureCatalog(long generation, JsonNode definitions) {}
+    public record RuntimeCatalog(long generation, JsonNode furniture, JsonNode portableItems) {}
 }

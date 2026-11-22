@@ -14,9 +14,7 @@ import tools.jackson.databind.JsonNode;
 
 class RoomLayoutTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
-    private final LayoutCatalog catalog = new LayoutCatalog(mapper);
-
-    RoomLayoutTest() throws java.io.IOException {}
+    private final LayoutCatalog catalog = new LayoutCatalog();
 
     @ParameterizedTest
     @ValueSource(strings = {"lounge", "climbing", "boardgame", "dining", "band", "study", "photo"})
@@ -103,7 +101,7 @@ class RoomLayoutTest {
     private RoomLayout readFixture(long revision, JsonNode room) {
         String key = room == null ? "11:lounge" : room.path("version").asInt() + ":" + room.path("template").asString();
         var blueprint = TestBlueprints.runtime(key);
-        return catalog.read(revision, 1, blueprint.document(room), blueprint, TestBlueprints.FURNITURE);
+        return catalog.read(revision, 1, blueprint.document(room), blueprint, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS);
     }
 
     @Test
@@ -117,14 +115,14 @@ class RoomLayoutTest {
                 mezzanine.path("height").asDouble(),
                 (mezzanine.path("minZ").asDouble() + mezzanine.path("maxZ").asDouble()) / 2);
 
-        assertThat(catalog.read(9, 1, room, flat, TestBlueprints.FURNITURE).floorAt(upperFloor)).isZero();
-        assertThat(catalog.read(9, 1, room, loft, TestBlueprints.FURNITURE).floorAt(upperFloor)).isEqualTo(upperFloor.y());
+        assertThat(catalog.read(9, 1, room, flat, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS).floorAt(upperFloor)).isZero();
+        assertThat(catalog.read(9, 1, room, loft, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS).floorAt(upperFloor)).isEqualTo(upperFloor.y());
     }
 
     @Test
     void unsavedRoomUsesTheProvidedBlueprintWithDefaultFurniture() {
         var blueprint = TestBlueprints.runtime("11:lounge");
-        var layout = catalog.read(0, 1, blueprint.document(null), blueprint, TestBlueprints.FURNITURE);
+        var layout = catalog.read(0, 1, blueprint.document(null), blueprint, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS);
         assertThat(layout.geometry()).isEqualTo(blueprint.geometry());
         assertThat(blueprint.defaultRoom().path("items").size()).isEqualTo(24);
         assertThat(layout.assets()).containsKeys("meeting-table", "sofa", "entrance-bench", "room-general-light-switch");
@@ -143,7 +141,7 @@ class RoomLayoutTest {
                  "propCup":{"width":0.32,"depth":0.3,"height":0.2,"surfaces":[]}}
                 """);
         var blueprint = new BlueprintRuntime(TestBlueprints.geometry("11:lounge"), new Vec3(4, 0, 6), room);
-        var layout = catalog.read(37, 1, blueprint.document(room), blueprint, furniture);
+        var layout = catalog.read(37, 1, blueprint.document(room), blueprint, furniture, TestBlueprints.PORTABLE_ITEMS);
         assertThat(layout.arrival()).isEqualTo(new Vec3(4, 0, 6));
         assertThat(layout.revision()).isEqualTo(37);
         assertThat(layout.assets().get("p").blocks(new Vec3(3, 0, 0))).isTrue();

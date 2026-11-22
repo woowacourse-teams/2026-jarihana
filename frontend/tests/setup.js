@@ -11,14 +11,8 @@ jest.mock("../src/pages/space/roomLayout.js", () => {
 // Low-level room tests use the catalog that a freshly migrated database would serve.
 jest.mock("../src/features/group-space/furnitureCatalog.js", () => {
   const catalog = jest.requireActual("../src/features/group-space/furnitureCatalog.js");
-  catalog.installFurnitureCatalog(require("./fixtures/clubhouse-seeds.cjs").furnitureCatalog);
+  catalog.installSpaceCatalog(require("./fixtures/clubhouse-seeds.cjs").spaceCatalog);
   return catalog;
-});
-
-jest.mock("../src/features/group-space/assetDefinitions.js", () => {
-  const definitions = jest.requireActual("../src/features/group-space/assetDefinitions.js");
-  definitions.installAssetDefinitions(require("./fixtures/clubhouse-seeds.cjs").assetDefinitions);
-  return definitions;
 });
 
 require("@testing-library/jest-dom");

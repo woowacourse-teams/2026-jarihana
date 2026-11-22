@@ -75,7 +75,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
       const sockets = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("websocket", (socket) => sockets.push(socket.url()));
-      await installApiFixture(page, { auth: solo ? "authenticated" : "anonymous", realRealtimeDefinitions: true });
+      await installApiFixture(page, { auth: solo ? "authenticated" : "anonymous" });
       if (solo) {
         await page.route(`**/api/groups/${group.id}/space/join-token`, (intercepted) => intercepted.fulfill({
           status: 503,
@@ -118,7 +118,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
           try { frames.push({ memberId, message: JSON.parse(payload.toString()) }); } catch { /* non-JSON transport frames */ }
         });
       });
-      await installApiFixture(page, { realRealtimeDefinitions: true });
+      await installApiFixture(page);
       await page.route("**/api/members/me", (route) => route.fulfill({ json: success({ member: { ...leader, id: Number(memberId), crewName: `tester-${memberId}` }, signupCompleted: true }) }));
       await page.route(`**/api/groups/${group.id}/space`, (route) => route.fulfill({ json: success({ ...snapshot, canEdit: memberId === "1", updatedAt: null }) }));
       await page.route(`**/api/groups/${group.id}/space/join-token`, (route) => route.fulfill({ json: success({ token: token(memberId, String(group.id)), websocketUrl: url, expiresAt: Date.now() + 60000 }) }));

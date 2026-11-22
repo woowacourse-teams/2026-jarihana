@@ -49,7 +49,7 @@ jest.mock("../../../src/pages/space/SpaceStudioPage.jsx", () => ({
 jest.mock("../../../src/features/group-space/index.js", () => ({
   fetchGroupSpace: jest.fn(),
   fetchDefaultSpaceBlueprint: jest.fn(),
-  useFurnitureCatalog: () => ({ isFetchedAfterMount: true, data: require("../../fixtures/clubhouse-seeds.cjs").furnitureCatalog }),
+  useFurnitureCatalog: () => ({ isFetchedAfterMount: true, data: require("../../fixtures/clubhouse-seeds.cjs").spaceCatalog }),
   useGroupSpace: jest.fn(),
   useSaveGroupSpace: jest.fn()
 }));

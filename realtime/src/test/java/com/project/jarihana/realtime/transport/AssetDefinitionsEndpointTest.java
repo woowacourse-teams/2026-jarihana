@@ -3,7 +3,6 @@ package com.project.jarihana.realtime.transport;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -32,7 +30,7 @@ class AssetDefinitionsEndpointTest {
     ObjectMapper mapper;
 
     @Test
-    void servesThePackagedDefinitionsWithoutCredentialsOrAConnection() throws Exception {
+    void servesOnlyTheCatalogContractMarkerWithoutCredentialsOrAConnection() throws Exception {
         try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
             var request = HttpRequest.newBuilder(endpoint("http"))
                     .timeout(Duration.ofSeconds(5)).header("Origin", "https://public.example").GET().build();
@@ -45,12 +43,7 @@ class AssetDefinitionsEndpointTest {
             JsonNode envelope = mapper.readTree(response.body());
             assertThat(envelope.path("success").asBoolean()).isTrue();
             assertThat(envelope.path("error").isNull()).isTrue();
-            JsonNode data = envelope.path("data");
-            assertThat(data.path("capabilities")).isEqualTo(resource("asset-capabilities.json"));
-            assertThat(data.has("surfaceAnchors")).isFalse();
-            JsonNode capabilities = data.path("capabilities");
-            assertThat(capabilities.has("assets")).isFalse();
-            assertThat(capabilities.path("items").path("cup").path("portable").asBoolean()).isTrue();
+            assertThat(envelope.path("data")).isEqualTo(mapper.readTree("{\"catalogContractVersion\":2}"));
         }
     }
 
@@ -81,9 +74,4 @@ class AssetDefinitionsEndpointTest {
         return URI.create(scheme + "://127.0.0.1:" + port + "/ws/realtime");
     }
 
-    private JsonNode resource(String file) throws IOException {
-        try (var input = new ClassPathResource("contracts/" + file).getInputStream()) {
-            return mapper.readTree(input);
-        }
-    }
 }

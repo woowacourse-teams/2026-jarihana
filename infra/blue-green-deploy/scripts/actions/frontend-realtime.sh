@@ -21,7 +21,7 @@ verify_frontend_realtime() (
   if ! status=$(curl "${request[@]}" \
     --header "Origin: $origin" --dump-header "$output/headers" --output "$output/body" --write-out '%{http_code}' \
     "$host/ws/realtime") || [[ $status != 200 ]]; then
-    echo "::error::Public realtime definitions are unavailable (HTTP ${status:-unavailable})." >&2
+    echo "::error::Public realtime contract is unavailable (HTTP ${status:-unavailable})." >&2
     return 1
   fi
   if ! awk -v origin="$origin" '
@@ -32,10 +32,9 @@ verify_frontend_realtime() (
     }
     END { exit !cors }
   ' "$output/headers" || ! jq -e '
-    .success == true and .data.capabilities.version == 1 and
-    (.data.capabilities.items | type == "object" and length > 0)
+    .success == true and .data == {catalogContractVersion: 2}
   ' "$output/body" >/dev/null 2>&1; then
-    echo '::error::Public realtime definitions have invalid JSON or CORS for the frontend origin.' >&2
+    echo '::error::Public realtime contract has invalid JSON or CORS for the frontend origin.' >&2
     return 1
   fi
   if ! status=$(curl "${request[@]}" --output "$output/catalog" --write-out '%{http_code}' \
@@ -45,7 +44,9 @@ verify_frontend_realtime() (
   fi
   if ! jq -e '
     def positive_integer: type == "number" and . > 0 and floor == .;
-    .success == true and .data.interactionCatalogVersion == 1 and
+    .success == true and .data.interactionCatalogVersion == 1 and .data.portableCatalogVersion == 1 and
+    (.data.portableItems | type == "object" and length > 0 and all(.[];
+      (.portable | type == "boolean") and (.throwable | type == "boolean") and (.consumable | type == "boolean"))) and
     (.data.items | type == "array" and length > 0 and all(.[];
       (.kind | type == "string" and length > 0) and
       ((.interaction // {capabilities: []}) |
@@ -54,7 +55,7 @@ verify_frontend_realtime() (
         (if (.capabilities | index("surface")) then (.surface.slots | positive_integer) else true end) and
         (if (.capabilities | index("storage")) then (.storage.capacity | positive_integer) else true end))))
   ' "$output/catalog" >/dev/null 2>&1; then
-    echo '::error::Public furniture catalog is missing the interaction contract.' >&2
+    echo '::error::Public furniture catalog is missing the furniture or portable item contract.' >&2
     return 1
   fi
 )

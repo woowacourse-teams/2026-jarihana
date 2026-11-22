@@ -3,7 +3,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchAssetDefinitions, fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
+import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
+import { portableDefinition } from "../../features/group-space/furnitureCatalog.js";
 import { furnitureCatalogQuery, groupSpaceKeys } from "../../features/group-space/hooks.js";
 import { routeRegistry } from "../../app/routes.js";
 import { GroupSpacePage } from "./GroupSpacePage.jsx";
@@ -18,7 +19,7 @@ jest.mock("react-router", () => ({
 }));
 jest.mock("../../features/auth/index.js", () => ({ useAuth: jest.fn() }));
 jest.mock("../../features/group/index.js", () => ({ useGroup: jest.fn() }));
-jest.mock("../../features/group-space/api.js", () => ({ fetchAssetDefinitions: jest.fn(), fetchDefaultSpaceBlueprint: jest.fn(), fetchFurnitureCatalog: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
+jest.mock("../../features/group-space/api.js", () => ({ fetchDefaultSpaceBlueprint: jest.fn(), fetchFurnitureCatalog: jest.fn(), fetchGroupSpace: jest.fn(), saveGroupSpace: jest.fn() }));
 jest.mock("./roomState.js", () => {
   const actual = jest.requireActual("./roomState.js");
   return { ...actual, readSavedRoom: jest.fn(actual.readSavedRoom) };
@@ -27,7 +28,7 @@ jest.mock("./SpaceStudioPage.jsx", () => ({
   SpaceStudioPage: (props) => <MockEditor {...props} />
 }));
 
-function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayoutChange, onSave, canEdit, savedAt, groupContext }) {
+function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayoutChange, onSave, canEdit, savedAt, groupContext, catalogData }) {
   const [draft, setDraft] = useState(initialRoom);
   const [error, setError] = useState("");
   return <section aria-label="공간 편집기">
@@ -35,6 +36,7 @@ function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayou
       onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
     <span>{canEdit ? "편집 가능" : "읽기 전용"}</span>
     <output aria-label="실시간 배치">{memberId}:{layoutRevision}:{sharedRoom.version}</output>
+    <output aria-label="휴대 물건 던지기">{String(catalogData?.portableItems.cookie?.throwable)}</output>
     <button onClick={() => onLayoutChange()}>실시간 배치 다시 읽기</button>
     <output aria-label="저장 시각">{savedAt}</output>
     <a href={groupContext.backHref}>실제 모임 {groupContext.name}</a>
@@ -45,7 +47,7 @@ function MockEditor({ initialRoom, sharedRoom, layoutRevision, memberId, onLayou
   </section>;
 }
 
-const seeded = require("../../../tests/fixtures/clubhouse-seeds.cjs").blueprint;
+const { blueprint: seeded, spaceCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
 const snapshot = (room = null, extra = {}) => ({ ...(room === null && seeded("lounge", 11)), room, revision: room ? 3 : 0,
   canEdit: true, updatedAt: room ? "2026-11-09T14:00:00" : null, ...extra });
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
@@ -60,9 +62,7 @@ const save = () => fireEvent.click(screen.getByRole("button", { name: "테스트
 
 beforeEach(() => {
   jest.clearAllMocks();
-  const { assetDefinitions, furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
-  fetchAssetDefinitions.mockResolvedValue(assetDefinitions);
-  fetchFurnitureCatalog.mockResolvedValue({ interactionCatalogVersion: 1, items: furnitureCatalog });
+  fetchFurnitureCatalog.mockResolvedValue(spaceCatalog);
   useAuth.mockReturnValue({ member: { id: 7 } });
   useGroup.mockImplementation((id) => ({ data: { id: Number(id), name: `모임 ${id}`, memberCount: 6 }, refetch: jest.fn() }));
   fetchDefaultSpaceBlueprint.mockImplementation(template => Promise.resolve(seeded(template)));
@@ -99,24 +99,30 @@ test("member sees the server room read-only", async () => {
   expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
 });
 
-test("a failed background catalog refresh keeps the current room and retries until it succeeds", async () => {
+test("a failed background refresh retains the room and rules until a portable-only catalog change succeeds", async () => {
   jest.useFakeTimers();
   focusManager.setFocused(true);
   try {
     const { client } = setup();
     const editor = await screen.findByRole("textbox", { name: "테스트 공간 이름" });
     const { queryKey } = furnitureCatalogQuery;
-    fetchFurnitureCatalog.mockRejectedValueOnce(new Error("catalog unavailable"));
+    const cookie = { ...spaceCatalog.portableItems.cookie, throwable: false };
+    fetchFurnitureCatalog.mockRejectedValueOnce(new Error("catalog unavailable"))
+      .mockResolvedValueOnce({ ...spaceCatalog, portableItems: { ...spaceCatalog.portableItems, cookie } });
     await act(async () => { await client.refetchQueries({ queryKey }); });
     expect(client.getQueryState(queryKey).status).toBe("error");
     expect(editorName()).toBe(editor);
+    expect(portableDefinition("cookie").throwable).toBe(true);
     expect(fetchFurnitureCatalog).toHaveBeenCalledTimes(2);
 
     await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
     expect(client.getQueryState(queryKey).status).toBe("success");
     expect(editorName()).toBe(editor);
+    expect(portableDefinition("cookie").throwable).toBe(false);
+    await waitFor(() => expect(screen.getByLabelText("휴대 물건 던지기")).toHaveTextContent("false"));
     await act(async () => { await jest.advanceTimersByTimeAsync(6000); });
     expect(fetchFurnitureCatalog).toHaveBeenCalledTimes(3);
+    expect(fetchGroupSpace).toHaveBeenCalledTimes(1);
   } finally {
     focusManager.setFocused(undefined);
     jest.useRealTimers();

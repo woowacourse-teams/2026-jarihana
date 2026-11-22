@@ -7,13 +7,11 @@ import com.project.jarihana.group.domain.GroupStatus;
 import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.groupspace.domain.BlueprintRef;
-import com.project.jarihana.groupspace.domain.FurnitureType;
 import com.project.jarihana.groupspace.domain.SpaceBlueprint;
 import com.project.jarihana.groupspace.query.repository.FurnitureCatalogRepository;
 import com.project.jarihana.groupspace.query.repository.GroupSpaceQueryRepository;
 import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.groupspace.query.service.dto.GroupSpaceResult;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -29,8 +27,8 @@ public class GroupSpaceQueryService {
     private final ObjectMapper mapper;
     private final LoginMemberReader loginMemberReader;
 
-    public List<FurnitureType> findFurnitureCatalog() {
-        return furniture.findAll();
+    public FurnitureCatalogRepository.Snapshot findFurnitureCatalog() {
+        return furniture.findSnapshot();
     }
 
     public SpaceBlueprint findDefaultBlueprint(String templateKey) {

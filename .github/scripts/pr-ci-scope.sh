@@ -24,18 +24,17 @@ case "${1:-}" in
       case "$file" in
         .gitattributes|.github/workflows/ci.yml|.github/scripts/pr-ci-scope.sh|.github/scripts/pr-ci-scope.test.cjs)
           backend=true; frontend=true; e2e=true ;;
-        # Jest and the mock browser API both read the seeded furniture and blueprint rows.
+        # Jest and the mock browser API both read the seeded furniture, portable item and blueprint rows.
         backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql|\
         backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql|\
         backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql|\
-        backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql)
+        backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql|\
+        backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql)
           backend=true; frontend=true; e2e=true ;;
         backend/src/test/resources/group-space-v9-catalog.json|\
         backend/src/main/resources/rhythm-harpoon/ranked-chart.json|\
         backend/src/test/resources/rhythm-harpoon/golden-replays.json)
           backend=true; frontend=true ;;
-        # Frontend fixtures serve and test the public realtime HTTP contract.
-        realtime/src/main/resources/contracts/asset-capabilities.json|\
         frontend/tests/fixtures/clubhouse-seeds.cjs)
           frontend=true; e2e=true ;;
         infra/cloudfront/spa-fallback.js|infra/cloudfront/group-share-preview.js|frontend/docs/rhythm-double-tap-mix.json)

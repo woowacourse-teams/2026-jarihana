@@ -17,6 +17,9 @@ final class RuntimeSchema {
               AND EXISTS (SELECT 1 FROM space_blueprint_migration WHERE version = 1)
               AND EXISTS (SELECT 1 FROM space_runtime_migration WHERE version = 1)
               AND EXISTS (SELECT 1 FROM space_furniture_catalog_migration WHERE version = 1)
+              AND EXISTS (SELECT 1 FROM space_portable_item_catalog_migration WHERE version = 1)
+              AND NOT EXISTS (SELECT 1 FROM space_portable_item_catalog
+                  WHERE kind IS NULL OR jsonb_typeof(definition) IS DISTINCT FROM 'object')
               AND EXISTS (SELECT 1 FROM space_blueprint_default WHERE template_key = 'lounge' AND blueprint_version IS NOT NULL)
               AND EXISTS (SELECT 1 FROM space_furniture_catalog WHERE kind = 'room-general-light-switch' AND NOT placeable
                   AND jsonb_typeof(definition->'surfaces') = 'array')

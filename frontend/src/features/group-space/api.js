@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { localDateTimeSchema } from "../../entities/common/schemas.js";
-import { apiRequest, createApiClient } from "../../shared/api/index.js";
+import { apiRequest } from "../../shared/api/index.js";
 
 export const MAX_SPACE_BYTES = 2 * 1024 * 1024;
 
@@ -47,35 +47,22 @@ const furniture = z.object({
   underlay: z.boolean().optional(), connectedSurface: z.boolean().optional(), walkableHeight: z.number().positive().optional(),
   interaction: interaction.optional()
 });
+const portableItem = z.object({
+  portable: z.boolean(),
+  throwable: z.boolean(),
+  consumable: z.boolean(),
+  camera: z.boolean().optional(),
+  emptyKind: z.string().min(1).optional()
+});
 const furnitureCatalogSchema = z.object({
   interactionCatalogVersion: z.literal(1),
-  items: z.array(furniture).min(1).refine(items => new Set(items.map(item => item.kind)).size === items.length)
+  items: z.array(furniture).min(1).refine(items => new Set(items.map(item => item.kind)).size === items.length),
+  portableCatalogVersion: z.literal(1),
+  portableItems: z.record(z.string().min(1), portableItem)
 });
 
 export function fetchFurnitureCatalog(signal) {
   return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema, signal, cache: "no-cache" });
-}
-
-const assetDefinitionsSchema = z.object({
-  capabilities: z.object({
-    version: z.literal(1),
-    items: z.record(z.string(), z.object({
-      throwable: z.boolean(), consumable: z.boolean(), camera: z.boolean().optional()
-    }))
-  })
-});
-
-export function fetchAssetDefinitions(signal) {
-  const configuredUrl = process.env.APP_REALTIME_WEBSOCKET_URL;
-  let origin = "";
-  if (configuredUrl) {
-    const url = new URL(configuredUrl);
-    if (url.protocol === "wss:") url.protocol = "https:";
-    if (url.protocol === "ws:") url.protocol = "http:";
-    origin = url.origin;
-  }
-  const client = createApiClient({ baseUrl: `${origin}/ws`, credentials: "omit" });
-  return client.request("realtime", { schema: assetDefinitionsSchema, authRetry: false, signal });
 }
 
 export const groupSpaceSchema = z.object({

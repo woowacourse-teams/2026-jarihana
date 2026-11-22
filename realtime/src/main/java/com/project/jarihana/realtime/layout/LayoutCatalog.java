@@ -2,35 +2,19 @@ package com.project.jarihana.realtime.layout;
 
 import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.domain.Vec3;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 @Component
 public final class LayoutCatalog {
-    private final JsonNode capabilities;
-
-    public LayoutCatalog(ObjectMapper mapper) throws IOException {
-        try (var rules = new ClassPathResource("contracts/asset-capabilities.json").getInputStream()) {
-            capabilities = mapper.readTree(rules);
-        }
-    }
-
-    public AssetDefinitions assetDefinitions() {
-        return new AssetDefinitions(capabilities.deepCopy());
-    }
-
-    public record AssetDefinitions(JsonNode capabilities) {}
-
-    public RoomLayout read(long revision, long catalogGeneration, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
+    public RoomLayout read(long revision, long catalogGeneration, JsonNode room, BlueprintRuntime blueprint,
+            JsonNode furniture, JsonNode portableItems) {
         JsonNode geometry = blueprint.geometry();
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
         Map<String, JsonNode> instances = new LinkedHashMap<>();
@@ -48,7 +32,7 @@ public final class LayoutCatalog {
                 new Vec3(-0.38, 0, building.path("maxZ").asDouble() - 0.2), 0, 1, 1, 1,
                 false, 0);
         assets.put(light.id(), light);
-        return new RoomLayout(revision, catalogGeneration, assets, geometry, blueprint.spawn(), capabilities.path("items"));
+        return new RoomLayout(revision, catalogGeneration, assets, geometry, blueprint.spawn(), portableItems);
     }
 
     private RoomAsset asset(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture) {

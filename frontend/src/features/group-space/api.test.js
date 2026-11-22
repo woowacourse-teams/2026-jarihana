@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { apiRequest, createApiClient } from "../../shared/api/index.js";
-import { fetchAssetDefinitions, fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
+import { fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, MAX_SPACE_BYTES, saveGroupSpace } from "./api.js";
 
 jest.mock("../../shared/api/index.js", () => ({
   ...jest.requireActual("../../shared/api/index.js"), apiRequest: jest.fn()
@@ -114,11 +114,11 @@ test.each(["javascript:alert(1)", "https://user:secret@example.com/private", "no
 );
 
 test("the public catalog includes retired kinds and rejects duplicate or malformed definitions", async () => {
-  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const { furnitureCatalog, spaceCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
   const retired = { ...furnitureCatalog.find(item => item.kind === "bookshelf"), placeable: false };
   const sofa = furnitureCatalog.find(item => item.kind === "sofa");
   const inert = furnitureCatalog.find(item => !item.interaction);
-  wire.mockResolvedValueOnce(reply({ interactionCatalogVersion: 1, items: [retired, sofa, inert] }));
+  wire.mockResolvedValueOnce(reply({ ...spaceCatalog, items: [retired, sofa, inert] }));
   const { interactionCatalogVersion, items } = await fetchFurnitureCatalog();
   expect(interactionCatalogVersion).toBe(1);
   expect(items[0]).toMatchObject({ kind: retired.kind, placeable: false, interaction: { surface: { slots: 4 }, storage: { capacity: 8 } } });
@@ -128,35 +128,28 @@ test("the public catalog includes retired kinds and rejects duplicate or malform
   expect(wire.mock.calls[0][0].cache).toBe("no-cache");
   for (const items of [[], [retired, retired], [{ ...retired, surfaces: null }],
     [{ ...sofa, interaction: { ...sofa.interaction, seatCount: 65 } }]]) {
-    wire.mockResolvedValueOnce(reply({ interactionCatalogVersion: 1, items }));
+    wire.mockResolvedValueOnce(reply({ ...spaceCatalog, items }));
     await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   }
-  wire.mockResolvedValueOnce(reply({ items: [inert] }));
+  wire.mockResolvedValueOnce(reply({ ...spaceCatalog, items: [inert], interactionCatalogVersion: undefined }));
   await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
 
-test.each([
-  ["wss://realtime.test/ws/realtime", "https://realtime.test/ws/realtime"],
-  ["ws://127.0.0.1:8090/ws/realtime", "http://127.0.0.1:8090/ws/realtime"]
-])("realtime definitions use ordinary HTTP and omit cookies from %s", async (websocketUrl, expectedUrl) => {
-  const { assetDefinitions } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
-  const environment = jest.replaceProperty(process, "env", { ...process.env, APP_REALTIME_WEBSOCKET_URL: websocketUrl });
-  const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply({
-    capabilities: { ...assetDefinitions.capabilities, assets: { sofa: { capabilities: ["seatable"], seatCount: 3 } } }
-  }));
-  try {
-    const received = await fetchAssetDefinitions();
-    expect(received.capabilities.items.camera.camera).toBe(true);
-    expect(received.capabilities).not.toHaveProperty("assets");
-    expect(Object.keys(received)).toEqual(["capabilities"]);
-    const request = fetch.mock.calls[0][0];
-    expect(request.url).toBe(expectedUrl);
-    expect(request.method).toBe("GET");
-    expect(request.credentials).toBe("omit");
-    expect(request.headers.has("upgrade")).toBe(false);
-  } finally {
-    fetch.mockRestore();
-    environment.restore();
+test("the same catalog request reads versioned portable rules including disabled items and empty kinds", async () => {
+  const { spaceCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const camera = { ...spaceCatalog.portableItems.camera, portable: false, camera: false };
+  const portableItems = { ...spaceCatalog.portableItems, camera };
+  const payload = { ...spaceCatalog, portableItems };
+  wire.mockResolvedValueOnce(reply(payload));
+  const catalog = await fetchFurnitureCatalog();
+  expect(catalog.portableItems).toEqual(portableItems);
+  expect(catalog.portableItems.coffee).toMatchObject({ portable: true, throwable: true, consumable: true, emptyKind: "cup" });
+  expect(wire).toHaveBeenCalledTimes(1);
+  expect(wire.mock.calls[0][0].url).toBe("https://app.test/api/group-spaces/furniture-catalog");
+  for (const invalid of [{ portableCatalogVersion: undefined }, { portableCatalogVersion: 2 }, { portableItems: undefined },
+    { portableItems: { camera: { ...camera, portable: "false" } } }, { portableItems: { camera: { ...camera, emptyKind: "" } } }]) {
+    wire.mockResolvedValueOnce(reply({ ...payload, ...invalid }));
+    await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   }
 });
 

@@ -226,6 +226,57 @@ class InteractionStateTest {
     }
 
     @Test
+    void portableRuleRefreshReconcilesHeldItemsAndInFlightThrowsWithoutChangingTheLayoutRevision() {
+        command("TAKE", "assetId", "shelf", "kind", "cookie");
+        String cookie = held();
+        command("THROW");
+        command("TAKE", "assetId", "shelf", "kind", "tea");
+        String tea = held();
+        command("SIT", "assetId", "sofa", "slot", 0);
+        command("POSE", "pose", "drinking");
+        commandFor("2", "b", "TAKE", "assetId", "shelf", "kind", "cup");
+        String cup = room.participants().stream().filter(actor -> actor.memberId().equals("2")).findFirst().orElseThrow().heldItemId();
+
+        var items = TestBlueprints.PORTABLE_ITEMS.deepCopy();
+        ((ObjectNode) items.path("cookie")).put("throwable", false);
+        ((ObjectNode) items.path("cup")).put("portable", false);
+        ((ObjectNode) items.path("tea")).put("consumable", false);
+        assertThat(room.replaceLayout(TestRooms.layout(1, 0, 2, TestBlueprints.FURNITURE, items), 1300)).isTrue();
+
+        assertThat(room.layoutRevision()).isEqualTo(1);
+        assertThat(room.snapshot("ROOM_STATE", "1", "a", 1300, true)).containsEntry("catalogGeneration", 2L);
+        assertThat(room.item(cookie).location()).isEqualTo(ItemState.Location.WORLD);
+        assertThat(room.layout().valid(room.item(cookie).position(), false)).isTrue();
+        assertThat(room.items()).extracting(ItemState::id).doesNotContain(cup);
+        assertThat(room.participants()).filteredOn(actor -> actor.memberId().equals("2"))
+                .allSatisfy(actor -> assertThat(actor.heldItemId()).isNull());
+        assertThat(held()).isEqualTo(tea);
+        assertThat(room.participants().getFirst().pose()).isEqualTo("relaxed");
+        assertThatThrownBy(() -> command("CONSUME")).hasMessage("NOT_CONSUMABLE");
+        assertThatThrownBy(() -> command("POSE", "pose", "drinking")).hasMessage("ITEM_REQUIRED");
+    }
+
+    @Test
+    void portableRuleRefreshCancelsOnlyProductionThatCanNoLongerCreateAValidOutput() {
+        command("TAKE", "assetId", "machine", "kind", "cup");
+        String cup = held();
+        command("PRODUCE", "assetId", "machine", "kind", "coffee");
+
+        var items = TestBlueprints.PORTABLE_ITEMS.deepCopy();
+        ((ObjectNode) items.path("coffee")).put("portable", false);
+        room.replaceLayout(TestRooms.layout(1, 0, 2, TestBlueprints.FURNITURE, items), 1300);
+        room.tick(5200);
+
+        assertThat(room.assetState("machine").production()).isNull();
+        assertThat(room.item(cup).kind()).isEqualTo("cup");
+        assertThatThrownBy(() -> command("PRODUCE", "assetId", "machine", "kind", "coffee", "itemId", cup))
+                .hasMessage("INVALID_ITEM_KIND");
+        command("PRODUCE", "assetId", "machine", "kind", "latte", "itemId", cup);
+        room.tick(6300);
+        assertThat(room.item(cup).kind()).isEqualTo("latte");
+    }
+
+    @Test
     void lateJoinSnapshotContainsThrowTrajectoryAndLandingIsWalkable() {
         command("TAKE", "assetId", "shelf", "kind", "cookie");
         String id = held(); command("THROW", "velocity", Map.of("x", 4, "y", 3, "z", 0));

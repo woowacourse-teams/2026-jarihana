@@ -21,6 +21,10 @@ public record ItemState(String id, String kind, String holderId, String sourceAs
         return new ItemState(id, kind, null, sourceAssetId, Location.WORLD, point, null, null, remaining, null, 0);
     }
 
+    Vec3 thrownPosition(double seconds) {
+        return position.add(velocity.scale(seconds)).add(new Vec3(0, -9 * seconds * seconds, 0));
+    }
+
     public ItemState consume(String emptyKind) {
         double next = Math.max(0, remaining - 0.34);
         String nextKind = next == 0 && emptyKind != null ? emptyKind : kind;

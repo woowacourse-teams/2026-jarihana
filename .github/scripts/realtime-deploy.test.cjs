@@ -53,10 +53,11 @@ test("native action filters separate develop deployment from PR verification", (
     ["backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", false, true],
     ["backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql", false, true],
+    ["backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql", false, true],
     ["backend/src/main/resources/db/migration/V99__unrelated.sql", false, false],
-    ["contracts/realtime/v1/asset-capabilities.json", false, false],
+    ["contracts/realtime/v1/legacy-portable-items.json", false, false],
     ["contracts/realtime/v1/surface-anchors.json", false, false],
-    ["realtime/src/main/resources/contracts/asset-capabilities.json", true, true],
+    ["realtime/src/main/java/CatalogContract.java", true, true],
     ["realtime/src/main/resources/contracts/legacy-seat-anchors.json", true, true],
     ["realtime/src/main/java/Room.java", true, true],
     ["realtime/src/test/java/RoomTest.java", false, true],
@@ -96,7 +97,7 @@ test("resume resolves only the latest published digest and its original configur
   }
   commit("infra/realtime/check-candidate-revision.sh", fs.readFileSync(path.join(runtime, "check-candidate-revision.sh")));
   commit(workflow, workflowSource);
-  const revision = commit("realtime/src/main/resources/contracts/asset-capabilities.json", "{}");
+  const revision = commit("realtime/src/main/java/CatalogContract.java", "{}");
   const published = { GITHUB_EVENT_NAME: "push", GITHUB_SHA: revision, PUBLISHED_DIGEST: digest };
   const resume = { GITHUB_EVENT_NAME: "workflow_dispatch", RESUME_DIGEST: digest };
   const select = (vars) => runScript("select-candidate.sh", [state], { ...env, ...vars }, dir);
@@ -107,8 +108,9 @@ test("resume resolves only the latest published digest and its original configur
   commit("release-notes.md", "Production migration is ready");
   commit("frontend/src/pages/space/roomScene.js", "// frontend update");
   commit("backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql", "-- SQL only");
+  commit("backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql", "-- SQL only");
   commit("realtime/src/test/java/RoomTest.java", "// verification only");
-  const head = commit("contracts/realtime/v1/asset-capabilities.json", "{}");
+  const head = commit("contracts/realtime/v1/legacy-portable-items.json", "{}");
   passes(select({ ...resume, GITHUB_SHA: head }));
   assert.ok(fs.readFileSync(env.GITHUB_OUTPUT, "utf8").endsWith(`revision=${revision}\ndigest=${digest}\n`));
   for (const invalid of [
@@ -118,8 +120,8 @@ test("resume resolves only the latest published digest and its original configur
     { ...resume, GITHUB_EVENT_NAME: "pull_request" },
   ]) assert.notEqual(select(invalid).status, 0);
 
-  git("mv", "realtime/src/main/resources/contracts/asset-capabilities.json", "archived-definitions.json");
-  git("commit", "--quiet", "-m", "move a packaged resource out of the image");
+  git("mv", "realtime/src/main/java/CatalogContract.java", "archived-contract.txt");
+  git("commit", "--quiet", "-m", "move runtime source out of the image");
   assert.match(select(resume).stderr, /Develop contains newer realtime deployment changes/);
   git("checkout", "--quiet", "--detach", head);
   commit(workflow, workflowSource.replace('      - "realtime/gradle/**"', '      - "!realtime/gradle/**"'));

@@ -13,7 +13,14 @@ public record RoomLayout(long revision, long catalogGeneration, Map<String, Room
     public RoomLayout { assets = Map.copyOf(assets); }
 
     public boolean itemCapability(String kind, String capability) { return itemRules.path(kind).path(capability).asBoolean(false); }
-    public String emptyKind(String kind) { return itemRules.path(kind).path("emptyKind").asString(null); }
+    public String emptyKind(String kind) {
+        String empty = itemRules.path(kind).path("emptyKind").asString(null);
+        return empty != null && itemCapability(empty, "portable") ? empty : null;
+    }
+
+    public boolean canDrink(String kind) {
+        return kind.equals("cup") || itemCapability(kind, "consumable") && itemRules.path(kind).hasNonNull("emptyKind");
+    }
 
     public RoomAsset asset(String id, String capability) {
         RoomAsset asset = assets.get(id);

@@ -356,10 +356,6 @@ export async function installApiFixture(pageInstance, options = {}) {
     })
   );
 
-  if (!options.realRealtimeDefinitions) {
-    await pageInstance.route("**/ws/realtime", (route) => json(route, success(seeds.assetDefinitions)));
-  }
-
   await pageInstance.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -481,7 +477,8 @@ export async function installApiFixture(pageInstance, options = {}) {
       return json(route, success(seeds.blueprint(path.split("/")[3])));
     }
     if (path === "/group-spaces/furniture-catalog" && method === "GET") {
-      return json(route, success({ interactionCatalogVersion: 1, items: options.furnitureCatalog ?? seeds.furnitureCatalog }));
+      return json(route, success({ ...seeds.spaceCatalog, items: options.furnitureCatalog ?? seeds.furnitureCatalog,
+        portableItems: options.portableItems ?? seeds.portableItems }));
     }
     if (path === "/group-spaces/weather" && method === "GET") {
       return json(route, success({ weatherCode: 0, sunrise: "2026-08-21T06:00:00", sunset: now }));

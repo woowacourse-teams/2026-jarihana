@@ -60,7 +60,7 @@ public final class InteractionService {
         if (pose.equals("reading") && (actor.heldItemId() == null || !room.item(actor.heldItemId()).kind().equals("book"))) {
             throw new RuleViolation("ITEM_REQUIRED");
         }
-        if (pose.equals("drinking") && (actor.heldItemId() == null || !Set.of("cup", "coffee", "latte", "tea").contains(room.item(actor.heldItemId()).kind()))) {
+        if (pose.equals("drinking") && (actor.heldItemId() == null || !room.layout().canDrink(room.item(actor.heldItemId()).kind()))) {
             throw new RuleViolation("ITEM_REQUIRED");
         }
         room.put(actor.withPose(pose));
@@ -93,7 +93,7 @@ public final class InteractionService {
     private void produce(RoomState room, ParticipantState actor, Map<String, Object> payload, long now) {
         RoomAsset asset = nearby(room, actor, payload, "producer");
         String kind = Values.text(payload, "kind");
-        if (!asset.products().contains(kind)) throw new RuleViolation("INVALID_ITEM_KIND");
+        if (!asset.products().contains(kind) || !room.layout().itemCapability(kind, "portable")) throw new RuleViolation("INVALID_ITEM_KIND");
         AssetState state = room.assetState(asset.id());
         if (state.production() != null) throw new RuleViolation("BUSY");
         String itemId = payload.containsKey("itemId") ? Values.text(payload, "itemId") : actor.heldItemId();

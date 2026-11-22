@@ -60,7 +60,7 @@ infra/realtime/                     Docker Compose, Alloy, 검증 도구
                                     검증, GHCR 발행, 설정 전달, 공용 배포
 ```
 
-backend가 환경별 PostgreSQL에 도면과 가구 규격을 발행한다. API는 편집기와 방문 화면에 이를 전달하고, realtime은 같은 DB에서 모임의 도면·시작 위치·가구 치수와 부착면을 조회한다. 좌석·소품의 모델별 접점과 지원 행동은 프론트와 realtime이 함께 배포하는 계약 파일에 둔다.
+backend가 환경별 PostgreSQL에 도면과 가구·휴대 소품 카탈로그를 발행한다. API는 현재 환경의 두 카탈로그를 편집기와 방문 화면에 전달한다. realtime은 입장 토큰에 해당하는 DB에서 같은 카탈로그를 읽는다. 가구별 상판과 좌석의 모델 기준 위치는 프론트에서 계산한다.
 
 | 데이터 | 기준을 정하는 곳 | 저장 수명 |
 | --- | --- | --- |
@@ -105,7 +105,9 @@ flowchart LR
 | `space_furniture_catalog` | 기존 종류의 물리 규격을 보존한다. `definition.interaction`을 바꾸면 API의 새 조회와 realtime의 환경별 갱신에 반영된다. 신규 배치 중단은 `placeable=false`로 표시한다. |
 | `space_blueprint_runtime` | 도면 버전별 시작 위치와 초기 방 문서를 발행한다. 미저장 방문은 단층 라운지 11판을 읽고 revision 0을 유지한다. |
 | `space_runtime_migration` | V47 트랜잭션 끝에 완료 표시를 기록한다. 후보 서버는 교체 전에 두 DB의 실제 조회와 참조까지 검사한다. |
-| `space_furniture_catalog_migration` | V48의 상호작용 이관 완료를 표시한다. 후보 서버는 두 환경에서 카탈로그와 완료 표시를 모두 읽는다. |
+| `space_furniture_catalog_migration` | V48의 상호작용 이관 완료를 표시한다. |
+| `space_portable_item_catalog` | 휴대·투척·소비·빈 용기 규칙을 저장한다. 가구의 수납·생산 종류와 빈 용기는 존재하는 소품을 참조한다. |
+| `space_portable_item_catalog_migration` | V49의 소품 이관 완료를 표시한다. 후보 서버는 두 환경에서 가구·소품 카탈로그와 완료 표시를 검사한다. |
 
 V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
 

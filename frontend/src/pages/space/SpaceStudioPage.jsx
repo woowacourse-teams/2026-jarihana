@@ -181,10 +181,10 @@ export function StandaloneSpaceStudioPage() {
   if (catalog.isError && !catalog.data) return <ErrorState title="가구 목록을 불러오지 못했어요"
     action={<Button data-ph-capture-attribute-action="space_catalog_retry" onClick={() => catalog.refetch()}>다시 시도</Button>} />;
   if (!catalog.isFetchedAfterMount || !blueprint.data) return <div className="route-loading"><Skeleton aria-label="가구 목록 불러오는 중" /></div>;
-  return <SpaceStudioPage initialBlueprint={blueprint.data} onLoadBlueprint={fetchDefaultSpaceBlueprint} catalogItems={catalog.data} />;
+  return <SpaceStudioPage initialBlueprint={blueprint.data} onLoadBlueprint={fetchDefaultSpaceBlueprint} catalogData={catalog.data} />;
 }
 
-export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, catalogItems, onCatalogChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, catalogData, onCatalogChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
@@ -966,7 +966,7 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
         {pendingLayout && <p className="room-canvas__connection-notice" role="status">다른 곳에서 배치가 저장됐어요. 편집 내용은 유지했어요. 취소하면 새 배치를 불러와요.</p>}
         {capturedPhoto && <RoomPhotoDialog file={capturedPhoto} group={groupContext} onClose={() => setCapturedPhoto(null)} />}
         {!clubhouse && <RoomSky outdoors={outdoorLight} />}
-        <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} catalogItems={catalogItems} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
+        <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} catalogData={catalogData} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
           onInvalid={invalidPlacement} interactive={!clubhouse?.cameraFlight && !clubhouse?.orientationBlocked && !templateSwitching} view={webPreview ? "front" : view} previewExterior={clubhouse?.previewExterior} previewWideAngle={clubhouse?.previewWideAngle} zoom={webPreview ? 1 : zoom} cameraReset={cameraReset} onZoomChange={setZoom} floorView={webPreview || (clubhouse && exterior) ? "all" : activeFloorView} onThumbnails={canEdit && !templateSwitching && (category === "furniture" || category === "memories") ? setThumbnails : undefined}
           visitPointerLockRef={clubhouse?.visitPointerLockRef} walkCommand={walkCommand}
           onExitWalk={playMode ? undefined : () => changeView("perspective")} onWalkPosition={playMode ? undefined : updateWalkPosition}

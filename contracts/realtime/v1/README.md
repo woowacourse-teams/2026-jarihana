@@ -6,7 +6,7 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 
 - 기존 API: `POST /api/groups/{groupId}/space/join-token`. 기존 로그인/CSRF 정책 사용. 일반 응답 envelope의 data는 `{token,websocketUrl,expiresAt}`. expiresAt은 Unix epoch milliseconds.
 - 클라이언트는 응답의 `websocketUrl`로 연결한다. realtime의 WebSocket 경로는 `/ws/realtime`이다.
-- 일반 HTTP `GET /ws/realtime`은 가구와 소품의 기능 정의를 공개한다. `Upgrade` 헤더 없이 호출하며 응답은 `{success: true, data: {capabilities}, error: null}`이다. 로그인과 입장 토큰 없이 요청할 수 있다. 다른 origin에서 조회할 때는 자격 증명을 생략한다. 혼자 둘러보기, 독립 스튜디오와 랜딩에서도 이 정의를 사용한다.
+- 일반 HTTP `GET /ws/realtime`은 `Upgrade` 헤더 없이 호출하는 공개 준비 확인 경로다. 응답은 `{success: true, data: {catalogContractVersion: 2}, error: null}`이다. 브라우저의 혼자 둘러보기, 독립 스튜디오, 랜딩과 공동 입장은 현재 환경의 `GET /api/group-spaces/furniture-catalog`에서 가구와 소품 규칙을 받는다.
 - JWT HS256의 `iss`는 개발 `jarihana-api-dev`, 운영 `jarihana-api-prod`다. 공통 필드는 `aud=jarihana-realtime`, `sub=memberId`, `roomId=groupId`, `jti`, `iat/exp`(seconds)다. 입장 수명은 60초다.
 - realtime은 발급자와 환경별 입장 키로 서명을 함께 검증한 뒤 해당 환경의 PostgreSQL에서 회원, 모임, 역할, 저장 배치를 읽는다. 각 환경의 기존 API가 배치 저장과 스키마 변경을 담당한다.
 - 서버는 발급 환경과 `roomId`를 묶어서 방을 구분한다. 같은 모임이나 회원 ID도 환경이 다르면 별도 상태를 갖는다. WebSocket 경로와 메시지의 `roomId` 형식은 공통이다.
@@ -98,7 +98,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 
 ## 가구·물건과 배치 교체
 
-- 환경별 DB의 `space_furniture_catalog.definition.interaction`이 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 브라우저는 `GET /api/group-spaces/furniture-catalog`에서 이 값을 읽는다. `GET /ws/realtime`의 [소품 정의](../../../realtime/src/main/resources/contracts/asset-capabilities.json)는 소품 자체의 휴대·소비·투척 규칙을 제공한다.
+- 환경별 DB의 `space_furniture_catalog.definition.interaction`이 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 같은 환경의 `space_portable_item_catalog.definition`에 소품의 휴대·소비·투척·빈 용기 규칙을 둔다. 브라우저는 두 카탈로그를 `GET /api/group-spaces/furniture-catalog`에서 함께 읽는다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
 - 프론트에서 좌석 번호에 맞는 높이와 상대 좌표를 현재 가구 위치·회전·배율·층에 적용한다. `avatarOffsetY`는 캐릭터 원점, `seatFit`은 좌판 앞쪽과 팔걸이 간격에 맞춘 보정이다. 1인칭 카메라, 로컬 3인칭 아바타, 원격 참가자가 같은 계산을 사용한다.
 - 환경 DB의 `space_furniture_catalog.definition`에서 치수·장착 방식·부착면 높이를 읽고, 모임에 연결된 도면 버전에서 지형과 시작 위치를 읽는다.

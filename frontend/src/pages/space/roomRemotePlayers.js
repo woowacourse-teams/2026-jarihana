@@ -1,5 +1,6 @@
 import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
+import { portableDefinition } from "../../features/group-space/furnitureCatalog.js";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
 import { localToWorld } from "./assetCustomization.js";
@@ -239,7 +240,7 @@ export function createRemotePlayers(scene, render, getRoom = () => null, prepare
       if (!store) return [];
       const room = getRoom();
       const mezzanine = room ? getRoomLayout(room).mezzanine?.height : undefined;
-      return store.getState().items.filter((item) => ["WORLD", "SURFACE"].includes(item.location)).flatMap((item) => {
+      return store.getState().items.filter((item) => ["WORLD", "SURFACE"].includes(item.location) && portableDefinition(item.kind)).flatMap((item) => {
         const placement = sharedItemPlacement(item, room);
         if (!placement) return [];
         const { furniture, position } = placement;

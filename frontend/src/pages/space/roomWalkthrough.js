@@ -10,7 +10,8 @@ import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
 import { fitSeatedAvatar } from "./seatedAvatar.js";
 import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
 import { aimedInteraction, nearestSeat, SEATED_CHOICES } from "./walkInteractions";
-import { availableSeat, portableDefinition, sharedInteractionTarget } from "./roomCapabilities.js";
+import { portableDefinition } from "../../features/group-space/furnitureCatalog.js";
+import { availableSeat, sharedInteractionTarget } from "./roomCapabilities.js";
 
 const WALK_VIEWS = new Set(["firstPerson", "thirdPerson"]);
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
@@ -229,18 +230,19 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
 
   function sharedPoseChoices() {
-    if (!realtime) return SEATED_CHOICES;
+    if (!realtime) return SEATED_CHOICES.filter(({ id }) => id === "empty" || portableDefinition(id));
+    const definition = portableDefinition(held);
     return [{ id: "relaxed", label: "편히 앉기", action: "space_seat_relax" },
-      ...(held === "book" ? [{ id: "reading", label: "책 읽기", action: "space_seat_read" }] : []),
-      ...(["cup", "coffee", "latte", "tea"].includes(held) ? [{ id: "drinking", label: "컵 들기", action: "space_seat_hold_cup" }] : [])];
+      ...(definition && held === "book" ? [{ id: "reading", label: "책 읽기", action: "space_seat_read" }] : []),
+      ...(definition && (held === "cup" || definition.consumable && definition.emptyKind)
+        ? [{ id: "drinking", label: "컵 들기", action: "space_seat_hold_cup" }] : [])];
   }
 
   function publishInteraction() {
-    const poseChoices = sharedPoseChoices();
-    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? poseChoices : null, held,
-      throwable: Boolean(realtime && portableDefinition(held)?.throwable),
-      consumable: Boolean(realtime && portableDefinition(held)?.consumable),
-      camera: Boolean(realtime && portableDefinition(held)?.camera), shared: Boolean(realtime), pending: actionPending || consuming, feedback });
+    const definition = realtime ? portableDefinition(held) : undefined;
+    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? sharedPoseChoices() : null, held: realtime && !definition ? null : held,
+      throwable: Boolean(definition?.throwable), consumable: Boolean(definition?.consumable),
+      camera: Boolean(definition?.camera), shared: Boolean(realtime), pending: actionPending || consuming, feedback });
   }
 
   function sharedCommand(command) {
@@ -254,8 +256,14 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
 
   function heldAction(action) {
-    if (!realtime || !heldItemId || (action === "CONSUME" && consuming)) return;
-    if (action === "CAPTURE") { onCapture?.(); return; }
+    if (!realtime || !heldItemId) return;
+    const definition = portableDefinition(held);
+    if (!definition || (action === "THROW" && !definition.throwable) ||
+      (action === "CONSUME" && (!definition.consumable || consuming))) return;
+    if (action === "CAPTURE") {
+      if (definition.camera) onCapture?.();
+      return;
+    }
     const forward = { x: Math.sin(yaw), z: -Math.cos(yaw) };
     const payload = { action, itemId: heldItemId };
     if (action === "DROP") payload.position = { x: position.x + forward.x * 0.7, y: position.y || 0, z: position.z + forward.z * 0.7 };
@@ -657,7 +665,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       return;
     }
     if (realtime && event.code === "KeyG" && held) {
-      event.preventDefault(); if (!event.repeat && portableDefinition(held)?.throwable) heldAction("THROW"); return;
+      event.preventDefault(); if (!event.repeat) heldAction("THROW"); return;
     }
     if (realtime && event.code === "KeyH") {
       event.preventDefault(); if (!event.repeat) sharedCommand({ action: "EMOTE", kind: "wave" }); return;
@@ -724,8 +732,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
   function activateHeldItem(event) {
     if (!realtime || !acceptsInput() || event.button !== 0 || !held || menu || approaching || event.pointerType === "touch") return false;
-    if (portableDefinition(held)?.consumable) { heldAction("CONSUME"); return true; }
-    if (portableDefinition(held)?.camera) { onCapture?.(); return true; }
+    const definition = portableDefinition(held);
+    if (definition?.consumable) { heldAction("CONSUME"); return true; }
+    if (definition?.camera) { heldAction("CAPTURE"); return true; }
     return false;
   }
   function onLockedMouseDown(event) {
@@ -891,7 +900,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (action === "putAway") { putAway(); return; }
       if (action === "throw") { heldAction("THROW"); return; }
       if (action === "consume") { heldAction("CONSUME"); return; }
-      if (action === "capture") { onCapture?.(); return; }
+      if (action === "capture") { heldAction("CAPTURE"); return; }
       if (action === "greet") { sharedCommand({ action: "EMOTE", kind: "wave" }); return; }
       if (action === "cancelInteraction") { closeInteraction(); return; }
       if (menu || approaching) return;

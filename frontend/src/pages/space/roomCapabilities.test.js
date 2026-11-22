@@ -1,7 +1,7 @@
 import { availableSeat, sharedInteractionTarget, usableSurfaceAnchor } from "./roomCapabilities";
 import { itemInteraction } from "./walkInteractions";
 import { createInitialRoom } from "./roomState";
-import { installFurnitureCatalog } from "../../features/group-space/furnitureCatalog.js";
+import { installFurnitureCatalog, installSpaceCatalog } from "../../features/group-space/furnitureCatalog.js";
 import { seatedAvatarPlacement, usableSeatCount } from "./seatedAvatar.js";
 import seatModelAnchors from "./seatModelAnchors.json";
 
@@ -68,6 +68,26 @@ test("solo vending only offers configured drinks and snacks", () => {
     expect(itemInteraction({ ...item, kind: "kitchenCounter" }, 0, false, room).choices.map(choice => choice.id)).toEqual(["cookie"]);
   } finally {
     installFurnitureCatalog(furnitureCatalog);
+  }
+});
+
+test("disabling a portable kind removes it from storage, production and solo options", () => {
+  const { spaceCatalog, portableItems } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const cabinet = { ...item, kind: "cafeCabinet" };
+  const open = { ...state, assets: { [cabinet.id]: { open: true } } };
+  const heldCup = { id: "cup", kind: "cup", location: "HELD", holderId: "1" };
+  const usingCup = { ...open, participants: [{ memberId: "1", heldItemId: heldCup.id }], items: [heldCup] };
+  installSpaceCatalog({ ...spaceCatalog, portableItems: { ...portableItems,
+    tea: { ...portableItems.tea, portable: false }, coffee: { ...portableItems.coffee, portable: false } } });
+  try {
+    const target = itemInteraction(cabinet, 0, false, room);
+    expect(target.choices.map(({ id }) => id)).toEqual(["latte", "cookie"]);
+    const storage = sharedInteractionTarget(target, open).choices.filter(({ command }) => command.action === "TAKE");
+    expect(storage.map(({ command }) => command.kind)).toEqual(["cup", "cookie"]);
+    const production = sharedInteractionTarget(target, usingCup).choices.filter(({ command }) => command.action === "PRODUCE");
+    expect(production.map(({ command }) => command.kind)).toEqual(["latte"]);
+  } finally {
+    installSpaceCatalog(spaceCatalog);
   }
 });
 

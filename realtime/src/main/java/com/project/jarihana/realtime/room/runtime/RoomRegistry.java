@@ -242,9 +242,9 @@ public final class RoomRegistry {
 
     private void refreshLayouts(RealtimeEnvironment environment) {
         try {
-            roomReads.refreshFurniture(environment);
+            roomReads.refreshCatalog(environment);
         } catch (RuntimeException error) {
-            warnOnDatabaseFailure(error, environment, "furniture_refresh");
+            warnOnDatabaseFailure(error, environment, "catalog_refresh");
         } finally {
             rooms.forEach((key, room) -> {
                 if (key.environment() == environment && room.beginRefresh()) {
@@ -258,8 +258,8 @@ public final class RoomRegistry {
     private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
         var runtime = roomReads.blueprint(environment, blueprint);
         JsonNode document = runtime.document(room);
-        var furniture = roomReads.furniture(environment, document);
-        return catalog.read(revision, furniture.generation(), document, runtime, furniture.definitions());
+        var definitions = roomReads.catalog(environment, document);
+        return catalog.read(revision, definitions.generation(), document, runtime, definitions.furniture(), definitions.portableItems());
     }
 
     private void submit(Runnable work, Runnable rejected) {

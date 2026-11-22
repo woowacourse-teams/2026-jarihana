@@ -18,6 +18,7 @@ public final class TestBlueprints {
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     public static final JsonNode FURNITURE = furniture();
+    public static final JsonNode PORTABLE_ITEMS = seedArray("V49__space_portable_item_catalog.sql", "$portable_items$");
     private static final JsonNode DEFAULTS = seedArray("V47__space_blueprint_runtime.sql", "$defaults$");
 
     public static BlueprintRuntime runtime(String key) {

@@ -93,7 +93,12 @@ final class ItemInteractions {
         if (emptyKind == null && updated.remaining() == 0) {
             room.removeItem(item.id());
             room.put(actor.hold(null));
-        } else room.put(updated);
+        } else {
+            room.put(updated);
+            if (actor.pose().equals("drinking") && !room.layout().canDrink(updated.kind())) {
+                room.put(actor.withPose("relaxed"));
+            }
+        }
     }
 
     void returnItem(RoomState room, ParticipantState actor, Map<String, Object> payload) {

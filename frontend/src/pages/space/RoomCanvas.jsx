@@ -5,7 +5,7 @@ import "./room-canvas-play.css";
 const PREVIEW_CONTROLS = "화면을 클릭한 뒤 W/S로 전진·후진, A/D로 좌우 이동, Q/E로 하강·상승할 수 있어요. 마우스 드래그로 방향을 돌리고 Home 키로 처음 구도로 돌아갈 수 있어요.";
 const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 사진 보기", music: "재생목록 보기" };
 
-export function RoomCanvas({ room, catalogItems, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
+export function RoomCanvas({ room, catalogData, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
   avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange, realtime, onCapture, onSharedLighting }) {
   const host = useRef(null);
@@ -50,7 +50,7 @@ export function RoomCanvas({ room, catalogItems, signName, selectedId, onSelect,
 
   useLayoutEffect(() => {
     scene.current?.refreshCatalog?.();
-  }, [catalogItems]);
+  }, [catalogData]);
 
   useLayoutEffect(() => {
     currentAvatarAppearance.current = avatarAppearance;

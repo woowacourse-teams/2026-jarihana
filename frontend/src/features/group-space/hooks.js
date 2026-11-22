@@ -1,26 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { installAssetDefinitions } from "./assetDefinitions.js";
-import { installFurnitureCatalog } from "./furnitureCatalog.js";
-import { fetchAssetDefinitions, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "./api.js";
+import { installSpaceCatalog } from "./furnitureCatalog.js";
+import { fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "./api.js";
 
 export const groupSpaceKeys = {
   detail: (groupId, memberId) => ["group-space", String(groupId), memberId]
 };
 
-const portableDefinitionsQuery = {
-  queryKey: ["space-portable-definitions"],
-  queryFn: ({ signal }) => fetchAssetDefinitions(signal),
-  staleTime: Infinity,
-  retry: false
-};
-
 export const furnitureCatalogQuery = {
   queryKey: ["space-furniture-catalog"],
-  queryFn: async ({ client, signal }) => {
-    const [catalog, definitions] = await Promise.all([fetchFurnitureCatalog(signal), client.fetchQuery(portableDefinitionsQuery)]);
+  queryFn: async ({ signal }) => {
+    const catalog = await fetchFurnitureCatalog(signal);
     signal.throwIfAborted();
-    installAssetDefinitions(definitions);
-    return installFurnitureCatalog(catalog.items);
+    installSpaceCatalog(catalog);
+    return catalog;
   },
   staleTime: 0,
   refetchOnMount: "always",

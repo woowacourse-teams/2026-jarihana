@@ -6,6 +6,7 @@ import { createInitialRoom } from "./roomState";
 import { bindRoomBlueprint, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition } from "./roomNavigation";
 import { itemInteraction, lightInteraction } from "./walkInteractions";
+import { installSpaceCatalog } from "../../features/group-space/furnitureCatalog.js";
 
 let frames;
 let frameId;
@@ -16,12 +17,12 @@ beforeEach(() => {
   jest.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => frames.delete(id));
 });
 afterEach(() => { jest.restoreAllMocks(); document.body.innerHTML = ""; });
-function setup(obstacles = [], template = "climbing") {
+function setup(obstacles = [], template = "climbing", callbacks = {}) {
   const scene = new THREE.Scene();
   const container = document.createElement("div"); container.tabIndex = 0; document.body.append(container);
   const onPosition = jest.fn();
   const room = createInitialRoom(template);
-  const walk = createWalkthrough(scene, container, { getRoom: () => room, getObstacles: () => obstacles, render: jest.fn(), onPosition });
+  const walk = createWalkthrough(scene, container, { getRoom: () => room, getObstacles: () => obstacles, render: jest.fn(), onPosition, ...callbacks });
   return { scene, container, onPosition, walk };
 }
 function advance(time) {
@@ -1010,6 +1011,51 @@ test("locked mouse clicks reach the lock owner and consume once without affectin
     expect(command).toHaveBeenCalledTimes(1);
     expect(command).toHaveBeenCalledWith({ action: "CONSUME", itemId: "cookie" });
   } finally { walk.dispose(); delete document.pointerLockElement; delete document.exitPointerLock; }
+});
+
+test("live portable rules gate held-item shortcuts, HUD actions and camera use", async () => {
+  const { spaceCatalog, portableItems } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const onInteractionChange = jest.fn();
+  const onCapture = jest.fn();
+  const { walk, container } = setup([], "climbing", { onInteractionChange, onCapture });
+  const command = jest.fn().mockResolvedValue(undefined);
+  const actor = { memberId: "1", position: { x: 0, y: 0, z: 8 }, yaw: 0, seat: null };
+  const state = { type: "ROOM_SNAPSHOT", roomEpoch: "e", layoutRevision: 1, selfId: "1", assets: {} };
+  const hold = (kind) => walk.applyRealtimeState({ ...state, participants: [{ ...actor, heldItemId: kind }],
+    items: [{ id: kind, kind, location: "HELD", remaining: 1 }] });
+  const throwKey = () => container.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyG" }));
+  const changed = { ...spaceCatalog, portableItems: { ...portableItems,
+    cookie: { ...portableItems.cookie, throwable: false, consumable: false },
+    camera: { ...portableItems.camera, camera: false } } };
+  try {
+    walk.update("thirdPerson", "#536bd6");
+    walk.setRealtime({ connection: { command, move: jest.fn() }, store: { getState: () => state, serverNow: () => 1000 } });
+    hold("cookie");
+    expect(onInteractionChange).toHaveBeenLastCalledWith(expect.objectContaining({ throwable: true, consumable: true }));
+    installSpaceCatalog(changed);
+    walk.refreshInteractions();
+    expect(onInteractionChange).toHaveBeenLastCalledWith(expect.objectContaining({ held: "cookie", throwable: false, consumable: false }));
+    throwKey();
+    walk.command("throw");
+    walk.command("consume");
+    expect(command).not.toHaveBeenCalled();
+    hold("camera");
+    expect(onInteractionChange).toHaveBeenLastCalledWith(expect.objectContaining({ held: "camera", camera: false }));
+    walk.command("capture");
+    expect(onCapture).not.toHaveBeenCalled();
+    installSpaceCatalog(spaceCatalog);
+    walk.refreshInteractions();
+    expect(onInteractionChange).toHaveBeenLastCalledWith(expect.objectContaining({ camera: true }));
+    walk.command("capture");
+    expect(onCapture).toHaveBeenCalledTimes(1);
+    hold("cookie");
+    throwKey();
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: "THROW", itemId: "cookie" }));
+    await Promise.resolve();
+  } finally {
+    walk.dispose();
+    installSpaceCatalog(spaceCatalog);
+  }
 });
 
 test.each(["unavailable", "denied"])("mouse look recovers when pointer lock is %s", (mode) => {

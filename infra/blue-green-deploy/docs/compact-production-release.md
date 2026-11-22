@@ -2,6 +2,8 @@
 
 배포 대상 파일이 main에 푸시되면 [Production Release V2](../../../.github/workflows/backend-prod-deploy-v2.yml)가 한 번 실행된다. 프론트 변경은 프론트만 게시하고 백엔드 변경은 기존 프론트를 재사용한다. 양쪽 코드나 공통 배포 설정이 바뀌면 함께 배포한다. 자동 실행 그래프에는 정상 배포와 복구를 합쳐 잡 14개가 표시된다. 공동 배포가 성공하면 8개가 실행되고 6개는 건너뛴다.
 
+main push에 V48 가구 상호작용 또는 V49 휴대 소품 마이그레이션 파일이 새로 들어오면 자동 실행은 `backend_only`를 선택한다. 이때 올라가는 백엔드가 운영 DB의 Flyway를 적용한다. 개발 DB도 이관한 뒤 공용 realtime 후보를 재개하고 공개 준비 확인을 통과하면 운영 프론트를 `frontend_only`로 게시한다. 이후 main push에는 일반 변경 범위 규칙이 적용된다. [아지트 카탈로그 배포 순서](../../realtime/README.md)
+
 운영 승격 전 같은 커밋 `173b12a`로 공동 배포를 비교했다. [V1 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44477273481)은 21분 12초, [V2 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44480052966)은 18분 15초에 성공했다. 두 실행에서 API와 워커의 5분 관측을 통과했다.
 
 | Actions에 표시되는 잡 | 동작 |

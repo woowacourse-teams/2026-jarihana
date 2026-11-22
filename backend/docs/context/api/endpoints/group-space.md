@@ -23,6 +23,13 @@ V48은 가구별 `interaction`에 동작 목록 `capabilities`, 좌석 수 `seat
 `surface.slots`는 방문 중 옮길 수 있는 소품의 슬롯 수다. 장면에 고정된
 `room-general-light-switch`는 상호작용 정의를 조회할 수 있으며, 편집기 배치 대상에서 제외된다.
 
+V49부터 같은 응답에 `data.portableCatalogVersion: 1`과 `data.portableItems`를 제공한다.
+`portableItems`는 소품 `kind`를 키로 사용한다. 값은 집기, 던지기, 소비 가능 여부를 나타내는
+`portable`, `throwable`, `consumable`과 필요한 경우 `camera`, 소비 후 남을 소품 `emptyKind`를 포함한다.
+가구와 휴대 소품 규칙은 같은 시점의 DB 상태에서 읽는다. `storage.kinds`, `producer.kinds`,
+`emptyKind`가 참조하는 소품은 먼저 카탈로그에 등록해야 한다. 참조 중인 소품을 삭제하거나
+저장 키를 바꾸려면 참조부터 제거해야 한다.
+
 편집기와 realtime 서버는 같은 환경의 DB 카탈로그를 사용한다. 상호작용 규칙만 변경하면
 API 재시작이나 배치 재저장 없이 이후 조회에 반영된다. 운영 중 신규 배치를 중단할 때는
 가구의 행과 `kind`를 유지하고 `placeable`을 false로 변경한다.

@@ -123,7 +123,7 @@ public final class RoomState {
         for (ItemState item : new ArrayList<>(items.values())) {
             if (item.location() != ItemState.Location.THROWN) continue;
             double seconds = (now - item.startedAt()) / 1000.0;
-            Vec3 point = item.position().add(item.velocity().scale(seconds)).add(new Vec3(0, -9 * seconds * seconds, 0));
+            Vec3 point = item.thrownPosition(seconds);
             if (point.y() <= layout.floorAt(point) || seconds >= 3) {
                 items.put(item.id(), item.dropAt(layout.safe(point)));
                 changed = true;
@@ -147,7 +147,8 @@ public final class RoomState {
     public boolean replaceLayout(RoomLayout next, long now) {
         if (next.revision() < layout.revision() || next.catalogGeneration() < layout.catalogGeneration()) return false;
         if (next.revision() == layout.revision() && next.catalogGeneration() == layout.catalogGeneration()) return false;
-        if (next.revision() != layout.revision() || !next.assets().equals(layout.assets())) {
+        if (next.revision() != layout.revision() || !next.assets().equals(layout.assets()) ||
+                !next.itemRules().equals(layout.itemRules())) {
             new LayoutReconciliation().apply(this, next, now);
         }
         layout = next;

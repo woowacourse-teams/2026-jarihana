@@ -210,6 +210,18 @@ async function migrateFurnitureInteractions(environment) {
   assert.equal(after, before, "V48 must preserve the existing furniture rows");
 }
 
+async function migratePortableItems(environment) {
+  const { databaseName } = environments[environment];
+  const migration = await readFile(path.join(migrations, "V49__space_portable_item_catalog.sql"), "utf8");
+  const furnitureQuery = "SELECT kind, definition FROM space_furniture_catalog ORDER BY kind;";
+  const before = sql(furnitureQuery, databaseName);
+  sql(`BEGIN; ${migration} COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_portable_item_catalog_migration;", databaseName).trim(), "1");
+  const definitions = sql("SELECT jsonb_object_agg(kind, definition) FROM space_portable_item_catalog;", databaseName);
+  assert.deepEqual(JSON.parse(definitions), JSON.parse(migration.split("$portable_items$")[1]));
+  assert.equal(sql(furnitureQuery, databaseName), before);
+}
+
 function startServer(extraArgs = [], jar = candidateJar) {
   const environmentSettings = {};
   for (const [environment, { databaseName, reader, password, tokenKey, port }] of Object.entries(environments)) {
@@ -357,6 +369,31 @@ async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
     return itemId;
   };
   await perform(dev, { action: "OPEN", assetId: "counter" });
+  await perform(prod, { action: "OPEN", assetId: "counter" });
+  const tea = await take("tea");
+  await perform(prod, { action: "TAKE", assetId: "counter", kind: "tea" });
+  const prodTea = await waitFor(() => participant(prod, "101").heldItemId, "production tea");
+  const originalGeneration = dev.state.catalogGeneration;
+  const originalProdGeneration = prod.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET
+    definition = definition || '{"throwable":false,"consumable":false}'::jsonb WHERE kind = 'tea';`);
+  await waitFor(() => dev.state.catalogGeneration > originalGeneration, "portable definition refresh");
+  assert.deepEqual(context(dev), initial);
+  assert.equal(prod.state.catalogGeneration, originalProdGeneration);
+  assert.equal((await command(dev, { action: "THROW", itemId: tea })).code, "NOT_THROWABLE");
+  assert.equal((await command(dev, { action: "CONSUME", itemId: tea })).code, "NOT_CONSUMABLE");
+  await perform(prod, { action: "THROW", itemId: prodTea });
+  await waitFor(() => prod.state.items.some(item => item.id === prodTea && item.location === "THROWN"), "production still throws tea");
+  const editedGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET
+    definition = definition || '{"throwable":true,"consumable":true}'::jsonb WHERE kind = 'tea';`);
+  await waitFor(() => dev.state.catalogGeneration > editedGeneration, "restored portable definition");
+  for (let sip = 0; sip < 3; sip++) await perform(dev, { action: "CONSUME", itemId: tea });
+  await waitFor(() => devProp(tea)?.kind === "cup", "tea changes into its DB-defined empty kind");
+  assert.equal(participant(dev, "101").heldItemId, tea);
+  await perform(dev, { action: "DROP", itemId: tea });
+  receipt.push("portable rules refresh on the same dev socket, production still throws tea, and consuming restored tea keeps its ID and yields a cup");
+
   const onFirstSurface = await attach("cookie", "PLACE", "SURFACE", 0);
   const onRemovedSurface = await attach("cookie", "PLACE", "SURFACE", 1);
   const storedCookie = await attach("cookie", "RETURN", "STORAGE", 0);
@@ -477,17 +514,23 @@ try {
   await migrateFurnitureInteractions("dev");
   assert.notEqual(await checkRuntime(), 0, "V48 in development alone is not ready");
   await migrateFurnitureInteractions("prod");
+  assert.notEqual(await checkRuntime(), 0, "V48 in both databases still needs the portable item catalog");
+  await migratePortableItems("dev");
+  assert.notEqual(await checkRuntime(), 0, "V49 in development alone is not ready");
+  await migratePortableItems("prod");
   if (previousUrl) {
     for (const environment of Object.keys(environments)) {
       const cold = await connect(previousUrl, "101", "12", { environment });
       assert.equal(cold.state.layoutRevision, 2);
       cold.socket.close(1000, "LEAVE");
     }
-    receipt.push("the previous develop JAR still cold-joins both databases after V46–V48");
+    receipt.push("the previous develop JAR still cold-joins both databases after V46–V49");
   }
   for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"],
     ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"],
-    ["placeable", "space_furniture_catalog"], ["version", "space_furniture_catalog_migration"]]) {
+    ["placeable", "space_furniture_catalog"], ["version", "space_furniture_catalog_migration"],
+    ["kind", "space_portable_item_catalog"], ["definition", "space_portable_item_catalog"],
+    ["version", "space_portable_item_catalog_migration"]]) {
     const { databaseName, reader } = environments.prod;
     sql(`REVOKE SELECT (${column}) ON ${table} FROM ${reader};`, databaseName);
     assert.notEqual(await checkRuntime(), 0, "candidate must read " + table + "." + column);
@@ -497,7 +540,7 @@ try {
   assert.notEqual(await checkRuntime(), 0, "a default must have an initialized room");
   sql("UPDATE space_blueprint_default SET blueprint_version = 12 WHERE template_key = 'lounge';");
   assert.equal(await checkRuntime(), 0);
-  receipt.push("preflight requires V48 in both databases and separate read grants for the interaction marker, catalog and blueprints");
+  receipt.push("preflight requires V48 and V49 in both databases and separate read grants for both catalogs, migration markers and blueprints");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
     assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName), savedRows[environment]);
     assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 1;", databaseName).trim(), "lounge:11");
@@ -512,20 +555,17 @@ try {
   }, "Spring startup", 45000);
   const realtimeOrigin = `http://127.0.0.1:${port}`;
   browserPreview?.setRealtimeOrigin(realtimeOrigin);
-  const definitions = await fetch(`${realtimeOrigin}/ws/realtime`, {
-    headers: { Origin: "https://frontend.example" },
-    signal: AbortSignal.timeout(5000)
-  });
-  assert.equal(definitions.status, 200);
-  assert.equal(definitions.headers.get("access-control-allow-origin"), "*");
-  assert.equal(definitions.headers.get("access-control-allow-credentials"), null);
-  const { success, data } = await definitions.json();
-  assert.equal(success, true);
-  const contracts = path.join(root, "realtime/src/main/resources/contracts");
-  assert.deepEqual(data, { capabilities: JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")) });
-  assert.equal(data.capabilities.assets, undefined);
-  assert.equal(data.capabilities.items.coffee.emptyKind, "cup");
-  receipt.push("public cross-origin realtime GET exposes intrinsic item rules only");
+  for (const environment of Object.keys(environments)) {
+    const marker = await fetch(`${realtimeOrigin}/ws/realtime`, {
+      headers: { Origin: `https://${environment}.frontend.example` },
+      signal: AbortSignal.timeout(5000)
+    });
+    assert.equal(marker.status, 200);
+    assert.equal(marker.headers.get("access-control-allow-origin"), "*");
+    assert.equal(marker.headers.get("access-control-allow-credentials"), null);
+    assert.deepEqual(await marker.json(), { success: true, data: { catalogContractVersion: 2 }, error: null });
+  }
+  receipt.push("public cross-origin realtime GET exposes a readiness marker without environment catalog data");
   const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();

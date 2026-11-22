@@ -3,7 +3,7 @@ import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } fr
 import { boundsForBox, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition, moveWalker } from "./roomNavigation";
 import { footprint } from "./roomState";
-import { capabilitiesFor } from "./roomCapabilities.js";
+import { capabilitiesFor, portableDefinition } from "../../features/group-space/furnitureCatalog.js";
 import { assetScale, localToWorld } from "./assetCustomization.js";
 import { seatedAvatarPlacement, usableSeatCount } from "./seatedAvatar.js";
 
@@ -34,8 +34,8 @@ export function itemInteraction(item, elevation, occupied, room) {
   const seatCount = usableSeatCount(item.kind);
   const feature = featureForRoomItem(item);
   const plant = definition.capabilities.includes("careable");
-  const drinks = DRINKS.filter(({ id }) => definition.producer?.kinds.includes(id));
-  const snacks = SNACK_CHOICES.filter(({ id }) => definition.storage?.kinds.includes(id));
+  const drinks = DRINKS.filter(({ id }) => definition.producer?.kinds.includes(id) && portableDefinition(id));
+  const snacks = SNACK_CHOICES.filter(({ id }) => definition.storage?.kinds.includes(id) && portableDefinition(id));
   const carry = drinks.length > 0 || snacks.length > 0;
   if (occupied && seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
   if (!seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;

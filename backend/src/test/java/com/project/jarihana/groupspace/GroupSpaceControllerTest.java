@@ -42,6 +42,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class GroupSpaceControllerTest extends IntegrationTestSupport {
@@ -140,6 +141,102 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                     UPDATE space_furniture_catalog
                     SET definition = jsonb_set(definition, '{interaction,seatCount}', '3') WHERE kind = 'sofa'
                     """);
+        }
+    }
+
+    @Test
+    @DisplayName("공개 카탈로그는 현재 휴대 소품 규칙과 그 소품을 사용하는 가구를 함께 내려준다")
+    void servesUpdatedPortableItemCatalog() {
+        given().get("/group-spaces/furniture-catalog").then().statusCode(200)
+                .header("Cache-Control", equalTo("no-store"))
+                .body("data.portableCatalogVersion", equalTo(1))
+                .body("data.portableItems.size()", equalTo(7))
+                .body("data.portableItems.cup.throwable", equalTo(true))
+                .body("data.portableItems.tea.emptyKind", equalTo("cup"))
+                .body("data.portableItems.camera.camera", equalTo(true))
+                .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.storage.kinds", hasItems("cup", "tea"));
+
+        jdbc.update("""
+                UPDATE space_portable_item_catalog
+                SET definition = jsonb_set(definition, '{throwable}', 'false') WHERE kind = 'cup'
+                """);
+        try {
+            given().get("/group-spaces/furniture-catalog").then().statusCode(200)
+                    .body("data.portableItems.cup.throwable", equalTo(false))
+                    .body("data.portableItems.latte.emptyKind", equalTo("cup"))
+                    .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.storage.kinds", hasItems("cup", "tea"));
+        } finally {
+            jdbc.update("""
+                    UPDATE space_portable_item_catalog
+                    SET definition = jsonb_set(definition, '{throwable}', 'true') WHERE kind = 'cup'
+                    """);
+        }
+    }
+
+    @Test
+    @DisplayName("등록되지 않은 휴대 소품 참조와 가구 또는 다른 소품이 참조하는 휴대 소품 삭제를 거부한다")
+    void enforcesPortableCatalogReferences() {
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE space_portable_item_catalog
+                SET definition = jsonb_set(definition, '{emptyKind}', '"missing"') WHERE kind = 'latte'
+                """)).isInstanceOf(DataIntegrityViolationException.class).hasMessageContaining("portable_item_empty_kind_fk");
+        for (String rule : List.of("storage", "producer")) {
+            assertThatThrownBy(() -> jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, ARRAY['interaction', ?, 'kinds'], '["missing"]')
+                    WHERE kind = 'cafeCabinet'
+                    """, rule)).isInstanceOf(DataIntegrityViolationException.class).hasMessageContaining("furniture_portable_item_kind_fk");
+        }
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM space_portable_item_catalog WHERE kind = 'cookie'"))
+                .isInstanceOf(DataIntegrityViolationException.class).hasMessageContaining("furniture_portable_item_kind_fk");
+
+        jdbc.update("""
+                INSERT INTO space_portable_item_catalog (kind, definition) VALUES
+                    ('emptyFixture', '{"portable":true,"throwable":false,"consumable":false}'),
+                    ('drinkFixture', '{"portable":true,"throwable":false,"consumable":true,"emptyKind":"emptyFixture"}')
+                """);
+        try {
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM space_portable_item_catalog WHERE kind = 'emptyFixture'"))
+                    .isInstanceOf(DataIntegrityViolationException.class).hasMessageContaining("portable_item_empty_kind_fk");
+        } finally {
+            jdbc.update("DELETE FROM space_portable_item_catalog WHERE kind IN ('drinkFixture', 'emptyFixture')");
+        }
+    }
+
+    @Test
+    @DisplayName("가구에서 참조를 추가하는 도중에는 같은 휴대 소품을 삭제할 수 없다")
+    void protectsPortableReferencesFromConcurrentDeletion() throws SQLException {
+        String priorDefinition = jdbc.queryForObject("""
+                SELECT definition::text FROM space_furniture_catalog WHERE kind = 'cafeCabinet'
+                """, String.class);
+        jdbc.update("""
+                INSERT INTO space_portable_item_catalog (kind, definition)
+                VALUES ('concurrentFixture', '{"portable":true,"throwable":false,"consumable":false}')
+                """);
+        try (var writer = jdbc.getDataSource().getConnection(); var remover = jdbc.getDataSource().getConnection();
+             var addReference = writer.createStatement(); var removeItem = remover.createStatement()) {
+            writer.setAutoCommit(false);
+            addReference.executeUpdate("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{interaction,storage,kinds}', '["concurrentFixture"]')
+                    WHERE kind = 'cafeCabinet'
+                    """);
+            removeItem.execute("SET lock_timeout = '300ms'");
+            try {
+                String deleteItem = "DELETE FROM space_portable_item_catalog WHERE kind = 'concurrentFixture'";
+                assertThatThrownBy(() -> removeItem.executeUpdate(deleteItem))
+                        .isInstanceOfSatisfying(SQLException.class, exception ->
+                                assertThat(exception.getSQLState()).isEqualTo("55P03"));
+                writer.commit();
+                assertThatThrownBy(() -> removeItem.executeUpdate(deleteItem))
+                        .isInstanceOfSatisfying(SQLException.class, exception ->
+                                assertThat(exception.getSQLState()).isEqualTo("23503"));
+            } finally {
+                removeItem.execute("RESET lock_timeout");
+            }
+        } finally {
+            jdbc.update("UPDATE space_furniture_catalog SET definition = ?::jsonb WHERE kind = 'cafeCabinet'", priorDefinition);
+            assertThat(jdbc.update("DELETE FROM space_portable_item_catalog WHERE kind = 'concurrentFixture'")).isEqualTo(1);
         }
     }
 
@@ -290,6 +387,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         String furniture = Files.readString(Path.of("src/main/resources/db/migration/V46__space_furniture_catalog.sql"));
         String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
         String interactions = Files.readString(Path.of("src/main/resources/db/migration/V48__space_furniture_interactions.sql"));
+        String portableItems = Files.readString(Path.of("src/main/resources/db/migration/V49__space_portable_item_catalog.sql"));
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_blueprint_migration_test");
@@ -359,6 +457,19 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                         assertThat(migrated.getInt(1)).isEqualTo(1);
                         assertThat(migrated.getInt(2)).isEqualTo(52);
                         assertThat(migrated.next()).isFalse();
+                    }
+                    statement.execute(portableItems);
+                    assertThat(furnitureWithoutInteractions(statement)).isEqualTo(previousFurniture);
+                    try (var migrated = statement.executeQuery("""
+                            SELECT version, (SELECT count(*) FROM space_portable_item_catalog),
+                                   (SELECT count(*) FROM space_furniture_portable_item_reference
+                                    WHERE furniture_kind = 'cafeCabinet' AND portable_kind = 'cup')
+                            FROM space_portable_item_catalog_migration
+                            """)) {
+                        assertThat(migrated.next()).isTrue();
+                        assertThat(migrated.getInt(1)).isEqualTo(1);
+                        assertThat(migrated.getInt(2)).isEqualTo(7);
+                        assertThat(migrated.getInt(3)).isEqualTo(1);
                     }
                     statement.execute("""
                             INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition)

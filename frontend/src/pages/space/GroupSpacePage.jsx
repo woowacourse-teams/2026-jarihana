@@ -48,7 +48,7 @@ async function defaultBlueprint(templateKey) {
   return blueprint;
 }
 
-function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup, catalogItems, onCatalogChange }) {
+function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup, catalogData, onCatalogChange }) {
   const [layout, setLayout] = useState(() => ({
     room: initialRoom,
     sharedRoom: initialRoom,
@@ -168,7 +168,7 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
   const scene = clubhouse && needsSetup ? { ...clubhouse, inputBlocked: true } : clubhouse;
   return <>
     <SpaceStudioPage clubhouse={scene} initialRoom={unconfigured && firstDraft ? firstDraft : layout.room} sharedRoom={layout.sharedRoom} layoutRevision={layout.revision} memberId={memberId}
-      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} catalogItems={catalogItems} onCatalogChange={onCatalogChange}
+      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} catalogData={catalogData} onCatalogChange={onCatalogChange}
       layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
       groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
         backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
@@ -183,7 +183,8 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, onSavedLayout, 
   const space = useGroupSpace(groupId, memberId);
   const snapshot = space.isFetchedAfterMount ? space.data : undefined;
   const groupName = group.data?.name;
-  const catalogItems = catalog.isFetchedAfterMount ? catalog.data : undefined;
+  const catalogData = catalog.isFetchedAfterMount ? catalog.data : undefined;
+  const catalogItems = catalogData?.items;
   const room = useMemo(() => catalogItems && snapshot && groupName !== undefined ? persistedRoom(snapshot, groupName) : null, [catalogItems, snapshot, groupName]);
   const errors = [space.isError && space.error, group.isError && group.error].filter(Boolean);
   const accessError = errors.find((error) => [401, 403, 404].includes(error.status));
@@ -209,7 +210,7 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, onSavedLayout, 
   if (!hasLoaded) setHasLoaded(true);
   return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId} memberId={memberId}
     clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup}
-    catalogItems={catalogItems} onCatalogChange={catalog.refetch} />;
+    catalogData={catalogData} onCatalogChange={catalog.refetch} />;
 }
 
 export function GroupSpacePage() {
