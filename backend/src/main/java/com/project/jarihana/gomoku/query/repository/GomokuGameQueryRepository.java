@@ -42,7 +42,7 @@ public interface GomokuGameQueryRepository extends Repository<GomokuGame, Long> 
             from gomoku_game g
             join member m on m.id=case when g.host_member_id=:memberId then g.guest_member_id else g.host_member_id end
             where g.ended_at is not null and (g.host_member_id=:memberId or g.guest_member_id=:memberId)
-                and (g.ended_at<:before or (g.ended_at=:before and g.id<:beforeId))
+                and (g.ended_at, g.id) < (:before, :beforeId)
             order by g.ended_at desc, g.id desc limit :limit
             """, nativeQuery = true)
     List<History> history(long memberId, LocalDateTime before, long beforeId, int limit);

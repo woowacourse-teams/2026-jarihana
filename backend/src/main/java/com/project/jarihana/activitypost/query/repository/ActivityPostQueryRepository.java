@@ -56,11 +56,7 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
             where post.deletedAt is null
               and (:groupId is null or activityGroup.id = :groupId)
               and (:onlyMine = false or author.id = :memberId)
-              and (
-                  cast(:cursorDate as LocalDate) is null
-                  or post.activityDate < :cursorDate
-                  or (post.activityDate = :cursorDate and post.id < :cursorId)
-              )
+              and (post.activityDate, post.id) < (:cursorDate, :cursorId)
             order by post.activityDate desc, post.id desc
             """)
     List<ActivityPostProjection> findPage(
@@ -68,7 +64,7 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
             @Param("onlyMine") boolean onlyMine,
             @Param("memberId") Long memberId,
             @Param("cursorDate") LocalDate cursorDate,
-            @Param("cursorId") Long cursorId,
+            @Param("cursorId") long cursorId,
             @Param("now") LocalDateTime now,
             Pageable pageable
     );

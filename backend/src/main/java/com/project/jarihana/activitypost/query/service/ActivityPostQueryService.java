@@ -7,6 +7,7 @@ import com.project.jarihana.activitypost.query.service.dto.ActivityPostListQuery
 import com.project.jarihana.activitypost.query.service.dto.ActivityPostListResult;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.image.query.service.ImageAccessService;
 import java.nio.charset.StandardCharsets;
@@ -57,8 +58,8 @@ public class ActivityPostQueryService {
                 groupId,
                 query.onlyMine(),
                 memberId,
-                cursor == null ? null : cursor.activityDate(),
-                cursor == null ? null : cursor.id(),
+                cursor == null ? CursorBounds.LATEST_DATE : cursor.activityDate(),
+                cursor == null ? CursorBounds.LAST_ID : cursor.id(),
                 LocalDateTime.now(clock),
                 Pageable.ofSize(query.size() + 1)
         );

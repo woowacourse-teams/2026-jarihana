@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 public interface GroupSpaceQueryRepository extends Repository<Group, Long> {
     @Query("""
             select new com.project.jarihana.groupspace.query.repository.GroupSpaceProjection(
-                s.roomJson, s.revision, s.updatedAt, g.type, g.status, m.role)
+                s.roomJson, s.blueprintTemplateKey, s.blueprintVersion, s.revision, s.updatedAt, g.type, g.status, m.role)
             from Group g
             left join GroupMember m on m.group.id = g.id and m.member.id = :memberId
             left join GroupSpace s on s.group.id = g.id

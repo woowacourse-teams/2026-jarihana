@@ -38,6 +38,30 @@ class ChatActivityPushTest extends NotificationIntegrationTestSupport {
     @Autowired private PlatformTransactionManager transactions;
 
     @Test
+    @DisplayName("활성 회원의 모든 구독은 발송 대기를 만들지 않고 15초가 지난 회원의 작업만 만든다.")
+    void doesNotEnqueueChatForAnAccountActiveAtMessageCreation() {
+        // Given
+        var sender = member("301");
+        var activeMember = member("302");
+        var inactiveMember = member("303");
+        capable(activeMember, "active-phone");
+        capable(activeMember, "active-desktop");
+        var inactiveSubscription = capable(inactiveMember, "expired-activity");
+        var group = room(sender, activeMember, inactiveMember);
+        active(activeMember, NOW.minusSeconds(15).plusNanos(1_000));
+        active(inactiveMember, NOW.minusSeconds(15));
+
+        // When
+        chats.sendMessage(sender.getId(), group.getId(), UUID.randomUUID(), "새 채팅");
+
+        // Then
+        assertThat(jdbc.queryForList("select push_subscription_id from notification_deliveries", Long.class))
+                .containsExactly(inactiveSubscription.getId());
+        assertThat(claim(NOW.plusSeconds(15))).singleElement().satisfies(claim ->
+                assertThat(claim.status()).isEqualTo(DeliveryStatus.IN_FLIGHT));
+    }
+
+    @Test
     @DisplayName("계정이 활성이면 시도 횟수 없이 보류하고 마지막 보고 15초 후 미읽음을 발송한다.")
     void activeAccountDefersUnreadUntilExactlyFifteenSecondsWithoutSpendingAttempt() {
         // Given

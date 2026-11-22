@@ -132,6 +132,43 @@ class ChatMessageNotificationTest extends NotificationIntegrationTestSupport {
         assertThat(read.statusCode()).isEqualTo(200);
         assertThat(read.jsonPath().getLong("data.updatedCount")).isZero();
         assertThat(jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id)).isNull();
+    }
+
+    @Test
+    @DisplayName("채팅 알림은 종 알림함에서 제외하고 푸시 내용 조회와 개별 읽음은 허용한다")
+    void excludesChatFromInboxWhileKeepingPushOpenAvailable() {
+        // Given
+        Member sender = member("310");
+        Member recipient = member("311");
+        Group group = room(sender, recipient);
+        var subscription = capableSubscription(recipient, "chat-compatibility");
+        var older = notification(recipient, "older");
+        var newer = notification(recipient, "newer");
+        chats.sendMessage(sender.getId(), group.getId(), UUID.randomUUID(), "내용");
+        long id = jdbc.queryForObject("select id from notifications where event_type = 'CHAT_MESSAGE_RECEIVED'", Long.class);
+        String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
+
+        // When
+        var first = authenticated(recipient).queryParam("clientVersion", 3).queryParam("size", 1).get("/notifications");
+        var last = authenticated(recipient).queryParam("clientVersion", 3).queryParam("size", 1)
+                .queryParam("cursor", first.jsonPath().getString("data.nextCursor")).get("/notifications");
+        var count = authenticated(recipient).queryParam("clientVersion", 3).get("/notifications/unread-count");
+        var read = authenticated(recipient).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .queryParam("clientVersion", 3).patch("/notifications/read-all");
+
+        // Then
+        assertThat(first.statusCode()).isEqualTo(200);
+        assertThat(first.jsonPath().getList("data.items.id", Long.class)).containsExactly(newer.getId());
+        assertThat(first.jsonPath().getBoolean("data.hasNext")).isTrue();
+        assertThat(last.statusCode()).isEqualTo(200);
+        assertThat(last.jsonPath().getList("data.items.id", Long.class)).containsExactly(older.getId());
+        assertThat(last.jsonPath().getBoolean("data.hasNext")).isFalse();
+        assertThat(count.statusCode()).isEqualTo(200);
+        assertThat(count.jsonPath().getLong("data.unreadCount")).isEqualTo(2);
+        assertThat(read.statusCode()).isEqualTo(200);
+        assertThat(read.jsonPath().getLong("data.updatedCount")).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id)).isNull();
+
         var detail = authenticated(recipient).queryParam("clientVersion", 3).get("/notifications/" + id);
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_CHAT");
@@ -140,10 +177,11 @@ class ChatMessageNotificationTest extends NotificationIntegrationTestSupport {
         assertThat(authenticated(recipient).queryParam("clientVersion", 3).queryParam("subscriptionId", subscription.getId())
                 .queryParam("generation", subscription.getGeneration()).get("/notifications/" + id + "/push-content")
                 .jsonPath().getMap("data.payload")).containsOnlyKeys("groupId");
-        var currentRead = authenticated(recipient).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .queryParam("clientVersion", 3).patch("/notifications/read-all");
-        assertThat(currentRead.statusCode()).isEqualTo(200);
-        assertThat(currentRead.jsonPath().getLong("data.updatedCount")).isEqualTo(1);
+        var individualRead = authenticated(recipient).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .patch("/notifications/" + id + "/read");
+        assertThat(individualRead.statusCode()).isEqualTo(200);
+        assertThat(individualRead.jsonPath().getLong("data.id")).isEqualTo(id);
+        assertThat(individualRead.jsonPath().getString("data.readAt")).isNotBlank();
     }
 
     @ParameterizedTest

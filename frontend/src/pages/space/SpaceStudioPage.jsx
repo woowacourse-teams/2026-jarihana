@@ -24,9 +24,9 @@ import {
   ACCENT_COLORS, ATMOSPHERE_PRESETS, AVATAR_COLORS, CATALOG, DEFAULT_ATMOSPHERE, FOOD_OPTIONS,
   MAX_ITEMS, ROOM_TEMPLATES, TEMPLATE_ATMOSPHERES, THEMES,
   applyRoomTemplate, canPlace, createInitialRoom, findOpenPosition, historyReducer,
-  isSafeRecordLink, loadRoom, restoreCommonFunctionAssets, saveRoom, snapPosition, validateRoom
+  isSafeRecordLink, loadRoom, readSavedRoom, restoreCommonFunctionAssets, sameRoom, saveRoom, snapPosition, validateRoom
 } from "./roomState";
-import { getRoomLayout } from "./roomLayout";
+import { geometryVersion, getRoomLayout } from "./roomLayout";
 import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } from "./clubhouseInteractions";
 import { commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
 import { prepareRoomPhoto } from "./roomPhoto";
@@ -168,7 +168,7 @@ function AtmosphereColor({ field, label, value, action, codeAction, onStart, onP
   </div>;
 }
 
-export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
@@ -238,6 +238,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const [noticeError, setNoticeError] = useState(Boolean(initial.warning));
   const saveToastTimer = useRef(null);
   const [templateSwitching, setTemplateSwitching] = useState(false);
+  const [loadingBlueprint, setLoadingBlueprint] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState(initial.room.template || "lounge");
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoRequest = useRef(0);
@@ -248,7 +249,8 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const noticeFocusPending = useRef(false);
   const [gestureDirty, setGestureDirty] = useState(false);
   const room = history.present;
-  const visibleRoom = shared ? sharedRoom ?? pendingLayout ?? savedRoom : room;
+  const showUnconfiguredRoom = sharedRoom && layoutRevision === 0 && (webPreview || playMode) && room === savedRoom;
+  const visibleRoom = shared || showUnconfiguredRoom ? sharedRoom ?? pendingLayout ?? savedRoom : room;
   const announcementText = clubhouse?.announcementText;
   const defaultOutdoorMode = groupContext ? "live" : "custom";
   const outdoors = visibleRoom.atmosphere.outdoors ?? { ...DEFAULT_OUTDOORS, mode: defaultOutdoorMode };
@@ -277,7 +279,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   const surfaceTheme = THEMES.find((entry) => entry.id === room.theme) || THEMES[0];
   const selected = room.items.find((item) => item.id === selectedId);
   const selectedType = CATALOG.find((item) => item.kind === selected?.kind);
-  const dirty = JSON.stringify(room) !== JSON.stringify(savedRoom);
+  const dirty = !sameRoom(room, savedRoom);
   const [receivedRoom, setReceivedRoom] = useState(initialRoom);
   if (initialRoom && initialRoom !== receivedRoom) {
     setReceivedRoom(initialRoom);
@@ -524,16 +526,24 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
     }
   }
 
-  function applyTemplate() {
+  async function applyTemplate() {
     cancelPhotoRequest();
+    if (loadingBlueprint) return;
     try {
-      changeRoom(applyRoomTemplate(room, pendingTemplate));
+      let blueprint;
+      if (onLoadBlueprint) {
+        setLoadingBlueprint(true);
+        blueprint = await onLoadBlueprint(pendingTemplate);
+        if (currentRoom.current !== room) return;
+      }
+      changeRoom(applyRoomTemplate(room, pendingTemplate, blueprint));
       setSelectedId(null);
       setCategory(null);
       setFloorView("all");
       setPlacementArea("building");
       announce("아지트를 바꿨어요. 이름과 사진, 추억은 그대로 남아 있어요.");
     } catch (error) { announce(error.message, true); }
+    finally { if (onLoadBlueprint) setLoadingBlueprint(false); }
   }
 
   const invalidPlacement = useCallback(() => {
@@ -630,7 +640,11 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
   }
 
   async function handleSave() {
-    if (!canEdit || photoBusy || savingRef.current) return;
+    if (!canEdit || photoBusy || savingRef.current || loadingBlueprint) return;
+    if (pendingLayout) {
+      announce("다른 곳에서 배치를 먼저 저장했어요. 편집을 취소해 최신 배치를 불러온 뒤 다시 꾸며 주세요.", true);
+      return;
+    }
     commitAtmosphereGesture();
     if (!room.name.trim()) { announce("공간 이름을 입력해 주세요.", true); setMenuOpen(true); if (clubhouse) setCameraOpen(false); setCategory("personal"); return; }
     const invalidLink = room.items.find((item) => item.link && !isSafeRecordLink(item.link));
@@ -640,14 +654,15 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
       return;
     }
     try {
-      const draft = validateRoom({ ...room, name: room.name.trim() });
+      const draft = validateRoom({ ...room, name: room.name.trim() }, { preserveVersion: Boolean(onSave), savedRoom: onSave ? savedRoom : undefined });
       if (!draft) throw new Error("공간 배치를 확인해 주세요. 편집 내용은 그대로 있어요.");
       let normalized;
       if (onSave) {
         savingRef.current = true;
         setSaving(true);
-        normalized = await onSave(draft);
-        normalized = validateRoom(normalized);
+        const replaceLayout = draft.template !== savedRoom.template || geometryVersion(draft) !== geometryVersion(savedRoom);
+        normalized = replaceLayout ? await onSave(draft, { replaceLayout: true }) : await onSave(draft);
+        normalized = readSavedRoom(normalized, { preserveVersion: true });
         if (!normalized) throw new Error("저장 응답을 확인하지 못했어요. 편집 내용은 그대로 있어요.");
       } else normalized = saveRoom(window.localStorage, draft);
       setSavedRoom(normalized); setPendingLayout(null);
@@ -1067,7 +1082,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
             {ROOM_TEMPLATES.map((entry) => {
               const Icon = TEMPLATE_ICONS[entry.id] || House;
               return <button key={entry.id} type="button" className={`space-studio__template space-studio__template--${entry.id}`}
-                aria-label={entry.name} aria-pressed={pendingTemplate === entry.id}
+                aria-label={entry.name} disabled={loadingBlueprint} aria-pressed={pendingTemplate === entry.id}
                 data-ph-capture-attribute-action="space_template_select" onClick={() => setPendingTemplate(entry.id)}>
                 <span className="space-studio__template-icon"><Icon aria-hidden="true" size={30} /></span>
                 <span className="space-studio__template-copy"><strong>{entry.name}</strong><span>{entry.description}</span><small>{entry.facility}</small></span>
@@ -1077,7 +1092,7 @@ export function SpaceStudioPage({ initialRoom, sharedRoom, layoutRevision = 0, m
           </div>
           <p className="space-studio__template-notice">{TEMPLATE_ATMOSPHERES[pendingTemplate] ? "구조·가구·배경·조명이 테마에 맞게 바뀝니다." : "구조와 가구가 테마에 맞게 바뀝니다."} 이름·사진·추억은 유지하며, 실행 취소로 되돌릴 수 있어요.</p>
           <button className="space-button space-button--primary space-studio__apply" type="button"
-            data-ph-capture-attribute-action="space_template_apply" onClick={applyTemplate}>이 아지트로 꾸미기</button>
+            data-ph-capture-attribute-action="space_template_apply" disabled={loadingBlueprint} onClick={applyTemplate}>이 아지트로 꾸미기</button>
           <small className="space-studio__panel-note">동아리와 스터디에 어울리는 테마를 골라 보세요.</small>
         </aside>}
 

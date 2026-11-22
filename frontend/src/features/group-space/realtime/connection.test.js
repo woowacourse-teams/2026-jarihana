@@ -85,7 +85,7 @@ test("terminal close reason retains layout upgrade guidance when ERROR cannot fl
   const { socket, store, admission } = await setup();
   socket.close(4003, "LAYOUT_UPGRADE_REQUIRED");
   jest.advanceTimersByTime(60000); await flush();
-  expect(store.getStatus().error).toMatchObject({ code: "LAYOUT_UPGRADE_REQUIRED", message: expect.stringContaining("저장") });
+  expect(store.getStatus().error).toMatchObject({ code: "LAYOUT_UPGRADE_REQUIRED", message: expect.stringContaining("기존 가구 배치는 선택한 테마의 기본 배치로 바뀌어요.") });
   expect(admission).toHaveBeenCalledTimes(1);
 });
 

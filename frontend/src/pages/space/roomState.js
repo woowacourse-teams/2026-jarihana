@@ -9,7 +9,7 @@ import { DINING_BAND_ASSETS, createDiningBandPresetItems } from "./diningBandAss
 import { STUDY_PHOTO_ASSETS, createStudyPhotoPresetItems } from "./studyPhotoAssets";
 import { LEGACY_FACILITY_ASSETS, createLegacyFacilityItems } from "./legacyFacilityCatalog";
 import { COMMON_ASSET_CATALOG, commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
-import { BUILDING, BUILDING_WALLS, CLIMBING_V5, CLIMBING_V6, BOARDGAME_V6, CLEAR_PATHS, LOUNGE_LOFT_VERSION, PLAYER, ROOM_ZONES, YARD, boundsForBox, contains, facilityBounds, getRoomLayout, overlaps } from "./roomLayout";
+import { bindRoomBlueprint, geometryVersion, ROOM_BLUEPRINT, BUILDING, BUILDING_WALLS, CLIMBING_V5, CLIMBING_V6, BOARDGAME_V6, CLEAR_PATHS, LOUNGE_LOFT_VERSION, PLAYER, ROOM_ZONES, YARD, boundsForBox, contains, facilityBounds, getRoomLayout, overlaps } from "./roomLayout";
 
 export const LOUNGE_LOFT_WRITES_ENABLED = true;
 export const STORAGE_KEY = "jarihana.space-studio.v1";
@@ -89,7 +89,7 @@ export const THEMES = Object.freeze([
 ]);
 export const AVATAR_COLORS = ["#536bd6", "#c991ba", "#7b9b6d", "#d99559"];
 
-export function createInitialRoom(templateId = "lounge", { loungeLoft = LOUNGE_LOFT_WRITES_ENABLED } = {}) {
+export function createInitialRoom(templateId = "lounge", { blueprint, loungeLoft = LOUNGE_LOFT_WRITES_ENABLED } = {}) {
   const template = ROOM_TEMPLATES.find((entry) => entry.id === templateId) || ROOM_TEMPLATES[0];
   const item = (id, kind, x, z, rotation = 0, color) => ({ id, kind, x, z, rotation, ...(color ? { color } : {}) });
   let items = [
@@ -177,7 +177,7 @@ export function createInitialRoom(templateId = "lounge", { loungeLoft = LOUNGE_L
     item("lounge", "sofa", 1.4, -0.4), item("beanbag", "beanbag", 1.5, -2.8)
   );
   const isLoft = template.id === "lounge" && loungeLoft;
-  if (isLoft) items.push(...[
+  if (isLoft && (!blueprint || blueprint.geometry.mezzanine)) items.push(...[
     item("upper-sofa", "sofa", -10.55, -7.15, 0, "#8c9d85"),
     item("upper-stool", "stool", -10.55, -6.15, 0, "#c08c64"),
     item("upper-plant", "plant", -8.35, -7.25),
@@ -192,11 +192,11 @@ export function createInitialRoom(templateId = "lounge", { loungeLoft = LOUNGE_L
   if (!items.some((entry) => entry.kind === "musicConsole")) items.push(item("music-console", "musicConsole", musicPosition.x, musicPosition.z));
   items.push(...createLegacyFacilityItems(template.id));
   items = composeReferencePreset(template.id, items);
-  return restoreCommonFunctionAssets({
+  return restoreCommonFunctionAssets(bindRoomBlueprint({
     version: isLoft ? LOUNGE_LOFT_VERSION : 11, template: template.id, name: "주말 아지트", theme: template.theme, avatarColor: AVATAR_COLORS[0],
     accentColor: ACCENT_COLORS[0].value, matColor: template.id === "climbing" ? "#7d8b9d" : ACCENT_COLORS[1].value,
     food: "pizza", coverPhoto: "", notice: "", atmosphere: { ...(TEMPLATE_ATMOSPHERES[template.id] || DEFAULT_ATMOSPHERE) }, items
-  });
+  }, blueprint));
 }
 
 export function restoreCommonFunctionAssets(room) {
@@ -214,9 +214,9 @@ export function restoreCommonFunctionAssets(room) {
   return { ...room, items };
 }
 
-export function applyRoomTemplate(room, templateId) {
+export function applyRoomTemplate(room, templateId, blueprint) {
   if (!ROOM_TEMPLATES.some((entry) => entry.id === templateId)) throw new Error("아지트를 골라 주세요.");
-  const fresh = createInitialRoom(templateId);
+  const fresh = createInitialRoom(templateId, { blueprint });
   const memories = room.items.filter((item) => item.kind === "memory");
   if (fresh.items.length + memories.length > MAX_ITEMS) throw new Error("추억을 모두 옮길 자리가 부족해요. 액자를 정리한 뒤 다시 골라 주세요.");
   const memoryIds = new Set(memories.map((item) => item.id));
@@ -232,7 +232,7 @@ export function applyRoomTemplate(room, templateId) {
     if (!position) throw new Error("추억을 모두 옮길 자리가 부족해요. 액자를 정리한 뒤 다시 골라 주세요.");
     items.push({ ...memory, ...position, rotation: position.rotation ?? 0 });
   }
-  return { ...room, version: fresh.version, template: templateId, theme: fresh.theme,
+  return { ...room, ...(blueprint && { [ROOM_BLUEPRINT]: blueprint }), version: fresh.version, template: templateId, theme: fresh.theme,
     matColor: templateId === "climbing" ? fresh.matColor : room.matColor, atmosphere: TEMPLATE_ATMOSPHERES[templateId] ? { ...fresh.atmosphere, ...(room.atmosphere.outdoors && { outdoors: room.atmosphere.outdoors }) } : room.atmosphere, items };
 }
 
@@ -293,7 +293,7 @@ function overlapsFurniture(item, items, version = 9) {
   });
 }
 
-function canPlaceInLayout(item, items, layout, facilities, version = 9) {
+function canPlaceInLayout(item, items, layout, facilities, version = 9, keepSavedPlacement = false) {
   const level = item.level ?? 0;
   if (!validAssetCustomization(item)) return false;
   if (item.parentId) {
@@ -303,6 +303,7 @@ function canPlaceInLayout(item, items, layout, facilities, version = 9) {
     if (!contains(boundsForBox(surfaceFootprint(parent, item.surfaceIndex || 0, assetType(parent))), boundsForBox({ ...item, ...footprint(item) }))) return false;
   } else if (item.surfaceIndex !== undefined || item.elevation && !isMounted(item)) return false;
   if (![0, 1].includes(level) || (level === 1 && !layout.mezzanine)) return false;
+  if (keepSavedPlacement) return Math.abs(item.x) <= 64 && Math.abs(item.z) <= 64;
   const bounds = boundsForBox({ ...item, ...footprint(item, version) });
   const areas = level === 1 ? [layout.mezzanine] : [layout.building, ...(layout.exterior || [layout.entrance])];
   const placementAreas = isMounted(item) ? areas.map((area) => ({ ...area,
@@ -327,7 +328,7 @@ export function canPlace(item, items, template = "lounge") {
   const previous = items.find((entry) => entry.id === item.id);
   const nextItems = previous ? transformAttachedItems(items, item.id, item) : [...items, item];
   return [item, ...nextItems.filter((entry) => entry.parentId === item.id)].every((entry) =>
-    canPlaceInLayout(entry, nextItems, getRoomLayout(template), facilityBounds(template, true)));
+    canPlaceInLayout(entry, nextItems, getRoomLayout(template), facilityBounds(template, true), template?.[ROOM_BLUEPRINT] ? template.version : undefined));
 }
 function legacyLayout(layout) {
   return { ...layout, entrance: YARD, clearPaths: layout.clearPaths.map((path) => ({ ...path,
@@ -481,7 +482,9 @@ function validateAtmosphere(value) {
   return outdoors ? { ...atmosphere, outdoors } : null;
 }
 
-export function validateRoom(value) {
+const PLACEMENT_FIELDS = ["kind", "x", "z", "rotation", "level", "scaleX", "scaleY", "scaleZ", "elevation", "parentId", "surfaceIndex"];
+
+export function validateRoom(value, { preserveVersion = Boolean(value?.[ROOM_BLUEPRINT]), savedRoom } = {}) {
   if (!value || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, LOUNGE_LOFT_VERSION].includes(value.version) || typeof value.name !== "string" ||
     !value.name.trim() || value.name.length > 30 || !THEMES.some((t) => t.id === value.theme) ||
     !AVATAR_COLORS.includes(value.avatarColor) || !Array.isArray(value.items) || value.items.length > (value.version < 7 ? 48 : value.version < 9 ? 64 : value.version === 9 ? 160 : MAX_ITEMS)) return null;
@@ -497,6 +500,9 @@ export function validateRoom(value) {
     ![accentColor, matColor].every((color) => ACCENT_COLORS.some((entry) => entry.value === color)) ||
     !FOOD_OPTIONS.some((entry) => entry.id === food) || !isRoomPhoto(coverPhoto) ||
     typeof notice !== "string" || notice.length > 100 || !atmosphere) return null;
+  // Existing server placements can predate the editor's collision rules. Check all new and moved furniture.
+  const savedItems = value[ROOM_BLUEPRINT] && savedRoom?.template === template && savedRoom.version === value.version &&
+    geometryVersion(savedRoom) === geometryVersion(value) ? new Map(savedRoom.items.map(item => [item?.id, item])) : null;
   const ids = new Set();
   const items = [];
   for (const item of value.items) {
@@ -504,7 +510,7 @@ export function validateRoom(value) {
       !CATALOG.some((type) => type.kind === item.kind) ||
       (value.version < 7 && ["roundChair", "clubSofa", "gameCredenza", "loungeRug"].includes(item.kind)) ||
       !Number.isFinite(item.x) || !Number.isFinite(item.z) ||
-      (item.level !== undefined && (![0, 1].includes(item.level) || (item.level === 1 && (value.version < 5 || !getRoomLayout(template, value.version).mezzanine)))) ||
+      (item.level !== undefined && (![0, 1].includes(item.level) || (item.level === 1 && (value.version < 5 || !getRoomLayout(value).mezzanine)))) ||
       !Number.isInteger(item.rotation) || item.rotation < 0 || item.rotation > 3 ||
       (item.title !== undefined && (typeof item.title !== "string" || item.title.length > 40)) ||
       (item.note !== undefined && (typeof item.note !== "string" || item.note.length > 500)) ||
@@ -524,11 +530,16 @@ export function validateRoom(value) {
       if (!isRoomPhoto(clean.photo) || !isSafeRecordLink(clean.link)) return null;
     }
     const validPlacement = value.version < 4 ? canPlaceLegacy : value.version === 4 ? canPlaceVersion4 : value.version === 5 ? canPlaceVersion5 : value.version === 6 ? canPlaceVersion6 : value.version === 7 ? canPlaceVersion7 : value.version === 8 ? canPlaceVersion8 : value.version === 9 ? canPlaceVersion9 : canPlace;
-    if (!validPlacement(clean, value.version >= 9 ? value.items : items, value.version >= 10 ? { template, version: value.version } : template)) return null;
+    const candidates = value.version >= 9 ? value.items : items;
+    const saved = savedItems?.get(clean.id);
+    const keepPlacement = saved && PLACEMENT_FIELDS.every(key => clean[key] === saved[key]);
+    const placed = value[ROOM_BLUEPRINT] ? canPlaceInLayout(clean, candidates, getRoomLayout(value), facilityBounds(value, true), value.version, keepPlacement) :
+      validPlacement(clean, candidates, value.version >= 10 ? value : template);
+    if (!placed) return null;
     items.push(clean);
   }
-  let migrated = value.version < 10 ? migrateItems(items, { template, version: 10 }) : items;
-  if (migrated && value.version < 9) {
+  let migrated = !preserveVersion && value.version < 10 ? migrateItems(items, { template, version: 10 }) : items;
+  if (migrated && !preserveVersion && value.version < 9) {
     const facilities = ["dining", "band"].includes(template)
       ? createDiningBandPresetItems(template).filter((entry) => [...DINING_BAND_ASSETS, ...LEGACY_FACILITY_ASSETS].some((type) => type.kind === entry.kind))
       : createLegacyFacilityItems(template);
@@ -544,12 +555,13 @@ export function validateRoom(value) {
     }
   }
   if (!migrated) return null;
-  return { version: Math.max(10, value.version), template, name: value.name, theme: value.theme, avatarColor: value.avatarColor,
-    accentColor, matColor, food, coverPhoto, notice, atmosphere, items: migrated };
+  return bindRoomBlueprint({ version: preserveVersion ? value.version : Math.max(10, value.version), template, name: value.name, theme: value.theme, avatarColor: value.avatarColor,
+    accentColor, matColor, food, coverPhoto, notice, atmosphere, items: migrated }, value[ROOM_BLUEPRINT]);
 }
 
-export function readSavedRoom(value) {
-  const room = validateRoom(value);
+export function readSavedRoom(value, { preserveVersion = false } = {}) {
+  const room = validateRoom(value, { preserveVersion, savedRoom: preserveVersion ? value : undefined });
+  if (preserveVersion) return room;
   if (LOUNGE_LOFT_WRITES_ENABLED && room?.template === "lounge" && room.version < LOUNGE_LOFT_VERSION) {
     const loft = { ...room, version: LOUNGE_LOFT_VERSION };
     const items = migrateLoungeItems(room.items, loft);
@@ -591,12 +603,15 @@ export function saveRoom(storage, room) {
   return valid;
 }
 
+export function sameRoom(first, second) {
+  return geometryVersion(first) === geometryVersion(second) && JSON.stringify(first) === JSON.stringify(second);
+}
+
 export function historyReducer(state, action) {
-  const same = (first, second) => JSON.stringify(first) === JSON.stringify(second);
-  if (action.type === "preview") return same(state.present, action.room) ? state : { ...state, present: action.room };
-  if (action.type === "commit") return !action.before || same(action.before, state.present) ? state :
+  if (action.type === "preview") return sameRoom(state.present, action.room) ? state : { ...state, present: action.room };
+  if (action.type === "commit") return !action.before || sameRoom(action.before, state.present) ? state :
     { past: [...state.past.slice(-39), action.before], present: state.present, future: [] };
-  if (action.type === "change") return same(state.present, action.room) ? state :
+  if (action.type === "change") return sameRoom(state.present, action.room) ? state :
     { past: [...state.past.slice(-39), state.present], present: action.room, future: [] };
   if (action.type === "reset") return { past: [], present: action.room, future: [] };
   if (action.type === "undo" && state.past.length) return {

@@ -2,7 +2,7 @@ import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
-import { getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
+import { geometryVersion, getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
 import { isWalkablePosition, moveWalker, walkFloorHeight } from "./roomNavigation";
 import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip, updateWalkPropAppearance } from "./roomModels";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
@@ -838,7 +838,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       playMode = playing;
       view = nextView;
       const room = getRoom();
-      const template = `${room.template}:${room.version}`;
+      const template = `${room.template}:${geometryVersion(room)}`;
       if (!active() || !interactive || room.items !== furniture || enteringFromWeb) {
         const hadInteraction = menu || nearby || feedback || held;
         if (enteringFromWeb || (!keepPose && (!active() || room.items !== furniture))) { stand(); setHeld(null); }

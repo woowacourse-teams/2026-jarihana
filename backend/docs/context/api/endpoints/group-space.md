@@ -6,6 +6,14 @@
 실시간 위치·상호작용은 별도 realtime 서버가 담당한다. 접속에는
 [실시간 아지트 입장 토큰](group-space-realtime.md)이 필요하다. 공동 편집은 지원하지 않는다.
 
+## GET /api/group-spaces/blueprints/{templateKey}/default
+
+신규 방 또는 모임장이 직접 선택한 전체 배치 교체에 사용할 기본 도면이다. 공개 GET의
+`data`는 `blueprintRef: {templateKey, version}`과 `geometry`를 포함한다.
+지원하는 기존 테마의 벽·층·계단·야외 경계 등 도면 형식 1을 제공한다. 발행한
+도면은 불변이며 변경본은 같은 테마의 새 버전으로 추가한다. 기본 도면을 변경해도
+기존 모임은 저장된 버전을 유지한다. 지원하지 않는 도면 형식은 로드하지 않는다.
+
 ## GET /api/groups/{groupId}/space
 
 모임 상세와 동일하게 공개 조회한다. 종료된 모임도 조회할 수 있다.
@@ -14,15 +22,24 @@
 구성원에게는 원본 문서를 반환하며 공개 조회 과정에서 저장된 원본을 변경하지 않는다.
 저장 이력이 없으면 `room: null`, `revision: 0`, `updatedAt: null`을 반환한다.
 `canEdit`은 현재 구성원이 ACTIVE 모임의 LEADER일 때만 참이다.
+응답의 `blueprintRef`와 `geometry`는 이 방이 사용하는 정확한 도면이다.
+미저장 방의 공유 장면은 호환용 단층 `lounge/11`을 사용하며 첫 설정 화면은 테마별 기본 도면을 조회한다.
+아래 예시는 geometry의 세부 좌표를 생략한다.
 
 ```json
-{"success":true,"data":{"room":null,"revision":0,"canEdit":true,"updatedAt":null},"error":null}
+{"success":true,"data":{"room":null,"revision":0,"canEdit":true,"updatedAt":null,"blueprintRef":{"templateKey":"lounge","version":11},"geometry":{}},"error":null}
 ```
 
 ## PUT /api/groups/{groupId}/space
 
 현재 ACTIVE 모임의 LEADER만 저장한다. 인증 쿠키와 기존 CSRF 쿠키/헤더가 필요하다.
-요청은 `{ "room": <v8~v12 공간 객체>, "expectedRevision": <마지막 조회 revision> }`이다.
+요청은 `room`, `expectedRevision`, 선택 필드인 `blueprintRef`와 `replaceLayout`을 받는다.
+`room.version`은 기존 저장문서 형식이고, 도면 버전은 별도 `blueprintRef.version`으로
+관리한다. 일반 저장은 GET에서 받은 참조와 문서 버전을 유지한다. 첫 설정은 선택한
+테마의 기본 도면을 보낸다. 모임장이 템플릿 전체를 다시 선택하면 현재 기본 참조와
+전체 교체 배치를 `replaceLayout: true`로 전송한다. 도면 선택 이후 기본 버전이 바뀌면
+409로 거절한다. 참조가 없는 구 클라이언트는 기존 도면과 문서 버전이 일치하는 방만
+저장할 수 있다. 새 좌석 동작이나 에셋 종류는 도면 발행만으로 추가되지 않는다.
 성공하면 GET과 동일한 envelope를 반환하고 revision을 1 증가시킨다.
 `updatedAt`은 기존 공통 계약의 Asia/Seoul LocalDateTime 문자열이다.
 

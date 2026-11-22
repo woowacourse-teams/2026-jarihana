@@ -42,12 +42,12 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
             from Invitation i join i.group g join i.inviterMember inviter left join i.targetMember target
             where g.id = :groupId and ((:managed = true and i.type = com.project.jarihana.invitation.domain.InvitationType.LINK)
                 or (:managed = false and inviter.id = :memberId and i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT))
-              and (cast(:createdAt as timestamp) is null or i.createdAt < :createdAt or (i.createdAt = :createdAt and i.id < :id))
+              and (i.createdAt, i.id) < (:createdAt, :id)
             order by i.createdAt desc, i.id desc
             """)
     Slice<IssuedInvitationProjection> findIssued(@Param("groupId") long groupId, @Param("memberId") long memberId,
             @Param("managed") boolean managed, @Param("createdAt") LocalDateTime createdAt,
-            @Param("id") Long id, Pageable pageable);
+            @Param("id") long id, Pageable pageable);
 
     @Query("""
             select new com.project.jarihana.invitation.query.repository.dto.ReceivedInvitationProjection(
@@ -57,9 +57,9 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = :memberId), i.state)
             from Invitation i join i.group g join i.inviterMember inviter
             where i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT and i.targetMember.id = :memberId
-              and (cast(:createdAt as timestamp) is null or i.createdAt < :createdAt or (i.createdAt = :createdAt and i.id < :id))
+              and (i.createdAt, i.id) < (:createdAt, :id)
             order by i.createdAt desc, i.id desc
             """)
     Slice<ReceivedInvitationProjection> findReceived(@Param("memberId") long memberId,
-            @Param("createdAt") LocalDateTime createdAt, @Param("id") Long id, Pageable pageable);
+            @Param("createdAt") LocalDateTime createdAt, @Param("id") long id, Pageable pageable);
 }
