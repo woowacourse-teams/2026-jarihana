@@ -516,7 +516,7 @@ try {
   }
   await startDatabase();
   async function checkRuntime() {
-    const probe = startServer(["--check-runtime"]);
+    const probe = startServer(["--check-blueprints"]);
     const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "two-database runtime preflight", 45000);
     return exitCode.code;
   }

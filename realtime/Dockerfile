@@ -2,7 +2,7 @@ FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY realtime/gradlew realtime/settings.gradle realtime/build.gradle ./realtime/
 COPY realtime/gradle ./realtime/gradle
-COPY realtime/src/main ./realtime/src/main
+COPY realtime/src ./realtime/src
 WORKDIR /workspace/realtime
 RUN chmod +x gradlew && ./gradlew bootJar --no-daemon
 

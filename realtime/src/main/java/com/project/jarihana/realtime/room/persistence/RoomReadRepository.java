@@ -197,7 +197,7 @@ public final class RoomReadRepository {
         admissionQuery(environment, 0, 0).query((row, index) -> row.getString("crew_name")).optional();
     }
 
-    public void verifyRuntimeMigration() {
+    public void verifyBlueprintMigration() {
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) verifyReadAccess(environment, true);
     }
 

@@ -6,5 +6,4 @@
 !realtime/gradle
 !realtime/gradle/**
 !realtime/src
-!realtime/src/main
-!realtime/src/main/**
+!realtime/src/**

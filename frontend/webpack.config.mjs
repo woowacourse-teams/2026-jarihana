@@ -163,11 +163,6 @@ export default (_, arguments_) => {
           context: ["/api"],
           ws: true,
           target: process.env.API_PROXY_TARGET || "http://localhost:8080"
-        },
-        {
-          changeOrigin: true,
-          context: ["/ws/realtime"],
-          target: process.env.REALTIME_PROXY_TARGET || "http://localhost:8090"
         }
       ],
       setupMiddlewares: (middlewares) => {

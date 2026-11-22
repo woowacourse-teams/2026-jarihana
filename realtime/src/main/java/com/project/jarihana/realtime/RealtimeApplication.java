@@ -12,12 +12,12 @@ import java.util.Arrays;
 @EnableConfigurationProperties(RealtimeProperties.class)
 public class RealtimeApplication {
     public static void main(String[] args) {
-        if (Arrays.asList(args).contains("--check-runtime")) {
+        if (Arrays.asList(args).contains("--check-blueprints")) {
             try (var context = SpringApplication.run(RealtimeApplication.class, args)) {
                 if (!context.getBean(RealtimeProperties.class).enabled()) {
-                    throw new IllegalStateException("Runtime preflight requires both enabled database connections");
+                    throw new IllegalStateException("Blueprint preflight requires both enabled database connections");
                 }
-                context.getBean(RoomReadRepository.class).verifyRuntimeMigration();
+                context.getBean(RoomReadRepository.class).verifyBlueprintMigration();
             }
             return;
         }

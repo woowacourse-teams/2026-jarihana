@@ -1,6 +1,6 @@
 # 아지트 멀티플레이 실행 구성
 
-신규 EC2에서 Spring realtime 컨테이너 하나를 개발과 운영이 함께 사용한다. CloudFront가 `/ws/realtime`의 브라우저 HTTPS와 WSS 요청을 EC2의 HTTP 8080으로 전달한다. realtime은 WebSocket 입장 토큰의 서명과 발급자를 확인하고, 해당 환경의 PostgreSQL과 방에 연결한다. 같은 모임 ID를 쓰더라도 개발과 운영의 방 상태는 분리된다.
+신규 EC2에서 Spring realtime 컨테이너 하나를 개발과 운영이 함께 사용한다. CloudFront가 브라우저의 WSS를 받고 `/ws/realtime`을 EC2의 HTTP 8080으로 전달한다. realtime은 입장 토큰의 서명과 발급자를 확인하고, 해당 환경의 PostgreSQL과 방에 연결한다. 같은 모임 ID를 쓰더라도 개발과 운영의 방 상태는 분리된다.
 
 | 환경 | 토큰 발급자 | 읽기 설정 |
 | --- | --- | --- |
@@ -9,16 +9,19 @@
 
 ## 공용 컨테이너 배포
 
-[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 PR에서 서버 테스트와 두 PostgreSQL의 WebSocket 동작을 검증한다. develop 자동 배포는 이미지 빌드 입력과 공용 Compose·Alloy·배포 스크립트·워크플로가 바뀔 때 시작한다.
+[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 서버 테스트와 아지트 DB 마이그레이션 변경에서 Gradle·두 DB WebSocket·Alloy 검증을 실행한다. 서버 실행 코드나 배포 설정이 바뀐 develop push와 develop 수동 실행에서 ARM64 이미지를 발행한다. 배포 잡은 개발과 운영이 함께 쓰는 컨테이너를 교체한다. 워크플로 파일이 기본 브랜치인 `main`에 반영된 후에는 Actions에서 `develop`을 선택해 수동으로 실행할 수 있다. PR에서는 GitHub 호스팅 러너에서 검증만 실행한다.
 
-- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정은 Docker와 Compose를 실행할 수 있어야 한다.
-- 준비 잡은 GitHub `dev`·`prod` Environment에서 DB와 Origin 설정을 읽는다. 환경별 JDBC 주소와 입장 키를 계산하여 실행·시도별 `/dev/shm` 경로로 전달한다. 배포 잡이 끝나면 해당 실행의 설정을 지운다.
-- CloudFront 원본은 `HTTP only`, 포트 `8080`, 빈 Origin path로 지정한다. 정확한 `/ws/realtime` 경로를 사용하고 캐시를 끈다. `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
-- GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`에 공용 WSS 주소를 설정한다. 백엔드는 입장 응답에 이 주소를 담고, 브라우저는 받은 주소로 연결한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
+- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정으로 Docker와 Compose를 실행할 수 있어야 한다.
+- 준비 잡은 기존 GitHub `dev`·`prod` Environment에서 `RDS_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_ORIGIN`, `ACCESS_TOKEN_SECRET`을 읽는다. 환경별 JDBC 주소와 입장 키를 계산해 배포 잡에 전달한다. 배포 잡은 두 Origin을 합쳐 `REALTIME_ALLOWED_ORIGINS`로 설정한다.
+- CloudFront에 EC2 원본을 `HTTP only`, 포트 `8080`, 빈 Origin path로 등록한다. Behavior 경로는 `/ws/realtime`, 캐시 정책은 `CachingDisabled`로 지정한다. Origin request policy에서 `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
 
-후보 이미지의 `--check-runtime`으로 개발·운영 DB 이관 상태와 조회 권한을 확인한다. 두 DB 중 하나라도 사전 검사에 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
+- 기존 API 배포의 GitHub `dev`와 `prod` Environment에 각각 `REALTIME_WEBSOCKET_URL`을 지정한다. 두 환경에 같은 WSS 주소를 줄 수 있다. API는 입장 조건을 만족하는 요청에 토큰을 발급한다. 브라우저 연결에는 공용 컨테이너와 CloudFront 경로가 필요하다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-DB 사전 검사에 실패한 후보는 두 환경의 DB와 조회 권한을 확인한 뒤 다시 배포할 수 있다. **Realtime Deploy → Run workflow**에서 `develop`과 후보의 `resume_digest`를 지정한다. 워크플로는 해당 이미지의 원본 커밋과 최신 배포 입력을 확인하고 환경별 접속 설정을 다시 준비한다.
+서버는 정확히 `/ws/realtime`에 연결을 받는다. `/ws/realtime/*`만 등록하면 끝에 `/`가 없는 이 주소와 일치하지 않으므로 정확한 경로의 Behavior가 필요하다. 기존 프론트 배포의 CDN 사전 검사는 정확한 경로와 기존 wildcard 경로를 모두 허용하지만, 이 검사를 통과했다고 실제 WebSocket 연결까지 확인한 것은 아니다.
+
+배포 잡은 새 이미지의 `--check-blueprints`로 두 환경의 도면, 기본 배치, 가구·소품 카탈로그와 조회 권한을 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
+
+준비 잡은 설정을 EC2의 메모리 파일시스템 `/dev/shm`에 실행 번호와 시도 번호별로 저장한다. 배포 잡이 끝날 때 삭제하며, 강제 종료로 남은 설정은 다음 준비 잡이 1시간 경과 후 정리한다. 재시도할 때는 **Re-run all jobs**를 선택해 이번 시도의 설정을 다시 준비한다.
 
 ## 로컬 빌드와 설정 확인
 
@@ -43,7 +46,7 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다.
 
-기존 모델의 좌석과 상판 칸은 `seat_anchor_count`와 `surface_anchor_count` 범위에서 DB 설정만으로 줄였다 늘릴 수 있다. 새 가구에 좌표를 처음 지정하거나 기존 개수보다 슬롯을 늘릴 때는 `seatModelAnchors.json` 또는 `propSurfaceAnchors.json`에 좌표를 추가하고 프론트를 먼저 배포한다. 새 좌표를 읽는 프론트가 제공된 뒤 DB 상한과 실제 슬롯 수를 올린다. 수납 용량은 화면 좌표와 별도로 관리한다.
+DB의 좌석과 상판 칸 수는 `seat_anchor_count`와 `surface_anchor_count` 범위에서 조정할 수 있다. 이 상한은 프론트 모델의 `seatModelAnchors.json`과 `propSurfaceAnchors.json`에 정의된 좌표 수를 기준으로 한다. 수납 용량은 화면 좌표와 별도로 관리한다.
 
 이미 이전 입장 토큰 형식으로 서비스 중이라면 API의 발급 방식과 realtime의 검증 방식이 모두 전환된 뒤 새 토큰으로 접속할 수 있다. 전환 시간을 잡고 기존 환경값을 보관한다. 이전 컨테이너로 돌아갈 경우 해당 API의 토큰 발급 버전도 함께 복원한다.
 

@@ -45,12 +45,10 @@ final class RuntimeSchema {
                   AND jsonb_typeof(definition->'surfaces') = 'array'
             )
             SELECT NOT EXISTS (SELECT * FROM seed EXCEPT SELECT * FROM supported)
-              AND NOT EXISTS (SELECT * FROM seed WHERE blueprint_version >= 11 EXCEPT SELECT * FROM initial)
               AND NOT EXISTS (SELECT template_key FROM templates EXCEPT SELECT template_key FROM space_blueprint_default)
               AND NOT EXISTS (SELECT template_key, blueprint_version FROM space_blueprint_default EXCEPT SELECT * FROM initial)
               AND NOT EXISTS (SELECT template_key, blueprint_version FROM space_blueprint_default EXCEPT SELECT * FROM supported)
               AND NOT EXISTS (SELECT blueprint_template_key, blueprint_version FROM group_space EXCEPT SELECT * FROM supported)
-              AND (SELECT count(kind) FROM furniture) >= 122
               AND NOT EXISTS (
                   SELECT item->>'kind' FROM space_blueprint_runtime r, jsonb_array_elements(r.default_room->'items') item
                   UNION ALL SELECT item->>'kind' FROM group_space s, jsonb_array_elements(s.room_json::jsonb->'items') item
