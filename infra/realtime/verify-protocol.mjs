@@ -394,6 +394,43 @@ async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
   await perform(dev, { action: "DROP", itemId: tea });
   receipt.push("portable rules refresh on the same dev socket, production still throws tea, and consuming restored tea keeps its ID and yields a cup");
 
+  const bookGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'true')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > bookGeneration, "development fixture enables throwing books");
+  const book = await take("book");
+  await perform(prod, { action: "TAKE", assetId: "counter", kind: "book" });
+  const prodBook = await waitFor(() => participant(prod, "101").heldItemId, "production holds the original book kind");
+  const throwableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'false')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > throwableGeneration, "held book's throw rule is disabled");
+  assert.deepEqual(context(dev), initial);
+  assert.equal(devProp(book)?.location, "HELD");
+  const deniedThrow = await command(dev, { action: "THROW", itemId: book });
+  assert.equal(deniedThrow.success, false);
+  assert.equal(deniedThrow.code, "NOT_THROWABLE");
+  assert.equal(participant(dev, "101").heldItemId, book);
+
+  const nonThrowableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{portable}', 'false')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > nonThrowableGeneration && participant(dev, "101").heldItemId === null,
+    "disabled portable book leaves the participant's hand");
+  assert.equal(devProp(book), undefined);
+  assert.equal((await command(dev, { action: "TAKE", assetId: "counter", kind: "book" })).code, "INVALID_ITEM_KIND");
+  assert.deepEqual(context(prod), prodInitial);
+  assert.equal(prod.state.catalogGeneration, originalProdGeneration);
+  assert.equal(participant(prod, "101").heldItemId, prodBook);
+  assert.equal((await command(prod, { action: "THROW", itemId: prodBook })).code, "NOT_THROWABLE");
+  await perform(prod, { action: "DROP", itemId: prodBook });
+  const nonPortableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{portable}', 'true')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > nonPortableGeneration, "development restores the seeded book rules");
+  assert.deepEqual(context(dev), initial);
+  receipt.push("a held book keeps its ID when throw is revoked, rejects direct THROW, and follows portability changes only in the edited environment");
+
   const onFirstSurface = await attach("cookie", "PLACE", "SURFACE", 0);
   const onRemovedSurface = await attach("cookie", "PLACE", "SURFACE", 1);
   const storedCookie = await attach("cookie", "RETURN", "STORAGE", 0);
