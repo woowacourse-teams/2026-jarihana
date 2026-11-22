@@ -13,6 +13,7 @@ import com.project.jarihana.notificationdelivery.domain.DeliveryStatus;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.restassured.RestAssured;
@@ -117,9 +118,11 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
                 .isEqualTo("V13__group_announcements.sql");
     }
 
-    @Test
-    @DisplayName("구버전 클라이언트는 신규 공지 행이 있어도 기존 알림의 목록과 커서, 안 읽은 수를 정상 조회한다.")
-    void legacyClientReadsExistingNotificationsAfterAnnouncementWrites() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {1, 2, 3})
+    @DisplayName("알림함 목록과 커서, 미읽음 수에 모든 요청 버전의 공지를 포함한다.")
+    void inboxIncludesAnnouncementsRegardlessOfClientVersion(Integer version) {
         // Given
         Member owner = member("101");
         var first = notification(owner, "legacy-first");
@@ -127,21 +130,21 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         long announcementNotificationId = futureAnnouncement(owner);
 
         // When
-        Response page = authenticated(owner).queryParam("size", 1).get("/notifications");
-        Response last = authenticated(owner).queryParam("size", 1)
+        Response page = authenticated(owner, version).queryParam("size", 1).get("/notifications");
+        Response last = authenticated(owner, version).queryParam("size", 2)
                 .queryParam("cursor", page.jsonPath().getString("data.nextCursor")).get("/notifications");
-        Response unread = authenticated(owner).get("/notifications/unread-count");
-        Response unsupported = authenticated(owner).get("/notifications/" + announcementNotificationId);
+        Response unread = authenticated(owner, version).get("/notifications/unread-count");
 
         // Then
         assertThat(page.statusCode()).isEqualTo(200);
-        assertThat(page.jsonPath().getList("data.items.id", Long.class)).containsExactly(second.getId());
+        assertThat(page.jsonPath().getList("data.items.id", Long.class)).containsExactly(announcementNotificationId);
         assertThat(page.jsonPath().getBoolean("data.hasNext")).isTrue();
-        assertThat(last.jsonPath().getList("data.items.id", Long.class)).containsExactly(first.getId());
+        assertThat(last.statusCode()).isEqualTo(200);
+        assertThat(last.jsonPath().getList("data.items.id", Long.class)).containsExactly(second.getId(), first.getId());
         assertThat(last.jsonPath().getBoolean("data.hasNext")).isFalse();
         assertThat(last.jsonPath().getString("data.nextCursor")).isNull();
-        assertThat(unread.jsonPath().getLong("data.unreadCount")).isEqualTo(2);
-        assertThat(unsupported.statusCode()).isEqualTo(404);
+        assertThat(unread.statusCode()).isEqualTo(200);
+        assertThat(unread.jsonPath().getLong("data.unreadCount")).isEqualTo(3);
     }
 
     @Test
@@ -155,6 +158,8 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         // When
         Response page = authenticated(owner).queryParam("clientVersion", 2).get("/notifications");
         Response detail = authenticated(owner).queryParam("clientVersion", 2).get("/notifications/" + id);
+        Response defaultDetail = authenticated(owner).get("/notifications/" + id);
+        Response legacyDetail = authenticated(owner).queryParam("clientVersion", 1).get("/notifications/" + id);
         Response unread = authenticated(owner).queryParam("clientVersion", 2).get("/notifications/unread-count");
         String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
         Response read = authenticated(owner).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
@@ -169,14 +174,18 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         assertThat(detail.jsonPath().getString("data.eventType")).isEqualTo("GROUP_ANNOUNCEMENT_CREATED");
         assertThat(detail.jsonPath().getString("data.target.kind")).isEqualTo("GROUP_ANNOUNCEMENT");
         assertThat(detail.jsonPath().getLong("data.target.announcementId")).isEqualTo(123);
+        assertThat(defaultDetail.statusCode()).isEqualTo(404);
+        assertThat(legacyDetail.statusCode()).isEqualTo(404);
         assertThat(unread.jsonPath().getLong("data.unreadCount")).isEqualTo(2);
         assertThat(read.statusCode()).isEqualTo(200);
         assertThat(deleted.statusCode()).isEqualTo(204);
     }
 
-    @Test
-    @DisplayName("구버전 전체 읽음은 숨겨진 공지를 읽지 않고 계약 2의 전체 읽음만 공지를 포함한다.")
-    void readAllDoesNotReadHiddenAnnouncements() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {1, 2, 3})
+    @DisplayName("알림함 전체 읽음에 모든 요청 버전의 공지를 포함한다.")
+    void readAllIncludesAnnouncementsRegardlessOfClientVersion(Integer version) {
         // Given
         Member owner = member("101");
         notification(owner, "legacy");
@@ -184,18 +193,12 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
         String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");
 
         // When
-        Response legacy = authenticated(owner).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+        Response read = authenticated(owner, version).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
                 .patch("/notifications/read-all");
-        Object hiddenReadAt = jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id);
-        Response current = authenticated(owner).cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .queryParam("clientVersion", 2).patch("/notifications/read-all");
 
         // Then
-        assertThat(legacy.statusCode()).isEqualTo(200);
-        assertThat(legacy.jsonPath().getInt("data.updatedCount")).isEqualTo(1);
-        assertThat(hiddenReadAt).isNull();
-        assertThat(current.statusCode()).isEqualTo(200);
-        assertThat(current.jsonPath().getInt("data.updatedCount")).isEqualTo(1);
+        assertThat(read.statusCode()).isEqualTo(200);
+        assertThat(read.jsonPath().getInt("data.updatedCount")).isEqualTo(2);
         assertThat(jdbc.queryForObject("select read_at from notifications where id = ?", Object.class, id)).isNotNull();
     }
 
@@ -264,5 +267,10 @@ class AnnouncementReadCompatibilityAcceptanceTest extends NotificationIntegratio
 
     private RequestSpecification authenticated(Member member) {
         return RestAssured.given().cookie(cookies.accessTokenName(), tokens.issue(member.getId()).value());
+    }
+
+    private RequestSpecification authenticated(Member member, Integer version) {
+        RequestSpecification request = authenticated(member);
+        return version == null ? request : request.queryParam("clientVersion", version);
     }
 }

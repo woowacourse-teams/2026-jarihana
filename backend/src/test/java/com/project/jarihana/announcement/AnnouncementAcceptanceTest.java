@@ -206,7 +206,7 @@ class AnnouncementAcceptanceTest extends IntegrationTestSupport {
 
         Response legacyInbox = authenticated(legacyOnly).queryParam("clientVersion", 2).get("/notifications");
         assertThat(legacyInbox.jsonPath().getList("data.items")).hasSize(1);
-        assertThat(authenticated(legacyOnly).get("/notifications").jsonPath().getList("data.items")).isEmpty();
+        assertThat(authenticated(legacyOnly).get("/notifications").jsonPath().getList("data.items")).hasSize(1);
         assertThat(memberInbox.statusCode()).isEqualTo(200);
         assertThat(memberInbox.jsonPath().getList("data.items")).hasSize(1);
         assertThat(memberInbox.jsonPath().getString("data.items[0].eventType")).isEqualTo("GROUP_ANNOUNCEMENT_CREATED");

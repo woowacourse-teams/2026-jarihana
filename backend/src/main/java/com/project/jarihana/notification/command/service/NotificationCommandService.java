@@ -35,10 +35,10 @@ public class NotificationCommandService {
     }
 
     @Transactional
-    public NotificationReadAllResult readAllNotifications(long memberId, boolean includeAnnouncements) {
+    public NotificationReadAllResult readAllNotifications(long memberId) {
         requireMember(memberId);
         LocalDateTime now = LocalDateTime.now(clock);
-        return new NotificationReadAllResult(notifications.markAllRead(memberId, now, includeAnnouncements), now);
+        return new NotificationReadAllResult(notifications.markAllRead(memberId, now), now);
     }
 
     @Transactional
