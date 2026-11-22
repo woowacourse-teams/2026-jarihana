@@ -5,7 +5,7 @@
 
 | runner 이름 | 전용 라벨 | 담당 작업 |
 | --- | --- | --- |
-| `wooteco-ec2-jarihana-runner` | `jarihana-legacy` | 기존 EC2의 CloudWatch 관리, 알람, DB drill |
+| `wooteco-ec2-jarihana-runner` | `jarihana-legacy` | 기존 EC2의 CloudWatch 관리와 알람 |
 | `jarihana-dev` | `jarihana-dev` | 개발 백엔드 배포, 개발 프론트엔드 S3 배포 |
 | `jarihana-prod` | `jarihana-prod` | 운영 백엔드 배포(GHCR 이미지 받기), 운영 프론트엔드 S3 배포 |
 | `jarihana-monitoring` | `jarihana-monitoring` | 모니터링 서버 전용 |
@@ -24,9 +24,6 @@ GitHub 호스팅 runner를 쓴다. 운영 백엔드는 빌드하지 않는다. �
 `self-hosted`, `Linux`, `ARM64`를 추가하지 않는다. 프론트엔드 S3 배포에는 개발
 EC2의 AWS CLI와 `techcourse-project-2026/jarihana-dev/frontend` 경로에 대한
 조회·쓰기·삭제 권한이 필요하다.
-
-`CloudWatch Dev DB Drill`은 기존 EC2의 로컬 PostgreSQL 컨테이너를 대상으로 하는
-장애 훈련이다. RDS를 사용하는 개발 배포와 별개이므로 기존 EC2에 고정한다.
 
 새 runner는 등록할 때 `--no-default-labels --labels <전용 라벨>`을 사용하고,
 워크플로에서도 해당 라벨을 지정한다. 모니터링 runner를 재등록한다면

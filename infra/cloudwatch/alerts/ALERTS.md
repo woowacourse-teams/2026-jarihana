@@ -80,8 +80,6 @@ JSON을 사용한다.
    action 연결을 확인한 뒤 AWS의 테스트 API로 상태를 잠시 `ALARM`으로 바꾼다. 해당 제목의
    CloudWatch ALARM 메일이 오는지 확인한다. 지표 알람은 실제 지표에 따라 곧 원래 상태로
    재평가된다.
-8. dev DB 장애 실험으로 `[DEV] Database unavailable`과 `[DEV] HTTP 5xx detected (application log)`의
-   `ALARM` 및 `OK` 이메일을 확인한다. 요청이 발생한 경우 HTTP 5xx 알람도 함께 전환될 수 있다.
 
 현재 대상 EC2 ID는 `i-0a1245eb20f7998b8`이다. 권한 확인·배포·테스트는 이 ID와 self-hosted
 runner의 실제 EC2가 같은지 IMDSv2로 검사한다. SNS와 CloudWatch는 `ap-northeast-2`에서만
@@ -96,12 +94,10 @@ EventBridge, Lambda, Secrets Manager를 새로 만들지 않는다.
 
 배포 직후 구독이 `PendingConfirmation`인 것은 정상이다. 확인 링크를 누르기 전에는 CloudWatch가
 Topic에 발행해도 이메일을 받을 수 없다. `test-email`은 dev 5xx 알람을 테스트 목적으로 잠시
-`ALARM`으로 바꿔 SNS 전달을 검증한다. 실제 장애 감지는 dev 장애 실험의
-`OK → ALARM → OK` 전환으로 확인한다.
+`ALARM`으로 바꿔 SNS 전달을 검증한다.
 
 배포 후 CloudWatch 콘솔에서 `[PROD]`, `[DEV]`, `[EC2]` 알람의 작업에
-`jarihana-cloudwatch-alerts` Topic이 연결되었는지 확인한다. dev 장애 실험의 preflight도 확인된
-이메일 구독과 dev 5xx 및 service health 알람의 `AlarmActions`·`OKActions`를 검사한다.
+`jarihana-cloudwatch-alerts` Topic이 연결되었는지 확인한다.
 
 dev 로그 그룹이나 지표 수신을 중단할 계획이면 먼저 `EnableDevApplicationAlarms=false`로 stack을
 갱신한다. 운영 환경에는 강제 오류나 부하를 발생시켜 테스트하지 않는다.

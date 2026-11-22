@@ -76,7 +76,6 @@ cloudwatch/
 ├── agent/          # Agent·Prometheus 설정, 설치, 설정 검증, 수신 확인
 ├── dashboards/     # dev/prod JSON, 생성·갱신 스크립트
 ├── alerts/         # 기존 경보·SNS 설정, 배포·검증, 운영 문서
-├── drills/         # 기존 dev DB 장애·복구 시나리오와 검증
 └── service-health/ # 컨테이너·Spring·DB 검사, 설치·검증, systemd unit
 ```
 
@@ -98,7 +97,6 @@ cloudwatch/
 | `service-health/install-service-health.sh`, `service-health/verify-service-health.sh` | 생존 검사 수집기 설치 및 최신 CloudWatch 값 확인 |
 | `service-health/jarihana-service-health.service`, `service-health/jarihana-service-health.timer` | 매분 실행하는 systemd 서비스와 타이머 |
 | `alerts/alerts.py`, `alerts/deploy-alerts.sh`, `alerts/check-sns-permissions.sh`, `alerts/ALERTS.md` | 환경별 앱 경보, 공통 EC2 경보, SNS 이메일 전달과 권한 확인 |
-| `drills/dev-db-drill.sh`, `drills/dev-db-drill-observe.py` | dev DB 장애·복구 절차 및 실행 기록 확인 |
 
 SSH로 파일을 전달할 때도 이 디렉터리 구조를 유지한다. 각 스크립트는 자신의 위치를
 기준으로 같은 디렉터리의 설정과 `common/`의 공통 스크립트를 읽는다.
