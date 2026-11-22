@@ -88,7 +88,7 @@ Spring 컨텍스트가 누적되어 전체 테스트 후반에 heap이 부족해
 
 ## 애플리케이션 로그
 
-로컬 콘솔, dev/prod ECS JSON, 현재 Docker `local` → Alloy → Loki 경로와 legacy CloudWatch 조회 방법은
+로컬 콘솔, dev/prod ECS JSON과 Docker `local` → Alloy → Loki 로그 수집 경로는
 [애플리케이션 로깅 운영 가이드](docs/operations/application-logging.md)를 확인한다.
 
 ## 로컬 PostgreSQL 실행

@@ -61,7 +61,7 @@ prod는 아래 경로의 환경 부분을 prod로 사용하고 dev 설정을 복
 | --- | --- |
 | `/etc/jarihana-deploy/<env>/coordinator.json` | root 소유, 실제 topology, Nginx와 telemetry 설정 |
 | 각 앱의 같은 경로 아래 `app-A.json` 또는 `app-B.json` | 해당 호스트의 local_slot, 포트와 파일 경로 |
-| `app-compose.yml` | 새 서버의 최초 수동 앱 기동용. 일반 Blue-Green prepare는 prod/dev 모두 해당 실행 SHA의 Compose를 사용하며 이 설치본을 읽지 않음 |
+| `app-compose.yml` | 새 서버의 최초 수동 앱 기동용. 운영 Blue-Green prepare는 해당 실행 SHA의 Compose를 사용 |
 | `worker-token`, `grant-key`, `known-hosts` | 관리자 소유 비밀 파일과 검증한 Nginx host key |
 | `/var/lib/jarihana-deploy/<env>/state.json` | coordinator 소유 0700 디렉터리, 저널 0600 |
 | 각 앱의 `/var/lib/jarihana-deploy/<env>/app-A` 또는 `app-B` | 해당 runner 소유 0700, worker/stop intent와 잠금, 실행 기록 |

@@ -435,8 +435,7 @@ Alloy는 자신의 `SPRING_PROFILES_ACTIVE`에서 로그의 `environment` 라벨
 ECS JSON 원문과 요청 ID는 그대로 보관하며 Loki 인덱스에는 `service_name`, `environment`,
 `host_id`만 남긴다. 실제 요청의 응답 ID로 Loki에서 로그를 찾아 전송 완료를 확인한다.
 
-CloudWatch 도구는 legacy 운영 참고로 보존하지만 현재 backend 로그 경로는 Docker `local` →
-Alloy → Loki다. 기존 AWS 로그·대시보드·알림 자원 정리는 수행하지 않았다. [Slack 장애 알림](SLACK.md)은 Grafana 시작 시 알림 정의 12개·연락처·notification policy를 파일에서 등록한다.
+[Slack 장애 알림](SLACK.md)은 Grafana 시작 시 알림 정의 12개·연락처·notification policy를 파일에서 등록한다.
 외부 장애 감시는 아직 없으며 실제 Slack 수신도 확인하지 않았다.
 
 ## 수집 확인
@@ -534,7 +533,7 @@ Prometheus remote write 샘플 `42`를 확인했다. 다른 Host와 조회 경�
 - 과거 RDS CA 마운트 설계에서는 CA 원본 파일이 없으면 Docker bind가 실패하고 경로를 자동 생성하지
   않는지 확인했다. 현재 dev·prod RDS 연결은 `sslmode=require`를 사용하고 CA 파일 마운트는 필수 계약이 아니다.
 
-별도 중첩 JSON 로그를 Loki에 직접 넣어 로깅 가이드의 LogQL 예시 네 개도 확인했다.
+별도 중첩 JSON 로그를 Loki에 직접 넣어 요청 ID 조회, HTTP 완료·오류 집계와 p95 쿼리를 확인했다.
 요청 ID 조회는 관련 이벤트 3개, HTTP 완료·오류 집계는 각각 1개를 반환했고 p95는
 250,000,000ns를 250ms로 계산했다. 시작·업무 이벤트는 완료 집계에서 제외됐다.
 이 쿼리 검증은 직접 전송한 테스트 데이터이며 위 Alloy 로그 전송 검증과 구분한다.
