@@ -146,12 +146,11 @@ async function startDatabase() {
   }
 }
 
-async function migrateBlueprints(environment, wallWidth) {
+const migrations = path.join(root, "backend/src/main/resources/db/migration");
+
+async function migrateBlueprintKeys(environment) {
   const { databaseName, reader } = environments[environment];
-  const directory = path.join(root, "backend/src/main/resources/db/migration");
-  const migration = await readFile(path.join(directory, "V45__versioned_space_blueprints.sql"), "utf8");
-  const catalog = await readFile(path.join(directory, "V46__space_furniture_catalog.sql"), "utf8");
-  const runtime = await readFile(path.join(directory, "V47__space_blueprint_runtime.sql"), "utf8");
+  const migration = await readFile(path.join(migrations, "V45__versioned_space_blueprints.sql"), "utf8");
   sql(`BEGIN;
     ${migration}
     GRANT SELECT (blueprint_template_key, blueprint_version) ON group_space TO ${reader};
@@ -159,11 +158,17 @@ async function migrateBlueprints(environment, wallWidth) {
     GRANT SELECT (template_key, blueprint_version) ON space_blueprint_default TO ${reader};
     GRANT SELECT (version) ON space_blueprint_migration TO ${reader};
     COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_blueprint_migration;", databaseName).trim(), "1");
+  assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 11;", databaseName).trim(), "lounge:11");
+}
+
+async function migrateBlueprintRuntime(environment, wallWidth) {
+  const { databaseName } = environments[environment];
+  const catalog = await readFile(path.join(migrations, "V46__space_furniture_catalog.sql"), "utf8");
+  const runtime = await readFile(path.join(migrations, "V47__space_blueprint_runtime.sql"), "utf8");
   sql(`BEGIN; ${catalog} COMMIT;`, databaseName);
   sql(`BEGIN; ${runtime} COMMIT;`, databaseName);
   assert.equal(sql("SELECT version FROM space_runtime_migration;", databaseName).trim(), "1");
-  assert.equal(sql("SELECT version FROM space_blueprint_migration;", databaseName).trim(), "1");
-  assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 11;", databaseName).trim(), "lounge:11");
   const blocker = JSON.stringify([{ x: -2, z: 6.8, width: wallWidth, depth: wallWidth, height: 2 }]);
   sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
     SELECT 'lounge', version, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '${blocker}'::jsonb)
@@ -305,12 +310,6 @@ try {
     verifyBrowser = browser.verifyBrowser;
   }
   await startDatabase();
-  let live;
-  if (previousJar) {
-    previousServer = startServer([], previousJar);
-    const oldPort = await waitFor(() => serverLog.match(/Tomcat started on port (\d+)/)?.[1], "previous server startup", 45000);
-    live = await connect("ws://127.0.0.1:" + oldPort + "/ws/realtime", "101");
-  }
   async function checkRuntime() {
     const probe = startServer(["--check-runtime"]);
     const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "two-database runtime preflight", 45000);
@@ -319,21 +318,49 @@ try {
   const savedRows = Object.fromEntries(Object.entries(environments).map(([environment, { databaseName }]) =>
     [environment, sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName)]));
   assert.notEqual(await checkRuntime(), 0);
-  await migrateBlueprints("dev", 1);
-  assert.notEqual(await checkRuntime(), 0);
-  if (live) {
-    assert.equal(previousServer.exitCode, null);
-    assert.equal((await command(live, { action: "SIT", assetId: "seat", slot: 0 })).success, true);
-    receipt.push("the previous release keeps serving its existing socket after the candidate rejects a development-only migration");
-    live.socket.close(1000, "LEAVE");
+  for (const environment of Object.keys(environments)) await migrateBlueprintKeys(environment);
+  let previousUrl;
+  let previousDev;
+  if (previousJar) {
+    // The previous release already requires V45 geometry for a cold join.
+    const logOffset = serverLog.length;
+    previousServer = startServer([], previousJar);
+    const oldPort = await waitFor(() => serverLog.slice(logOffset).match(/Tomcat started on port (\d+)/)?.[1],
+      "previous server startup", 45000);
+    previousUrl = `ws://127.0.0.1:${oldPort}/ws/realtime`;
+    previousDev = await connect(previousUrl, "101");
+    const previousProd = await connect(previousUrl, "101", "1", { environment: "prod" });
+    assert.equal(previousDev.state.layoutRevision, 1);
+    assert.equal(previousProd.state.layoutRevision, productionRevision);
+    previousProd.socket.close(1000, "LEAVE");
+    receipt.push("the previous develop JAR cold-joins existing saved rooms in both V45 databases");
   }
-  await migrateBlueprints("prod", 3);
-  for (const [column, table] of [["spawn", "space_blueprint_runtime"], ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"]]) {
+  await migrateBlueprintRuntime("dev", 1);
+  assert.notEqual(await checkRuntime(), 0);
+  if (previousDev) {
+    assert.equal(previousServer.exitCode, null);
+    assert.equal((await command(previousDev, { action: "SIT", assetId: "seat", slot: 0 })).success, true);
+    receipt.push("the previous release keeps serving its existing socket after the candidate rejects a development-only migration");
+    previousDev.socket.close(1000, "LEAVE");
+  }
+  await migrateBlueprintRuntime("prod", 3);
+  if (previousUrl) {
+    for (const environment of Object.keys(environments)) {
+      const cold = await connect(previousUrl, "101", "12", { environment });
+      assert.equal(cold.state.layoutRevision, 2);
+      cold.socket.close(1000, "LEAVE");
+    }
+    receipt.push("the previous develop JAR still cold-joins both databases after V46/V47");
+  }
+  for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"], ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"]]) {
     const { databaseName, reader } = environments.prod;
     sql(`REVOKE SELECT (${column}) ON ${table} FROM ${reader};`, databaseName);
     assert.notEqual(await checkRuntime(), 0, "candidate must read " + table + "." + column);
     sql(`GRANT SELECT (${column}) ON ${table} TO ${reader};`, databaseName);
   }
+  sql("UPDATE space_blueprint_default SET blueprint_version = 10 WHERE template_key = 'lounge';");
+  assert.notEqual(await checkRuntime(), 0, "a default must have an initialized room");
+  sql("UPDATE space_blueprint_default SET blueprint_version = 12 WHERE template_key = 'lounge';");
   assert.equal(await checkRuntime(), 0);
   receipt.push("preflight requires migrated blueprint tables, catalog, references and grants in both databases");
   for (const [environment, { databaseName }] of Object.entries(environments)) {

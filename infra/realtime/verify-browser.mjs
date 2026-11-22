@@ -143,7 +143,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     }
     receipt.push("both sessions receive each member's saved avatar appearance");
     await pages[0].bringToFront();
-    await pages[0].getByRole("button", { name: "인사 H", exact: true }).click();
+    await pages[0].getByRole("button", { name: "인사 H", exact: true }).press("Enter");
     await until(() => latest("2")?.participants.find((actor) => actor.memberId === "1")?.emote?.kind === "wave", "greeting fan-out");
     receipt.push("UI greeting is accepted and delivered to the second browser");
     const origin = latest("2").participants.find((actor) => actor.memberId === "1").position;
