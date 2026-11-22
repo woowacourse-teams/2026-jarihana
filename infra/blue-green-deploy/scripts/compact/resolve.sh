@@ -39,10 +39,9 @@ if [[ "$BG_MODE" == deploy ]]; then
     backend_only=true
   elif [[ "$GITHUB_EVENT_NAME" == push && "${BEFORE_SHA:-}" =~ ^[a-f0-9]{40}$ && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]]; then
     git cat-file -e "$BEFORE_SHA^{commit}"
-    shared=(infra .github/workflows/backend-{prod-deploy,prod-deploy-v2,bluegreen-deploy,bluegreen-deploy-v2,app-operation,bluegreen-phase,bluegreen-app-v2,bluegreen-prepare-v2}.yml)
+    shared=(infra .github/scripts/production-frontend-build.cjs .github/workflows/backend-{prod-deploy,prod-deploy-v2,bluegreen-deploy,bluegreen-deploy-v2,app-operation,bluegreen-phase,bluegreen-app-v2,bluegreen-prepare-v2}.yml)
     backend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- backend "${shared[@]}")
     frontend_changes=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- frontend .github/workflows/frontend-prod-deploy.yml "${shared[@]}")
-    # The shared realtime candidate requires these migrations in both databases before the new frontend can publish.
     catalog_migrations_added=$(git diff --no-renames --diff-filter=A --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
       backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql \
       backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql)
@@ -80,15 +79,27 @@ else
   tag="tree-$(git rev-parse HEAD:backend)"
 fi
 image=ghcr.io/woowacourse-teams/jarihana-backend
-docker pull "${image}:${tag}"
-resolved="$(docker image inspect --format '{{json .RepoDigests}}' "${image}:${tag}")"
-digest="$(jq -er --arg image "$image" '[.[] | select(startswith($image + "@"))] | unique | if length == 1 then .[0] | split("@")[1] else error("ambiguous digest") end' <<< "$resolved")"
+registry_digest() {
+  # The promotion tag published by backend-dev-deploy is a single ARM64 image.
+  docker manifest inspect --verbose "$image:$1" | jq -er '
+    if type == "object" and (.Descriptor.platform | .os == "linux" and .architecture == "arm64")
+      and (.Descriptor.mediaType == "application/vnd.oci.image.manifest.v1+json"
+        or .Descriptor.mediaType == "application/vnd.docker.distribution.manifest.v2+json")
+    then .Descriptor.digest | select(type == "string" and test("^sha256:[a-f0-9]{64}$"))
+    else error("expected a single linux/arm64 image manifest") end'
+}
+if [[ "$BG_MODE" == bootstrap ]]; then
+  # Bootstrap adopts the image already on the server, including older manifest lists.
+  docker pull "$image:$tag"
+  resolved="$(docker image inspect --format '{{json .RepoDigests}}' "$image:$tag")"
+  digest="$(jq -er --arg image "$image" '[.[] | select(startswith($image + "@"))] | unique | if length == 1 then .[0] | split("@")[1] else error("ambiguous digest") end' <<< "$resolved")"
+else
+  digest="$(registry_digest "$tag")"
+fi
 [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
 if [[ "$BG_MODE" == deploy && -n "$INPUT_TAG" ]]; then
   tree_tag="tree-$(git rev-parse HEAD:backend)"
-  docker pull "${image}:${tree_tag}"
-  tree_resolved="$(docker image inspect --format '{{json .RepoDigests}}' "${image}:${tree_tag}")"
-  tree_digest="$(jq -er --arg image "$image" '[.[] | select(startswith($image + "@"))] | unique | if length == 1 then .[0] | split("@")[1] else error("ambiguous digest") end' <<< "$tree_resolved")"
+  tree_digest="$(registry_digest "$tree_tag")"
   [[ "$digest" == "$tree_digest" ]] || { echo '::error::지정한 이미지가 운영 커밋의 백엔드 이미지와 다릅니다.'; exit 1; }
 fi
 echo "digest=$digest" >> "$GITHUB_OUTPUT"

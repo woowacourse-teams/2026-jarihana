@@ -321,7 +321,8 @@ fe_publish() {
     return
   fi
   fe_prepare_candidate
-  verify_frontend_realtime "$FE_PUBLIC" "${REALTIME_WEBSOCKET_URL:-}" || bg_die 'Public clubhouse catalogs must be available before frontend publication'
+  verify_frontend_realtime_for_checkout "$GITHUB_WORKSPACE" "$FE_PUBLIC" "${REALTIME_WEBSOCKET_URL:-}" ||
+    bg_die 'Public clubhouse catalogs must be available before frontend publication'
   fe_pointer_write "$(jq -c '.pending.status="publishing"' <<<"$FE_POINTER")"
   bg_save "$(jq -c --arg etag "$FE_ETAG" '.frontend.etag=$etag | .frontend.publication_started=true' <<<"$STATE")"
   fe_publish_files "$FE_CANDIDATE_DIRECTORY" "$FE_TEMP/download-manifest.json"

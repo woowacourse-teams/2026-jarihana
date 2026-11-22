@@ -134,6 +134,8 @@ fixture_files() {
 setup() {
   CASE_DIR="$TEST_DIR/$1"; mkdir -m700 "$CASE_DIR"
   mkdir -m700 "$CASE_DIR/state"
+  GITHUB_WORKSPACE="$CASE_DIR/checkout"
+  mkdir "$GITHUB_WORKSPACE"
   STATE_FILE="$CASE_DIR/state/state.json"
   echo 1000 >"$CASE_DIR/clock"
   BG_LIVE_CACHED_AT=0
@@ -146,6 +148,11 @@ setup() {
   fixture_files "$CASE_DIR/s3/$FE_LIVE" old
   BG_FRONTEND_DIST="$CASE_DIR/dist"; fixture_files "$BG_FRONTEND_DIST" new
   unset FAIL_KEY POINTER_ERROR BAD_PUBLIC REVOKED CACHE_TTL EDGE_FUNCTION CDN_BEHAVIORS CDN_EXTRA_ORIGINS REVOKE_AFTER_WRITE ADVANCE_AFTER_WRITE EXPIRE_AFTER_WRITE TAMPER_AFTER_WRITE REVOKE_AFTER_PUBLIC BAD_CHECKSUM_RECEIPT OMIT_CHECKSUM_RECEIPT
+}
+catalog_migration_in_checkout() {
+  local migrations="$GITHUB_WORKSPACE/backend/src/main/resources/db/migration"
+  mkdir -p "$migrations"
+  touch "$migrations/V49__space_portable_item_catalog.sql"
 }
 rejects() {
   local status=0
@@ -626,6 +633,7 @@ backend_only_fixture() {
 }
 backend_only_keeps_frontend_files() {
   backend_only_fixture
+  catalog_migration_in_checkout
   REALTIME_HTTP_STATUS=400
   fe_stage; fe_publish; fe_finalize
   [[ ! -e $CASE_DIR/realtime-origins ]]
@@ -635,7 +643,14 @@ backend_only_keeps_frontend_files() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .pending==null and .backend_image==$image' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
   jq -e '.frontend.changed==false and .frontend.published==false and .frontend.finalized==true' "$STATE_FILE" >/dev/null
 }
+frontend_before_catalog_migration_publishes_without_realtime() {
+  fe_stage
+  REALTIME_HTTP_STATUS=400 fe_publish
+  [[ ! -e $CASE_DIR/realtime-origins ]]
+  [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *new* ]]
+}
 frontend_requires_realtime_before_writing_live_files() {
+  catalog_migration_in_checkout
   fe_stage
   local before; before=$(write_count)
   REALTIME_HTTP_STATUS=400 rejects fe_publish
@@ -697,7 +712,7 @@ frontend_after_backend_only_uses_actual_pair() {
   jq -e --arg image "$BG_IMAGE_DIGEST" '.current=="baseline-123" and .backend_image==$image and .pending==null' "$CASE_DIR/s3/$FE_ARCHIVE/state.json" >/dev/null
 }
 if [[ ${1:-} == --fixtures-only ]]; then return 0; fi
-for test in frontend_requires_realtime_before_writing_live_files candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
+for test in frontend_before_catalog_migration_publishes_without_realtime frontend_requires_realtime_before_writing_live_files candidate_cache_reused_across_phases candidate_cache_does_not_rescan_s3_files candidate_cache_miss_falls_back candidate_cache_recovery_uses_previous_archive candidate_cache_revocation_stops_publication; do
   ( setup "$test"; "$test" )
   printf 'PASS frontend %s\n' "$test"
 done

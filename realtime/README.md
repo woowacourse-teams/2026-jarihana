@@ -29,7 +29,7 @@ Spring 설정 `realtime.*`로 제한값을 조절할 수 있다. 기본 제한�
 
 ## 상태와 순서
 
-공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 일반 HTTP `GET /ws/realtime`는 입장 토큰 없이 공개된 응답에서 `catalogContractVersion: 2`를 제공한다. 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 연결 흐름을 사용한다. 가구 상호작용 규칙은 입장 환경의 `space_furniture_catalog.definition.interaction`에서, 휴대 소품 규칙은 `space_portable_item_catalog.definition`에서 읽는다. 상판 `surface.slots`와 수납 `storage.capacity`는 서로 다른 0부터 시작하는 슬롯 범위와 점유를 갖는다. 연결 방식에 관계없이 상판·수납 소품은 가구 ID와 슬롯을 보내고 월드 좌표는 null 또는 생략한다.
+공통 wire 계약은 `../contracts/realtime/v1/README.md`에 있다. 일반 HTTP `GET /ws/realtime`는 입장 토큰 없이 공개된 응답에서 `catalogContractVersion: 2`를 제공한다. 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 연결 흐름을 사용한다. 가구 상호작용 규칙은 입장 환경의 `space_furniture_catalog.definition.interaction`에서, 휴대 소품 규칙은 `space_portable_item_catalog.definition`에서 읽는다. 상판 `surface.slots`와 수납 `storage.capacity`는 서로 다른 0부터 시작하는 슬롯 범위와 점유를 갖는다. 상판·수납 소품은 가구 ID와 슬롯으로 관리하고 WebSocket 응답에는 기존 클라이언트 호환을 위한 월드 좌표도 계산해 보낸다.
 
 방마다 bounded mailbox 하나에서 상태를 변경한다. DB 조회와 WebSocket 송신은 별도 bounded executor를 사용한다. 연속 MOVE는 command 경계를 넘지 않고 최신 입력으로 합치며 출력 movement도 control 메시지 경계 뒤에서만 합친다. 초기 snapshot을 먼저 큐에 넣고 이후 full state와 movement frame을 보낸다. `roomEpoch`, 연결 generation, 배치 revision, command ID와 move sequence가 오래된 요청을 거부한다. command 결과는 사용자별 128개/60초 보관하며 중복 적용을 막는다. 같은 사용자 새 연결이 기존 연결을 교체하고, 오래된 인증 응답은 새 연결을 교체하지 못한다.
 

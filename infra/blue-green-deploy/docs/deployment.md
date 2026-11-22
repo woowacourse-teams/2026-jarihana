@@ -50,6 +50,7 @@
 두 only 입력은 동시에 지정하지 않는다. main push에서는 backend 변경만 있으면 backend-only,
 frontend 변경만 있으면 frontend-only를 선택한다. infra 또는 공동 배포 workflow 변경은 양쪽 배포다.
 아지트의 V48·V49 중 하나가 처음 추가되는 main push는 백엔드를 먼저 배포한다. 양쪽 DB와 공용 realtime을 확인한 뒤 운영 프론트를 수동 게시하는 순서는 [Realtime 배포 문서](../../realtime/README.md)를 따른다.
+V49가 포함된 커밋의 프론트를 게시하기 전에 공개 realtime과 가구 카탈로그를 검사한다. V49 이전 커밋에서 빌드한 프론트에는 이 검사가 필요하지 않다.
 독립적인 프론트엔드 운영 게시 workflow는 없으며
 [프론트 빌드 workflow](../../../.github/workflows/frontend-prod-deploy.yml)는 호출형 빌드 전용이다.
 

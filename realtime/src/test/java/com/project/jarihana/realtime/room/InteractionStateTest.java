@@ -86,8 +86,8 @@ class InteractionStateTest {
         assertThat(room.item(stored).slot()).isZero();
         assertThat(room.item(placed).location()).isEqualTo(ItemState.Location.SURFACE);
         assertThat(room.item(stored).location()).isEqualTo(ItemState.Location.STORAGE);
-        assertThat(wireItem(placed).position()).isNull();
-        assertThat(wireItem(stored).position()).isNull();
+        assertThat(wireItem(placed).position()).isNotNull();
+        assertThat(wireItem(stored).position()).isNotNull();
         command("PICKUP", "itemId", stored);
         assertThat(held()).isEqualTo(stored);
         assertThat(room.item(placed).location()).isEqualTo(ItemState.Location.SURFACE);
@@ -102,10 +102,10 @@ class InteractionStateTest {
         RoomAsset old = assets.get("table");
         assets.put("table", moved(old, new Vec3(8, 0, 8), 1, 2));
         ItemState attached = room.item(id);
-        assertThat(wireItem(id)).isEqualTo(attached);
+        assertThat(wireItem(id).position()).isEqualTo(new Vec3(0, 0.9, 1.105));
         replace(assets);
-        assertThat(wireItem(id)).isEqualTo(attached);
-        assertThat(wireItem(id).position()).isNull();
+        assertThat(room.item(id)).isEqualTo(attached);
+        assertThat(wireItem(id).position()).isEqualTo(new Vec3(8.105, 1.8, 8));
     }
 
     @Test
@@ -175,7 +175,7 @@ class InteractionStateTest {
         assertThat(room.item(id).kind()).isEqualTo("cup");
         assertThat(room.item(id).slot()).isZero();
         assertThat(wireItem(id).assetId()).isEqualTo("machine");
-        assertThat(wireItem(id).position()).isNull();
+        assertThat(wireItem(id).position()).isEqualTo(new Vec3(8, 0.96, 8.105));
         assertThat(room.assetState("machine").production()).isNull();
     }
 

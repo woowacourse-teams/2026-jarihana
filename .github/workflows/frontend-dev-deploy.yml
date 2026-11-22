@@ -107,6 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: AWS 배포 대상 확인
@@ -143,7 +144,7 @@ jobs:
           REALTIME_WEBSOCKET_URL: ${{ vars.REALTIME_WEBSOCKET_URL }}
         run: |
           source infra/blue-green-deploy/scripts/actions/frontend-realtime.sh
-          verify_frontend_realtime "$FRONTEND_ORIGIN" "$REALTIME_WEBSOCKET_URL"
+          verify_frontend_realtime_for_checkout "$GITHUB_WORKSPACE" "$FRONTEND_ORIGIN" "$REALTIME_WEBSOCKET_URL"
 
       - name: S3 배포
         run: aws s3 sync dist "${S3_DESTINATION}" --delete --region "${AWS_REGION}" --only-show-errors

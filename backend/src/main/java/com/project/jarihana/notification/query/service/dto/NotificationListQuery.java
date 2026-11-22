@@ -1,4 +1,4 @@
 package com.project.jarihana.notification.query.service.dto;
 
-public record NotificationListQuery(String cursor, int size, NotificationClientVersion clientVersion) {
+public record NotificationListQuery(String cursor, int size) {
 }

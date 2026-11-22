@@ -9,23 +9,18 @@
 
 ## 공용 컨테이너 배포
 
-PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQL의 WebSocket 동작을 검증한다. PR 검증은 realtime 테스트와 검증에 사용하는 SQL에도 실행한다. develop 자동 배포는 이미지 빌드 입력, 공용 Compose·Alloy·배포 스크립트, workflow에 대한 변경으로 시작한다. [Realtime Deploy](../../.github/workflows/realtime-deploy.yml)
+[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 PR에서 서버 테스트와 두 PostgreSQL의 WebSocket 동작을 검증한다. develop 자동 배포는 이미지 빌드 입력과 공용 Compose·Alloy·배포 스크립트·워크플로가 바뀔 때 시작한다. 아직 이미지에 포함되는 공유 JSON도 빌드 입력이다.
 
-- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정으로 Docker와 Compose를 실행할 수 있어야 한다.
-- 준비 잡은 기존 GitHub `dev`·`prod` Environment에서 `RDS_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_ORIGIN`, `ACCESS_TOKEN_SECRET`을 읽는다. 환경별 JDBC 주소와 입장 키를 계산해 배포 잡에 전달한다. 배포 잡은 두 Origin을 합쳐 `REALTIME_ALLOWED_ORIGINS`로 설정한다.
-- CloudFront에 EC2 원본을 `HTTP only`, 포트 `8080`, 빈 Origin path로 등록한다. Behavior 경로는 `/ws/realtime`, 캐시 정책은 `CachingDisabled`로 지정한다. Origin request policy에서 `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
+- 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정은 Docker와 Compose를 실행할 수 있어야 한다.
+- 준비 잡은 GitHub `dev`·`prod` Environment에서 DB와 Origin 설정을 읽는다. 환경별 JDBC 주소와 입장 키를 계산하여 실행·시도별 `/dev/shm` 경로로 전달한다. 배포 잡이 끝나면 해당 실행의 설정을 지운다.
+- CloudFront 원본은 `HTTP only`, 포트 `8080`, 빈 Origin path로 지정한다. 정확한 `/ws/realtime` 경로를 사용하고 캐시를 끈다. `Origin`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`을 전달한다.
+- GitHub `dev`와 `prod`의 `REALTIME_WEBSOCKET_URL`은 API 입장 주소와 프론트의 `APP_REALTIME_WEBSOCKET_URL`에 사용된다. 비어 있으면 프론트는 현재 Origin을 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-- GitHub `dev`와 `prod` Environment의 `REALTIME_WEBSOCKET_URL`은 API의 입장 주소와 프론트 빌드의 `APP_REALTIME_WEBSOCKET_URL`에 들어간다. 두 환경에 같은 WSS 주소를 줄 수 있다. 프론트는 이 주소로 WebSocket을 연결한다. 값이 비어 있으면 브라우저의 현재 Origin을 사용한다. 가구와 소품 정의는 현재 Origin의 API에서 함께 받는다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
+후보 검사는 이미지의 원본 커밋을 기준으로 한다. 기존 이미지에는 `--check-blueprints`를, V49 소품 마이그레이션이 포함된 이미지에는 `--check-runtime`을 사용한다. 두 DB의 사전 검사가 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
-정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 준비 확인용 `catalogContractVersion: 2`만 반환하며 WebSocket Upgrade는 실시간 입장을 처리한다. CloudFront는 개발·운영의 `Origin`을 전달하고 CORS 헤더를 유지한다. 프론트 게시 직전 공용 `GET /ws/realtime`의 HTTP 200·CORS·계약 버전과 각 환경의 `GET /api/group-spaces/furniture-catalog` 응답의 HTTP 200·가구 상호작용 버전·소품 카탈로그 버전을 확인한다.
+개발 DB는 develop 백엔드 배포에서 이관한다. V48 또는 V49를 처음 추가한 main push는 **Production Release V2**가 백엔드만 배포하도록 처리한다. 양쪽 DB가 준비된 뒤 **Realtime Deploy → Run workflow**에서 develop과 후보의 `resume_digest`를 지정한다. 다시 빌드하지 않고 같은 후보의 원본을 확인하고 두 환경의 자격을 새로 준비한다. 실제 교체 직전에 최신 develop의 배포 입력도 다시 확인한다.
 
-후보 이미지는 `compose run --rm --no-deps -T realtime --check-runtime --server.port=0`으로 두 환경의 이관 상태와 읽기 권한을 검사한다. 선행 검사가 실패하면 현재 컨테이너와 연결이 유지된다. 교체 뒤 `/healthz` 검사에서 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
-
-개발은 develop 백엔드 배포로 Flyway를 먼저 실행한다. 운영에서는 V48 또는 V49 파일을 처음 추가한 main push를 **Production Release V2**가 `backend_only`로 처리한다. 이 실행은 기존 프론트를 유지하고 공개 realtime 확인을 건너뛴다. 이후 main push는 해당 push의 변경 범위대로 배포된다. 한쪽만 준비됐다면 후보의 Actions 요약에서 `sha256:…` digest를 확인한다. 두 DB 이관이 커밋된 뒤 **Realtime Deploy → Run workflow**에서 `develop`과 같은 `resume_digest`를 지정한다. 새 실행은 이미지 빌드를 생략하고 두 보호 환경에서 현재 자격을 다시 준비한다. 후보의 원본 커밋에 맞는 배포 설정과 이미지 라벨을 대조하고 양쪽 DB를 다시 검사한다. 후보가 활성화되고 각 환경의 API와 공용 GET이 통과하면 **Frontend Development Deploy**를 `develop`에서 수동 실행한다. 운영은 **Production Release → Run workflow**에서 `main`, `V2`, `deploy`, `frontend_only=true`로 게시한다.
-
-환경 설정은 전용 러너의 `/dev/shm`에서 실행·시도별로 전달한 뒤 지운다. 재개는 새로운 수동 실행으로 시작한다. 후보 선택과 두 DB 검사 이후 실제 교체 직전에, 최신 develop과 후보 원본의 배포 입력을 비교한다. 비교 범위는 workflow의 `push.paths`를 사용한다. 프론트·문서·SQL 변경 뒤에도 기존 후보를 재개할 수 있다.
-
-양쪽 백엔드의 V48·V49와 카탈로그 API를 먼저 게시한다. 공용 realtime 교체 후 두 공개 응답을 확인하고 두 환경에서 새 프론트를 게시한다. 교체 시 상판·수납 소품의 월드 좌표가 빠지므로 게시를 이어서 진행하고 기존 탭은 게시 뒤 새로고침한다. 게시 사이에 이전 탭이 소품 상태를 읽으면 표시나 공유 연결이 실패할 수 있다. QA에서는 새로고침한 탭에서 상판 소품의 표시와 클릭, 수납 슬롯의 점유와 꺼내기를 확인한다. 착석은 `seatRefs`를 보내지 않는 연결에도 이전 좌석 필드를 제공한다.
+V49가 소스에 포함된 프론트의 게시 전에는 같은 경로의 공용 HTTP GET이 CORS와 계약 버전 2를 반환하는지, 해당 환경 API가 두 카탈로그를 반환하는지 검사한다. 그 뒤 개발 프론트는 **Frontend Development Deploy**, 운영 프론트는 **Production Release V2**의 `frontend_only=true`로 게시할 수 있다.
 
 ## 로컬 빌드와 설정 확인
 

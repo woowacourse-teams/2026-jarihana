@@ -24,9 +24,9 @@
 
 현재 새 EC2의 애플리케이션은 realtime 하나이므로 별도 Nginx를 두지 않는다. 기존 CloudFront가 TLS와 경로별 원본 선택을 담당한다. WebSocket은 HTTP Upgrade 요청으로 시작하므로 `/ws/realtime` 경로로 전달할 수 있다. [AWS WebSocket 문서](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-working-with.websockets.html)
 
-서버 디렉터리는 `realtime/`, Java 패키지는 `com.project.jarihana.realtime`, 이미지·Compose 프로젝트·러너 라벨은 `jarihana-realtime`으로 통일한다. 공개 WebSocket은 `/ws/realtime`을 사용한다. Upgrade 없는 HTTP GET으로 같은 경로에서 가구 기능과 상판·수납 칸 규칙을 전달한다. 아지트 저장·조회는 `/api/groups/{groupId}/space/...`를 사용한다.
+서버 디렉터리는 `realtime/`, Java 패키지는 `com.project.jarihana.realtime`, 이미지·Compose 프로젝트·러너 라벨은 `jarihana-realtime`으로 통일한다. 공개 WebSocket은 `/ws/realtime`을 사용한다. 아지트 REST 업무 경로인 `/api/groups/{groupId}/space/...`는 유지한다. 포괄적인 `/ws/*` 원본 변경으로 기존 경로까지 옮기지 않는다.
 
-정확한 `/ws/realtime` Behavior를 사용한다. CloudFront는 `Origin`을 전달하고 캐시를 끈다. 프론트는 같은 `REALTIME_WEBSOCKET_URL`을 빌드 시 받아 HTTPS로 조회한다. 운영에서는 새 프론트 배포 전에 해당 Origin에서 공용 HTTP 조회와 WSS 연결을 확인한다.
+CloudFront의 `/ws/realtime/*` 패턴만으로는 끝에 `/`가 없는 실제 연결 주소를 선택할 수 없다. 정확한 `/ws/realtime` Behavior를 사용한다. 기존 프론트 배포의 CDN 사전 검사는 exact·wildcard 경로를 모두 허용하도록 보완했으며, 실제 배포된 Behavior와 WSS 연결은 운영에서 별도로 확인한다.
 
 | 검토안 | 결정 이유와 비용 |
 | --- | --- |
@@ -76,7 +76,7 @@ flowchart LR
 
 ## 결정 3. develop의 관련 변경을 공용 서버에 배포한다
 
-[Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 PR에서 서버·두 DB WebSocket 검증을 실행할 경로를 지정한다. 이미지와 배포 설정의 실제 입력이 변경된 develop push는 ARM64 이미지를 발행한다. 후보 검사도 같은 `push.paths`를 사용해 최신 develop과 비교하므로, 프론트·문서·SQL 전용 변경이 들어온 뒤에도 기존 후보를 재개할 수 있다. 개발 백엔드와 운영 Production Release가 서로 다른 시점에 Flyway를 실행하므로, 공용 컨테이너 교체는 후보 이미지가 각 환경의 자격으로 양쪽 런타임 데이터를 모두 읽은 뒤에 진행한다.
+[Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 PR에서 서버·두 DB WebSocket 검증을 실행할 경로를 지정한다. 이미지와 배포 설정의 실제 입력이 변경된 develop push는 ARM64 이미지를 발행한다. 후보 검사도 같은 `push.paths`를 사용해 최신 develop과 비교하므로, 프론트·문서·SQL 전용 변경이 들어온 뒤에도 기존 후보를 재개할 수 있다. 개발 백엔드와 운영 Production Release가 서로 다른 시점에 Flyway를 실행하므로, 공용 컨테이너 교체는 후보 이미지가 각 환경의 자격으로 양쪽 데이터를 모두 읽은 뒤에 진행한다. 현재 앱에는 도면 검사, 런타임 카탈로그 이관이 포함된 앱에는 런타임 검사를 실행한다.
 
 ## 결정 4. workflow 안에서 헬스체크와 복구를 수행한다
 

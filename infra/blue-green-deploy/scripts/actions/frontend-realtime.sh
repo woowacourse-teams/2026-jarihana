@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+verify_frontend_realtime_for_checkout() {
+  local source_dir=${1:?release source directory}
+  shift
+  # The new frontend and its portable catalog migration are released together.
+  if [[ -f "$source_dir/backend/src/main/resources/db/migration/V49__space_portable_item_catalog.sql" ]]; then
+    verify_frontend_realtime "$@"
+  fi
+}
+
 verify_frontend_realtime() (
   set -euo pipefail
   local origin=$1 websocket_url=${2:-} host status output

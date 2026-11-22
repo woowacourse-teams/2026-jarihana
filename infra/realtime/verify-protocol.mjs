@@ -865,11 +865,13 @@ try {
   assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
   assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 0, itemId: cupId })).success, true);
   await waitFor(() => a.state.items.find((item) => item.id === cupId)?.assetId === "table", "cup on surface");
+  const surfaceX = prop(cupId).position.x;
   room.items = room.items.map((asset) => asset.id === "table" ? { ...asset, x: asset.x - 0.5 } : asset);
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface moved");
   assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "table", 0]);
+  assert.ok(Math.abs(prop(cupId).position.x - surfaceX + 0.5) < 0.0001);
   const originalC = c;
   c = await connect(url, "103", "1", { seatRefs: true });
   await waitFor(() => originalC.closed, "old observer socket is replaced");
@@ -877,9 +879,9 @@ try {
   const restoredAttachment = (id, location, assetId) => {
     const item = c.state.items.find(item => item.id === id);
     assert.deepEqual([item.location, item.assetId, item.slot], [location, assetId, 0]);
-    assert.equal(item.position ?? null, null);
-    assert.equal(prop(id).position ?? null, null);
-    assert.equal(b.state.items.find(item => item.id === id).position ?? null, null);
+    assert.ok(Object.values(item.position).every(Number.isFinite));
+    assert.deepEqual(item.position, prop(id).position);
+    assert.deepEqual(item.position, b.state.items.find(item => item.id === id).position);
   };
   restoredAttachment(cupId, "SURFACE", "table");
   restoredAttachment(teaId, "STORAGE", "counter");
@@ -887,7 +889,7 @@ try {
   await waitFor(() => self().heldItemId === teaId, "taking tea restores the originally stored item");
   assert.equal((await command(a, { action: "RETURN", assetId: "counter", itemId: teaId })).success, true);
   await waitFor(() => prop(teaId)?.location === "STORAGE", "tea is returned to its storage slot");
-  receipt.push("rejoin restores coordinate-free surface and storage references; taking stored tea preserves its item ID");
+  receipt.push("rejoin restores surface and storage references with compatible positions; taking stored tea preserves its item ID");
   room.items = room.items.filter((asset) => asset.id !== "table");
   revision += 1;
   saveLayout();

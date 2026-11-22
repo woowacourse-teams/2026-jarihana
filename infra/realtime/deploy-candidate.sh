@@ -60,6 +60,18 @@ if [[ "$latest_revision" != "$CANDIDATE_REVISION" || "$latest_digest" != "${REAL
   exit 1
 fi
 
+# Select the command supported by the candidate itself before probing the databases.
+application_path=realtime/src/main/java/com/project/jarihana/realtime/RealtimeApplication.java
+application_source=$(git show "$CANDIDATE_REVISION:$application_path")
+if [[ $application_source == *'"--check-runtime"'* ]]; then
+  preflight=--check-runtime
+elif [[ $application_source == *'"--check-blueprints"'* ]]; then
+  preflight=--check-blueprints
+else
+  echo 'The candidate has no recognized database preflight. Keeping the current deployment.' >&2
+  exit 1
+fi
+
 # Keep the Compose file and the Alloy bind mount together for rollback.
 config_hash=$(cd "$source_dir" && sha256sum compose.yaml config.alloy | sha256sum)
 config_dir="$state_dir/config/${config_hash%% *}"
@@ -104,7 +116,7 @@ if [[ "$image_revision" != "$CANDIDATE_REVISION" ]]; then
   exit 1
 fi
 # Compose run does not publish service ports or replace the running services.
-if ! compose "$config_dir" "$REALTIME_IMAGE" run --rm --no-deps -T realtime --check-runtime --server.port=0; then
+if ! compose "$config_dir" "$REALTIME_IMAGE" run --rm --no-deps -T realtime "$preflight" --server.port=0; then
   echo "Runtime data unreadable in dev or prod. Keeping the current deployment. Resume on develop with resume_digest=${REALTIME_IMAGE##*@}." >&2
   exit 1
 fi

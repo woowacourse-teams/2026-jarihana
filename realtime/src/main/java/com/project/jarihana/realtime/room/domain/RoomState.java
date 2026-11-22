@@ -3,6 +3,7 @@ package com.project.jarihana.realtime.room.domain;
 import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.interaction.InteractionService;
 import com.project.jarihana.realtime.layout.RoomLayout;
+import com.project.jarihana.realtime.transport.protocol.LegacyItemView;
 import com.project.jarihana.realtime.transport.protocol.ParticipantView;
 import com.project.jarihana.realtime.transport.protocol.Values;
 import java.util.ArrayList;
@@ -161,7 +162,7 @@ public final class RoomState {
         result.put("catalogGeneration", layout.catalogGeneration());
         result.put("participants", participants.values().stream()
                 .map(actor -> ParticipantView.snapshot(actor, layout, seatRefs)).toList());
-        result.put("items", List.copyOf(items.values()));
+        result.put("items", items.values().stream().map(item -> LegacyItemView.project(item, layout)).toList());
         result.put("assets", Map.copyOf(assets));
         return result;
     }
