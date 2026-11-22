@@ -10,8 +10,6 @@
 
 조정 러너가 변경 범위를 확인하고 같은 잡에서 배포 계획을 세운다. 프론트가 포함될 때만 별도의 [Frontend Production Build](../../../.github/workflows/frontend-prod-deploy.yml)를 호출한다. 배포 계획 로그에 해당 빌드 실행 링크가 표시된다. 조정 러너는 그 실행이 성공한 뒤 실행 ID와 산출물 ID로 빌드 파일을 내려받는다. 빌드가 실패하면 앱 배포를 시작하기 전에 멈춘다.
 
-아지트 이관 V48·V49 중 하나가 처음 추가되는 운영 push는 백엔드만 배포하고 기존 프론트를 유지한다. V49가 있는 소스에서 빌드한 프론트는 공개 realtime과 가구 카탈로그가 준비된 뒤 게시한다.
-
 운영 승격 전 같은 커밋 `173b12a`로 공동 배포를 비교했다. [V1 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44477273481)은 21분 12초, [V2 수동 실행](https://github.com/woowacourse-teams/2026-jarihana/actions/runs/44480052966)은 18분 15초에 성공했다. 두 실행에서 API와 워커의 5분 관측을 통과했다.
 
 | Actions에 표시되는 잡 | 동작 |

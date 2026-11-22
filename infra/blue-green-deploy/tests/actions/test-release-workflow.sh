@@ -252,7 +252,7 @@ for scope in frontend backend both workflow build-helper unrelated_migration v48
   bash "$compact_resolve"
   case $scope in
     frontend) grep -qx frontend_only=true "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT"; [[ ! -s $DOCKER_TRACE ]] ;;
-    backend|v48|v49) grep -qx backend_only=true "$GITHUB_OUTPUT"; grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -q '^manifest inspect --verbose .*:tree-' "$DOCKER_TRACE" ;;
+    backend) grep -qx backend_only=true "$GITHUB_OUTPUT"; grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -q '^manifest inspect --verbose .*:tree-' "$DOCKER_TRACE" ;;
     *) grep -qx frontend_only=false "$GITHUB_OUTPUT"; grep -qx backend_only=false "$GITHUB_OUTPUT"; grep -q '^manifest inspect --verbose .*:tree-' "$DOCKER_TRACE" ;;
   esac
   echo "PASS release-workflow automatic_v2_scope_$scope"
@@ -260,7 +260,7 @@ done
 BEFORE_SHA=$(git rev-parse HEAD~3)
 : > "$GITHUB_OUTPUT"
 bash "$compact_resolve"
-grep -qx backend_only=true "$GITHUB_OUTPUT"
+grep -qx backend_only=false "$GITHUB_OUTPUT"
 grep -qx frontend_only=false "$GITHUB_OUTPUT"
 echo 'PASS release-workflow automatic_v2_catalogs_added_in_multi_commit_push'
 

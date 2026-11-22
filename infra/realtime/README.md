@@ -18,13 +18,11 @@
 
 후보 이미지의 `--check-runtime`으로 개발·운영 DB 이관 상태와 조회 권한을 확인한다. 두 DB 중 하나라도 사전 검사에 실패하면 현재 컨테이너와 연결을 유지한다. 교체 뒤 `/healthz`가 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
-개발 DB는 develop 백엔드 배포에서 이관한다. V48 또는 V49를 처음 추가한 main push는 **Production Release V2**가 백엔드만 배포하도록 처리한다. 양쪽 DB가 준비된 뒤 **Realtime Deploy → Run workflow**에서 develop과 후보의 `resume_digest`를 지정한다. 다시 빌드하지 않고 같은 후보의 원본을 확인하고 두 환경의 자격을 새로 준비한다. 실제 교체 직전에 최신 develop의 배포 입력도 다시 확인한다.
-
-V49가 소스에 포함된 프론트의 게시 전에는 같은 경로의 공용 HTTP GET이 CORS와 계약 버전 2를 반환하는지, 해당 환경 API가 두 카탈로그를 반환하는지 검사한다. 그 뒤 개발 프론트는 **Frontend Development Deploy**, 운영 프론트는 **Production Release V2**의 `frontend_only=true`로 게시할 수 있다.
+DB 사전 검사에 실패한 후보는 두 환경의 DB와 조회 권한을 확인한 뒤 다시 배포할 수 있다. **Realtime Deploy → Run workflow**에서 `develop`과 후보의 `resume_digest`를 지정한다. 워크플로는 해당 이미지의 원본 커밋과 최신 배포 입력을 확인하고 환경별 접속 설정을 다시 준비한다.
 
 ## 로컬 빌드와 설정 확인
 
-1. JDK 21·Node 24·Docker를 준비한다. 가구 치수·부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47, 가구별 상호작용은 V48, 소품의 휴대·투척·소비·빈 용기 규칙은 V49에 있다. 화면의 상판 위치와 착석 위치는 프론트가 계산한다.
+1. JDK 21·Node 24·Docker를 준비한다.
 2. `realtime/`에서 `./gradlew test bootJar`를 실행한다. 이미지 빌드 방법과 앱의 제한값은 [realtime README](../../realtime/README.md)를 따른다.
 3. [예제 설정](.env.example)을 로컬 설정 파일로 복사하고 검증용 값과 이미지 digest를 입력한다.
 4. 저장소 루트에서 `docker compose --env-file <설정파일> -f infra/realtime/compose.yaml config --quiet`로 확인한다.
@@ -43,7 +41,7 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 `RDS_URL`에 등록된 호스트의 5432 포트로 연결한다. 개발은 `jarihana_dev`, 운영은 `jarihana_prod`를 사용하며 기존 API의 DB 계정으로 접속한다. PostgreSQL이 RDS라면 DB 보안 그룹의 TCP 5432 인바운드 소스를 realtime EC2의 보안 그룹으로 지정하고, EC2에서 DB의 사설 엔드포인트를 쓸 수 있는지 확인한다. 가구·아바타 저장과 스키마 변경은 기존 백엔드가 담당한다.
 
-V45의 도면 43개와 모임 참조에 V46의 가구 122종, V47의 도면별 시작 위치·기본 방, V48의 가구별 상호작용, V49의 휴대 소품 7종을 추가한다. 전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다. 후보는 실제 기동 자격으로 두 환경의 완료 표시와 조회 권한을 검사한다.
+전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다.
 
 기존 모델의 좌석과 상판 칸은 `seat_anchor_count`와 `surface_anchor_count` 범위에서 DB 설정만으로 줄였다 늘릴 수 있다. 새 가구에 좌표를 처음 지정하거나 기존 개수보다 슬롯을 늘릴 때는 `seatModelAnchors.json` 또는 `propSurfaceAnchors.json`에 좌표를 추가하고 프론트를 먼저 배포한다. 새 좌표를 읽는 프론트가 제공된 뒤 DB 상한과 실제 슬롯 수를 올린다. 수납 용량은 화면 좌표와 별도로 관리한다.
 

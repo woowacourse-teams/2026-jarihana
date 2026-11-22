@@ -105,12 +105,12 @@ flowchart LR
 | `group_space` | 가구 저장은 기존 도면 참조를 유지하고 `revision`을 증가시킨다. `room_json.version`은 기존 저장 문서 형식이다. |
 | `space_furniture_catalog` | 기존 종류의 물리 규격을 보존한다. `definition.interaction`을 바꾸면 API의 새 조회와 realtime의 환경별 갱신에 반영된다. 신규 배치 중단은 `placeable=false`로 표시한다. |
 | `space_blueprint_runtime` | 도면 버전별 시작 위치와 초기 방 문서를 발행한다. 미저장 방문은 단층 라운지 11판을 읽고 revision 0을 유지한다. |
-| `space_runtime_migration` | V47 트랜잭션 끝에 완료 표시를 기록한다. 후보 서버는 교체 전에 두 DB의 실제 조회와 참조까지 검사한다. |
-| `space_furniture_catalog_migration` | V48의 상호작용 이관 완료를 표시한다. |
+| `space_runtime_migration` | 도면별 시작 위치와 초기 방 데이터의 준비를 표시한다. |
+| `space_furniture_catalog_migration` | 가구 상호작용 규칙 데이터의 준비를 표시한다. |
 | `space_portable_item_catalog` | 휴대·투척·소비·빈 용기 규칙을 저장한다. 가구의 수납·생산 종류와 빈 용기는 존재하는 소품을 참조한다. |
-| `space_portable_item_catalog_migration` | V49의 소품 이관 완료를 표시한다. 후보 서버는 두 환경에서 가구·소품 카탈로그와 완료 표시를 검사한다. |
+| `space_portable_item_catalog_migration` | 휴대 소품 규칙 데이터의 준비를 표시한다. |
 
-V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
+공용 realtime의 후보 서버는 교체 전에 두 DB에서 완료 표시와 필요한 도면·카탈로그를 조회한다. 모임은 저장된 도면 참조를 유지하고 새 기본 도면은 이후에 선택하는 모임에 적용된다.
 
 새 도면은 지원하는 테마와 형식 안에서 발행한다. 예를 들어 다음 SQL은 검수한 JSON을 psql 변수 `geometry`, `spawn`, `default_room`으로 받아 기본 아지트 13판을 등록한다. 개발에서 기존 가구 배치·계단 보행·착석을 확인한 뒤 대상 환경에 같은 내용을 등록한다.
 

@@ -29,7 +29,7 @@ Spring 설정 `realtime.*`로 제한값을 조절할 수 있다. 기본 제한�
 
 ## 상태와 순서
 
-공통 메시지 규격은 [실시간 v1 계약](../docs/clubhouse-realtime-contract-v1.md)에 있다. 일반 HTTP `GET /ws/realtime`는 입장 토큰 없이 공개된 응답에서 `catalogContractVersion: 2`를 제공한다. 로컬 실행에서 `REALTIME_ENABLED=false`일 때도 동작한다. WebSocket Upgrade가 있는 요청은 같은 주소의 연결 흐름을 사용한다. 가구 상호작용 규칙은 입장 환경의 `space_furniture_catalog.definition.interaction`에서, 휴대 소품 규칙은 `space_portable_item_catalog.definition`에서 읽는다. 상판 `surface.slots`와 수납 `storage.capacity`는 서로 다른 0부터 시작하는 슬롯 범위와 점유를 갖는다. 상판·수납 소품은 가구 ID와 슬롯으로 관리하고 WebSocket 응답에는 기존 클라이언트 호환을 위한 월드 좌표도 계산해 보낸다.
+공통 메시지 규격은 [실시간 v1 계약](../docs/clubhouse-realtime-contract-v1.md)에 있다. 가구 상호작용 규칙은 입장 환경의 `space_furniture_catalog.definition.interaction`에서, 휴대 소품 규칙은 `space_portable_item_catalog.definition`에서 읽는다. 상판 `surface.slots`와 수납 `storage.capacity`는 서로 다른 0부터 시작하는 슬롯 범위와 점유를 갖는다. 상판·수납 소품은 가구 ID와 슬롯으로 관리하고 WebSocket 응답에는 기존 클라이언트 호환을 위한 월드 좌표도 계산해 보낸다.
 
 방마다 bounded mailbox 하나에서 상태를 변경한다. DB 조회와 WebSocket 송신은 별도 bounded executor를 사용한다. 연속 MOVE는 command 경계를 넘지 않고 최신 입력으로 합치며 출력 movement도 control 메시지 경계 뒤에서만 합친다. 초기 snapshot을 먼저 큐에 넣고 이후 full state와 movement frame을 보낸다. `roomEpoch`, 연결 generation, 배치 revision, command ID와 move sequence가 오래된 요청을 거부한다. command 결과는 사용자별 128개/60초 보관하며 중복 적용을 막는다. 같은 사용자 새 연결이 기존 연결을 교체하고, 오래된 인증 응답은 새 연결을 교체하지 못한다.
 
@@ -41,7 +41,7 @@ JWT의 HS256 서명, issuer/audience/만료를 검증한 뒤 확인된 환경의
 
 저장 배치 문서는 v11과 기본 아지트 v12를 지원한다. 미저장 모임은 단층 `lounge:11`의 기본 가구 배치를 사용하며 조회 시 방을 저장하지 않는다. 배치 목록에서 제외한 가구도 기존 방에서 규격과 상호작용을 유지한다. 서버는 접속한 방이 있는 환경마다 기본 10초 간격으로 두 카탈로그를 같은 PostgreSQL 스냅샷에서 조회한다. 조회에 실패하면 직전에 성공한 규칙을 사용한다. 두 카탈로그 중 하나가 변경되면 저장 배치 revision을 유지한 채 `catalogGeneration`이 올라간 전체 상태를 보낸다. v10 이하 문서는 공동 입장 시 `LAYOUT_UPGRADE_REQUIRED`를 반환한다. 모임장은 기존 가구를 그대로 편집·저장할 수 있다. 공동 입장을 사용하려면 편집기에서 템플릿 전체 교체를 선택하고 저장한다. 이때 가구는 선택한 템플릿의 기본 배치로 교체된다.
 
-`--check-runtime`으로 실행하면 두 환경의 realtime 권한으로 V45–V49 이관 완료 표시, 도면, 가구·휴대 소품 카탈로그, 시작 위치, 기본 방, 기존 방의 참조를 조회한다. 하나라도 준비되지 않았으면 종료 코드가 0이 아니므로 배포에서 기존 컨테이너를 유지한다.
+`--check-runtime`으로 실행하면 두 환경의 realtime 권한으로 필수 이관 완료 표시, 도면, 가구·휴대 소품 카탈로그, 시작 위치, 기본 방, 기존 방의 참조를 조회한다. 하나라도 준비되지 않았으면 종료 코드가 0이 아니므로 배포에서 기존 컨테이너를 유지한다.
 
 ## 운영 경계와 검증
 

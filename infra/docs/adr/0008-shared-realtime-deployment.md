@@ -76,7 +76,7 @@ flowchart LR
 
 ## 결정 3. develop의 관련 변경을 공용 서버에 배포한다
 
-[Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 PR에서 서버·두 DB WebSocket 검증을 실행할 경로를 지정한다. 이미지와 배포 설정의 실제 입력이 변경된 develop push는 ARM64 이미지를 발행한다. 후보 검사도 같은 `push.paths`를 사용해 최신 develop과 비교하므로, 프론트·문서·SQL 전용 변경이 들어온 뒤에도 기존 후보를 재개할 수 있다. 개발 백엔드와 운영 Production Release가 서로 다른 시점에 Flyway를 실행하므로, 공용 컨테이너 교체는 후보 이미지가 각 환경의 자격으로 양쪽 데이터를 모두 읽은 뒤에 진행한다. 현재 앱에는 도면 검사, 런타임 카탈로그 이관이 포함된 앱에는 런타임 검사를 실행한다.
+[Realtime Deploy](../../../.github/workflows/realtime-deploy.yml)는 PR에서 서버·두 DB WebSocket 검증을 실행할 경로를 지정한다. 이미지와 배포 설정의 실제 입력이 변경된 develop push는 ARM64 이미지를 발행한다. 후보 검사도 같은 `push.paths`로 최신 develop과 비교한다. 개발·운영의 백엔드가 각자 DB를 관리하므로 공용 컨테이너 교체 전에 후보 이미지가 두 환경에서 필요한 데이터를 각각 조회할 수 있는지 확인한다.
 
 ## 결정 4. workflow 안에서 헬스체크와 복구를 수행한다
 

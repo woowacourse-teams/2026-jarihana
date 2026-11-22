@@ -15,15 +15,15 @@
 `surfaces`는 소품을 놓을 표면들의 높이 배열이다. 빈 배열인 가구에는 소품을 부착할 수 없다.
 가구별로 테마 모음(`collection`), 장착 위치(`mount`), 소품 여부(`prop`) 등의 정보가 추가된다.
 
-V48은 가구별 `interaction`에 동작 목록 `capabilities`, 좌석 수 `seatCount`,
+가구별 `interaction`에는 동작 목록 `capabilities`, 좌석 수 `seatCount`,
 상판 칸 수 `surface.slots`, 수납 용량과 허용 소품 `storage.capacity`·`storage.kinds`,
-생산 종류와 시간 `producer.kinds`·`producer.durationMs`를 제공한다. 물 주기 대기 시간
+생산 종류와 시간 `producer.kinds`·`producer.durationMs`가 있다. 물 주기 대기 시간
 `cooldownMs`와 패널 이름 `panel`도 해당 가구에만 제공한다. 상호작용이 없는 가구는
 `interaction`을 생략할 수 있다. `surfaces`는 편집기에 저장하는 부착 위치의 높이이며
 `surface.slots`는 방문 중 옮길 수 있는 소품의 슬롯 수다. 장면에 고정된
 `room-general-light-switch`는 상호작용 정의를 조회할 수 있으며, 편집기 배치 대상에서 제외된다.
 
-V49부터 같은 응답에 `data.portableCatalogVersion: 1`과 `data.portableItems`를 제공한다.
+같은 응답에 `data.portableCatalogVersion: 1`과 `data.portableItems`를 제공한다.
 `portableItems`는 소품 `kind`를 키로 사용한다. 값은 집기, 던지기, 소비 가능 여부를 나타내는
 `portable`, `throwable`, `consumable`과 필요한 경우 `camera`, 소비 후 남을 소품 `emptyKind`를 포함한다.
 가구와 휴대 소품 규칙은 같은 시점의 DB 상태에서 읽는다. `storage.kinds`, `producer.kinds`,
@@ -112,10 +112,8 @@ API 재시작이나 배치 재저장 없이 이후 조회에 반영된다. 운�
 | items[].link | memory에만 허용, 빈 문자열 또는 사용자정보 없는 HTTP(S) 절대 URL, 최대1,000자 |
 | 전체 문서 | 공백을 제거한 JSON UTF-8 바이트 기준 2,097,152바이트 이하 |
 
-Flyway V46은 기존 카탈로그 122종과 가구별 배치 규칙을 이관하고, V48은 가구 규격을 보존하면서 상호작용을 추가한다. v8은 종전과 같이 20종을
-저장할 수 있고, v9 이상은 카탈로그에 등록된 각 종류의 `minRoomVersion`을 따른다.
+v8은 기존 지원 가구 20종을 저장할 수 있고, v9 이상은 카탈로그에 등록된 각 종류의 `minRoomVersion`을 따른다.
 프리셋은 초기 배치를 제공하며 모든 테마에서 같은 카탈로그를 사용한다.
-DB 이관은 기존 `group_space.room_json`과 revision을 변경하지 않는다.
 `musicConsole`, `activityBoard`, `clubDashboard` 등 기능 가구를 삭제해도 음악·활동·공지 내용은 유지된다.
 
 선택 에셋 필드는 다음과 같다. 생략한 값은 서버에서 보충하거나 이전하지 않는다.

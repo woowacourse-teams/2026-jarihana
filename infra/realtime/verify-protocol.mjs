@@ -591,17 +591,6 @@ try {
     return serverLog.match(/Tomcat started on port (\d+)/)?.[1];
   }, "Spring startup", 45000);
   const realtimeOrigin = `http://127.0.0.1:${port}`;
-  for (const environment of Object.keys(environments)) {
-    const marker = await fetch(`${realtimeOrigin}/ws/realtime`, {
-      headers: { Origin: `https://${environment}.frontend.example` },
-      signal: AbortSignal.timeout(5000)
-    });
-    assert.equal(marker.status, 200);
-    assert.equal(marker.headers.get("access-control-allow-origin"), "*");
-    assert.equal(marker.headers.get("access-control-allow-credentials"), null);
-    assert.deepEqual(await marker.json(), { success: true, data: { catalogContractVersion: 2 }, error: null });
-  }
-  receipt.push("public cross-origin realtime GET exposes a readiness marker without environment catalog data");
   const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
