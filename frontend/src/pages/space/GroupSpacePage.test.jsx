@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
 import { fetchAssetDefinitions, fetchDefaultSpaceBlueprint, fetchFurnitureCatalog, fetchGroupSpace, saveGroupSpace } from "../../features/group-space/api.js";
-import { groupSpaceKeys } from "../../features/group-space/hooks.js";
+import { furnitureCatalogQuery, groupSpaceKeys } from "../../features/group-space/hooks.js";
 import { routeRegistry } from "../../app/routes.js";
 import { GroupSpacePage } from "./GroupSpacePage.jsx";
 import { createInitialRoom, readSavedRoom } from "./roomState.js";
@@ -62,7 +62,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   const { assetDefinitions, furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
   fetchAssetDefinitions.mockResolvedValue(assetDefinitions);
-  fetchFurnitureCatalog.mockResolvedValue({ items: furnitureCatalog });
+  fetchFurnitureCatalog.mockResolvedValue({ interactionCatalogVersion: 1, items: furnitureCatalog });
   useAuth.mockReturnValue({ member: { id: 7 } });
   useGroup.mockImplementation((id) => ({ data: { id: Number(id), name: `모임 ${id}`, memberCount: 6 }, refetch: jest.fn() }));
   fetchDefaultSpaceBlueprint.mockImplementation(template => Promise.resolve(seeded(template)));
@@ -97,6 +97,30 @@ test("member sees the server room read-only", async () => {
   expect(await screen.findByDisplayValue("서버 아지트")).toHaveAttribute("readonly");
   expect(screen.getByText("읽기 전용")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "테스트 저장" })).not.toBeInTheDocument();
+});
+
+test("a failed background catalog refresh keeps the current room and retries until it succeeds", async () => {
+  jest.useFakeTimers();
+  focusManager.setFocused(true);
+  try {
+    const { client } = setup();
+    const editor = await screen.findByRole("textbox", { name: "테스트 공간 이름" });
+    const { queryKey } = furnitureCatalogQuery;
+    fetchFurnitureCatalog.mockRejectedValueOnce(new Error("catalog unavailable"));
+    await act(async () => { await client.refetchQueries({ queryKey }); });
+    expect(client.getQueryState(queryKey).status).toBe("error");
+    expect(editorName()).toBe(editor);
+    expect(fetchFurnitureCatalog).toHaveBeenCalledTimes(2);
+
+    await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
+    expect(client.getQueryState(queryKey).status).toBe("success");
+    expect(editorName()).toBe(editor);
+    await act(async () => { await jest.advanceTimersByTimeAsync(6000); });
+    expect(fetchFurnitureCatalog).toHaveBeenCalledTimes(3);
+  } finally {
+    focusManager.setFocused(undefined);
+    jest.useRealTimers();
+  }
 });
 
 test("the leader can submit edits to a saved loft", async () => {

@@ -8,17 +8,33 @@
 
 ## GET /api/group-spaces/furniture-catalog
 
-공개 조회이며 `data.items`는 편집기의 표시 순서대로 정렬된 가구 목록이다.
+공개 조회다. 응답은 `Cache-Control: no-store`이며 요청마다 현재 환경의 DB를 조회한다.
+`data.interactionCatalogVersion`은 가구 상호작용 계약 버전 1이며, `data.items`는 편집기의 표시 순서대로 정렬된 가구 목록이다.
 각 항목에는 저장 키 `kind`, 이름, 크기(`width`, `depth`, `height`), 분류 `category`,
 지원하는 가장 낮은 서버 문서 버전 `minRoomVersion`, 신규 배치 가능 여부 `placeable`이 있다.
 `surfaces`는 소품을 놓을 표면들의 높이 배열이다. 빈 배열인 가구에는 소품을 부착할 수 없다.
 가구별로 테마 모음(`collection`), 장착 위치(`mount`), 소품 여부(`prop`) 등의 정보가 추가된다.
 
-편집기와 서버는 같은 DB 카탈로그를 사용한다. 운영 중 신규 배치를 중단할 때는
+V48은 가구별 `interaction`에 동작 목록 `capabilities`, 좌석 수 `seatCount`,
+상판 칸 수 `surface.slots`, 수납 용량과 허용 소품 `storage.capacity`·`storage.kinds`,
+생산 종류와 시간 `producer.kinds`·`producer.durationMs`를 제공한다. 물 주기 대기 시간
+`cooldownMs`와 패널 이름 `panel`도 해당 가구에만 제공한다. 상호작용이 없는 가구는
+`interaction`을 생략할 수 있다. `surfaces`는 편집기에 저장하는 부착 위치의 높이이며
+`surface.slots`는 방문 중 옮길 수 있는 소품의 슬롯 수다. 장면에 고정된
+`room-general-light-switch`는 상호작용 정의를 조회할 수 있으며, 편집기 배치 대상에서 제외된다.
+
+편집기와 realtime 서버는 같은 환경의 DB 카탈로그를 사용한다. 상호작용 규칙만 변경하면
+API 재시작이나 배치 재저장 없이 이후 조회에 반영된다. 운영 중 신규 배치를 중단할 때는
 가구의 행과 `kind`를 유지하고 `placeable`을 false로 변경한다.
 비활성 가구도 이 응답에 포함되어 이미 배치된 방에서 계속 표시된다.
 저장할 때는 해당 모임의 직전 저장 문서에 동일한 `id`와 `kind`가 있는 비활성 가구만 허용한다.
 해당 인스턴스의 이동·설정 수정·삭제가 가능하며, 삭제를 저장한 뒤에는 다시 추가할 수 없다.
+
+좌석과 상판의 위치는 프론트엔드 모델에 포함된다. DB의 `seat_anchor_count`와
+`surface_anchor_count`는 가구별로 배포된 위치의 개수이며 카탈로그 API에는 노출하지 않는다.
+신규 가구에서 두 값을 생략하면 모두 0이다. DB는 `seatCount`와 `surface.slots`가 각 개수를
+넘는 규칙을 거부한다. 운영에서 상한을 올릴 때는 해당 가구의 위치를 먼저 지원 중인 모든
+프론트엔드 빌드에 배포한다. 배포된 상한 안에서 활성 좌석과 상판 칸 수를 조절할 수 있다.
 
 ## GET /api/group-spaces/blueprints/{templateKey}/default
 
@@ -89,7 +105,7 @@
 | items[].link | memory에만 허용, 빈 문자열 또는 사용자정보 없는 HTTP(S) 절대 URL, 최대1,000자 |
 | 전체 문서 | 공백을 제거한 JSON UTF-8 바이트 기준 2,097,152바이트 이하 |
 
-Flyway V46은 기존 카탈로그 122종과 가구별 배치 규칙을 이관한다. v8은 종전과 같이 20종을
+Flyway V46은 기존 카탈로그 122종과 가구별 배치 규칙을 이관하고, V48은 가구 규격을 보존하면서 상호작용을 추가한다. v8은 종전과 같이 20종을
 저장할 수 있고, v9 이상은 카탈로그에 등록된 각 종류의 `minRoomVersion`을 따른다.
 프리셋은 초기 배치를 제공하며 모든 테마에서 같은 카탈로그를 사용한다.
 DB 이관은 기존 `group_space.room_json`과 revision을 변경하지 않는다.

@@ -9,10 +9,12 @@ import com.project.jarihana.realtime.room.domain.ItemState;
 import com.project.jarihana.realtime.room.domain.ParticipantState;
 import com.project.jarihana.realtime.room.domain.Vec3;
 import com.project.jarihana.realtime.layout.RoomLayout;
+import com.project.jarihana.realtime.layout.TestBlueprints;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.node.ObjectNode;
 
 class RoomStateTest {
     @Test
@@ -118,7 +120,7 @@ class RoomStateTest {
         RoomLayout previous = room.layout();
         var assets = new LinkedHashMap<>(previous.assets());
         assets.remove("sofa");
-        room.replaceLayout(new RoomLayout(2, assets, previous.geometry(), previous.arrival(), previous.itemRules()), 1200);
+        room.replaceLayout(new RoomLayout(2, previous.catalogGeneration(), assets, previous.geometry(), previous.arrival(), previous.itemRules()), 1200);
 
         assertThat(room.participants().getFirst().seat()).isNull();
         assertThat(room.participants().getFirst().position()).isEqualTo(approach);
@@ -132,5 +134,31 @@ class RoomStateTest {
         assertThat(room.replaceLayout(TestRooms.layout(2, 4), 1200)).isFalse();
         assertThat(room.replaceLayout(TestRooms.layout(1, 4), 1300)).isFalse();
         assertThat(room.layout()).isSameAs(current);
+    }
+
+    @Test
+    void sameLayoutRevisionAppliesSeatRulesWithoutDismountingAnInRangeSeatOnRetirement() {
+        RoomState room = TestRooms.room();
+        room.join(TestRooms.admission("1"), "a", 1000);
+        room.join(TestRooms.admission("2"), "b", 1000);
+        Vec3 approach = room.participants().getLast().position();
+        room.command("1", "a", Map.of("action", "SIT", "assetId", "sofa", "slot", 0), 1100);
+        room.command("2", "b", Map.of("action", "SIT", "assetId", "sofa", "slot", 2), 1100);
+
+        var furniture = TestBlueprints.FURNITURE.deepCopy();
+        var sofa = (ObjectNode) furniture.path("sofa");
+        sofa.put("placeable", false);
+        ((ObjectNode) sofa.path("interaction")).put("seatCount", 1);
+
+        assertThat(room.replaceLayout(TestRooms.layout(1, 0, 2, furniture), 1200)).isTrue();
+        assertThat(room.layoutRevision()).isEqualTo(1);
+        assertThat(room.snapshot("ROOM_STATE", "2", "b", 1200, true).get("catalogGeneration")).isEqualTo(2L);
+        assertThat(room.participants().getFirst().seat()).isEqualTo(new ParticipantState.Seat("sofa", 0));
+        assertThat(room.participants().getLast().seat()).isNull();
+        assertThat(room.participants().getLast().position()).isEqualTo(approach);
+        assertThatThrownBy(() -> room.command("2", "b", Map.of("action", "SIT", "assetId", "sofa", "slot", 2), 1300))
+                .hasMessage("INVALID_SLOT");
+        assertThat(room.replaceLayout(TestRooms.layout(2, 0), 1300)).isFalse();
+        assertThat(room.layout().catalogGeneration()).isEqualTo(2);
     }
 }

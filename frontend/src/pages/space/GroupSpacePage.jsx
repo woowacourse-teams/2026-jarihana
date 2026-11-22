@@ -48,7 +48,7 @@ async function defaultBlueprint(templateKey) {
   return blueprint;
 }
 
-function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup }) {
+function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup, catalogItems, onCatalogChange }) {
   const [layout, setLayout] = useState(() => ({
     room: initialRoom,
     sharedRoom: initialRoom,
@@ -168,7 +168,8 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
   const scene = clubhouse && needsSetup ? { ...clubhouse, inputBlocked: true } : clubhouse;
   return <>
     <SpaceStudioPage clubhouse={scene} initialRoom={unconfigured && firstDraft ? firstDraft : layout.room} sharedRoom={layout.sharedRoom} layoutRevision={layout.revision} memberId={memberId}
-      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
+      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} catalogItems={catalogItems} onCatalogChange={onCatalogChange}
+      layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
       groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
         backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
     {needsSetup && <ClubhouseSetupDialog {...setup} onSave={saveInitialTemplate} />}
@@ -207,7 +208,8 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, onSavedLayout, 
   if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} />;
   if (!hasLoaded) setHasLoaded(true);
   return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId} memberId={memberId}
-    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup} />;
+    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup}
+    catalogItems={catalogItems} onCatalogChange={catalog.refetch} />;
 }
 
 export function GroupSpacePage() {

@@ -9,7 +9,7 @@ import { placedItemElevation } from "./roomState.js";
 import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
 import { fitSeatedAvatar } from "./seatedAvatar.js";
 import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
-import propSurfaceAnchors from "./propSurfaceAnchors.json";
+import { usableSurfaceAnchor } from "./roomCapabilities.js";
 
 export function thrownItemPosition(item, now) {
   if (item.location !== "THROWN" || !item.velocity || item.startedAt === null) return item.position;
@@ -22,7 +22,7 @@ export function thrownItemPosition(item, now) {
 function sharedItemPlacement(item, room, now) {
   if (item.location !== "SURFACE") return { position: thrownItemPosition(item, now) };
   const furniture = room?.items.find((asset) => asset.id === item.assetId);
-  const anchor = furniture && propSurfaceAnchors[furniture.kind]?.[item.slot];
+  const anchor = furniture && usableSurfaceAnchor(furniture.kind, item.slot);
   if (!anchor) return null;
   return { furniture, position: { ...localToWorld(furniture, anchor.x, anchor.z),
     y: placedItemElevation(furniture, room) + anchor.y * (furniture.scaleY ?? 1) } };

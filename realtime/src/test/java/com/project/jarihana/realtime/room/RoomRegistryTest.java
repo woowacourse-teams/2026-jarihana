@@ -51,7 +51,7 @@ class RoomRegistryTest {
         when(roomReads.layout(eq(RealtimeEnvironment.DEV), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null, BlueprintRef.UNSAVED_ROOM));
         var catalog = new LayoutCatalog(mapper);
         when(roomReads.blueprint(any(), eq(BlueprintRef.UNSAVED_ROOM))).thenReturn(TestBlueprints.runtime("11:lounge"));
-        when(roomReads.furniture(any(), any())).thenReturn(TestBlueprints.FURNITURE);
+        when(roomReads.furniture(any(), any())).thenReturn(new RoomReadRepository.FurnitureCatalog(1, TestBlueprints.FURNITURE));
         registry = new RoomRegistry(properties, new AdmissionTokenVerifier(properties, clock), roomReads,
                 catalog, mapper, clock, metrics);
     }

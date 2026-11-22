@@ -102,9 +102,10 @@ flowchart LR
 | `space_blueprint(template_key, blueprint_version)` | 벽·계단·층고를 수정하면 새 행을 발행한다. `geometry_schema_version`은 JSON 형식을 식별한다. |
 | `space_blueprint_default` | 새 모임 또는 사용자가 직접 선택한 템플릿 교체에 적용할 발행본을 지정한다. |
 | `group_space` | 가구 저장은 기존 도면 참조를 유지하고 `revision`을 증가시킨다. `room_json.version`은 기존 저장 문서 형식이다. |
-| `space_furniture_catalog` | 기존 종류의 판정 규격을 보존하고, 신규 배치 중단은 `placeable=false`로 표시한다. |
+| `space_furniture_catalog` | 기존 종류의 물리 규격을 보존한다. `definition.interaction`을 바꾸면 API의 새 조회와 realtime의 환경별 갱신에 반영된다. 신규 배치 중단은 `placeable=false`로 표시한다. |
 | `space_blueprint_runtime` | 도면 버전별 시작 위치와 초기 방 문서를 발행한다. 미저장 방문은 단층 라운지 11판을 읽고 revision 0을 유지한다. |
 | `space_runtime_migration` | V47 트랜잭션 끝에 완료 표시를 기록한다. 후보 서버는 교체 전에 두 DB의 실제 조회와 참조까지 검사한다. |
+| `space_furniture_catalog_migration` | V48의 상호작용 이관 완료를 표시한다. 후보 서버는 두 환경에서 카탈로그와 완료 표시를 모두 읽는다. |
 
 V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
 

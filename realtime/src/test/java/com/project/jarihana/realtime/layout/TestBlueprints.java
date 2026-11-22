@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 public final class TestBlueprints {
     private static final Map<String, JsonNode> SEED = loadSeed();
@@ -31,6 +32,13 @@ public final class TestBlueprints {
         var definitions = MAPPER.createObjectNode();
         for (JsonNode item : seedArray("V46__space_furniture_catalog.sql", "$catalog$")) {
             definitions.set(item.path("kind").asString(), item);
+        }
+        definitions.set("room-general-light-switch", MAPPER.readTree("""
+                {"width":0.3,"depth":0.3,"height":1.2,"surfaces":[],"placeable":false}
+                """));
+        var interactions = seedArray("V48__space_furniture_interactions.sql", "$interactions$");
+        for (var entry : interactions.properties()) {
+            ((ObjectNode) definitions.get(entry.getKey())).set("interaction", entry.getValue());
         }
         return definitions;
     }

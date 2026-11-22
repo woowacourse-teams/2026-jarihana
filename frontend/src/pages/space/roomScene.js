@@ -4,7 +4,7 @@ import { applyAssetAppearance } from "./assetAppearance";
 import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
 import * as THREE from "three";
-import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
+import { capabilitiesFor, furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { ACCENT_COLORS, CATALOG, placedItemElevation, DEFAULT_ATMOSPHERE, THEMES, canPlace, footprint, snapPosition } from "./roomState";
 import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, disposeObject } from "./roomModels";
 import { createRoomLighting } from "./roomLighting";
@@ -562,13 +562,23 @@ export function createRoomScene(container, callbacks) {
     walkthrough.setRealtime(next); remotePlayers.setStore(next?.store);
     if (mascotLayer) mascotLayer.visible = !next;
     rebuildSpeech(); rebuildGreetings();
-    if (room) {
-      const occupied = new Set(next ? [] : mascotLayer?.children.map((actor) => actor.userData.seatId));
-      interactionTargets = room.items.map((item) => itemInteraction(item, placedItemElevation(item, room), occupied.has(item.id), room)).filter(Boolean)
-        .concat(interactionTargets.filter((target) => target.id === ROOM_LIGHT_SWITCH_ID || target.bed));
-    }
+    if (room) rebuildInteractionTargets();
     unsubscribeRealtime = next?.store.subscribe(applyRealtimeState);
     applyRealtimeState(); render();
+  }
+
+  function rebuildInteractionTargets() {
+    const occupied = new Set(realtime ? [] : mascotLayer?.children.map((avatar) => avatar.userData.seatId));
+    interactionTargets = room.items.map((item) =>
+      itemInteraction(item, itemElevations.get(item.id) ?? placedItemElevation(item, room), occupied.has(item.id), room)).filter(Boolean);
+    const wallSwitch = shell.getObjectByName(ROOM_LIGHT_SWITCH_ID);
+    if (wallSwitch && capabilitiesFor(ROOM_LIGHT_SWITCH_ID).capabilities.includes("switchable")) {
+      const { x, y, z } = wallSwitch.position;
+      interactionTargets.push(lightInteraction({ x, y, z: z - 0.09 }));
+    }
+    for (const bed of islandGround?.getObjectByName("island-garden")?.userData.flowerBeds || []) {
+      interactionTargets.push({ ...bed, bed, minY: 0, maxY: bed.y, name: "정원 화단", label: "화단 돌보기", choices: GARDEN_CHOICES });
+    }
   }
 
   function clearWater() {
@@ -1033,18 +1043,7 @@ export function createRoomScene(container, callbacks) {
     updatePresentation(frontage, !frontage && (walking || Boolean(flight?.fromWalking)), interactive);
     if (greetingLayoutChanged) rebuildGreetings();
     if (!walking || !interactive || greetingLayoutChanged) resetGarden();
-    if (roomChanged || shellChanged || avatarsChanged) {
-      const occupied = new Set(realtime ? [] : mascotLayer?.children.map((avatar) => avatar.userData.seatId));
-      interactionTargets = room.items.map((item) => itemInteraction(item, itemElevations.get(item.id), occupied.has(item.id), room)).filter(Boolean);
-      const wallSwitch = shell.getObjectByName(ROOM_LIGHT_SWITCH_ID);
-      if (wallSwitch) {
-        const { x, y, z } = wallSwitch.position;
-        interactionTargets.push(lightInteraction({ x, y, z: z - 0.09 }));
-      }
-      for (const bed of islandGround?.getObjectByName("island-garden")?.userData.flowerBeds || []) {
-        interactionTargets.push({ ...bed, bed, minY: 0, maxY: bed.y, name: "정원 화단", label: "화단 돌보기", choices: GARDEN_CHOICES });
-      }
-    }
+    if (roomChanged || shellChanged || avatarsChanged) rebuildInteractionTargets();
     scene.updateMatrixWorld(true);
     walkthrough.update(view, room.avatarColor, interactive, {
       preservePose: callbacks.preserveWalkPose?.(), playing: callbacks.isPlayMode?.(),
@@ -1364,6 +1363,12 @@ export function createRoomScene(container, callbacks) {
     setPlayerAppearance(appearance) {
       renderer.shadowMap.needsUpdate = true;
       walkthrough.setPlayerAppearance(appearance);
+    },
+    refreshCatalog() {
+      if (!room) return;
+      rebuildInteractionTargets();
+      remotePlayers.refresh();
+      walkthrough.refreshInteractions();
     },
     setRealtime, capturePhoto,
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,

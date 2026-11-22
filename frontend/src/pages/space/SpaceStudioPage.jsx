@@ -1,4 +1,4 @@
-import { canAddFurniture, furnitureType } from "../../features/group-space/furnitureCatalog.js";
+import { canAddFurniture, capabilitiesFor, furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDefaultSpaceBlueprint } from "../../features/group-space/api.js";
 import { useFurnitureCatalog } from "../../features/group-space/hooks.js";
@@ -33,7 +33,7 @@ import {
 } from "./roomState";
 import { geometryVersion, getRoomLayout, ROOM_BLUEPRINT } from "./roomLayout";
 import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } from "./clubhouseInteractions";
-import { commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
+import { COMMON_FUNCTION_ASSETS, commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
 import { prepareRoomPhoto } from "./roomPhoto";
 import "./studio-hud-theme.css";
 import "./space-studio.css";
@@ -178,20 +178,22 @@ export function StandaloneSpaceStudioPage() {
   const blueprint = useQuery({ queryKey: ["space-blueprint-default", "lounge"], queryFn: () => fetchDefaultSpaceBlueprint("lounge"), retry: false });
   if (blueprint.isError) return <ErrorState title="기본 아지트 도면을 불러오지 못했어요"
     action={<Button data-ph-capture-attribute-action="group_space_retry" onClick={() => blueprint.refetch()}>다시 시도</Button>} />;
-  if (catalog.isError) return <ErrorState title="가구 목록을 불러오지 못했어요"
+  if (catalog.isError && !catalog.data) return <ErrorState title="가구 목록을 불러오지 못했어요"
     action={<Button data-ph-capture-attribute-action="space_catalog_retry" onClick={() => catalog.refetch()}>다시 시도</Button>} />;
   if (!catalog.isFetchedAfterMount || !blueprint.data) return <div className="route-loading"><Skeleton aria-label="가구 목록 불러오는 중" /></div>;
-  return <SpaceStudioPage initialBlueprint={blueprint.data} onLoadBlueprint={fetchDefaultSpaceBlueprint} />;
+  return <SpaceStudioPage initialBlueprint={blueprint.data} onLoadBlueprint={fetchDefaultSpaceBlueprint} catalogItems={catalog.data} />;
 }
 
-export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
+export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, layoutRevision = 0, memberId, onLayoutChange, catalogItems, onCatalogChange, layoutError, onSave, onLoadBlueprint, canEdit: editPermission = true, groupContext, savedAt, clubhouse }) {
   const webPreview = clubhouse?.presentation === "web";
   const canEdit = !webPreview && editPermission && (!clubhouse || clubhouse.mode === "decorate");
   const playMode = Boolean(clubhouse && !webPreview && !canEdit);
   const Root = clubhouse ? "section" : "main";
   const sharedRequested = Boolean(groupContext && !webPreview && !canEdit);
-  const { runtime: roomRealtime, status: realtimeStatus } = useRoomRealtime({ groupId: groupContext?.id, memberId, enabled: sharedRequested, layoutRevision, onLayoutChange });
+  const { runtime: roomRealtime, status: realtimeStatus } = useRoomRealtime({ groupId: groupContext?.id, memberId, enabled: sharedRequested,
+    layoutRevision, onLayoutChange, onCatalogChange });
   const shared = sharedRequested && realtimeStatus.error?.code !== "REALTIME_DISABLED";
+  const canToggleLighting = !shared || capabilitiesFor(ROOM_LIGHT_SWITCH_ID).capabilities.includes("switchable");
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const { openMusic } = useGroupMusic();
   const [initial] = useState(() => initialRoom ? { room: initialRoom, warning: "" } : readInitialRoom(initialBlueprint));
@@ -295,6 +297,7 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
   const surfaceTheme = THEMES.find((entry) => entry.id === room.theme) || THEMES[0];
   const selected = room.items.find((item) => item.id === selectedId);
   const selectedType = furnitureType(selected?.kind);
+  const selectedPanel = commonFunctionForItem(selected) && COMMON_FUNCTION_ASSETS.find(({ feature }) => feature === selectedType?.interaction?.panel);
   const canDuplicate = Boolean(selected && canAddFurniture(selected.kind, room.version) &&
     room.items.every(item => item.parentId !== selected.id || canAddFurniture(item.kind, room.version)));
   const dirty = !sameRoom(room, savedRoom);
@@ -765,6 +768,7 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
   }
 
   function toggleGeneralLighting() {
+    if (!canToggleLighting) return;
     if (shared) {
       roomRealtime.connection.command({ action: "TOGGLE", assetId: ROOM_LIGHT_SWITCH_ID }).catch((error) => announce(error.message, true));
       return;
@@ -962,7 +966,7 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
         {pendingLayout && <p className="room-canvas__connection-notice" role="status">다른 곳에서 배치가 저장됐어요. 편집 내용은 유지했어요. 취소하면 새 배치를 불러와요.</p>}
         {capturedPhoto && <RoomPhotoDialog file={capturedPhoto} group={groupContext} onClose={() => setCapturedPhoto(null)} />}
         {!clubhouse && <RoomSky outdoors={outdoorLight} />}
-        <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
+        <RoomCanvas editable={canEdit && !saving && !hudHidden && !exterior} focusBuilding={canEdit} room={canvasRoom} catalogItems={catalogItems} signName={groupContext?.name} outdoorLight={outdoorLight} selectedId={canEdit && !hudHidden && !exterior ? selectedId : null} onSelect={selectSceneItem} onMove={moveItem}
           onInvalid={invalidPlacement} interactive={!clubhouse?.cameraFlight && !clubhouse?.orientationBlocked && !templateSwitching} view={webPreview ? "front" : view} previewExterior={clubhouse?.previewExterior} previewWideAngle={clubhouse?.previewWideAngle} zoom={webPreview ? 1 : zoom} cameraReset={cameraReset} onZoomChange={setZoom} floorView={webPreview || (clubhouse && exterior) ? "all" : activeFloorView} onThumbnails={canEdit && !templateSwitching && (category === "furniture" || category === "memories") ? setThumbnails : undefined}
           visitPointerLockRef={clubhouse?.visitPointerLockRef} walkCommand={walkCommand}
           onExitWalk={playMode ? undefined : () => changeView("perspective")} onWalkPosition={playMode ? undefined : updateWalkPosition}
@@ -978,7 +982,7 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
           canChat={clubhouse.canChat} unreadCount={clubhouse.unreadCount}
           onDecorate={editPermission && clubhouse.canDecorate !== false ? toggleClubhouseMode : undefined}
           muted={clubhouse.muted} onToggleMuted={clubhouse.toggleMuted}
-          generalLighting={generalLighting} onToggleLighting={toggleGeneralLighting}
+          generalLighting={generalLighting} onToggleLighting={canToggleLighting ? toggleGeneralLighting : undefined}
           inputBlocked={clubhouse.inputBlocked} onOverlayChange={setPlayOverlayOpen} ready={sceneReady} />}
 
         <div className="space-studio__scene-ui" id="space-hud-scene" hidden={hudHidden || webPreview || playMode}>
@@ -1053,8 +1057,8 @@ export function SpaceStudioPage({ initialRoom, initialBlueprint, sharedRoom, lay
               <IconButton label="가구 선택 해제" action="space_selection_clear" onClick={() => selectItem(null)}><X size={16} /></IconButton>
             </div>
             <div className="space-studio__selection-actions">
-              {commonFunctionForItem(selected) && (clubhouse || groupContext) && <IconButton label={`${commonFunctionForItem(selected).shortLabel} 열기`}
-                action={commonFunctionForItem(selected).action} onClick={() => openItemFeature(selected)}><ExternalLink size={19} /></IconButton>}
+              {selectedPanel && (clubhouse || groupContext) && <IconButton label={`${selectedPanel.shortLabel} 열기`}
+                action={selectedPanel.action} onClick={() => openItemFeature(selected)}><ExternalLink size={19} /></IconButton>}
               <IconButton label="가구 왼쪽으로 이동" action="space_item_move_left" onClick={() => moveItem(selected.id, selected.x - 0.25, selected.z)}><ArrowLeft size={19} /></IconButton>
               <IconButton label="가구 뒤로 이동" action="space_item_move_back" onClick={() => moveItem(selected.id, selected.x, selected.z - 0.25)}><ArrowUp size={19} /></IconButton>
               <IconButton label="가구 앞으로 이동" action="space_item_move_forward" onClick={() => moveItem(selected.id, selected.x, selected.z + 0.25)}><ArrowDown size={19} /></IconButton>

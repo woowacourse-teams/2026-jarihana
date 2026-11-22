@@ -30,7 +30,7 @@ public final class LayoutCatalog {
 
     public record AssetDefinitions(JsonNode capabilities) {}
 
-    public RoomLayout read(long revision, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
+    public RoomLayout read(long revision, long catalogGeneration, JsonNode room, BlueprintRuntime blueprint, JsonNode furniture) {
         JsonNode geometry = blueprint.geometry();
         if (room.path("version").asInt() < 11) throw new RuleViolation("LAYOUT_UPGRADE_REQUIRED");
         Map<String, JsonNode> instances = new LinkedHashMap<>();
@@ -43,32 +43,38 @@ public final class LayoutCatalog {
             assets.put(asset.id(), asset);
         }
         JsonNode building = geometry.path("building");
-        RoomAsset light = new RoomAsset("room-general-light-switch", "room-general-light-switch",
-                new Vec3(-0.38, 0, building.path("maxZ").asDouble() - 0.2),
-                0, 1, 1, 1, 0.3, 0.3, 1.2, Set.of("switchable"), 0, List.of(), List.of(), 0,
-                false, 0, 0, 0, 0, 0);
+        String switchKind = "room-general-light-switch";
+        RoomAsset light = asset(switchKind, switchKind, furniture.path(switchKind),
+                new Vec3(-0.38, 0, building.path("maxZ").asDouble() - 0.2), 0, 1, 1, 1,
+                false, 0);
         assets.put(light.id(), light);
-        return new RoomLayout(revision, assets, geometry, blueprint.spawn(), capabilities.path("items"));
+        return new RoomLayout(revision, catalogGeneration, assets, geometry, blueprint.spawn(), capabilities.path("items"));
     }
 
     private RoomAsset asset(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture) {
         String kind = item.path("kind").asString();
         JsonNode definition = furniture.path(kind);
         if (definition.isMissingNode()) throw new RuleViolation("UNSUPPORTED_ASSET");
-        JsonNode rules = capabilities.path("assets").path(kind);
-        double width = definition.path("width").asDouble(), depth = definition.path("depth").asDouble();
-        double height = definition.path("height").asDouble();
-        Set<String> features = new HashSet<>(strings(rules.path("capabilities")));
-        double interactionFloor = features.contains("surface") || features.contains("seatable")
+        JsonNode rules = definition.path("interaction");
+        List<String> features = strings(rules.path("capabilities"));
+        boolean useFloor = features.contains("surface") || features.contains("seatable");
+        double interactionFloor = useFloor
                 ? floorElevation(item, geometry, instances, furniture) : 0;
-        return new RoomAsset(item.path("id").asString(), kind,
+        return asset(item.path("id").asString(), kind, definition,
                 new Vec3(item.path("x").asDouble(), elevation(item, geometry, instances, furniture, new HashSet<>()), item.path("z").asDouble()),
                 item.path("rotation").asDouble(), scale(item, "scaleX"), scale(item, "scaleY"), scale(item, "scaleZ"),
-                width, depth, height, features, rules.path("seatCount").asInt(0), strings(rules.path("storage").path("kinds")),
+                !definition.hasNonNull("mount") && !underlay(definition), interactionFloor);
+    }
+
+    private RoomAsset asset(String id, String kind, JsonNode definition, Vec3 position, double rotation,
+            double scaleX, double scaleY, double scaleZ, boolean obstacle, double interactionFloor) {
+        JsonNode rules = definition.path("interaction");
+        return new RoomAsset(id, kind, position, rotation, scaleX, scaleY, scaleZ,
+                definition.path("width").asDouble(), definition.path("depth").asDouble(), definition.path("height").asDouble(),
+                Set.copyOf(strings(rules.path("capabilities"))), rules.path("seatCount").asInt(0), strings(rules.path("storage").path("kinds")),
                 strings(rules.path("producer").path("kinds")), rules.path("storage").path("capacity").asInt(0),
-                !definition.hasNonNull("mount") && !underlay(definition),
-                definition.path("walkableHeight").asDouble(0), rules.path("surface").path("slots").asInt(0), interactionFloor,
-                rules.path("producer").path("durationMs").asLong(4000), rules.path("cooldownMs").asLong(30000));
+                obstacle, definition.path("walkableHeight").asDouble(0), rules.path("surface").path("slots").asInt(0), interactionFloor,
+                rules.path("producer").path("durationMs").asLong(0), rules.path("cooldownMs").asLong(0));
     }
 
     private double elevation(JsonNode item, JsonNode geometry, Map<String, JsonNode> instances, JsonNode furniture, Set<String> visited) {

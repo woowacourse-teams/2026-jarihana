@@ -16,8 +16,10 @@ final class RuntimeSchema {
                   AND jsonb_typeof(r.default_room->'items') = 'array')
               AND EXISTS (SELECT 1 FROM space_blueprint_migration WHERE version = 1)
               AND EXISTS (SELECT 1 FROM space_runtime_migration WHERE version = 1)
+              AND EXISTS (SELECT 1 FROM space_furniture_catalog_migration WHERE version = 1)
               AND EXISTS (SELECT 1 FROM space_blueprint_default WHERE template_key = 'lounge' AND blueprint_version IS NOT NULL)
-              AND EXISTS (SELECT 1 FROM space_furniture_catalog WHERE kind IS NOT NULL AND jsonb_typeof(definition->'surfaces') = 'array')
+              AND EXISTS (SELECT 1 FROM space_furniture_catalog WHERE kind = 'room-general-light-switch' AND NOT placeable
+                  AND jsonb_typeof(definition->'surfaces') = 'array')
             """;
     private static final String CHECK_CATALOG = """
             WITH templates(template_key) AS (

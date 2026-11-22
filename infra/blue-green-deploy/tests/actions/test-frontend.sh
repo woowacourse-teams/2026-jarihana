@@ -105,9 +105,15 @@ curl() {
     [[ $origin == 'Origin: https://jarihana.com' ]]
     printf '%s\n' "$origin" >>"$CASE_DIR/realtime-origins"
     printf 'HTTP/2 %s\r\nAccess-Control-Allow-Origin: %s\r\n\r\n' "${REALTIME_HTTP_STATUS:-200}" "${REALTIME_CORS_ORIGIN-*}" >"$headers"
-    definitions='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}},"items":{"camera":{}}}}}'
+    definitions='{"success":true,"data":{"capabilities":{"version":1,"items":{"camera":{}}}}}'
     printf '%s\n' "${REALTIME_RESPONSE-$definitions}" >"$output"
     printf '%s' "${REALTIME_HTTP_STATUS:-200}"
+    return
+  fi
+  if [[ $path == api/group-spaces/furniture-catalog ]]; then
+    definitions='{"success":true,"data":{"interactionCatalogVersion":1,"items":[{"kind":"sofa","interaction":{"capabilities":["seatable"],"seatCount":3}},{"kind":"cameraCabinet","interaction":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}}]}}'
+    printf '%s\n' "${CATALOG_RESPONSE-$definitions}" >"$output"
+    printf '%s' "${CATALOG_HTTP_STATUS:-200}"
     return
   fi
   printf 'public\t%s\n' "$path" >>"$CASE_DIR/requests"
@@ -638,11 +644,15 @@ frontend_requires_realtime_before_writing_live_files() {
   [[ $(write_count) == "$before" ]]
   REALTIME_RESPONSE='<html>fallback</html>' rejects fe_publish
   [[ $(write_count) == "$before" ]]
-  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"storage":{"capacity":4}}},"items":{"camera":{}}},"surfaceAnchors":{"cameraCabinet":[{}]}}}' rejects fe_publish
+  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"items":{}}}}' rejects fe_publish
   [[ $(write_count) == "$before" ]]
-  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seatCount":3},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":0}}},"items":{"camera":{}}}}}' rejects fe_publish
+  CATALOG_HTTP_STATUS=503 rejects fe_publish
   [[ $(write_count) == "$before" ]]
-  REALTIME_RESPONSE='{"success":true,"data":{"capabilities":{"version":1,"assets":{"sofa":{"capabilities":["seatable"],"seats":[{}]},"cameraCabinet":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":4}}},"items":{"camera":{}}}}}' rejects fe_publish
+  CATALOG_RESPONSE='{"success":true,"data":{"items":[{"kind":"sofa"}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"interactionCatalogVersion":1,"items":[{"kind":"cameraCabinet","interaction":{"capabilities":["surface","storage"],"surface":{"slots":1},"storage":{"capacity":0}}}]}}' rejects fe_publish
+  [[ $(write_count) == "$before" ]]
+  CATALOG_RESPONSE='{"success":true,"data":{"interactionCatalogVersion":1,"items":[{"kind":"sofa","interaction":{"capabilities":["seatable"]}}]}}' rejects fe_publish
   [[ $(write_count) == "$before" ]]
   [[ $(cat "$CASE_DIR/s3/$FE_LIVE/index.html") == *old* ]]
   fe_publish

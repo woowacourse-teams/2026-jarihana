@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static com.project.jarihana.support.TestSupportConfig.FIXED_NOW;
@@ -23,6 +24,7 @@ import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.support.IntegrationTestSupport;
 import io.restassured.specification.RequestSpecification;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.Set;
@@ -83,6 +85,62 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         // Given / When / Then
         request(leader).post(path() + "/join-token").then().statusCode(200)
                 .body("data.token", not(emptyOrNullString()));
+    }
+
+    @Test
+    @DisplayName("공개 가구 카탈로그는 재시작 없이 좌석과 소품 규칙 변경을 제공하고 저장된 아지트를 유지한다")
+    void servesUpdatedFurnitureInteractionsWithoutChangingTheSavedRoom() {
+        // Given
+        save(leader, ROOM, 0).then().statusCode(200);
+        given().get("/group-spaces/furniture-catalog").then().statusCode(200)
+                .header("Cache-Control", equalTo("no-store"))
+                .body("data.interactionCatalogVersion", equalTo(1))
+                .body("data.items.find { it.kind == 'sofa' }.interaction.seatCount", equalTo(3))
+                .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.surface.slots", equalTo(1))
+                .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.storage.capacity", equalTo(8))
+                .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.storage.kinds", hasItems("cup", "tea", "cookie"))
+                .body("data.items.find { it.kind == 'cafeCabinet' }.interaction.producer.durationMs", equalTo(4000))
+                .body("data.items.find { it.kind == 'room-general-light-switch' }.placeable", equalTo(false))
+                .body("data.items.find { it.kind == 'room-general-light-switch' }.interaction.capabilities",
+                        hasItems("switchable"));
+
+        try {
+            // When / Then
+            for (int seatCount : List.of(2, 1, 2)) {
+                jdbc.update("""
+                        UPDATE space_furniture_catalog
+                        SET definition = jsonb_set(definition, '{interaction,seatCount}', to_jsonb(?::integer))
+                        WHERE kind = 'sofa'
+                        """, seatCount);
+                given().get("/group-spaces/furniture-catalog").then().statusCode(200)
+                        .body("data.items.find { it.kind == 'sofa' }.interaction.seatCount", equalTo(seatCount))
+                        .body("data.items.find { it.kind == 'sofa' }.width", equalTo(2.8f));
+            }
+            String saved = request(leader).get(path()).then().statusCode(200)
+                    .body("data.revision", equalTo(1)).extract().asString();
+            assertThat(mapper.readTree(saved).path("data").path("room")).isEqualTo(mapper.readTree(ROOM));
+            assertThatThrownBy(() -> jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{interaction,seatCount}', '2.5') WHERE kind = 'sofa'
+                    """)).isInstanceOf(DataAccessException.class);
+            assertThatThrownBy(() -> jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{interaction,seatCount}', '4') WHERE kind = 'sofa'
+                    """)).isInstanceOf(DataAccessException.class).hasMessageContaining("space_furniture_interaction_shape");
+            assertThatThrownBy(() -> jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{interaction,surface,slots}', '2') WHERE kind = 'cafeCabinet'
+                    """)).isInstanceOf(DataAccessException.class).hasMessageContaining("space_furniture_interaction_shape");
+            assertThatThrownBy(() -> jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{width}', '2') WHERE kind = 'sofa'
+                    """)).isInstanceOf(DataAccessException.class);
+        } finally {
+            jdbc.update("""
+                    UPDATE space_furniture_catalog
+                    SET definition = jsonb_set(definition, '{interaction,seatCount}', '3') WHERE kind = 'sofa'
+                    """);
+        }
     }
 
     @Test
@@ -231,6 +289,7 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
         String blueprints = Files.readString(Path.of("src/main/resources/db/migration/V45__versioned_space_blueprints.sql"));
         String furniture = Files.readString(Path.of("src/main/resources/db/migration/V46__space_furniture_catalog.sql"));
         String runtime = Files.readString(Path.of("src/main/resources/db/migration/V47__space_blueprint_runtime.sql"));
+        String interactions = Files.readString(Path.of("src/main/resources/db/migration/V48__space_furniture_interactions.sql"));
         jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
             try (var statement = connection.createStatement()) {
                 statement.execute("CREATE SCHEMA space_blueprint_migration_test");
@@ -289,6 +348,33 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
                         assertThat(counts.getInt(1)).isEqualTo(122);
                         assertThat(counts.getInt(2)).isEqualTo(20);
                     }
+                    String previousFurniture = furnitureWithoutInteractions(statement);
+                    statement.execute(interactions);
+                    assertThat(furnitureWithoutInteractions(statement)).isEqualTo(previousFurniture);
+                    try (var migrated = statement.executeQuery("""
+                            SELECT version, (SELECT count(*) FROM space_furniture_catalog WHERE definition ? 'interaction')
+                            FROM space_furniture_catalog_migration
+                            """)) {
+                        assertThat(migrated.next()).isTrue();
+                        assertThat(migrated.getInt(1)).isEqualTo(1);
+                        assertThat(migrated.getInt(2)).isEqualTo(52);
+                        assertThat(migrated.next()).isFalse();
+                    }
+                    statement.execute("""
+                            INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition)
+                            SELECT 'newCabinet', 1000, min_room_version, placeable, definition - 'interaction'
+                            FROM space_furniture_catalog WHERE kind = 'cafeCabinet'
+                            """);
+                    assertThatThrownBy(() -> statement.execute("""
+                            UPDATE space_furniture_catalog
+                            SET definition = jsonb_set(definition, '{interaction}', '{"capabilities":["surface"],"surface":{"slots":1}}')
+                            WHERE kind = 'newCabinet'
+                            """)).isInstanceOfSatisfying(SQLException.class, exception ->
+                            assertThat(exception.getSQLState()).isEqualTo("23514"));
+                    assertThatThrownBy(() -> statement.execute("""
+                            UPDATE space_furniture_catalog SET surface_anchor_count = 65 WHERE kind = 'newCabinet'
+                            """)).isInstanceOfSatisfying(SQLException.class, exception ->
+                            assertThat(exception.getSQLState()).isEqualTo("23514"));
                     assertThatThrownBy(() -> statement.execute("DELETE FROM space_furniture_catalog WHERE kind = 'gameTable'"))
                             .isInstanceOfSatisfying(SQLException.class,
                                     exception -> assertThat(exception.getSQLState()).isEqualTo("P0001"));
@@ -328,6 +414,17 @@ class GroupSpaceControllerTest extends IntegrationTestSupport {
             }
             return null;
         });
+    }
+
+    private String furnitureWithoutInteractions(Statement statement) throws SQLException {
+        try (var rows = statement.executeQuery("""
+                SELECT jsonb_object_agg(kind, to_jsonb(furniture) - ARRAY['seat_anchor_count', 'surface_anchor_count']
+                    || jsonb_build_object('definition', definition - 'interaction'))::text
+                FROM space_furniture_catalog furniture WHERE kind <> 'room-general-light-switch'
+                """)) {
+            rows.next();
+            return rows.getString(1);
+        }
     }
 
     @Test

@@ -5,7 +5,7 @@ import "./room-canvas-play.css";
 const PREVIEW_CONTROLS = "화면을 클릭한 뒤 W/S로 전진·후진, A/D로 좌우 이동, Q/E로 하강·상승할 수 있어요. 마우스 드래그로 방향을 돌리고 Home 키로 처음 구도로 돌아갈 수 있어요.";
 const PLAY_FEATURE_LABELS = { dashboard: "공지 보기", activities: "활동 사진 보기", music: "재생목록 보기" };
 
-export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
+export function RoomCanvas({ room, catalogItems, signName, selectedId, onSelect, onMove, onInvalid, view, zoom, onThumbnails, onTemplateTransition, onZoomChange, cameraReset = 0,
   visitPointerLockRef, walkCommand, onExitWalk, onWalkPosition, floorView = "all", editable = true, focusBuilding = false, interactive = true, speechMessages, greetingMembers, cameraFlight, activityExhibit, outdoorLight, generalLighting = true, previewExterior = true, previewWideAngle = 0,
   avatarAppearance, playMode = false, walkInputBlocked = false, preserveWalkPose = false, studioWideAngle = 0, studioCameraTurn, onStatusChange, realtime, onCapture, onSharedLighting }) {
   const host = useRef(null);
@@ -47,6 +47,10 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
     scene.current?.setActivityExhibit?.(activityExhibit);
     scene.current?.update(room, selectedId, view, zoom, floorView, cameraReset, ...(cameraFlight ? [cameraFlight] : []));
   }, [room, selectedId, view, zoom, floorView, cameraReset, focusBuilding, interactive, cameraFlight, activityExhibit, previewExterior, signName, playMode, preserveWalkPose]);
+
+  useLayoutEffect(() => {
+    scene.current?.refreshCatalog?.();
+  }, [catalogItems]);
 
   useLayoutEffect(() => {
     currentAvatarAppearance.current = avatarAppearance;
@@ -267,8 +271,8 @@ export function RoomCanvas({ room, signName, selectedId, onSelect, onMove, onInv
               <div className="space-studio__interaction-choices">
                 {choices.map((choice, index) => (
                   <button type="button" key={choice.id} data-ph-capture-attribute-action={choice.action}
-                    aria-keyshortcuts={String(index + 1)} onKeyDown={interactionKey} onClick={() => chooseInteraction(choice.id)}>
-                    <kbd>{index + 1}</kbd>
+                    aria-keyshortcuts={index < 9 ? String(index + 1) : undefined} onKeyDown={interactionKey} onClick={() => chooseInteraction(choice.id)}>
+                    {index < 9 && <kbd>{index + 1}</kbd>}
                     {choice.color && <span className="space-studio__flower-swatch" style={{ background: choice.color }} aria-hidden="true" />}
                     <span>{choice.label}</span>
                   </button>

@@ -53,6 +53,7 @@ test("PR jobs follow the app, unit-test and mocked-browser inputs", (t) => {
     ["contracts/realtime/v1/surface-anchors.json", none],
     ["backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql", all],
     ["backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql", all],
+    ["backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql", all],
     ["infra/cloudfront/spa-fallback.js", frontendOnly],
     ["infra/cloudfront/group-share-preview.js", frontendOnly],
     ["frontend/docs/rhythm-double-tap-mix.json", frontendOnly],

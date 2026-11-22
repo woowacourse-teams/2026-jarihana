@@ -90,8 +90,8 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
       assert.equal(await response.request().headerValue("cookie"), null);
       assert.equal(await response.request().headerValue("authorization"), null);
       const { data } = await response.json();
-      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.seatCount > 0));
-      assert.ok(Object.values(data.capabilities.assets).some((asset) => asset.surface?.slots > 0));
+      assert.equal(data.capabilities.assets, undefined);
+      assert.equal(data.capabilities.items.coffee.emptyKind, "cup");
       assert.equal(data.surfaceAnchors, undefined);
       await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
       assert.deepEqual(sockets, []);

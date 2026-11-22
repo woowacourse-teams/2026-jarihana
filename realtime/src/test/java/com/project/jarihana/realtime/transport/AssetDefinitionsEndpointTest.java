@@ -48,13 +48,9 @@ class AssetDefinitionsEndpointTest {
             JsonNode data = envelope.path("data");
             assertThat(data.path("capabilities")).isEqualTo(resource("asset-capabilities.json"));
             assertThat(data.has("surfaceAnchors")).isFalse();
-            JsonNode shelf = data.path("capabilities").path("assets").path("pantryShelf");
-            assertThat(shelf.path("surface").path("slots").asInt()).isEqualTo(4);
-            assertThat(shelf.path("storage").path("capacity").asInt()).isEqualTo(8);
-            JsonNode sofa = data.path("capabilities").path("assets").path("sofa");
-            assertThat(sofa.path("seatCount").asInt()).isEqualTo(3);
-            assertThat(sofa.has("seats")).isFalse();
-            assertThat(sofa.has("seatFit")).isFalse();
+            JsonNode capabilities = data.path("capabilities");
+            assertThat(capabilities.has("assets")).isFalse();
+            assertThat(capabilities.path("items").path("cup").path("portable").asBoolean()).isTrue();
         }
     }
 

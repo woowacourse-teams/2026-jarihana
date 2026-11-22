@@ -1,10 +1,21 @@
-import { capabilitiesFor } from "../../features/group-space/assetDefinitions.js";
+import { capabilitiesFor } from "../../features/group-space/furnitureCatalog.js";
 import { seatedAvatarPlacement } from "./seatedAvatar.js";
+import propSurfaceAnchors from "./propSurfaceAnchors.json";
 
-export { capabilitiesFor, portableDefinition } from "../../features/group-space/assetDefinitions.js";
+export { capabilitiesFor } from "../../features/group-space/furnitureCatalog.js";
+export { portableDefinition } from "../../features/group-space/assetDefinitions.js";
 
 const LABELS = { cup: "빈 컵", coffee: "아메리카노", latte: "라테", tea: "차", cookie: "쿠키", book: "책", camera: "카메라" };
 const BOOKSHELF_PLACES = ["아래 선반 왼쪽", "아래 선반 오른쪽", "위 선반", "책장 위"];
+
+function usableSurfaceSlotCount(kind) {
+  const anchors = propSurfaceAnchors[kind];
+  return Array.isArray(anchors) ? Math.min(capabilitiesFor(kind).surface?.slots ?? 0, anchors.length) : 0;
+}
+
+export function usableSurfaceAnchor(kind, slot) {
+  return slot < usableSurfaceSlotCount(kind) ? propSurfaceAnchors[kind]?.[slot] : null;
+}
 
 export function availableSeat(target, position, state, room) {
   const occupied = new Set(state.participants.filter((actor) => actor.seat?.assetId === target.id).map((actor) => actor.seat.slot));
@@ -18,7 +29,7 @@ export function sharedInteractionTarget(target, state) {
   if (target.sharedItem || target.bed) return target.bed ? null : target;
   const definition = capabilitiesFor(target.item?.kind ?? target.id);
   const caps = definition.capabilities;
-  if (!caps.length && target.feature && target.feature !== "light") return target;
+  if (!caps.length) return target.feature && target.feature !== "light" ? target : null;
   const asset = state.assets[target.id] ?? {};
   const actor = state.participants.find((entry) => entry.memberId === state.selfId);
   const held = state.items.find((entry) => entry.id === actor?.heldItemId);
@@ -30,20 +41,23 @@ export function sharedInteractionTarget(target, state) {
   const accessible = !caps.includes("openable") || asset.open;
   if (accessible && definition.storage) {
     if (!held) for (const kind of definition.storage.kinds) add(`take-${kind}`, `${LABELS[kind] ?? kind} 꺼내기`, { action: "TAKE", kind }, "space_item_take");
-    if (held && definition.storage.kinds.includes(held.kind)) add("return", "물건 반납", { action: "RETURN", itemId: held.id }, "space_item_return");
+    if (held && definition.storage.kinds.includes(held.kind) &&
+      state.items.filter((item) => item.assetId === target.id && item.location === "STORAGE").length < definition.storage.capacity) {
+      add("return", "물건 반납", { action: "RETURN", itemId: held.id }, "space_item_return");
+    }
   }
-  const cup = held?.kind === "cup" ? held : state.items.find((item) => item.assetId === target.id && item.location === "SURFACE" && item.kind === "cup");
+  const slots = usableSurfaceSlotCount(target.item?.kind);
+  const placedItems = state.items.filter((item) => item.assetId === target.id && item.location === "SURFACE" && item.slot < slots);
+  const cup = held?.kind === "cup" ? held : placedItems.find((item) => item.kind === "cup");
   if (accessible && definition.producer) {
     if (producing) add("cancel-production", `${LABELS[producing.kind] ?? "음료"} 준비 중 · 취소`, { action: "CANCEL_PRODUCTION" }, "space_production_cancel");
     else if (cup) for (const kind of definition.producer.kinds) add(`produce-${kind}`, `${LABELS[kind]} 내리기`, { action: "PRODUCE", itemId: cup.id, kind }, "space_coffee_produce");
   }
-  if (definition.surface) {
-    const { slots } = definition.surface;
-    const placedItems = state.items.filter((item) => item.assetId === target.id && item.location === "SURFACE");
+  if (slots) {
     for (let slot = 0; slot < slots; slot++) {
       const placed = placedItems.find((item) => item.slot === slot);
-      const location = target.item.kind === "bookshelf" ? BOOKSHELF_PLACES[slot]
-        : slots > 1 ? `${slot + 1}번째 자리` : "";
+      const shelfLocation = target.item.kind === "bookshelf" ? BOOKSHELF_PLACES[slot] : undefined;
+      const location = shelfLocation ?? (slots > 1 ? `${slot + 1}번째 자리` : "");
       if (held && !placed) {
         add(`place-${slot}`, location ? `${location}에 놓기` : "위에 놓기",
           { action: "PLACE", slot, itemId: held.id }, "space_item_place");

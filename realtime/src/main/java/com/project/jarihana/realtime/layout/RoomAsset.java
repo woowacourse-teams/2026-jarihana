@@ -16,6 +16,11 @@ public record RoomAsset(String id, String kind, Vec3 position, double rotation, 
 
     public boolean has(String capability) { return capabilities.contains(capability); }
 
+    public boolean samePlacement(RoomAsset other) {
+        return kind.equals(other.kind) && position.equals(other.position) && rotation == other.rotation &&
+                scaleX == other.scaleX && scaleY == other.scaleY && scaleZ == other.scaleZ;
+    }
+
     public Vec3 world(Vec3 local) {
         double angle = rotation * Math.PI / 2;
         return new Vec3(position.x() + local.x() * scaleX * Math.cos(angle) + local.z() * scaleZ * Math.sin(angle),

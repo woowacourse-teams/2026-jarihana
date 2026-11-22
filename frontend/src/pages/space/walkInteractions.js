@@ -5,7 +5,7 @@ import { isWalkablePosition, moveWalker } from "./roomNavigation";
 import { footprint } from "./roomState";
 import { capabilitiesFor } from "./roomCapabilities.js";
 import { assetScale, localToWorld } from "./assetCustomization.js";
-import { seatedAvatarPlacement } from "./seatedAvatar.js";
+import { seatedAvatarPlacement, usableSeatCount } from "./seatedAvatar.js";
 
 const FEATURE_LABELS = { dashboard: "공지 읽기", activities: "활동 기록 보기", info: "모임 정보 보기", music: "음악 열기" };
 const WATER = { id: "water", label: "물 주기", action: "space_plant_water" };
@@ -31,21 +31,23 @@ export const GARDEN_CHOICES = [WATER, ...FLOWER_CHOICES];
 
 export function itemInteraction(item, elevation, occupied, room) {
   const definition = capabilitiesFor(item.kind);
-  const seatCount = definition.seatCount ?? 0;
+  const seatCount = usableSeatCount(item.kind);
   const feature = featureForRoomItem(item);
   const plant = definition.capabilities.includes("careable");
-  const coffee = Boolean(definition.producer), snacks = definition.storage?.kinds.includes("cookie");
+  const drinks = DRINKS.filter(({ id }) => definition.producer?.kinds.includes(id));
+  const snacks = SNACK_CHOICES.filter(({ id }) => definition.storage?.kinds.includes(id));
+  const carry = drinks.length > 0 || snacks.length > 0;
   if (occupied && seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
-  if (!seatCount && !feature && !definition.capabilities.length) return null;
+  if (!seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
   const { width, depth, height, name } = footprint(item, room.version);
   return {
     id: item.id, item, name, x: item.x, z: item.z, width, depth, floor: seatCount ? elevation : item.level === 1 ? getRoomLayout(room).mezzanine?.height || 0 : 0,
     minY: elevation, maxY: elevation + height * (item.scaleY || 1),
-    label: seatCount ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : snacks ? "간식 고르기" : "사용하기",
+    label: seatCount ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : drinks.length ? "커피 내리기" : snacks.length ? "간식 고르기" : "사용하기",
     action: seatCount ? "space_seat_sit" : undefined,
-    sharedOnly: !seatCount && !feature && !plant && !coffee && !snacks,
-    feature, seatCount, carry: coffee || snacks,
-    choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...(coffee ? DRINKS : []), ...(snacks ? SNACK_CHOICES : [])]
+    sharedOnly: !seatCount && !feature && !plant && !carry,
+    feature, seatCount, carry,
+    choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...drinks, ...snacks]
   };
 }
 

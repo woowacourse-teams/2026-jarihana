@@ -199,6 +199,17 @@ async function migrateBlueprintRuntime(environment, wallWidth) {
   saveLayout([12], { ...room, items: [] }, 2, environment, 15);
 }
 
+async function migrateFurnitureInteractions(environment) {
+  const { databaseName } = environments[environment];
+  const migration = await readFile(path.join(migrations, "V48__space_furniture_interactions.sql"), "utf8");
+  const before = sql("SELECT kind, display_order, min_room_version, placeable, definition FROM space_furniture_catalog ORDER BY kind;", databaseName);
+  sql(`BEGIN; ${migration} COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_furniture_catalog_migration;", databaseName).trim(), "1");
+  const after = sql(`SELECT kind, display_order, min_room_version, placeable, definition - 'interaction'
+    FROM space_furniture_catalog WHERE kind <> 'room-general-light-switch' ORDER BY kind;`, databaseName);
+  assert.equal(after, before, "V48 must preserve the existing furniture rows");
+}
+
 function startServer(extraArgs = [], jar = candidateJar) {
   const environmentSettings = {};
   for (const [environment, { databaseName, reader, password, tokenKey, port }] of Object.entries(environments)) {
@@ -294,6 +305,123 @@ async function command(client, payload, extra = {}) {
     || client.messages.slice(start).find((message) => message.type === "ERROR"), `command ${payload.action}`);
 }
 
+async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
+  const groupId = 19;
+  const newRoomId = String(groupId);
+  const testRoom = { ...room, items: [
+    { id: "seat", kind: "liveSofa", x: -2, z: 5.1, rotation: 0 },
+    { id: "counter", kind: "liveCabinet", x: 0.5, z: 5.8, rotation: 0 }
+  ] };
+  const originalRoom = context(openRoom);
+  const originalCatalog = openRoom.state.catalogGeneration;
+  for (const [environment, { databaseName }] of Object.entries(environments)) {
+    sql(`INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition, seat_anchor_count)
+        SELECT 'liveSofa', (SELECT MAX(display_order) + 1 FROM space_furniture_catalog), min_room_version, true,
+          jsonb_set(definition,'{interaction,seatCount}','2'), seat_anchor_count
+        FROM space_furniture_catalog WHERE kind = 'sofa';
+        INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition, surface_anchor_count)
+        SELECT 'liveCabinet', (SELECT MAX(display_order) + 1 FROM space_furniture_catalog), min_room_version, true,
+          definition || jsonb_build_object('interaction', definition->'interaction' || '{
+            "capabilities":["surface","storage","openable","producer"],"surface":{"slots":3},
+            "storage":{"capacity":8,"kinds":["cup","tea","cookie","book"]},
+            "producer":{"kinds":["coffee","latte"],"durationMs":20000}
+          }'::jsonb), surface_anchor_count
+        FROM space_furniture_catalog WHERE kind = 'kitchenCounter';
+        INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
+          VALUES (${groupId}, now(), now(), 'Fixture', 'Live catalog', 'ACTIVE', 'CLUB', 'OFFLINE');
+        INSERT INTO group_member (created_at, updated_at, joined_at, role, group_id, member_id)
+          VALUES (now(), now(), now(), 'LEADER', ${groupId}, 101);`, databaseName);
+    saveLayout([groupId], testRoom, 1, environment, 11);
+  }
+  await waitFor(() => openRoom.state.catalogGeneration > originalCatalog, "existing room sees a newly added catalog kind");
+  assert.deepEqual(context(openRoom), originalRoom);
+  const dev = await connect(url, "101", newRoomId, { seatRefs: true });
+  const prod = await connect(url, "101", newRoomId, { environment: "prod", seatRefs: true });
+  const initial = context(dev);
+  const prodInitial = context(prod);
+  const devApproach = participant(dev, "101").position;
+  const devProp = (id) => dev.state.items.find(item => item.id === id);
+  const perform = async (client, payload) => {
+    const result = await command(client, payload);
+    assert.equal(result.success, true, JSON.stringify(result));
+  };
+  const take = async (kind) => {
+    await perform(dev, { action: "TAKE", assetId: "counter", kind });
+    return waitFor(() => participant(dev, "101").heldItemId, "taken " + kind);
+  };
+  const attach = async (kind, action, location, slot) => {
+    const itemId = await take(kind);
+    await perform(dev, { action, assetId: "counter", itemId, ...(action === "PLACE" && { slot }) });
+    await waitFor(() => devProp(itemId)?.location === location, "item attached to " + location);
+    assert.equal(devProp(itemId).slot, slot);
+    return itemId;
+  };
+  await perform(dev, { action: "OPEN", assetId: "counter" });
+  const onFirstSurface = await attach("cookie", "PLACE", "SURFACE", 0);
+  const onRemovedSurface = await attach("cookie", "PLACE", "SURFACE", 1);
+  const storedCookie = await attach("cookie", "RETURN", "STORAGE", 0);
+  const excludedTea = await attach("tea", "RETURN", "STORAGE", 1);
+  const excessBook = await attach("book", "RETURN", "STORAGE", 2);
+  const cupId = await take("cup");
+  await perform(dev, { action: "PRODUCE", assetId: "counter", kind: "coffee", itemId: cupId });
+  await waitFor(() => dev.state.assets.counter?.production?.itemId === cupId, "production occupies the last surface slot");
+  assert.equal(devProp(cupId).slot, 2);
+  await perform(dev, { action: "SIT", assetId: "seat", slot: 1 });
+  await perform(prod, { action: "SIT", assetId: "seat", slot: 1 });
+  await waitFor(() => participant(dev, "101")?.seat?.slot === 1 && participant(prod, "101")?.seat?.slot === 1, "both databases permit the original seat");
+  const generation = dev.state.catalogGeneration;
+  const productionGeneration = prod.state.catalogGeneration;
+  sql("UPDATE space_furniture_catalog SET definition=definition WHERE kind IN ('liveSofa', 'liveCabinet');");
+  // Keep the room open across several configured poll intervals after a write of identical data.
+  await new Promise(resolve => setTimeout(resolve, 850));
+  assert.equal(dev.state.catalogGeneration, generation);
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(dev.state.assets.counter?.production?.itemId, cupId);
+  assert.equal(devProp(onRemovedSurface)?.slot, 1);
+  assert.equal(devProp(storedCookie)?.slot, 0);
+  receipt.push("polling identical definitions keeps the same catalog generation, occupancy, attachments and in-progress production");
+  sql(`BEGIN;
+    UPDATE space_furniture_catalog SET definition=jsonb_set(definition,'{interaction,seatCount}','1')
+      WHERE kind='liveSofa';
+    UPDATE space_furniture_catalog SET definition=jsonb_set(jsonb_set(definition,'{interaction,surface,slots}','1'),
+      '{interaction,storage}','{"capacity":2,"kinds":["cookie","cup","book"]}') WHERE kind='liveCabinet';
+    COMMIT;`);
+  await waitFor(() => dev.state.catalogGeneration > generation, "edited rules reach the already connected development room");
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(context(prod), prodInitial);
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  assert.deepEqual(participant(prod, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(participant(dev, "101").seat, null);
+  assert.deepEqual(participant(dev, "101").position, devApproach);
+  assert.equal(devProp(onFirstSurface)?.slot, 0);
+  assert.equal(devProp(storedCookie)?.slot, 0);
+  for (const id of [onRemovedSurface, excludedTea, excessBook, cupId]) assert.equal(devProp(id), undefined);
+  assert.equal(dev.state.assets.counter?.production ?? null, null);
+  assert.equal(dev.state.assets.counter?.open, true);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  assert.equal((await command(dev, { action: "TAKE", assetId: "counter", kind: "tea" })).code, "INVALID_ITEM_KIND");
+  receipt.push("same-socket catalog edits dismount invalid seats, reconcile slots, cancel the removed cup's production and keep valid state; production is isolated");
+
+  const { reader } = environments.dev;
+  const lastGood = dev.state.catalogGeneration;
+  sql(`REVOKE SELECT (placeable) ON space_furniture_catalog FROM ${reader};
+    UPDATE space_furniture_catalog SET placeable=false, definition=jsonb_set(definition,'{interaction,seatCount}','2')
+      WHERE kind='liveSofa';`);
+  assert.equal((await checkHealth()).status, 503);
+  await new Promise(resolve => setTimeout(resolve, 650));
+  assert.equal(dev.state.catalogGeneration, lastGood);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  sql(`GRANT SELECT (placeable) ON space_furniture_catalog TO ${reader};`);
+  await waitFor(() => dev.state.catalogGeneration > lastGood, "same socket applies the catalog after grants recover");
+  assert.equal((await checkHealth()).status, 200);
+  assert.deepEqual(context(dev), initial);
+  await perform(dev, { action: "SIT", assetId: "seat", slot: 1 });
+  receipt.push("catalog read failure keeps last-good rules, then recovery restores the authored seat from 2 to 1 to 2 on an open socket for a retired kind");
+  dev.socket.close(1000, "LEAVE");
+  prod.socket.close(1000, "LEAVE");
+}
+
 async function stopServer(server) {
   if (!server?.pid || server.exitCode !== null || server.signalCode !== null) return;
   const stopped = new Promise((resolve) => {
@@ -345,15 +473,21 @@ try {
     previousDev.socket.close(1000, "LEAVE");
   }
   await migrateBlueprintRuntime("prod", 3);
+  assert.notEqual(await checkRuntime(), 0, "V47 alone is not ready for DB interaction rules");
+  await migrateFurnitureInteractions("dev");
+  assert.notEqual(await checkRuntime(), 0, "V48 in development alone is not ready");
+  await migrateFurnitureInteractions("prod");
   if (previousUrl) {
     for (const environment of Object.keys(environments)) {
       const cold = await connect(previousUrl, "101", "12", { environment });
       assert.equal(cold.state.layoutRevision, 2);
       cold.socket.close(1000, "LEAVE");
     }
-    receipt.push("the previous develop JAR still cold-joins both databases after V46/V47");
+    receipt.push("the previous develop JAR still cold-joins both databases after V46–V48");
   }
-  for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"], ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"]]) {
+  for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"],
+    ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"],
+    ["placeable", "space_furniture_catalog"], ["version", "space_furniture_catalog_migration"]]) {
     const { databaseName, reader } = environments.prod;
     sql(`REVOKE SELECT (${column}) ON ${table} FROM ${reader};`, databaseName);
     assert.notEqual(await checkRuntime(), 0, "candidate must read " + table + "." + column);
@@ -363,7 +497,7 @@ try {
   assert.notEqual(await checkRuntime(), 0, "a default must have an initialized room");
   sql("UPDATE space_blueprint_default SET blueprint_version = 12 WHERE template_key = 'lounge';");
   assert.equal(await checkRuntime(), 0);
-  receipt.push("preflight requires migrated blueprint tables, catalog, references and grants in both databases");
+  receipt.push("preflight requires V48 in both databases and separate read grants for the interaction marker, catalog and blueprints");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
     assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName), savedRows[environment]);
     assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 1;", databaseName).trim(), "lounge:11");
@@ -389,11 +523,9 @@ try {
   assert.equal(success, true);
   const contracts = path.join(root, "realtime/src/main/resources/contracts");
   assert.deepEqual(data, { capabilities: JSON.parse(await readFile(path.join(contracts, "asset-capabilities.json"), "utf8")) });
-  assert.equal(data.capabilities.assets.cafeCabinet.surface.slots, 1);
-  assert.equal(data.capabilities.assets.cafeCabinet.storage.capacity, 8);
-  assert.equal(data.capabilities.assets.sofa.seatCount, 3);
-  assert.equal(data.capabilities.assets.sofa.seats, undefined);
-  receipt.push("public cross-origin GET returns seat counts and separate surface and storage limits without presentation coordinates");
+  assert.equal(data.capabilities.assets, undefined);
+  assert.equal(data.capabilities.items.coffee.emptyKind, "cup");
+  receipt.push("public cross-origin realtime GET exposes intrinsic item rules only");
   const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
@@ -717,6 +849,7 @@ try {
   await waitFor(() => !c.state.participants.some((actor) => actor.memberId === "101"), "intentional leave", 1500);
   assert.equal(c.state.items.find((item) => item.id === leftItemId)?.location, "WORLD");
   receipt.push("intentional leave immediately removes the participant and drops the held item");
+  await verifyLiveFurnitureCatalog(url, checkHealth, c);
   if (browserPreview) {
     const defaultRoom = JSON.parse(sql("SELECT default_room FROM space_blueprint_runtime WHERE template_key='lounge' AND blueprint_version=11"));
     Object.assign(room, defaultRoom, {

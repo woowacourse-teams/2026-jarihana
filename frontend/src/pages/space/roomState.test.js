@@ -79,7 +79,7 @@ describe("space placement", () => {
     expect(canPlace(seat, [])).toBe(true);
   });
   test("finds placement for every height-compatible asset in an empty clubhouse", () => {
-    for (const { kind } of CATALOG.filter((asset) => (asset.height || 0) <= getRoomLayout("lounge").building.height)) {
+    for (const { kind } of CATALOG.filter((asset) => asset.placeable && asset.height <= getRoomLayout("lounge").building.height)) {
       const position = findOpenPosition(kind, []);
       expect(position).not.toBeNull();
       expect(canPlace({ kind, rotation: 0, ...position }, [])).toBe(true);
@@ -98,7 +98,7 @@ describe("hobby clubhouse templates", () => {
     expect(room.coverPhoto).toBe("");
     expect(room.notice).toBe("");
     expect(room.items.some((item) => ["stool", "gameChair", "roundChair", "officeChair"].includes(item.kind))).toBe(true);
-    for (const { kind } of CATALOG.filter((asset) => (asset.height || 0) <= getRoomLayout(id).building.height)) {
+    for (const { kind } of CATALOG.filter((asset) => asset.placeable && asset.height <= getRoomLayout(id).building.height)) {
       const position = findOpenPosition(kind, [], id);
       expect(position).not.toBeNull();
       expect(canPlace({ kind, rotation: 0, ...position }, [], id)).toBe(true);
@@ -393,7 +393,7 @@ describe("climbing-specific floors and migration", () => {
   test("new upper-floor furniture stays on the deck and preserves stairs and landing", () => {
     const deck = getRoomLayout("climbing").mezzanine;
     const headroom = getRoomLayout("climbing").building.height - deck.height;
-    for (const { kind } of CATALOG.filter(({ height = 0, width, depth }) => height <= headroom && width < 7 && depth < 5.5)) {
+    for (const { kind } of CATALOG.filter(({ placeable, height, width, depth }) => placeable && height <= headroom && width < 7 && depth < 5.5)) {
       const position = findOpenPosition(kind, [], "climbing", "mezzanine");
       expect(position).toMatchObject({ level: 1 });
       expect(canPlace({ ...position, kind, rotation: 0 }, [], "climbing")).toBe(true);

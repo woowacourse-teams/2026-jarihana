@@ -145,8 +145,11 @@ public final class RoomState {
     }
 
     public boolean replaceLayout(RoomLayout next, long now) {
-        if (next.revision() <= layout.revision()) return false;
-        new LayoutReconciliation().apply(this, next, now);
+        if (next.revision() < layout.revision() || next.catalogGeneration() < layout.catalogGeneration()) return false;
+        if (next.revision() == layout.revision() && next.catalogGeneration() == layout.catalogGeneration()) return false;
+        if (next.revision() != layout.revision() || !next.assets().equals(layout.assets())) {
+            new LayoutReconciliation().apply(this, next, now);
+        }
         layout = next;
         controlSeq++;
         return true;
@@ -154,6 +157,7 @@ public final class RoomState {
 
     public Map<String, Object> snapshot(String type, String memberId, String generation, long now, boolean seatRefs) {
         Map<String, Object> result = context(type, memberId, generation, now);
+        result.put("catalogGeneration", layout.catalogGeneration());
         result.put("participants", participants.values().stream()
                 .map(actor -> ParticipantView.snapshot(actor, layout, seatRefs)).toList());
         result.put("items", List.copyOf(items.values()));

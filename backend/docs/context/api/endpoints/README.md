@@ -17,7 +17,7 @@
 | 회원 아바타 | `DELETE` | `/api/members/me/avatar` | `MEMBER` | 저장 조합 삭제, 기본형 복귀 |
 | 포인트 | `GET` | `/api/members/me/points` | `MEMBER` | 잔액, 처리 상태와 주간 한도 조회 |
 | 포인트 | `GET` | `/api/members/me/points/transactions` | `MEMBER` | 본인 적립 내역 커서 조회 |
-| 모임 공간 | `GET` | `/api/group-spaces/furniture-catalog` | `PUBLIC` | 가구별 표시·배치 규칙과 기존 배치 표시용 비활성 가구 |
+| 모임 공간 | `GET` | `/api/group-spaces/furniture-catalog` | `PUBLIC` | 가구별 표시·배치·상호작용 규칙과 기존 배치 표시용 비활성 가구 |
 | 모임 공간 | `GET` | `/api/group-spaces/blueprints/{templateKey}/default` | `PUBLIC` | 테마의 신규 기본 도면 버전과 geometry |
 | 모임 공간 | `GET` | `/api/group-spaces/weather` | `PUBLIC` | 서울의 날씨 코드와 당일 일출·일몰, 이전 응답 여부 |
 | 실시간 아지트 | `POST` | `/api/groups/{groupId}/space/join-token` | `MEMBER` | 현재 회원·모임에 한정된 60초 입장 토큰 |

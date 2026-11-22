@@ -4,9 +4,9 @@ import com.project.jarihana.groupspace.domain.FurnitureType;
 import java.util.List;
 import tools.jackson.databind.node.ObjectNode;
 
-public record FurnitureCatalogResponse(List<ObjectNode> items) {
+public record FurnitureCatalogResponse(int interactionCatalogVersion, List<ObjectNode> items) {
     public static FurnitureCatalogResponse from(List<FurnitureType> catalog) {
-        return new FurnitureCatalogResponse(catalog.stream()
+        return new FurnitureCatalogResponse(1, catalog.stream()
                 .map(type -> type.definition().deepCopy().put("kind", type.kind())
                         .put("placeable", type.placeable()).put("minRoomVersion", type.minRoomVersion()))
                 .toList());

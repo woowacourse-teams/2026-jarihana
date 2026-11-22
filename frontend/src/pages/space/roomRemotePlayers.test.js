@@ -3,6 +3,7 @@ import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appear
 import { createRemotePlayers, thrownItemPosition } from "./roomRemotePlayers.js";
 import { walkPropBaseOffset } from "./roomModels.js";
 import { createRoomStore } from "../../features/group-space/realtime/roomStore.js";
+import { installFurnitureCatalog } from "../../features/group-space/furnitureCatalog.js";
 import propSurfaceAnchors from "./propSurfaceAnchors.json";
 
 let frame;
@@ -39,9 +40,9 @@ test("remote handheld, placed, dropped and thrown props all receive the room lig
 });
 
 test("surface slot counts have a local model anchor for every slot", () => {
-  const { capabilities } = require("../../../tests/fixtures/clubhouse-seeds.cjs").assetDefinitions;
-  const slotCounts = Object.fromEntries(Object.entries(capabilities.assets).filter(([, asset]) => asset.surface)
-    .map(([kind, asset]) => [kind, asset.surface.slots]));
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const slotCounts = Object.fromEntries(furnitureCatalog.filter(asset => asset.interaction?.surface)
+    .map(({ kind, interaction }) => [kind, interaction.surface.slots]));
   const anchorCounts = Object.fromEntries(Object.entries(propSurfaceAnchors).map(([kind, anchors]) => [kind, anchors.length]));
   expect(anchorCounts).toEqual(slotCounts);
 });
@@ -82,6 +83,30 @@ test("placed props and their pick targets both follow the furniture after moving
   expect(prop.visible).toBe(false);
   expect(players.targets()).toEqual([]);
   players.dispose();
+});
+
+test("a surface slot beyond the model anchors cannot render a prop or its pick target", () => {
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const table = { id: "table", kind: "table", x: 2, z: -3, rotation: 0, scaleX: 1.5 };
+  const room = { template: "lounge", version: 12, items: [table] };
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => 1000 });
+  const players = createRemotePlayers(scene, jest.fn(), () => room);
+  const cup = { id: "cup", kind: "cup", location: "SURFACE", assetId: table.id, slot: 0, remaining: 1 };
+  store.apply(state({ items: [cup, { ...cup, id: "extra-cup", slot: 1 }] }));
+  players.setStore(store); frame(1000);
+  installFurnitureCatalog(furnitureCatalog.map(type => type.kind === "table"
+    ? { ...type, interaction: { ...type.interaction, surface: { slots: 2 } } } : type));
+  try {
+    players.refresh(); frame(1050);
+    const prop = scene.getObjectByName("shared-item-extra-cup");
+    expect(prop.visible).toBe(false);
+    expect(scene.getObjectByName("shared-item-cup").visible).toBe(true);
+    expect(players.targets()).toEqual([expect.objectContaining({ itemId: "cup" })]);
+  } finally {
+    players.dispose();
+    installFurnitureCatalog(furnitureCatalog);
+  }
 });
 
 test("remote actors render server positions and disappear on leave or runtime cleanup", () => {

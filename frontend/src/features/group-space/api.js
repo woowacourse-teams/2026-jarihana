@@ -24,41 +24,48 @@ export function fetchDefaultSpaceBlueprint(templateKey) {
   return apiRequest(`group-spaces/blueprints/${encodeURIComponent(templateKey)}/default`, { schema: blueprintSchema });
 }
 
+const assetKinds = z.array(z.string());
+const slotCount = z.number().int().positive().max(64);
+const interaction = z.object({
+  capabilities: assetKinds,
+  seatCount: slotCount.optional(),
+  surface: z.object({ slots: slotCount }).optional(),
+  storage: z.object({ kinds: assetKinds, capacity: slotCount }).optional(),
+  producer: z.object({ kinds: assetKinds }).optional(),
+  panel: z.enum(["dashboard", "activities", "music"]).optional()
+}).refine((definition) => (definition.capabilities.includes("seatable") === Boolean(definition.seatCount)) &&
+  (definition.capabilities.includes("surface") === Boolean(definition.surface)) &&
+  (definition.capabilities.includes("storage") === Boolean(definition.storage)) &&
+  (definition.capabilities.includes("producer") === Boolean(definition.producer)) &&
+  (definition.capabilities.includes("panelEntry") === Boolean(definition.panel)));
 const furniture = z.object({
   kind: z.string().min(1), name: z.string().min(1), category: z.enum(["furniture", "memories"]),
   placeable: z.boolean(), minRoomVersion: z.number().int().positive(),
   width: z.number().positive(), depth: z.number().positive(), height: z.number().positive(),
   surfaces: z.array(z.number().positive()), collection: z.string().optional(),
   mount: z.enum(["wall", "ceiling"]).optional(), prop: z.boolean().optional(),
-  underlay: z.boolean().optional(), connectedSurface: z.boolean().optional(), walkableHeight: z.number().positive().optional()
+  underlay: z.boolean().optional(), connectedSurface: z.boolean().optional(), walkableHeight: z.number().positive().optional(),
+  interaction: interaction.optional()
 });
 const furnitureCatalogSchema = z.object({
+  interactionCatalogVersion: z.literal(1),
   items: z.array(furniture).min(1).refine(items => new Set(items.map(item => item.kind)).size === items.length)
 });
 
-export function fetchFurnitureCatalog() {
-  return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema });
+export function fetchFurnitureCatalog(signal) {
+  return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema, signal, cache: "no-cache" });
 }
 
-const assetKinds = z.array(z.string());
 const assetDefinitionsSchema = z.object({
   capabilities: z.object({
     version: z.literal(1),
-    assets: z.record(z.string(), z.object({
-      capabilities: assetKinds,
-      seatCount: z.number().int().positive().optional(),
-      surface: z.object({ slots: z.number().int().positive() }).optional(),
-      storage: z.object({ kinds: assetKinds, capacity: z.number().int().positive() }).optional(),
-      producer: z.object({ kinds: assetKinds }).optional()
-    }).refine((definition) => (definition.capabilities.includes("seatable") === Boolean(definition.seatCount)) &&
-      (definition.capabilities.includes("surface") === Boolean(definition.surface)))),
     items: z.record(z.string(), z.object({
       throwable: z.boolean(), consumable: z.boolean(), camera: z.boolean().optional()
     }))
   })
 });
 
-export function fetchAssetDefinitions() {
+export function fetchAssetDefinitions(signal) {
   const configuredUrl = process.env.APP_REALTIME_WEBSOCKET_URL;
   let origin = "";
   if (configuredUrl) {
@@ -68,7 +75,7 @@ export function fetchAssetDefinitions() {
     origin = url.origin;
   }
   const client = createApiClient({ baseUrl: `${origin}/ws`, credentials: "omit" });
-  return client.request("realtime", { schema: assetDefinitionsSchema, authRetry: false });
+  return client.request("realtime", { schema: assetDefinitionsSchema, authRetry: false, signal });
 }
 
 export const groupSpaceSchema = z.object({

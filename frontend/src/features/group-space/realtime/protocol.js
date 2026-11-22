@@ -25,6 +25,7 @@ const context = {
   frameSeq: z.number().int().nonnegative(), serverTime: z.number().finite()
 };
 const state = z.object({ ...context, type: z.enum(["ROOM_SNAPSHOT", "ROOM_STATE"]), selfId: id,
+  catalogGeneration: z.number().int().nonnegative().optional(),
   participants: z.array(participant).max(200), items: z.array(item).max(2000),
   assets: z.record(id, z.object({ open: z.boolean().optional(), on: z.boolean().optional(), wateredAt: z.number().optional(),
     production: z.object({ itemId: id, kind: z.string(), completesAt: z.number() }).passthrough().nullable().optional() }).passthrough()) });

@@ -98,7 +98,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 
 ## 가구·물건과 배치 교체
 
-- realtime의 [asset-capabilities.json](../../../realtime/src/main/resources/contracts/asset-capabilities.json)은 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 같은 종류도 배치 인스턴스 ID는 다르다.
+- 환경별 DB의 `space_furniture_catalog.definition.interaction`이 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 브라우저는 `GET /api/group-spaces/furniture-catalog`에서 이 값을 읽는다. `GET /ws/realtime`의 [소품 정의](../../../realtime/src/main/resources/contracts/asset-capabilities.json)는 소품 자체의 휴대·소비·투척 규칙을 제공한다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
 - 프론트에서 좌석 번호에 맞는 높이와 상대 좌표를 현재 가구 위치·회전·배율·층에 적용한다. `avatarOffsetY`는 캐릭터 원점, `seatFit`은 좌판 앞쪽과 팔걸이 간격에 맞춘 보정이다. 1인칭 카메라, 로컬 3인칭 아바타, 원격 참가자가 같은 계산을 사용한다.
 - 환경 DB의 `space_furniture_catalog.definition`에서 치수·장착 방식·부착면 높이를 읽고, 모임에 연결된 도면 버전에서 지형과 시작 위치를 읽는다.
@@ -109,6 +109,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 - 생산 중 기계 이동·삭제는 취소하며 컵을 복구한다. 작업 ID·방 세대·배치 버전으로 오래된 완료를 차단한다.
 - 퇴장 시 좌석 해제, 손 물건 내려놓기, 생산 취소를 같은 방 처리 구간에서 수행한다.
 - DB 커밋 뒤 새 layoutRevision을 적용한다. 이전 revision 명령은 LAYOUT_MISMATCH로 거절한다. 프론트는 최신 저장 배치를 읽은 뒤 조작을 재개한다.
+- 환경별 카탈로그 변경은 기존 연결의 `ROOM_SNAPSHOT`·`ROOM_STATE`에 `catalogGeneration`으로 알린다. 브라우저는 해당 HTTP 카탈로그를 다시 읽는다. 서버는 저장 배치 revision이 같아도 새 규칙으로 검증하고 범위를 벗어난 좌석과 소품을 정리한다.
 - 배치는 기본 10초, 권한은 20초 주기로 조회한다. 저장 직후 모든 참가자에게 동시에 적용되는 것은 아니다. 다른 groupId로 이동하면 기존 연결을 정리하고 새 방의 스냅샷을 받는다.
 
 ## 검증 범위

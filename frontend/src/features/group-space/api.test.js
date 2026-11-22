@@ -114,14 +114,25 @@ test.each(["javascript:alert(1)", "https://user:secret@example.com/private", "no
 );
 
 test("the public catalog includes retired kinds and rejects duplicate or malformed definitions", async () => {
-  const retired = { ...require("../../../tests/fixtures/clubhouse-seeds.cjs").furnitureCatalog[0], placeable: false };
-  wire.mockResolvedValueOnce(reply({ items: [retired] }));
-  await expect(fetchFurnitureCatalog()).resolves.toEqual({ items: [retired] });
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const retired = { ...furnitureCatalog.find(item => item.kind === "bookshelf"), placeable: false };
+  const sofa = furnitureCatalog.find(item => item.kind === "sofa");
+  const inert = furnitureCatalog.find(item => !item.interaction);
+  wire.mockResolvedValueOnce(reply({ interactionCatalogVersion: 1, items: [retired, sofa, inert] }));
+  const { interactionCatalogVersion, items } = await fetchFurnitureCatalog();
+  expect(interactionCatalogVersion).toBe(1);
+  expect(items[0]).toMatchObject({ kind: retired.kind, placeable: false, interaction: { surface: { slots: 4 }, storage: { capacity: 8 } } });
+  expect(items[1].interaction).toEqual({ capabilities: ["seatable"], seatCount: 3 });
+  expect(items[2]).not.toHaveProperty("interaction");
   expect(wire.mock.calls[0][0].url).toBe("https://app.test/api/group-spaces/furniture-catalog");
-  for (const items of [[], [retired, retired], [{ ...retired, surfaces: null }]]) {
-    wire.mockResolvedValueOnce(reply({ items }));
+  expect(wire.mock.calls[0][0].cache).toBe("no-cache");
+  for (const items of [[], [retired, retired], [{ ...retired, surfaces: null }],
+    [{ ...sofa, interaction: { ...sofa.interaction, seatCount: 65 } }]]) {
+    wire.mockResolvedValueOnce(reply({ interactionCatalogVersion: 1, items }));
     await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   }
+  wire.mockResolvedValueOnce(reply({ items: [inert] }));
+  await expect(fetchFurnitureCatalog()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
 });
 
 test.each([
@@ -130,12 +141,13 @@ test.each([
 ])("realtime definitions use ordinary HTTP and omit cookies from %s", async (websocketUrl, expectedUrl) => {
   const { assetDefinitions } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
   const environment = jest.replaceProperty(process, "env", { ...process.env, APP_REALTIME_WEBSOCKET_URL: websocketUrl });
-  const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply(assetDefinitions));
+  const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(reply({
+    capabilities: { ...assetDefinitions.capabilities, assets: { sofa: { capabilities: ["seatable"], seatCount: 3 } } }
+  }));
   try {
     const received = await fetchAssetDefinitions();
-    expect(received.capabilities.assets.sofa).toEqual({ capabilities: ["seatable"], seatCount: 3 });
     expect(received.capabilities.items.camera.camera).toBe(true);
-    expect(received.capabilities.assets.bookshelf).toMatchObject({ surface: { slots: 4 }, storage: { capacity: 8 } });
+    expect(received.capabilities).not.toHaveProperty("assets");
     expect(Object.keys(received)).toEqual(["capabilities"]);
     const request = fetch.mock.calls[0][0];
     expect(request.url).toBe(expectedUrl);

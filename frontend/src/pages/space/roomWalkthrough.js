@@ -811,6 +811,15 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
     },
+    refreshInteractions() {
+      if (menu) {
+        const target = getInteractionTargets?.().find((entry) => entry.id === menu.target.id);
+        const updated = realtime && target ? sharedInteractionTarget(target, realtime.store.getState()) : target;
+        menu = updated?.choices?.length ? { target: updated, choices: updated.choices } : null;
+      }
+      syncCamera();
+      publishInteraction();
+    },
     setPlayerAppearance(value) {
       playerAppearance = readAvatarAppearance(value);
       if (active()) syncCamera();

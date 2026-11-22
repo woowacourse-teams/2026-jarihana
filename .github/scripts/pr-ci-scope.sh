@@ -27,7 +27,8 @@ case "${1:-}" in
         # Jest and the mock browser API both read the seeded furniture and blueprint rows.
         backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql|\
         backend/src/main/resources/db/migration/V46__space_furniture_catalog.sql|\
-        backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql)
+        backend/src/main/resources/db/migration/V47__space_blueprint_runtime.sql|\
+        backend/src/main/resources/db/migration/V48__space_furniture_interactions.sql)
           backend=true; frontend=true; e2e=true ;;
         backend/src/test/resources/group-space-v9-catalog.json|\
         backend/src/main/resources/rhythm-harpoon/ranked-chart.json|\

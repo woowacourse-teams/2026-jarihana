@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.project.jarihana.realtime.layout.RoomAsset;
 import com.project.jarihana.realtime.layout.RoomLayout;
+import com.project.jarihana.realtime.layout.TestBlueprints;
 import com.project.jarihana.realtime.room.domain.ItemState;
 import com.project.jarihana.realtime.room.domain.RoomState;
 import com.project.jarihana.realtime.room.domain.Vec3;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.node.ObjectNode;
 
 class InteractionStateTest {
     private RoomState room;
@@ -190,6 +192,40 @@ class InteractionStateTest {
     }
 
     @Test
+    void ruleRefreshRemovesInvalidAttachmentsAndCancelsAChangedProducer() {
+        command("TAKE", "assetId", "shelf", "kind", "cup");
+        String placed = held();
+        command("PLACE", "assetId", "shelf", "slot", 3);
+        command("TAKE", "assetId", "shelf", "kind", "tea");
+        String stored = held();
+        command("RETURN", "assetId", "shelf");
+        command("TAKE", "assetId", "machine", "kind", "cup");
+        String cup = held();
+        command("PRODUCE", "assetId", "machine", "kind", "coffee");
+
+        var furniture = TestBlueprints.FURNITURE.deepCopy();
+        var pantry = furniture.path("pantryShelf").path("interaction");
+        ((ObjectNode) pantry.path("surface")).put("slots", 1);
+        ((ObjectNode) pantry.path("storage")).putArray("kinds").add("cup");
+        var producer = (ObjectNode) furniture.path("cafeCounter").path("interaction").path("producer");
+        producer.putArray("kinds").add("latte");
+        room.replaceLayout(TestRooms.layout(1, 0, 2, furniture), 1300);
+        room.tick(5200);
+
+        assertThat(room.items()).extracting(ItemState::id).containsExactly(cup).doesNotContain(placed, stored);
+        assertThat(room.item(cup).kind()).isEqualTo("cup");
+        assertThat(room.assetState("machine").production()).isNull();
+        assertThatThrownBy(() -> room.command("1", "a", Map.of("action", "TAKE", "assetId", "shelf", "kind", "tea"), 5300))
+                .hasMessage("INVALID_ITEM_KIND");
+        assertThatThrownBy(() -> room.command("1", "a",
+                Map.of("action", "PRODUCE", "assetId", "machine", "kind", "coffee", "itemId", cup), 5300))
+                .hasMessage("INVALID_ITEM_KIND");
+        room.command("1", "a", Map.of("action", "PRODUCE", "assetId", "machine", "kind", "latte", "itemId", cup), 5300);
+        room.tick(10000);
+        assertThat(room.item(cup).kind()).isEqualTo("latte");
+    }
+
+    @Test
     void lateJoinSnapshotContainsThrowTrajectoryAndLandingIsWalkable() {
         command("TAKE", "assetId", "shelf", "kind", "cookie");
         String id = held(); command("THROW", "velocity", Map.of("x", 4, "y", 3, "z", 0));
@@ -236,7 +272,8 @@ class InteractionStateTest {
 
     private void replace(Map<String, RoomAsset> assets) {
         RoomLayout old = room.layout();
-        room.replaceLayout(new RoomLayout(old.revision() + 1, assets, old.geometry(), old.arrival(), old.itemRules()), 1300);
+        room.replaceLayout(new RoomLayout(old.revision() + 1, old.catalogGeneration(),
+                assets, old.geometry(), old.arrival(), old.itemRules()), 1300);
     }
 
     private static RoomAsset moved(RoomAsset asset, Vec3 position, double rotation, double scaleY) {

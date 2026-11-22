@@ -19,6 +19,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +51,7 @@ public final class RoomRegistry {
     private final Map<String, Peer> peers = new ConcurrentHashMap<>();
     private final Map<RoomKey, RoomRuntime> rooms = new ConcurrentHashMap<>();
     private final Map<TokenKey, Long> consumedTokens = new ConcurrentHashMap<>();
+    private final Set<RealtimeEnvironment> refreshingCatalog = ConcurrentHashMap.newKeySet();
     private final ExecutorService roomWorkers;
     private final ExecutorService databaseWorkers;
     private final ExecutorService writers;
@@ -208,8 +210,10 @@ public final class RoomRegistry {
         }
         if (now - lastLayout >= Math.min(10000, properties.refreshIntervalMs())) {
             lastLayout = now;
-            rooms.forEach((key, room) -> {
-                if (room.beginRefresh()) submit(() -> refreshLayout(key, room), room::endRefresh);
+            rooms.keySet().stream().map(RoomKey::environment).distinct().forEach(environment -> {
+                if (refreshingCatalog.add(environment)) {
+                    submit(() -> refreshLayouts(environment), () -> refreshingCatalog.remove(environment));
+                }
             });
         }
     }
@@ -236,10 +240,26 @@ public final class RoomRegistry {
         finally { room.endRefresh(); }
     }
 
+    private void refreshLayouts(RealtimeEnvironment environment) {
+        try {
+            roomReads.refreshFurniture(environment);
+        } catch (RuntimeException error) {
+            warnOnDatabaseFailure(error, environment, "furniture_refresh");
+        } finally {
+            rooms.forEach((key, room) -> {
+                if (key.environment() == environment && room.beginRefresh()) {
+                    submit(() -> refreshLayout(key, room), room::endRefresh);
+                }
+            });
+            refreshingCatalog.remove(environment);
+        }
+    }
+
     private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
         var runtime = roomReads.blueprint(environment, blueprint);
         JsonNode document = runtime.document(room);
-        return catalog.read(revision, document, runtime, roomReads.furniture(environment, document));
+        var furniture = roomReads.furniture(environment, document);
+        return catalog.read(revision, furniture.generation(), document, runtime, furniture.definitions());
     }
 
     private void submit(Runnable work, Runnable rejected) {

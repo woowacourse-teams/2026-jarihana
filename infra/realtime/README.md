@@ -17,7 +17,7 @@ PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQ
 
 - GitHub `dev`와 `prod` Environment의 `REALTIME_WEBSOCKET_URL`은 API의 입장 주소와 프론트 빌드의 `APP_REALTIME_WEBSOCKET_URL`에 들어간다. 두 환경에 같은 WSS 주소를 줄 수 있다. 프론트는 이를 HTTPS 주소로 바꿔 가구와 소품의 기능 정의를 읽는다. 값이 비어 있으면 브라우저의 현재 Origin을 사용한다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 공개 기능 정의를, WebSocket Upgrade는 실시간 입장을 처리한다. 교차 출처 조회를 위해 CloudFront가 개발·운영의 `Origin`을 전달하고 응답의 CORS 헤더를 유지하도록 설정한다. 개발·운영 프론트는 공개 직전에 실제 프론트 Origin으로 `GET /ws/realtime`을 요청한다. HTTP 200, CORS, 정의 v1의 좌석 수·상판 칸 수·수납 용량을 확인한 뒤 게시한다.
+정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 공개 소품 규칙을, WebSocket Upgrade는 실시간 입장을 처리한다. 교차 출처 조회를 위해 CloudFront가 개발·운영의 `Origin`을 전달하고 응답의 CORS 헤더를 유지하도록 설정한다. 프론트 게시 직전 `GET /ws/realtime`의 HTTP 200·CORS·소품 정의 v1과 같은 환경의 `GET /api/group-spaces/furniture-catalog` 응답의 HTTP 200·상호작용 카탈로그 v1을 확인한다.
 
 후보 이미지는 `compose run --rm --no-deps -T realtime --check-runtime --server.port=0`으로 두 환경의 이관 상태와 읽기 권한을 검사한다. 선행 검사가 실패하면 현재 컨테이너와 연결이 유지된다. 교체 뒤 `/healthz` 검사에서 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
@@ -25,11 +25,11 @@ PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQ
 
 환경 설정은 전용 러너의 `/dev/shm`에서 실행·시도별로 전달한 뒤 지운다. 재개는 새로운 수동 실행으로 시작한다. 후보 선택과 두 DB 검사 이후 실제 교체 직전에, 최신 develop과 후보 원본의 배포 입력을 비교한다. 비교 범위는 workflow의 `push.paths`를 사용한다. 프론트·문서·SQL 변경 뒤에도 기존 후보를 재개할 수 있다.
 
-공용 realtime을 교체하면 상판·수납 소품의 월드 좌표가 빠진다. 두 환경에서 새 프론트 게시를 이어서 진행하고, 기존 브라우저 탭은 게시 후 새로고침한다. 게시 사이에 이전 탭이 소품 상태를 읽으면 표시나 공유 연결이 실패할 수 있다. QA에서는 새로고침한 탭으로 재접속해 상판 소품의 표시와 클릭, 수납 슬롯의 점유와 꺼내기를 확인한다. 착석은 `seatRefs`를 보내지 않는 연결에도 이전 좌석 필드를 제공한다.
+양쪽 백엔드의 V48과 카탈로그 API를 먼저 게시한다. 공용 realtime 교체 후 두 공개 응답을 확인하고 두 환경에서 새 프론트를 게시한다. 교체 시 상판·수납 소품의 월드 좌표가 빠지므로 게시를 이어서 진행하고 기존 탭은 게시 뒤 새로고침한다. 게시 사이에 이전 탭이 소품 상태를 읽으면 표시나 공유 연결이 실패할 수 있다. QA에서는 새로고침한 탭에서 상판 소품의 표시와 클릭, 수납 슬롯의 점유와 꺼내기를 확인한다. 착석은 `seatRefs`를 보내지 않는 연결에도 이전 좌석 필드를 제공한다.
 
 ## 로컬 빌드와 설정 확인
 
-1. JDK 21·Node 24·Docker를 준비한다. 가구 치수와 부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47에 있다. 가구 기능과 슬롯 수는 realtime의 `contracts/asset-capabilities.json`에 있다. 화면의 상판 위치와 새 브라우저의 착석 위치는 프론트가 계산한다.
+1. JDK 21·Node 24·Docker를 준비한다. 가구 치수·부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47, 가구별 상호작용 규칙은 V48에 있다. 화면의 상판 위치와 착석 위치는 프론트가 계산하며, 소품 자체 규칙은 기존 realtime HTTP 경로에 있다.
 2. `realtime/`에서 `./gradlew test bootJar`를 실행한다. 이미지 빌드 방법과 앱의 제한값은 [realtime README](../../realtime/README.md)를 따른다.
 3. [예제 설정](.env.example)을 로컬 설정 파일로 복사하고 검증용 값과 이미지 digest를 입력한다.
 4. 저장소 루트에서 `docker compose --env-file <설정파일> -f infra/realtime/compose.yaml config --quiet`로 확인한다.
@@ -48,7 +48,9 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 `RDS_URL`에 등록된 호스트의 5432 포트로 연결한다. 개발은 `jarihana_dev`, 운영은 `jarihana_prod`를 사용하며 기존 API의 DB 계정으로 접속한다. PostgreSQL이 RDS라면 DB 보안 그룹의 TCP 5432 인바운드 소스를 realtime EC2의 보안 그룹으로 지정하고, EC2에서 DB의 사설 엔드포인트를 쓸 수 있는지 확인한다. 가구·아바타 저장과 스키마 변경은 기존 백엔드가 담당한다.
 
-V45의 도면 43개와 모임 참조에 V46의 가구 122종, V47의 도면별 시작 위치·기본 방을 추가한다. V47은 기존에 해당 스키마 도면을 읽던 계정에 필요한 열의 SELECT 권한을 부여한다. 이후 만든 전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog(kind, definition)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다. 후보의 실제 기동 자격으로 이를 검증한다.
+V45의 도면 43개와 모임 참조에 V46의 가구 122종, V47의 도면별 시작 위치·기본 방, V48의 가구별 상호작용을 추가한다. 전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_furniture_catalog(kind, definition, placeable)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다. 후보는 실제 기동 자격으로 두 환경의 완료 표시와 조회 권한을 검사한다.
+
+기존 모델의 좌석과 상판 칸은 `seat_anchor_count`와 `surface_anchor_count` 범위에서 DB 설정만으로 줄였다 늘릴 수 있다. 새 가구에 좌표를 처음 지정하거나 기존 개수보다 슬롯을 늘릴 때는 `seatModelAnchors.json` 또는 `propSurfaceAnchors.json`에 좌표를 추가하고 프론트를 먼저 배포한다. 새 좌표를 읽는 프론트가 제공된 뒤 DB 상한과 실제 슬롯 수를 올린다. 수납 용량은 화면 좌표와 별도로 관리한다.
 
 이미 이전 입장 토큰 형식으로 서비스 중이라면 API의 발급 방식과 realtime의 검증 방식이 모두 전환된 뒤 새 토큰으로 접속할 수 있다. 전환 시간을 잡고 기존 환경값을 보관한다. 이전 컨테이너로 돌아갈 경우 해당 API의 토큰 발급 버전도 함께 복원한다.
 
@@ -57,6 +59,7 @@ V45의 도면 43개와 모임 참조에 V46의 가구 122종, V47의 도면별 �
 - 이동·좌석·손 물건·진행 작업은 환경별 방의 서버 메모리에 있다. 인스턴스를 재시작하면 개발과 운영의 일시 상태가 초기화되고 사용자는 새 방 세대로 재입장한다.
 - 기존 API 배포는 실시간 컨테이너를 재시작하지 않는다. DB에서 권한 재확인이 유효 기한보다 오래 실패하면 접속이 종료된다.
 - 저장 배치·권한은 주기 조회로 갱신한다. 현재는 DB 커밋 순간 모든 클라이언트에 반영되는 트랜잭션이 아니다. 클라이언트의 저장 성공과 realtime의 새 revision 적용은 구분한다.
+- realtime은 환경별로 가구 카탈로그를 갱신해 이미 열린 방의 좌석·소품·생산 상태에 적용한다. 읽기에 실패하면 마지막으로 정상 조회한 규칙으로 열린 방을 유지하고, 복구하면 같은 연결에서 새 규칙을 적용한다. 새 배치를 막을 때는 행을 보존하고 `placeable=false`로 바꾼다.
 - 오래된 layoutRevision 명령은 거절한다. 최신 배치를 로딩할 때까지 공유 조작을 대기시킨다. 착석·물건·생산 작업 정리는 새 배치 적용과 같은 방 처리 흐름을 사용한다.
 - v10 이하 배치를 사용하는 모임은 기존 도면과 가구를 계속 편집할 수 있다. 공동 입장은 모임장이 템플릿 전체 교체로 기본 가구를 새로 배치하고 지원 문서 버전으로 저장한 뒤에 가능하다.
 - 큐·연결·방 정원은 상한이 있다. 느린 사용자 때문에 모든 방 상태 처리가 멈추지 않도록 소켓 전송은 별도 실행 흐름에 둔다.

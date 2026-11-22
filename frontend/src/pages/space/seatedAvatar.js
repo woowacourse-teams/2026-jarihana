@@ -1,3 +1,4 @@
+import { capabilitiesFor } from "../../features/group-space/furnitureCatalog.js";
 import { assetScale, localToWorld } from "./assetCustomization.js";
 import { placedItemElevation } from "./roomState.js";
 import seatModelAnchors from "./seatModelAnchors.json";
@@ -18,9 +19,14 @@ function seatHeight(kind, seat, hipBack) {
   return seat.y;
 }
 
+export function usableSeatCount(kind) {
+  return Math.min(capabilitiesFor(kind).seatCount ?? 0, seatModelAnchors[kind]?.seats?.length ?? 0);
+}
+
 export function seatedAvatarPlacement(item, slot, room) {
-  const model = item && seatModelAnchors[item.kind];
-  const seat = model?.seats[slot];
+  if (!item || slot >= usableSeatCount(item.kind)) return null;
+  const model = seatModelAnchors[item.kind];
+  const seat = model?.seats?.[slot];
   if (!seat) return null;
   const { seatFit } = model;
   const { x, y, z } = assetScale(item);

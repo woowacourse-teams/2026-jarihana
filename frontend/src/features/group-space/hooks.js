@@ -7,17 +7,26 @@ export const groupSpaceKeys = {
   detail: (groupId, memberId) => ["group-space", String(groupId), memberId]
 };
 
+const portableDefinitionsQuery = {
+  queryKey: ["space-portable-definitions"],
+  queryFn: ({ signal }) => fetchAssetDefinitions(signal),
+  staleTime: Infinity,
+  retry: false
+};
+
 export const furnitureCatalogQuery = {
   queryKey: ["space-furniture-catalog"],
-  queryFn: async () => {
-    const [catalog, definitions] = await Promise.all([fetchFurnitureCatalog(), fetchAssetDefinitions()]);
+  queryFn: async ({ client, signal }) => {
+    const [catalog, definitions] = await Promise.all([fetchFurnitureCatalog(signal), client.fetchQuery(portableDefinitionsQuery)]);
+    signal.throwIfAborted();
     installAssetDefinitions(definitions);
     return installFurnitureCatalog(catalog.items);
   },
   staleTime: 0,
   refetchOnMount: "always",
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
+  refetchInterval: ({ state }) => state.status === "error" && state.data !== undefined ? 3000 : false,
   retry: false
 };
 
