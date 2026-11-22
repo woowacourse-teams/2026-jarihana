@@ -70,4 +70,4 @@ V45의 도면 43개와 모임 참조에 V46의 가구 122종, V47의 도면별 �
 
 실행 결과와 운영 전 확인할 항목은 [M1·M2 검증 기록](VERIFICATION.md)에 남겼다.
 
-계약은 [실시간 v1](../../contracts/realtime/v1/README.md)을 따른다. 선택 이유와 변경 이력은 [공통 아키텍처 문서](../../docs/clubhouse-realtime-architecture.md), 서버 경계는 [인프라 ADR 0007](../docs/adr/0007-clubhouse-realtime-service.md), 공용 배포·기존 설정 재사용은 [인프라 ADR 0008](../docs/adr/0008-shared-realtime-deployment.md)에 있다. [인프라 ADR 0009](../docs/adr/0009-projector-livekit-direction.md)의 화면 공유는 아직 이 배포에 포함하지 않는다.
+계약은 [실시간 v1](../../docs/clubhouse-realtime-contract-v1.md)을 따른다. 선택 이유와 변경 이력은 [공통 아키텍처 문서](../../docs/clubhouse-realtime-architecture.md), 서버 경계는 [인프라 ADR 0007](../docs/adr/0007-clubhouse-realtime-service.md), 공용 배포·기존 설정 재사용은 [인프라 ADR 0008](../docs/adr/0008-shared-realtime-deployment.md)에 있다. [인프라 ADR 0009](../docs/adr/0009-projector-livekit-direction.md)의 화면 공유는 아직 이 배포에 포함하지 않는다.

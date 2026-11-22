@@ -29,7 +29,7 @@
 - `backend/`: 로그인·방문 정책에 따른 단기 입장 토큰과 기존 아지트 배치 저장.
 - `realtime/`: 독립 Java 21 Spring 앱. 검증한 토큰 발급자에 따라 개발·운영 PostgreSQL에서 읽기 전용으로 권한과 배치를 확인한다. 방별 순차 처리, 이동 검증, 원격 참여자 상태, 늦은 입장·재접속, 좌석·물건·제작·가구 상태와 배치 변경 정리를 담당한다.
 - `frontend/`: 실제 모임 상세의 놀러가기 연결, 원격 캐릭터·보간·공유 상호작용, 촬영 미리보기와 기존 활동 작성 화면 첨부.
-- `contracts/realtime/`: 메시지와 가구 기능·접점 계약. 환경별 가구 규격과 도면은 PostgreSQL에서 읽는다.
+- [실시간 v1 계약](../../docs/clubhouse-realtime-contract-v1.md): 메시지와 가구 상호작용 규격. 환경별 가구 규격과 도면은 PostgreSQL에서 읽는다.
 - `infra/realtime/`: HTTP 8080의 realtime Compose, 실제 WebSocket·격리 브라우저 검증 스크립트.
 
 기존 통합 체크아웃의 미커밋 화면·하늘·HUD 변경 위에 작업했다. 시작 시점의 tracked 변경은 `/private/tmp/jarihana-m1m2-baseline-20261112.patch`에 보존했다. 이 문서의 구현 범위와 기존 변경을 혼동하지 않는다.
@@ -107,4 +107,4 @@
 - 촬영 검증은 미리보기와 작성 화면 첨부까지다. 게시 버튼을 누르거나 외부 계정으로 사진을 업로드하지 않았다.
 - M3 LiveKit 화면 공유, 다중 replica·Redis 복구는 이번 구현 범위에 포함하지 않는다.
 
-실행 명령은 [실행 구성](README.md), 메시지와 배치 규칙은 [v1 계약](../../contracts/realtime/v1/README.md)을 따른다.
+실행 명령은 [실행 구성](README.md), 메시지와 배치 규칙은 [v1 계약](../../docs/clubhouse-realtime-contract-v1.md)을 따른다.

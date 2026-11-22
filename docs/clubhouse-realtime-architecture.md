@@ -13,7 +13,7 @@ M1·M2는 로컬 구현과 검증 기록이 있다. M3는 LiveKit을 사용하�
 | [인프라 ADR 0007](../infra/docs/adr/0007-clubhouse-realtime-service.md) | 독립 Spring 앱, DB 직접 조회, 환경·방 분리, 입장 토큰, 방 메모리 |
 | [인프라 ADR 0008](../infra/docs/adr/0008-shared-realtime-deployment.md) | 공용 컨테이너, CloudFront·8080, 기존 Environment 값 재사용, 배포·복구·모니터링 |
 | [인프라 ADR 0009](../infra/docs/adr/0009-projector-livekit-direction.md) | P2P·TURN 검토 후 LiveKit SFU 선택, 시그널링·영상 경로, 남은 네트워크 결정 |
-| [실시간 v1 계약](../contracts/realtime/v1/README.md) | 메시지·상태·오류·카탈로그의 실행 가능한 계약 |
+| [실시간 v1 계약](clubhouse-realtime-contract-v1.md) | 메시지·상태·오류·카탈로그의 통신 규격 |
 | [프론트 런타임](../frontend/docs/group-space-realtime.md) | 연결·배치 갱신·원격 캐릭터·상호작용 표시 |
 | [배포 실행 가이드](../infra/realtime/README.md) | 실제 변수 이름, 러너·DB·CloudFront 준비와 실행 순서 |
 
@@ -54,7 +54,8 @@ realtime/                           독립 Java 21 / Spring Boot / Gradle 앱
 frontend/src/features/group-space/realtime/
                                     입장권 요청, 연결, 상태 저장, 보간
 frontend/src/pages/space/            장면·입력·가구·아바타 표시
-contracts/realtime/                 버전 있는 메시지 계약, 가구 행동과 소품 접점
+docs/clubhouse-realtime-contract-v1.md
+                                    실시간 메시지와 동작 규격
 infra/realtime/                     Docker Compose, Alloy, 검증 도구
 .github/workflows/realtime-deploy.yml
                                     검증, GHCR 발행, 설정 전달, 공용 배포
@@ -149,7 +150,7 @@ WHERE template_key = 'lounge' AND blueprint_version = 12;
 | 물건을 꺼낸 원본 가구가 삭제됨 | 이미 손에 든 물건은 유지 | 가구 수명과 꺼낸 물건 수명을 구분함 |
 | 제조 중인 기계 이동·삭제 | 작업을 취소하고 컵은 보존 | 진행 시간은 이어받지 않음 |
 
-“예전 위치에서 누른 앉기도 허용하자”는 중간 논의 뒤에 “거절하도록 하자”는 요청이 있어 최종 정책은 거절로 정했다. 앉아 있는 사람을 가구와 함께 이동시키는 정책은 채택하지 않았다. 구현 근거는 [배치 조정](../realtime/src/main/java/com/project/jarihana/realtime/room/domain/LayoutReconciliation.java)과 [실시간 v1 계약](../contracts/realtime/v1/README.md)에 있다.
+“예전 위치에서 누른 앉기도 허용하자”는 중간 논의 뒤에 “거절하도록 하자”는 요청이 있어 최종 정책은 거절로 정했다. 앉아 있는 사람을 가구와 함께 이동시키는 정책은 채택하지 않았다. 구현 근거는 [배치 조정](../realtime/src/main/java/com/project/jarihana/realtime/room/domain/LayoutReconciliation.java)과 [실시간 v1 계약](clubhouse-realtime-contract-v1.md)에 있다.
 
 ### 개인 아바타와 동작
 

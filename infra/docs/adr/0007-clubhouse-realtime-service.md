@@ -77,4 +77,4 @@ Redis나 다중 서버 방 인계는 현재 도입하지 않는다. 빈 방 정�
 
 가구 이동 중 착석·물건 처리와 개인 아바타는 [공통 아키텍처 문서](../../../docs/clubhouse-realtime-architecture.md)에 기록했다. 배포·관측은 [인프라 ADR 0008](0008-shared-realtime-deployment.md), 미래 화면 공유는 [인프라 ADR 0009](0009-projector-livekit-direction.md)를 따른다.
 
-메시지 상세는 [실시간 v1 계약](../../../contracts/realtime/v1/README.md), 실행은 [배포 가이드](../../realtime/README.md), 기존 로컬 결과와 남은 운영 확인은 [검증 기록](../../realtime/VERIFICATION.md)에 둔다. 이번 문서 보강 자체가 운영 배포나 성능 검증의 근거는 아니다.
+메시지 상세는 [실시간 v1 계약](../../../docs/clubhouse-realtime-contract-v1.md), 실행은 [배포 가이드](../../realtime/README.md), 기존 로컬 결과와 남은 운영 확인은 [검증 기록](../../realtime/VERIFICATION.md)에 둔다. 이번 문서 보강 자체가 운영 배포나 성능 검증의 근거는 아니다.
