@@ -136,9 +136,10 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     };
     const latest = (id) => frames.filter((frame) => frame.memberId === id && ["ROOM_STATE", "ROOM_SNAPSHOT"].includes(frame.message.type)).at(-1)?.message;
     await until(() => latest("1")?.participants.length === 2 && latest("2")?.participants.length === 2, "two participants");
-    assert.deepEqual(sent.filter((frame) => frame.type === "AUTH_JOIN").map((frame) => frame.seatRefs), [true, true]);
     receipt.push("two isolated browser sessions join the same real room");
     for (const memberId of ["1", "2"]) {
+      const joins = sent.filter((frame) => frame.memberId === memberId && frame.type === "AUTH_JOIN");
+      assert.ok(joins.length > 0 && joins.every((frame) => frame.seatRefs === true));
       const appearances = latest(memberId).participants.map((actor) => [actor.memberId, actor.avatarAppearance?.outfit]);
       assert.deepEqual(Object.fromEntries(appearances), { "1": "mint", "2": "coral" });
     }

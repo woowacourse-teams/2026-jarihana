@@ -17,7 +17,7 @@ PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQ
 
 - GitHub `dev`와 `prod` Environment의 `REALTIME_WEBSOCKET_URL`은 API의 입장 주소와 프론트 빌드의 `APP_REALTIME_WEBSOCKET_URL`에 들어간다. 두 환경에 같은 WSS 주소를 줄 수 있다. 프론트는 이를 HTTPS 주소로 바꿔 가구와 소품의 기능 정의를 읽는다. 값이 비어 있으면 브라우저의 현재 Origin을 사용한다. 운영 API는 realtime Compose 오버레이가 포함된 배포 제어 태그를 사용한다. [운영 배포 절차](../blue-green-deploy/docs/deployment.md)
 
-정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 공개 기능 정의를, WebSocket Upgrade는 실시간 입장을 처리한다. 교차 출처 조회를 위해 CloudFront가 개발·운영의 `Origin`을 전달하고 응답의 CORS 헤더를 유지하도록 설정한다. 개발·운영 프론트는 공개 직전에 실제 프론트 Origin으로 `GET /ws/realtime`을 요청한다. HTTP 200, CORS, 정의 v1의 상판 칸 수와 수납 용량을 확인한 뒤 게시한다. 기존 브라우저가 읽는 WebSocket 월드 좌표는 이 배포 순서 동안도 유지한다.
+정확한 `/ws/realtime` Behavior가 필요하다. 일반 HTTP GET은 공개 기능 정의를, WebSocket Upgrade는 실시간 입장을 처리한다. 교차 출처 조회를 위해 CloudFront가 개발·운영의 `Origin`을 전달하고 응답의 CORS 헤더를 유지하도록 설정한다. 개발·운영 프론트는 공개 직전에 실제 프론트 Origin으로 `GET /ws/realtime`을 요청한다. HTTP 200, CORS, 정의 v1의 좌석 수·상판 칸 수·수납 용량을 확인한 뒤 게시한다.
 
 후보 이미지는 `compose run --rm --no-deps -T realtime --check-runtime --server.port=0`으로 두 환경의 이관 상태와 읽기 권한을 검사한다. 선행 검사가 실패하면 현재 컨테이너와 연결이 유지된다. 교체 뒤 `/healthz` 검사에서 실패하면 마지막 성공 이미지·Compose·Alloy 설정으로 복구하고 다시 검사한다.
 
@@ -25,9 +25,11 @@ PR에서는 GitHub 호스팅 러너에서 서버·배포 경로와 두 PostgreSQ
 
 환경 설정은 전용 러너의 `/dev/shm`에서 실행·시도별로 전달한 뒤 지운다. 재개는 새로운 수동 실행으로 시작한다. 후보 선택과 두 DB 검사 이후 실제 교체 직전에, 최신 develop과 후보 원본의 배포 입력을 비교한다. 비교 범위는 workflow의 `push.paths`를 사용한다. 프론트·문서·SQL 변경 뒤에도 기존 후보를 재개할 수 있다.
 
+공용 realtime을 교체하면 상판·수납 소품의 월드 좌표가 빠진다. 두 환경에서 새 프론트 게시를 이어서 진행하고, 기존 브라우저 탭은 게시 후 새로고침한다. 게시 사이에 이전 탭이 소품 상태를 읽으면 표시나 공유 연결이 실패할 수 있다. QA에서는 새로고침한 탭으로 재접속해 상판 소품의 표시와 클릭, 수납 슬롯의 점유와 꺼내기를 확인한다. 착석은 `seatRefs`를 보내지 않는 연결에도 이전 좌석 필드를 제공한다.
+
 ## 로컬 빌드와 설정 확인
 
-1. JDK 21·Node 24·Docker를 준비한다. 가구 치수와 부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47에 있다. 가구 기능과 슬롯 수는 realtime의 `contracts/asset-capabilities.json`에 있다. 화면의 상판 좌표는 프론트가 계산하며 realtime의 `legacy-surface-anchors.json`은 이전 WebSocket 클라이언트의 좌표 응답에 사용한다.
+1. JDK 21·Node 24·Docker를 준비한다. 가구 치수와 부착면은 V46, 도면별 시작 위치와 미저장 기본 방은 V47에 있다. 가구 기능과 슬롯 수는 realtime의 `contracts/asset-capabilities.json`에 있다. 화면의 상판 위치와 새 브라우저의 착석 위치는 프론트가 계산한다.
 2. `realtime/`에서 `./gradlew test bootJar`를 실행한다. 이미지 빌드 방법과 앱의 제한값은 [realtime README](../../realtime/README.md)를 따른다.
 3. [예제 설정](.env.example)을 로컬 설정 파일로 복사하고 검증용 값과 이미지 digest를 입력한다.
 4. 저장소 루트에서 `docker compose --env-file <설정파일> -f infra/realtime/compose.yaml config --quiet`로 확인한다.

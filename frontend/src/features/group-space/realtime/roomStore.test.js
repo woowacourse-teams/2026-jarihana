@@ -34,6 +34,7 @@ test.each(["SURFACE", "STORAGE"])("%s uses its furniture slot while accepting ol
     remaining: 0, velocity: null, startedAt: 0 };
   const parse = (wireItem) => parseRoomMessage(JSON.stringify(snapshot({ items: [wireItem] }))).items[0];
   expect(parse(item)).toEqual(item);
+  expect(parse({ ...item, position: null })).toEqual(item);
   expect(parse({ ...item, position: { x: -9, y: 0, z: -8 } })).toEqual(item);
   expect(() => parse({ ...item, slot: null })).toThrow();
   expect(() => parse({ ...item, assetId: null })).toThrow();

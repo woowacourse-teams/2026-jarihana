@@ -79,7 +79,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 
 새 연결의 `position`과 `yaw`는 서버 판정용 자세다. 착석 중 `position`은 가구에 접근한 안전한 바닥 위치를 유지한다. 기존 연결의 호환 응답에는 `seat.position`, `seat.approach`, `seat.yaw`와 기존 브라우저가 기대하는 참가자의 착석 `position`, `yaw`를 포함한다. 입장, RESYNC, 오류 복구, 브로드캐스트와 이동 프레임은 접속할 때 고른 직렬화 방식을 유지한다. production은 진행 중 `{id,itemId,kind,startedAt,completesAt}` 또는 null이다.
 
-`SURFACE`와 `STORAGE` 소품의 위치는 `assetId`와 `slot`으로 식별한다. WebSocket의 `position`은 기존 브라우저가 계속 읽을 수 있도록 두 상태에도 전송한다. 새 브라우저는 상판의 표시와 클릭 판정에 현재 가구 배치와 로컬 좌표를 사용한다. `WORLD`와 `THROWN`은 서버의 월드 좌표로 표시한다.
+`SURFACE`와 `STORAGE` 소품의 위치는 `assetId`와 `slot`으로 식별한다. 두 상태의 `position`은 null 또는 생략이다. 브라우저는 상판의 표시와 클릭에 현재 가구 배치와 로컬 좌표를 사용하고, 수납은 슬롯 점유와 꺼내기 동작으로 표시한다. 바닥의 `WORLD` 위치와 `THROWN`의 위치·속도는 서버가 제공한다. 이전 프론트가 열려 있는 탭은 새 프론트 게시 뒤 새로고침한다.
 
 `avatarAppearance`은 입장 토큰의 발급 환경에 해당하는 DB에서 읽은 회원의 외형이다. 버전 1은 `{version,hair,skin,hairColor,face,eyes,eyebrows,nose,mouth,glasses,outfit,shoes,shoeColor,hat,hatColor,bag,bagColor,handheld}`를 보낸다. 저장한 외형이 없거나 필드가 없는 이전 메시지에는 `avatarColor`로 기본 캐릭터를 표시한다. 권한 재확인 때 외형이 바뀌면 `ROOM_STATE`에 반영한다.
 

@@ -559,7 +559,7 @@ try {
   assert.ok(Math.abs(devSeat.position.x - prodSeat.position.x - 0.25) < 0.0001);
   const conflict = await command(b, { action: "SIT", assetId: "seat", slot: 1 });
   assert.equal(conflict.code, "OCCUPIED");
-  const c = await connect(url, "103");
+  let c = await connect(url, "103");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "101").seat.assetId, "seat");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "103").displayName, "103");
   assert.equal(participant(c, "101").avatarAppearance.outfit, "ochre");
@@ -603,8 +603,15 @@ try {
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "source removal");
   assert.equal(self().heldItemId, itemId);
-  assert.equal((await command(a, { action: "THROW", itemId, velocity: { x: 0, y: 3, z: 2 } })).success, true);
+  const throwStart = a.messages.length;
+  const throwVelocity = { x: 0, y: 3, z: 2 };
+  assert.equal((await command(a, { action: "THROW", itemId, velocity: throwVelocity })).success, true);
+  const thrown = await waitFor(() => a.messages.slice(throwStart).flatMap(message => message.items ?? [])
+    .find(item => item.id === itemId && item.location === "THROWN"), "thrown item has a world pose");
+  assert.deepEqual(thrown.velocity, throwVelocity);
+  assert.ok(Object.values(thrown.position).every(Number.isFinite));
   await waitFor(() => a.state.items.some((item) => item.id === itemId && item.location === "WORLD"), "throw landing");
+  assert.ok(Object.values(a.state.items.find(item => item.id === itemId).position).every(Number.isFinite));
   assert.equal(self().heldItemId, null);
   receipt.push("source deletion preserves held item and throw settles in world");
 
@@ -649,13 +656,29 @@ try {
   assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
   assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 0, itemId: cupId })).success, true);
   await waitFor(() => a.state.items.find((item) => item.id === cupId)?.assetId === "table", "cup on surface");
-  const surfaceX = a.state.items.find((item) => item.id === cupId).position.x;
   room.items = room.items.map((asset) => asset.id === "table" ? { ...asset, x: asset.x - 0.5 } : asset);
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface moved");
   assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "table", 0]);
-  assert.ok(Math.abs(prop(cupId).position.x - surfaceX + 0.5) < 0.0001);
+  const originalC = c;
+  c = await connect(url, "103", "1", { seatRefs: true });
+  await waitFor(() => originalC.closed, "old observer socket is replaced");
+  await waitFor(() => b.state.layoutRevision === revision, "legacy socket sees the moved surface");
+  const restoredAttachment = (id, location, assetId) => {
+    const item = c.state.items.find(item => item.id === id);
+    assert.deepEqual([item.location, item.assetId, item.slot], [location, assetId, 0]);
+    assert.equal(item.position ?? null, null);
+    assert.equal(prop(id).position ?? null, null);
+    assert.equal(b.state.items.find(item => item.id === id).position ?? null, null);
+  };
+  restoredAttachment(cupId, "SURFACE", "table");
+  restoredAttachment(teaId, "STORAGE", "counter");
+  assert.equal((await command(a, { action: "TAKE", assetId: "counter", kind: "tea" })).success, true);
+  await waitFor(() => self().heldItemId === teaId, "taking tea restores the originally stored item");
+  assert.equal((await command(a, { action: "RETURN", assetId: "counter", itemId: teaId })).success, true);
+  await waitFor(() => prop(teaId)?.location === "STORAGE", "tea is returned to its storage slot");
+  receipt.push("rejoin restores coordinate-free surface and storage references; taking stored tea preserves its item ID");
   room.items = room.items.filter((asset) => asset.id !== "table");
   revision += 1;
   saveLayout();
@@ -672,7 +695,7 @@ try {
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "producer restored for reconnect");
-  receipt.push("furniture movement preserves its slot and legacy wire position follows; deleting furniture removes only attached and stored props");
+  receipt.push("furniture movement preserves slot attachments; deleting furniture removes only attached and stored props");
 
   const replacement = await connect(url, "101");
   await waitFor(() => a.closed, "old connection replacement");
