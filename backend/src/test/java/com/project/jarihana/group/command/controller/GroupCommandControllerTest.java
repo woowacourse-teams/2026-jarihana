@@ -178,17 +178,10 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         String csrf = csrfToken();
         String roomName = "가".repeat(29);
 
-        int groupId = given().cookie(authCookieProperties.accessTokenName(), token)
-                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
-                .contentType("application/json")
-                .body("""
-                        {"type":"%s","name":"%s🎉 모임","introduction":"아지트 소개","meetingType":"ONLINE",
-                         "clubhouseTemplateKey":"%s"}
-                        """.formatted(type, roomName, template))
-                .post("/groups").then().statusCode(201).extract().path("data.id");
+        int groupId = createGroupWithClubhouse(token, csrf, type, roomName + "🎉 모임", template);
 
         var preset = given().get("/group-spaces/blueprints/{template}/default", template)
-                .then().statusCode(200).extract();
+                .then().statusCode(200).body("data.defaultRoom.name", is("주말 아지트")).extract();
         given().cookie(authCookieProperties.accessTokenName(), token)
                 .get("/groups/{groupId}/space", groupId)
                 .then().statusCode(200)
@@ -202,6 +195,37 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
                 .body("data.room.items", equalTo(preset.path("data.defaultRoom.items")))
                 .body("data.geometry", equalTo(preset.path("data.geometry")))
                 .body("data.defaultRoom", nullValue());
+    }
+
+    @DisplayName("기본 도면을 바꾸면 신규 모임에만 적용되고 기존 모임은 생성할 때 저장한 배치를 유지한다.")
+    @Test
+    void newDefaultDoesNotChangeAnExistingClubhouse() {
+        Member member = memberRepository.save(Member.create("가온", 8, "clubhouse-pinned-version", Course.BACKEND));
+        String token = accessTokenProvider.issue(member.getId()).value();
+        String csrf = csrfToken();
+        int existing = createGroupWithClubhouse(token, csrf, "CLUB", "복층 라운지 모임", "lounge");
+
+        jdbc.update("UPDATE space_blueprint_default SET blueprint_version=11 WHERE template_key='lounge'");
+        try {
+            int created = createGroupWithClubhouse(token, csrf, "CLUB", "단층 라운지 모임", "lounge");
+
+            given().cookie(authCookieProperties.accessTokenName(), token)
+                    .get("/groups/{groupId}/space", created)
+                    .then().statusCode(200)
+                    .body("data.blueprintRef.version", is(11))
+                    .body("data.geometry.mezzanine", nullValue())
+                    .body("data.room.version", is(11))
+                    .body("data.room.items.size()", is(24));
+            given().cookie(authCookieProperties.accessTokenName(), token)
+                    .get("/groups/{groupId}/space", existing)
+                    .then().statusCode(200)
+                    .body("data.blueprintRef.version", is(12))
+                    .body("data.geometry.stairs.steps", is(26))
+                    .body("data.room.version", is(12))
+                    .body("data.room.items.size()", is(32));
+        } finally {
+            jdbc.update("UPDATE space_blueprint_default SET blueprint_version=12 WHERE template_key='lounge'");
+        }
     }
 
     @DisplayName("일부 가구를 신규 배치할 수 없으면 초기 배치의 해당 가구와 위에 놓인 소품을 함께 제외한다.")
@@ -440,6 +464,17 @@ class GroupCommandControllerTest extends IntegrationTestSupport {
         // Then
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.jsonPath().getString("error.code")).isEqualTo("INVALID_PARAMETER");
+    }
+
+    private int createGroupWithClubhouse(String token, String csrf, String type, String name, String template) {
+        return given().cookie(authCookieProperties.accessTokenName(), token)
+                .cookie("XSRF-TOKEN", csrf).header("X-XSRF-TOKEN", csrf)
+                .contentType("application/json")
+                .body("""
+                        {"type":"%s","name":"%s","introduction":"아지트 소개","meetingType":"ONLINE",
+                         "clubhouseTemplateKey":"%s"}
+                        """.formatted(type, name, template))
+                .post("/groups").then().statusCode(201).extract().path("data.id");
     }
 
     private Group createGroup(Member leader, String name) {

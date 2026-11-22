@@ -6,6 +6,7 @@ import com.project.jarihana.realtime.auth.AdmissionTokenVerifier.Identity;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
+import com.project.jarihana.realtime.layout.BlueprintCatalog;
 import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.RoomLayout;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
@@ -42,6 +43,7 @@ public final class RoomRegistry {
     private final RealtimeProperties properties;
     private final AdmissionTokenVerifier tokens;
     private final RoomReadRepository roomReads;
+    private final BlueprintCatalog blueprints;
     private final LayoutCatalog catalog;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -60,10 +62,11 @@ public final class RoomRegistry {
     private long lastLayout;
 
     public RoomRegistry(RealtimeProperties properties, AdmissionTokenVerifier tokens, RoomReadRepository roomReads,
-            LayoutCatalog catalog, ObjectMapper mapper, Clock clock, MeterRegistry metrics) {
+            BlueprintCatalog blueprints, LayoutCatalog catalog, ObjectMapper mapper, Clock clock, MeterRegistry metrics) {
         this.properties = properties;
         this.tokens = tokens;
         this.roomReads = roomReads;
+        this.blueprints = blueprints;
         this.catalog = catalog;
         this.mapper = mapper;
         this.clock = clock;
@@ -235,7 +238,7 @@ public final class RoomRegistry {
     }
 
     private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
-        var runtime = roomReads.blueprint(environment, blueprint);
+        var runtime = blueprints.get(blueprint);
         JsonNode document = runtime.document(room);
         return catalog.read(revision, document, runtime, roomReads.furniture(environment, document));
     }

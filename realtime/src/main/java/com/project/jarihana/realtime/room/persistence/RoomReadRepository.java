@@ -4,15 +4,11 @@ import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.BlueprintRef;
-import com.project.jarihana.realtime.layout.BlueprintRuntime;
 import com.project.jarihana.realtime.room.domain.AvatarAppearance;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
-import com.project.jarihana.realtime.room.domain.Vec3;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,10 +24,9 @@ public final class RoomReadRepository {
     private static final String DATABASE_COLUMNS = """
             s.blueprint_template_key, s.blueprint_version,
             EXISTS (
-                SELECT 1 FROM space_blueprint b JOIN space_blueprint_runtime r USING (template_key, blueprint_version)
+                SELECT 1 FROM space_blueprint b
                 WHERE b.template_key = COALESCE(s.blueprint_template_key, 'lounge')
-                  AND b.blueprint_version = COALESCE(s.blueprint_version, 11) AND b.geometry_schema_version = 1
-                  AND b.geometry IS NOT NULL AND r.spawn IS NOT NULL AND (s.group_id IS NOT NULL OR r.default_room IS NOT NULL)
+                  AND b.blueprint_version = COALESCE(s.blueprint_version, 11)
                   AND EXISTS (SELECT 1 FROM space_runtime_migration WHERE version = 1)
                   AND EXISTS (SELECT 1 FROM space_blueprint_migration WHERE version = 1)
                   AND EXISTS (SELECT 1 FROM space_blueprint_default WHERE template_key = 'lounge' AND blueprint_version IS NOT NULL)
@@ -62,17 +57,7 @@ public final class RoomReadRepository {
     private final ObjectMapper mapper;
     private final Clock clock;
     private final RealtimeProperties properties;
-    private static final int BLUEPRINT_CACHE_SIZE = 256;
-    private final Map<EnvironmentBlueprint, BlueprintRuntime> blueprints = Collections.synchronizedMap(
-            new LinkedHashMap<>(32, 0.75f, true) {
-                @Override protected boolean removeEldestEntry(Map.Entry<EnvironmentBlueprint, BlueprintRuntime> eldest) {
-                    return size() > BLUEPRINT_CACHE_SIZE;
-                }
-            });
-
     private final Map<RealtimeEnvironment, JsonNode> furniture = new ConcurrentHashMap<>();
-
-    private record EnvironmentBlueprint(RealtimeEnvironment environment, BlueprintRef reference) {}
 
     RoomReadRepository(RealtimeDatabases databases, RuntimeSchema schema, ObjectMapper mapper, Clock clock, RealtimeProperties properties) {
         this.databases = databases;
@@ -104,26 +89,6 @@ public final class RoomReadRepository {
         if (!row.getBoolean("runtime_readable")) throw new DataRetrievalFailureException("Runtime data for pinned room is unreadable");
         if (row.getLong("revision") == 0) return BlueprintRef.UNSAVED_ROOM;
         return new BlueprintRef(row.getString("blueprint_template_key"), row.getInt("blueprint_version"));
-    }
-
-    public BlueprintRuntime blueprint(RealtimeEnvironment environment, BlueprintRef ref) {
-        var key = new EnvironmentBlueprint(environment, ref);
-        var cached = blueprints.get(key);
-        if (cached != null) return cached;
-        var blueprint = databases.client(environment).sql("""
-                SELECT b.geometry, r.spawn, r.default_room FROM space_blueprint b
-                JOIN space_blueprint_runtime r USING (template_key, blueprint_version)
-                WHERE b.template_key = :template AND b.blueprint_version = :version AND b.geometry_schema_version = 1
-                  AND jsonb_typeof(b.geometry->'building') = 'object' AND jsonb_typeof(b.geometry->'walls') = 'array'
-                """).param("template", ref.templateKey()).param("version", ref.version())
-                .query((row, index) -> {
-                    JsonNode spawn = mapper.readTree(row.getString("spawn"));
-                    return new BlueprintRuntime(mapper.readTree(row.getString("geometry")),
-                            new Vec3(spawn.path("x").doubleValue(), 0, spawn.path("z").doubleValue()),
-                            readRoom(row.getString("default_room")));
-                }).optional().orElseThrow(() -> new DataRetrievalFailureException("Missing or incompatible pinned blueprint"));
-        blueprints.put(key, blueprint);
-        return blueprint;
     }
 
     // Existing kinds have immutable physics. Refresh only when a room uses a newly published kind.

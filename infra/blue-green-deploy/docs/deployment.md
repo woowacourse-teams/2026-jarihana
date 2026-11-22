@@ -109,6 +109,8 @@ watchdog/수집기 자체를 수정할 때는 관리자가 설치본을 갱신�
 배포 커밋의 `app-compose.yml`을 통해 백엔드에 전달한다. 공용 realtime에는
 [운영 입장 키와 DB 연결](../../realtime/README.md)을 설정한다.
 
+API와 공용 realtime을 파일 기반 아지트 도면으로 전환할 때는 [아지트 도면 전환](../../database/clubhouse-blueprints/README.md)을 따른다.
+
 ### 정상 배포 순서
 
 ```text

@@ -93,10 +93,18 @@ class RoomLayoutTest {
     }
 
     @Test
-    void savedDocumentVersionDoesNotOverridePinnedGeometry() {
+    void pinnedBlueprintDeterminesWhetherTheLoftIsWalkable() {
         var room = mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", List.of()));
+        var flat = TestBlueprints.runtime("11:lounge");
         var loft = TestBlueprints.runtime("12:lounge");
-        assertThat(catalog.read(9, room, loft, TestBlueprints.FURNITURE).geometry()).isEqualTo(loft.geometry());
+        var mezzanine = loft.geometry().path("mezzanine");
+        var upperFloor = new Vec3(
+                (mezzanine.path("minX").asDouble() + mezzanine.path("maxX").asDouble()) / 2,
+                mezzanine.path("height").asDouble(),
+                (mezzanine.path("minZ").asDouble() + mezzanine.path("maxZ").asDouble()) / 2);
+
+        assertThat(catalog.read(9, room, flat, TestBlueprints.FURNITURE).floorAt(upperFloor)).isZero();
+        assertThat(catalog.read(9, room, loft, TestBlueprints.FURNITURE).floorAt(upperFloor)).isEqualTo(upperFloor.y());
     }
 
     @Test
@@ -104,7 +112,9 @@ class RoomLayoutTest {
         var blueprint = TestBlueprints.runtime("11:lounge");
         var layout = catalog.read(0, blueprint.document(null), blueprint, TestBlueprints.FURNITURE);
         assertThat(layout.geometry()).isEqualTo(blueprint.geometry());
-        assertThat(layout.assets()).containsKeys("meeting-table", "sofa", "entrance-bench");
+        assertThat(blueprint.defaultRoom().path("items").size()).isEqualTo(24);
+        assertThat(layout.assets()).containsKeys("meeting-table", "sofa", "entrance-bench", "room-general-light-switch");
+        assertThat(TestBlueprints.runtime("12:lounge").defaultRoom().path("items").size()).isEqualTo(32);
         assertThat(layout.revision()).isZero();
     }
 

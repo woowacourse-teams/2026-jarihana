@@ -190,7 +190,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     const loft = pages[0].getByRole("button", { name: snapshot.geometry.upperName, exact: true });
     await loft.click();
     assert.equal(await loft.getAttribute("aria-pressed"), "true");
-    receipt.push("the editor can select the database-only loft for a version 11 room pinned to blueprint 14");
+    receipt.push("the editor can select the published loft for a version 11 room pinned to blueprint 12");
     assert.deepEqual(errors, []);
     await writeFile(path.join(evidence, "browser-receipt.json"), JSON.stringify({ passed: receipt, errors, browser: browser.version() }, null, 2));
     return receipt;

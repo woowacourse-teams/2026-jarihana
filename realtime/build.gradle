@@ -31,8 +31,15 @@ tasks.named('test') {
     testLogging { exceptionFormat = 'full' }
 }
 
+tasks.named('processResources') {
+    from('../backend/src/main/resources/contracts/clubhouse') {
+        include 'blueprints/**'
+        into 'contracts/clubhouse'
+    }
+}
+
 tasks.named('processTestResources') {
     from('../backend/src/main/resources/db/migration') {
-        include 'V45__versioned_space_blueprints.sql', 'V46__space_furniture_catalog.sql', 'V47__*.sql'
+        include 'V46__space_furniture_catalog.sql'
     }
 }

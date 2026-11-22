@@ -1,4 +1,4 @@
-// The mock HTTP API and Jest use the published migration rows without connecting to PostgreSQL.
+// The mock HTTP API and Jest use the published blueprint and furniture data.
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
 
@@ -11,19 +11,12 @@ const assetDefinitions = {
   surfaceAnchors: realtimeJson("surface-anchors.json")
 };
 const furnitureCatalog = JSON.parse(sql("V46__space_furniture_catalog.sql").split("$catalog$")[1]);
-const defaults = JSON.parse(sql("V47__space_blueprint_runtime.sql").split("$defaults$")[1]);
-const geometries = new Map();
-for (const [, template, version, geometry] of sql("V45__versioned_space_blueprints.sql")
-  .matchAll(/\('(\w+)', (\d+), 1, '(.+?)'::jsonb\)/g)) {
-  geometries.set(template + ":" + version, JSON.parse(geometry.replaceAll("''", "'")));
-}
+const blueprints = path.resolve(__dirname, "../../../backend/src/main/resources/contracts/clubhouse/blueprints");
 
 function blueprint(templateKey, version = templateKey === "lounge" ? 12 : 11) {
-  const geometry = geometries.get(templateKey + ":" + version);
-  if (!geometry) throw new Error("Missing seeded blueprint " + templateKey + ":" + version);
+  const source = JSON.parse(readFileSync(path.join(blueprints, templateKey, `v${version}.json`), "utf8"));
   return {
-    blueprintRef: { templateKey, version }, geometry, spawn: { x: -2, z: 6.8 },
-    defaultRoom: defaults.find(room => room.template === templateKey && room.version === version) ?? null
+    blueprintRef: { templateKey, version }, geometry: source.geometry, spawn: source.spawn, defaultRoom: source.defaultRoom
   };
 }
 

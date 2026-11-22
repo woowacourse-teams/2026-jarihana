@@ -8,3 +8,11 @@
 !realtime/src
 !realtime/src/main
 !realtime/src/main/**
+!backend
+!backend/src
+!backend/src/main
+!backend/src/main/resources
+!backend/src/main/resources/contracts
+!backend/src/main/resources/contracts/clubhouse
+!backend/src/main/resources/contracts/clubhouse/blueprints
+!backend/src/main/resources/contracts/clubhouse/blueprints/**
