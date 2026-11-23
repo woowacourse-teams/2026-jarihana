@@ -25,9 +25,12 @@ function texture(data, size, color = false) {
 }
 
 const surfaceData = new Map();
+// Jest reloads modules per test file, so full-size pixels would be regenerated in every file.
+// Production builds replace NODE_ENV and keep 512px textures.
+const SURFACE_TEXTURE_SIZE = process.env.NODE_ENV === "test" ? 64 : 512;
 
 export function createSurfaceMaterial(kind, color, width = 4, depth = 4, patternScale = 1, onReady, profile = {}) {
-  const size = 512;
+  const size = SURFACE_TEXTURE_SIZE;
   const plankWidth = profile.plankWidth || (kind === "walnut" ? 0.2 : 0.25);
   const plankLength = profile.plankLength || (kind === "walnut" ? 2.2 : 2.8);
   const tileSize = profile.tileSize || 1;
