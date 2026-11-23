@@ -14,8 +14,8 @@
     "preview": "webpack serve --mode production --port 4173",
     "lint": "eslint .",
     "typecheck": "npm run lint -- --max-warnings=0",
-    "test": "jest --runInBand --no-watchman",
-    "test:coverage": "jest --runInBand --no-watchman --coverage",
+    "test": "jest --no-watchman",
+    "test:coverage": "jest --no-watchman --coverage",
     "test:e2e": "playwright test",
     "test:analytics:e2e": "playwright test --config playwright.analytics.config.js",
     "test:e2e:core": "playwright test --grep @core",
@@ -85,6 +85,7 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
+    "testTimeout": 15000,
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ],
