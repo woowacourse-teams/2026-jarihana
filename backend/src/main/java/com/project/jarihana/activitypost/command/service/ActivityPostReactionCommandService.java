@@ -51,8 +51,7 @@ public class ActivityPostReactionCommandService {
     @Transactional
     public void removeFromPost(long memberId, long postId, ReactionEmoji emoji) {
         getActivePost(postId);
-        activityPostReactionCommandRepository.findByPostIdAndMemberIdAndEmoji(postId, memberId, emoji)
-                .ifPresent(activityPostReactionCommandRepository::delete);
+        activityPostReactionCommandRepository.removeByPostIdAndMemberIdAndEmoji(postId, memberId, emoji);
     }
 
     @Transactional
@@ -66,8 +65,7 @@ public class ActivityPostReactionCommandService {
     @Transactional
     public void removeFromComment(long memberId, long commentId, ReactionEmoji emoji) {
         getActiveComment(commentId);
-        activityPostCommentReactionCommandRepository.findByCommentIdAndMemberIdAndEmoji(commentId, memberId, emoji)
-                .ifPresent(activityPostCommentReactionCommandRepository::delete);
+        activityPostCommentReactionCommandRepository.removeByCommentIdAndMemberIdAndEmoji(commentId, memberId, emoji);
     }
 
     private ActivityPost getActivePost(long postId) {
