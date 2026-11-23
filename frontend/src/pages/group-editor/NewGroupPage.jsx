@@ -11,6 +11,7 @@ import {
 } from "../../features/image-upload/index.js";
 import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
+import { ClubhouseThemePicker } from "../space/ClubhouseThemePicker.jsx";
 import {
   RepresentativeImageNotice,
   ScheduleFact,
@@ -78,7 +79,7 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
  * 종류를 바꿔도 폼의 일정 값은 그대로 둔다. 저장할 때만 종류에 맞는 쪽을 보내므로,
  * 실수로 종류를 바꿨다 되돌려도 다시 입력할 필요가 없다.
  */
-function toCreateBody(values, representativeImageKey = null) {
+function toCreateBody(values, representativeImageKey, clubhouseTemplateKey) {
   const location = values.location.trim();
   const common = {
     type: values.type,
@@ -103,6 +104,7 @@ function toCreateBody(values, representativeImageKey = null) {
   /* 요일이 없으면 일정 자체가 유동적이고, 시간만 유동적이면 요일은 남기고 시각만 비운다. */
   return {
     ...common,
+    clubhouseTemplateKey,
     recurringSchedule: values.daysOfWeek.length
       ? {
           daysOfWeek: values.daysOfWeek,
@@ -160,6 +162,7 @@ export function NewGroupPage() {
   const [contentTab, setContentTab] = useState("intro");
   const [representativeImageKey, setRepresentativeImageKey] = useState(null);
   const [representativeImagePreview, setRepresentativeImagePreview] = useState(null);
+  const [clubhouseTemplateKey, setClubhouseTemplateKey] = useState("lounge");
 
   useEffect(
     () => () => {
@@ -240,10 +243,10 @@ export function NewGroupPage() {
     await createLock.run(async () => {
       try {
         const result = await createMutation.mutateAsync(
-          toCreateBody(formValues, representativeImageKey)
+          toCreateBody(formValues, representativeImageKey, clubhouseTemplateKey)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
-        navigate(`/groups/${result.id}`, { state: formValues.type === "SESSION" ? { justCreated: true } : null });
+        navigate(`/groups/${result.id}`, { state: { justCreated: true } });
       } catch (error) {
         toast.show({
           title: "모임을 만들지 못했어요.",
@@ -356,6 +359,17 @@ export function NewGroupPage() {
             />
           </div>
         </section>
+
+        {type !== "SESSION" && (
+          <section className="group-editor__clubhouse">
+            <h2>아지트 선택</h2>
+            <ClubhouseThemePicker
+              disabled={createMutation.isPending || createLock.pending}
+              onSelect={setClubhouseTemplateKey}
+              selected={clubhouseTemplateKey}
+            />
+          </section>
+        )}
 
         <div className="group-detail-tabs group-editor__tabs">
           <Tabs

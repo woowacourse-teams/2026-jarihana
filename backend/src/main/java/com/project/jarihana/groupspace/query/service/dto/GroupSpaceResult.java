@@ -5,4 +5,4 @@ import java.time.LocalDateTime;
 import tools.jackson.databind.JsonNode;
 
 public record GroupSpaceResult(JsonNode room, long revision, boolean canEdit, LocalDateTime updatedAt,
-                                BlueprintRef blueprintRef, JsonNode geometry) {}
+                                BlueprintRef blueprintRef, JsonNode geometry, JsonNode spawn, JsonNode defaultRoom) {}

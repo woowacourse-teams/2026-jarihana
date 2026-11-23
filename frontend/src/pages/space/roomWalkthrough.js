@@ -2,7 +2,7 @@ import { createLocomotionBlend, sampleLocomotion } from "./locomotionBlend.js";
 import * as THREE from "three";
 import { readAvatarAppearance } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createWalkingCharacters } from "../../../public/sparring-arena/src/walking-characters.js";
-import { geometryVersion, getRoomLayout, PLAYER, roomZoneAt } from "./roomLayout";
+import { geometryVersion, getRoomLayout, PLAYER, roomSpawn, roomZoneAt } from "./roomLayout";
 import { isWalkablePosition, moveWalker, walkFloorHeight } from "./roomNavigation";
 import { animateMascot, createMascot, createWalkProp, disposeObject, poseMascotGrip, updateWalkPropAppearance } from "./roomModels";
 import { drawClubhouseAvatar, placeAvatarProp } from "./clubhouseAvatar.js";
@@ -10,7 +10,8 @@ import { createCupLift, cupLiftAmount, isCup } from "./cupLift.js";
 import { fitSeatedAvatar } from "./seatedAvatar.js";
 import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
 import { aimedInteraction, nearestSeat, SEATED_CHOICES } from "./walkInteractions";
-import { availableSeat, portableDefinition, sharedInteractionTarget } from "./roomCapabilities.js";
+import { portableDefinition } from "../../features/group-space/furnitureCatalog.js";
+import { availableSeat, sharedInteractionTarget } from "./roomCapabilities.js";
 
 const WALK_VIEWS = new Set(["firstPerson", "thirdPerson"]);
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
@@ -26,7 +27,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   const cameraRay = new THREE.Raycaster();
   const sight = new THREE.Ray();
   const pointerNdc = new THREE.Vector2();
-  let position = { ...PLAYER.spawn };
+  let position = { ...roomSpawn(getRoom()) };
   let yaw = 0;
   let pitch = 0;
   let view = "perspective";
@@ -217,29 +218,31 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   function spawn() {
     const room = getRoom();
     const front = getRoomLayout(room).building.maxZ;
+    const start = roomSpawn(room);
     const legal = (candidate) => isWalkablePosition(candidate, room);
     const arrival = visiting && [12, 14, 10, 8, 6]
-      .map((offset) => ({ x: PLAYER.spawn.x, z: front + offset })).find(legal);
+      .map((offset) => ({ x: start.x, z: front + offset })).find(legal);
     const alternative = () => [2, 4, 6, 8, 10, 12].flatMap((offset) =>
-      [0, -2, 2, -4, 4].map((x) => ({ x: PLAYER.spawn.x + x, z: front + offset }))).find(legal);
-    position = arrival || (!legal(PLAYER.spawn) && alternative()) || { ...PLAYER.spawn };
+      [0, -2, 2, -4, 4].map((x) => ({ x: start.x + x, z: front + offset }))).find(legal);
+    position = arrival || (!legal(start) && alternative()) || { ...start };
     yaw = 0;
     pitch = arrival ? 0.21 : 0;
   }
 
   function sharedPoseChoices() {
-    if (!realtime) return SEATED_CHOICES;
+    if (!realtime) return SEATED_CHOICES.filter(({ id }) => id === "empty" || portableDefinition(id));
+    const definition = portableDefinition(held);
     return [{ id: "relaxed", label: "편히 앉기", action: "space_seat_relax" },
-      ...(held === "book" ? [{ id: "reading", label: "책 읽기", action: "space_seat_read" }] : []),
-      ...(["cup", "coffee", "latte", "tea"].includes(held) ? [{ id: "drinking", label: "컵 들기", action: "space_seat_hold_cup" }] : [])];
+      ...(definition && held === "book" ? [{ id: "reading", label: "책 읽기", action: "space_seat_read" }] : []),
+      ...(definition && (held === "cup" || definition.consumable && definition.emptyKind)
+        ? [{ id: "drinking", label: "컵 들기", action: "space_seat_hold_cup" }] : [])];
   }
 
   function publishInteraction() {
-    const poseChoices = sharedPoseChoices();
-    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? poseChoices : null, held,
-      throwable: Boolean(realtime && portableDefinition(held)?.throwable),
-      consumable: Boolean(realtime && portableDefinition(held)?.consumable),
-      camera: Boolean(realtime && portableDefinition(held)?.camera), shared: Boolean(realtime), pending: actionPending || consuming, feedback });
+    const definition = realtime ? portableDefinition(held) : undefined;
+    onInteractionChange?.({ target: nearby, menu, poseChoices: seated ? sharedPoseChoices() : null, held: realtime && !definition ? null : held,
+      throwable: Boolean(definition?.throwable), consumable: Boolean(definition?.consumable),
+      camera: Boolean(definition?.camera), shared: Boolean(realtime), pending: actionPending || consuming, feedback });
   }
 
   function sharedCommand(command) {
@@ -253,8 +256,14 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
 
   function heldAction(action) {
-    if (!realtime || !heldItemId || (action === "CONSUME" && consuming)) return;
-    if (action === "CAPTURE") { onCapture?.(); return; }
+    if (!realtime || !heldItemId) return;
+    const definition = portableDefinition(held);
+    if (!definition || (action === "THROW" && !definition.throwable) ||
+      (action === "CONSUME" && (!definition.consumable || consuming))) return;
+    if (action === "CAPTURE") {
+      if (definition.camera) onCapture?.();
+      return;
+    }
     const forward = { x: Math.sin(yaw), z: -Math.cos(yaw) };
     const payload = { action, itemId: heldItemId };
     if (action === "DROP") payload.position = { x: position.x + forward.x * 0.7, y: position.y || 0, z: position.z + forward.z * 0.7 };
@@ -299,7 +308,6 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
 
   function stand() {
     if (!seated) return;
-    position = seated.approach;
     seated = null;
     sharedPose = "relaxed";
   }
@@ -336,9 +344,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     if (!target) return;
     if (realtime && target.sharedItem) { sharedCommand({ action: "PICKUP", itemId: target.itemId }); return; }
-    if (target.seat) {
+    if (target.seatCount) {
       if (realtime) {
-        const slot = availableSeat(target, position, realtime.store.getState());
+        const slot = availableSeat(target, position, realtime.store.getState(), getRoom());
         if (slot === undefined) { showFeedback("빈자리가 없어요."); return; }
         sharedCommand({ action: "SIT", assetId: target.id, slot });
         return;
@@ -349,7 +357,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
         return;
       }
       stop();
-      approaching = { ...seat, item: target.item };
+      approaching = seat;
       syncCamera();
       frame = requestAnimationFrame(tick);
     } else if (target.choices?.length) {
@@ -441,7 +449,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     const floorHeight = position.y || 0;
     const translating = [...keys].some((key) => WALK_KEYS.has(key) || key === "ArrowUp" || key === "ArrowDown") || Boolean(approaching || walkStep) || stepUntil > 0;
     const locomotion = jumpHeight ? "jumping" : translating ? sprintKeys.size ? "running" : "walking" : "idle";
-    const fit = seated ? fitSeatedAvatar(seated.item, seated) : null;
+    const fit = seated ? fitSeatedAvatar(getRoom(), seated) : null;
     const location = fit?.position ?? position;
     const now = performance.now();
     const time = realtime?.store.serverNow() ?? now;
@@ -467,7 +475,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     }
     avatar.position.set(location.x, (location.y || 0) + jumpHeight, location.z);
     avatar.scale.setScalar(fit?.scale ?? 1);
-    avatar.rotation.y = Math.PI - (seated?.yaw ?? yaw);
+    avatar.rotation.y = Math.PI - (fit?.yaw ?? yaw);
     if (!appearance) {
       animateMascot(avatar, seated ? "idle" : locomotion, time, motion);
       const hand = avatar.getObjectByName("greeting-hand");
@@ -595,10 +603,11 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       const dx = approach.x - position.x, dz = approach.z - position.z;
       const remaining = Math.hypot(dx, dz);
       if (remaining < 0.025) {
-        seated = approaching;
+        const { assetId, slot, yaw: seatYaw } = approaching;
+        seated = { assetId, slot };
         approaching = null;
         position = approach;
-        yaw = seated.yaw;
+        yaw = seatYaw;
         pitch = -0.1;
       } else {
         yaw = Math.atan2(dx, -dz);
@@ -656,7 +665,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       return;
     }
     if (realtime && event.code === "KeyG" && held) {
-      event.preventDefault(); if (!event.repeat && portableDefinition(held)?.throwable) heldAction("THROW"); return;
+      event.preventDefault(); if (!event.repeat) heldAction("THROW"); return;
     }
     if (realtime && event.code === "KeyH") {
       event.preventDefault(); if (!event.repeat) sharedCommand({ action: "EMOTE", kind: "wave" }); return;
@@ -723,8 +732,9 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
   }
   function activateHeldItem(event) {
     if (!realtime || !acceptsInput() || event.button !== 0 || !held || menu || approaching || event.pointerType === "touch") return false;
-    if (portableDefinition(held)?.consumable) { heldAction("CONSUME"); return true; }
-    if (portableDefinition(held)?.camera) { onCapture?.(); return true; }
+    const definition = portableDefinition(held);
+    if (definition?.consumable) { heldAction("CONSUME"); return true; }
+    if (definition?.camera) { heldAction("CAPTURE"); return true; }
     return false;
   }
   function onLockedMouseDown(event) {
@@ -772,16 +782,18 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       consuming = consumptionFrame(consumption, realtime.store.serverNow(), reduceMotion?.matches).active;
       previousState = state;
       const reset = state.type === "ROOM_SNAPSHOT" || appliedEpoch !== state.roomEpoch || appliedRevision !== state.layoutRevision ||
-        actor.seat?.assetId !== seated?.item?.id || actor.seat?.slot !== seated?.slot;
+        actor.seat?.assetId !== seated?.assetId || actor.seat?.slot !== seated?.slot;
       // Movement frames can trail our unacknowledged input. Corrections arrive as snapshots.
       if (reset) {
         movementPath.length = 0;
         approaching = null;
         walkStep = undefined;
-        seated = actor.seat ? { ...actor.seat, item: getRoom()?.items.find((item) => item.id === actor.seat.assetId) } : null;
-        position = { ...(actor.seat?.approach ?? actor.position) };
-        yaw = actor.yaw;
-        const floor = walkFloorHeight(position, getRoom());
+        const room = getRoom();
+        seated = actor.seat;
+        position = { ...actor.position };
+        const fit = seated ? fitSeatedAvatar(room, seated) : null;
+        yaw = fit?.yaw ?? actor.yaw;
+        const floor = walkFloorHeight(position, room);
         jumpHeight = actor.locomotion === "jumping" && !seated ? Math.max(0, position.y - floor) : 0;
         position.y = floor;
         jumpVelocity = 0;
@@ -807,6 +819,15 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
     },
     requestVisitPointerLock() {
       if (view === "front" && controlsEnabled) lockPointer(true);
+    },
+    refreshInteractions() {
+      if (menu) {
+        const target = getInteractionTargets?.().find((entry) => entry.id === menu.target.id);
+        const updated = realtime && target ? sharedInteractionTarget(target, realtime.store.getState()) : target;
+        menu = updated?.choices?.length ? { target: updated, choices: updated.choices } : null;
+      }
+      syncCamera();
+      publishInteraction();
     },
     setPlayerAppearance(value) {
       playerAppearance = readAvatarAppearance(value);
@@ -842,7 +863,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (!active() || !interactive || room.items !== furniture || enteringFromWeb) {
         const hadInteraction = menu || nearby || feedback || held;
         if (enteringFromWeb || (!keepPose && (!active() || room.items !== furniture))) { stand(); setHeld(null); }
-        else if (seated && !room.items.includes(seated.item)) stand();
+        else if (seated && !room.items.some((item) => item.id === seated.assetId)) stand();
         if (hadInteraction) {
           menu = null;
           nearby = null;
@@ -879,7 +900,7 @@ export function createWalkthrough(scene, container, { getRoom, getObstacles, ren
       if (action === "putAway") { putAway(); return; }
       if (action === "throw") { heldAction("THROW"); return; }
       if (action === "consume") { heldAction("CONSUME"); return; }
-      if (action === "capture") { onCapture?.(); return; }
+      if (action === "capture") { heldAction("CAPTURE"); return; }
       if (action === "greet") { sharedCommand({ action: "EMOTE", kind: "wave" }); return; }
       if (action === "cancelInteraction") { closeInteraction(); return; }
       if (menu || approaching) return;

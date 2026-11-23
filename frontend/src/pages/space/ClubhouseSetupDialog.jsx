@@ -1,17 +1,7 @@
 import { useRef, useState } from "react";
 import { Check } from "lucide-react";
-import band from "../../shared/assets/clubhouse/band.webp";
-import boardgame from "../../shared/assets/clubhouse/boardgame.webp";
-import climbing from "../../shared/assets/clubhouse/climbing.webp";
-import dining from "../../shared/assets/clubhouse/dining.webp";
-import lounge from "../../shared/assets/clubhouse/lounge.webp";
-import photo from "../../shared/assets/clubhouse/photo.webp";
-import study from "../../shared/assets/clubhouse/study.webp";
 import { Button, Modal } from "../../shared/ui/index.js";
-import { ROOM_TEMPLATES } from "./roomState.js";
-import "./clubhouse-setup.css";
-
-const previews = { band, boardgame, climbing, dining, lounge, photo, study };
+import { ClubhouseThemePicker } from "./ClubhouseThemePicker.jsx";
 
 export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave }) {
   const [selected, setSelected] = useState(null);
@@ -50,23 +40,10 @@ export function ClubhouseSetupDialog({ onComplete, onDismiss, onSave }) {
         어떤 아지트에서 모일까요?
       </>}
     >
-      <div aria-label="아지트 테마" className="clubhouse-setup__cards" role="group">
-        {ROOM_TEMPLATES.map(({ id, name }) => (
-          <button
-            aria-pressed={selected === id}
-            className="clubhouse-setup__card"
-            data-ph-capture-attribute-action="space_template_select"
-            disabled={saving}
-            key={id}
-            onClick={() => { setSelected(id); setError(""); }}
-            type="button"
-          >
-            <img alt="" src={previews[id]} width={384} height={351} />
-            <span>{name}</span>
-            {selected === id && <Check aria-hidden="true" className="clubhouse-setup__check" size={22} />}
-          </button>
-        ))}
-      </div>
+      <ClubhouseThemePicker disabled={saving} selected={selected} onSelect={(template) => {
+        setSelected(template);
+        setError("");
+      }} />
       {error && <p className="clubhouse-setup__error" role="alert">{error}</p>}
       <div className="ui-dialog__actions clubhouse-setup__actions">
         <Button data-ph-capture-attribute-action="group_space_setup_skip" disabled={saving} onClick={() => saveSelection("lounge")} variant="secondary">

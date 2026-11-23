@@ -20,13 +20,13 @@ public final class Peer {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean authenticating = new AtomicBoolean();
     private final AtomicBoolean admissionRecorded = new AtomicBoolean();
-    private final AtomicBoolean refreshing = new AtomicBoolean();
     private final Executor closers;
     private final RealtimeSocketMetrics metrics;
     private final long openedAt;
     private volatile long lastSeen;
     private volatile long disconnectedAt;
     private volatile Identity identity;
+    private volatile boolean seatRefs;
     private volatile boolean joined;
     private long rateWindow;
     private int messages;
@@ -47,15 +47,18 @@ public final class Peer {
         return ++messages <= 60;
     }
 
-    public boolean beginAuth() { return authenticating.compareAndSet(false, true); }
-    public boolean beginRefresh() { return refreshing.compareAndSet(false, true); }
-    public void endRefresh() { refreshing.set(false); }
+    public boolean beginAuth(boolean seatRefs) {
+        if (!authenticating.compareAndSet(false, true)) return false;
+        this.seatRefs = seatRefs;
+        return true;
+    }
     public void identify(Identity value) { identity = value; }
     public void joined() {
         joined = true;
         if (admissionRecorded.compareAndSet(false, true)) metrics.accepted(identity);
     }
     public boolean isJoined() { return joined; }
+    public boolean seatRefs() { return seatRefs; }
     public void send(Map<String, Object> message, boolean movement, long now) { outbound.enqueue(message, movement, now); }
 
     public void close(int code, String reason) {

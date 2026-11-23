@@ -2,7 +2,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { createRoomConnection } from "./connection.js";
 import { createRoomStore } from "./roomStore.js";
 
-export function useRoomRealtime({ groupId, memberId, enabled, layoutRevision, onLayoutChange }) {
+export function useRoomRealtime({ groupId, memberId, enabled, layoutRevision, onLayoutChange, onCatalogChange }) {
   const runtime = useMemo(() => {
     const store = createRoomStore();
     const connection = createRoomConnection({ groupId, store });
@@ -21,5 +21,17 @@ export function useRoomRealtime({ groupId, memberId, enabled, layoutRevision, on
     const retry = setInterval(() => onLayoutChange(status.layoutRevision), 3000);
     return () => clearInterval(retry);
   }, [status.layoutRevision, layoutRevision, onLayoutChange]);
+  useEffect(() => {
+    if (!enabled || !onCatalogChange) return undefined;
+    let connectionGeneration;
+    let catalogGeneration;
+    return runtime.store.subscribe((state) => {
+      if (!state.connectionGeneration ||
+        (state.connectionGeneration === connectionGeneration && state.catalogGeneration === catalogGeneration)) return;
+      connectionGeneration = state.connectionGeneration;
+      catalogGeneration = state.catalogGeneration;
+      void onCatalogChange();
+    });
+  }, [runtime, enabled, onCatalogChange]);
   return { runtime, status };
 }

@@ -1,14 +1,16 @@
+import { capabilitiesFor } from "../../features/group-space/furnitureCatalog.js";
 import { commonFunctionForItem } from "./commonFunctionAssets";
 
 export const ROOM_LIGHT_SWITCH_ID = "room-general-light-switch";
 export const ROOM_LIGHT_TOGGLE_ACTION = "space_general_lighting_toggle";
 
-const ACTIVITY_OBJECTS = new Set(["memory", "clubPinboard", "gameWallBoard", "climbingBoard", "galleryPartition", "foodMap", "bandPoster"]);
+const ACTIVITY_OBJECTS = new Set(["clubPinboard", "gameWallBoard", "climbingBoard", "galleryPartition", "foodMap", "bandPoster"]);
 const INFORMATION_OBJECTS = new Set(["whiteboard", "projectScreen", "projectDisplay", "menuBoard"]);
 
 export function featureForRoomItem(item) {
-  const common = commonFunctionForItem(item);
-  if (common) return common.feature;
+  const panel = capabilitiesFor(item?.kind).panel;
+  if (panel) return panel;
+  if (commonFunctionForItem(item) || item?.kind === "memory") return null;
   if (ACTIVITY_OBJECTS.has(item?.kind)) return "activities";
   if (INFORMATION_OBJECTS.has(item?.kind)) return "info";
   return null;

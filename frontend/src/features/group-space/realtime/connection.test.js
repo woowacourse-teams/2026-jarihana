@@ -26,7 +26,7 @@ async function setup() {
 }
 test("auth goes in first frame; movement sequence survives a same-session resync", async () => {
   const { socket } = await setup();
-  expect(socket.sent[0]).toEqual({ type: "AUTH_JOIN", protocolVersion: 1, token: "ticket" });
+  expect(socket.sent[0]).toEqual({ type: "AUTH_JOIN", protocolVersion: 1, token: "ticket", seatRefs: true });
   connection.move({ x: 0, y: 0, z: 0, yaw: 0, locomotion: "idle" }, true);
   socket.receive(snapshot());
   connection.move({ x: 1, y: 0, z: 0, yaw: 0, locomotion: "walking" }, true);

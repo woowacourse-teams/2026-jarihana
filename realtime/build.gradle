@@ -18,7 +18,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
-    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.postgresql:postgresql'
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
@@ -31,13 +31,12 @@ tasks.named('test') {
     testLogging { exceptionFormat = 'full' }
 }
 
-tasks.named('processResources') {
-    from('../contracts/realtime/v1') {
-        include '*.json'
-        into 'contracts'
-    }
-}
-
 tasks.named('processTestResources') {
-    from('../backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql')
+    from('../backend/src/main/resources/db/migration') {
+        include 'V*__versioned_space_blueprints.sql', 'V*__space_furniture_catalog.sql',
+                'V*__space_blueprint_runtime.sql', 'V*__space_furniture_interactions.sql',
+                'V*__space_portable_item_catalog.sql'
+        rename(/^V\d+__(.+)$/, '$1')
+        duplicatesStrategy = DuplicatesStrategy.FAIL
+    }
 }

@@ -59,6 +59,62 @@ class RoomRuntimeTest {
     }
 
     @Test
+    void eachPeerReceivesItsSeatFormatAcrossBroadcastResyncAndMovement() throws Exception {
+        List<JsonNode> legacyMessages = new ArrayList<>(), modernMessages = new ArrayList<>();
+        Peer legacy = peer("legacy", legacyMessages), modern = peer("modern", "2", modernMessages);
+        assertThat(modern.beginAuth(true)).isTrue();
+        assertThat(modern.beginAuth(false)).isFalse();
+        RoomRuntime room = runtime(Runnable::run, () -> {});
+        room.join(legacy, TestRooms.admission("1"), TestRooms.layout(1, 0));
+        room.join(modern, TestRooms.admission("2"), TestRooms.layout(1, 0));
+        JsonNode originalApproach = legacyMessages.getFirst().path("participants").get(0).path("position");
+        room.message(legacy, command(legacyMessages.getFirst(), "sit", Map.of("action", "SIT", "assetId", "sofa", "slot", 0)));
+
+        assertSeatViews(legacyMessages.getLast(), modernMessages.getLast(), originalApproach);
+        room.message(legacy, context(legacyMessages.getLast(), "RESYNC"));
+        room.message(modern, context(modernMessages.getLast(), "RESYNC"));
+        assertThat(legacyMessages.getLast().path("type").asString()).isEqualTo("ROOM_SNAPSHOT");
+        assertThat(modernMessages.getLast().path("type").asString()).isEqualTo("ROOM_SNAPSHOT");
+        assertSeatViews(legacyMessages.getLast(), modernMessages.getLast(), originalApproach);
+
+        JsonNode secondPosition = modernMessages.getLast().path("participants").get(1).path("position");
+        var move = context(modernMessages.getLast(), "MOVE");
+        move.put("moveSeq", 1);
+        move.put("payload", Map.of("x", secondPosition.path("x").asDouble(), "y", secondPosition.path("y").asDouble(),
+                "z", secondPosition.path("z").asDouble(), "yaw", 0, "locomotion", "idle"));
+        room.message(modern, move);
+        room.tick();
+        assertThat(legacyMessages.getLast().path("type").asString()).isEqualTo("MOVEMENT_FRAME");
+        assertThat(modernMessages.getLast().path("type").asString()).isEqualTo("MOVEMENT_FRAME");
+        assertThat(legacyMessages.getLast().path("participants").get(0).path("position")).isNotEqualTo(originalApproach);
+        assertThat(modernMessages.getLast().path("participants").get(0).path("position")).isEqualTo(originalApproach);
+
+        move.put("layoutRevision", 0);
+        room.message(legacy, wrongLayout(legacyMessages.getFirst()));
+        room.message(modern, move);
+        assertThat(legacyMessages.getLast().path("type").asString()).isEqualTo("ROOM_SNAPSHOT");
+        assertThat(modernMessages.getLast().path("type").asString()).isEqualTo("ROOM_SNAPSHOT");
+        assertSeatViews(legacyMessages.getLast(), modernMessages.getLast(), originalApproach);
+    }
+
+    private void assertSeatViews(JsonNode legacyMessage, JsonNode modernMessage, JsonNode approach) {
+        JsonNode legacy = legacyMessage.path("participants").get(0), modern = modernMessage.path("participants").get(0);
+        assertThat(legacy.path("seat").size()).isEqualTo(5);
+        assertThat(legacy.path("position")).isEqualTo(legacy.path("seat").path("position")).isNotEqualTo(approach);
+        assertThat(legacy.path("seat").path("approach")).isEqualTo(approach);
+        assertThat(legacy.path("seat").path("yaw").asDouble()).isEqualTo(Math.PI);
+        assertThat(modern.path("position")).isEqualTo(approach);
+        assertThat(modern.path("seat")).isEqualTo(mapper.valueToTree(Map.of("assetId", "sofa", "slot", 0)));
+    }
+
+    private Map<String, Object> wrongLayout(JsonNode snapshot) {
+        var move = context(snapshot, "MOVE");
+        move.put("layoutRevision", 0);
+        move.put("moveSeq", 1);
+        return move;
+    }
+
+    @Test
     void unexpectedDisconnectRetainsStateUntilGraceExpires() throws Exception {
         List<JsonNode> own = new ArrayList<>(), observed = new ArrayList<>();
         Peer disconnected = peer("a", own), observer = peer("b", "2", observed);
@@ -136,14 +192,14 @@ class RoomRuntimeTest {
     }
 
     @Test
-    void expiredLeasePreventsCommandsEvenBeforeCleanupTick() throws Exception {
+    void anOpenRoomDoesNotExpireAccessByTimeAlone() throws Exception {
         List<JsonNode> messages = new ArrayList<>(); Peer peer = peer("a", messages);
         RoomRuntime room = runtime(Runnable::run, () -> {});
         room.join(peer, TestRooms.admission("1"), TestRooms.layout(1, 0));
         clock.set(100001);
-        room.message(peer, command(messages.getFirst(), "expired", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cup")));
-        assertThat(peer.isClosed()).isTrue();
-        assertThat(messages.stream().anyMatch(message -> message.path("items").size() > 0)).isFalse();
+        room.message(peer, command(messages.getFirst(), "after-idle", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cookie")));
+        assertThat(peer.isClosed()).isFalse();
+        assertThat(messages.stream().anyMatch(message -> message.path("items").size() > 0)).isTrue();
     }
 
     @Test

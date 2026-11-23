@@ -1,5 +1,6 @@
 package com.project.jarihana.realtime.layout;
 
+import com.project.jarihana.realtime.room.domain.Vec3;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -10,9 +11,48 @@ import java.util.regex.Pattern;
 import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 public final class TestBlueprints {
     private static final Map<String, JsonNode> SEED = loadSeed();
+
+    private static final JsonMapper MAPPER = JsonMapper.builder().build();
+    public static final JsonNode FURNITURE = furniture();
+    public static final JsonNode PORTABLE_ITEMS = seedArray("space_portable_item_catalog.sql", "$portable_items$");
+    private static final JsonNode DEFAULTS = seedArray("space_blueprint_runtime.sql", "$defaults$");
+
+    public static BlueprintRuntime runtime(String key) {
+        JsonNode defaultRoom = null;
+        for (JsonNode room : DEFAULTS) {
+            if (key.equals(room.path("version").asInt() + ":" + room.path("template").asString())) defaultRoom = room;
+        }
+        return new BlueprintRuntime(geometry(key), new Vec3(-2, 0, 6.8), defaultRoom);
+    }
+
+    private static JsonNode furniture() {
+        var definitions = MAPPER.createObjectNode();
+        for (JsonNode item : seedArray("space_furniture_catalog.sql", "$catalog$")) {
+            definitions.set(item.path("kind").asString(), item);
+        }
+        definitions.set("room-general-light-switch", MAPPER.readTree("""
+                {"width":0.3,"depth":0.3,"height":1.2,"surfaces":[],"placeable":false}
+                """));
+        var interactions = seedArray("space_furniture_interactions.sql", "$interactions$");
+        for (var entry : interactions.properties()) {
+            ((ObjectNode) definitions.get(entry.getKey())).set("interaction", entry.getValue());
+        }
+        return definitions;
+    }
+
+    private static JsonNode seedArray(String migration, String delimiter) {
+        try {
+            String sql = new ClassPathResource(migration).getContentAsString(StandardCharsets.UTF_8);
+            int start = sql.indexOf(delimiter) + delimiter.length();
+            return MAPPER.readTree(sql.substring(start, sql.indexOf(delimiter, start)));
+        } catch (IOException error) {
+            throw new IllegalStateException(error);
+        }
+    }
 
     private TestBlueprints() {}
 
@@ -23,7 +63,7 @@ public final class TestBlueprints {
     }
 
     private static Map<String, JsonNode> loadSeed() {
-        var source = new ClassPathResource("V45__versioned_space_blueprints.sql");
+        var source = new ClassPathResource("versioned_space_blueprints.sql");
         var entry = Pattern.compile("^\\s*\\('([a-z]+)', (\\d+), 1, '(.*)'::jsonb\\)[,;]$");
         var mapper = JsonMapper.builder().build();
         Map<String, JsonNode> geometries = new HashMap<>();

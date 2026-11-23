@@ -23,7 +23,7 @@ public final class InteractionService {
         catch (IllegalArgumentException error) { throw new RuleViolation("UNSUPPORTED_ACTION"); }
         switch (action) {
             case SIT -> sit(room, actor, payload);
-            case STAND -> room.put(actor.stand(room.layout().safe(actor.seat() == null ? actor.position() : actor.seat().approach()), now));
+            case STAND -> room.put(actor.stand(room.layout().safe(actor.position()), now));
             case POSE -> pose(room, actor, payload);
             case TAKE -> itemActions.take(room, actor, payload);
             case PICKUP -> itemActions.pickup(room, actor, payload);
@@ -42,13 +42,16 @@ public final class InteractionService {
     }
 
     private void sit(RoomState room, ParticipantState actor, Map<String, Object> payload) {
-        RoomAsset asset = nearby(room, actor, payload, "seatable");
+        RoomAsset asset = room.layout().asset(Values.text(payload, "assetId"), "seatable");
+        Vec3 current = actor.position();
+        Vec3 approach = new Vec3(current.x(), room.layout().floorAt(current), current.z());
+        if (!asset.seatReachable(approach)) throw new RuleViolation("TOO_FAR");
+        if (!room.layout().valid(approach, false)) throw new RuleViolation("NO_SAFE_POSITION");
         int slot = Values.slot(payload);
-        Vec3 position = asset.seat(slot);
+        if (slot >= asset.seatCount()) throw new RuleViolation("INVALID_SLOT");
         if (room.participants().stream().anyMatch(other -> !other.memberId().equals(actor.memberId()) && other.seat() != null &&
                 other.seat().assetId().equals(asset.id()) && other.seat().slot() == slot)) throw new RuleViolation("OCCUPIED");
-        Vec3 approach = room.layout().safe(actor.seat() == null ? actor.position() : actor.seat().approach());
-        room.put(actor.sit(new ParticipantState.Seat(asset.id(), slot, position, approach, Math.PI - asset.rotation() * Math.PI / 2)));
+        room.put(actor.sit(new ParticipantState.Seat(asset.id(), slot), approach));
     }
 
     private void pose(RoomState room, ParticipantState actor, Map<String, Object> payload) {
@@ -57,7 +60,7 @@ public final class InteractionService {
         if (pose.equals("reading") && (actor.heldItemId() == null || !room.item(actor.heldItemId()).kind().equals("book"))) {
             throw new RuleViolation("ITEM_REQUIRED");
         }
-        if (pose.equals("drinking") && (actor.heldItemId() == null || !Set.of("cup", "coffee", "latte", "tea").contains(room.item(actor.heldItemId()).kind()))) {
+        if (pose.equals("drinking") && (actor.heldItemId() == null || !room.layout().canDrink(room.item(actor.heldItemId()).kind()))) {
             throw new RuleViolation("ITEM_REQUIRED");
         }
         room.put(actor.withPose(pose));
@@ -90,7 +93,7 @@ public final class InteractionService {
     private void produce(RoomState room, ParticipantState actor, Map<String, Object> payload, long now) {
         RoomAsset asset = nearby(room, actor, payload, "producer");
         String kind = Values.text(payload, "kind");
-        if (!asset.products().contains(kind)) throw new RuleViolation("INVALID_ITEM_KIND");
+        if (!asset.products().contains(kind) || !room.layout().itemCapability(kind, "portable")) throw new RuleViolation("INVALID_ITEM_KIND");
         AssetState state = room.assetState(asset.id());
         if (state.production() != null) throw new RuleViolation("BUSY");
         String itemId = payload.containsKey("itemId") ? Values.text(payload, "itemId") : actor.heldItemId();
@@ -103,7 +106,7 @@ public final class InteractionService {
         }
         if (held) {
             int slot = freeSlot(room, asset);
-            room.put(item.place(ItemState.Location.SURFACE, asset.surface(slot), asset.id(), slot));
+            room.put(item.attach(ItemState.Location.SURFACE, asset.id(), slot));
             room.put(actor.hold(null));
         }
         room.put(asset.id(), state.producing(new AssetState.Production(UUID.randomUUID().toString(), item.id(), kind,
@@ -129,15 +132,19 @@ public final class InteractionService {
     }
 
     static int freeSlot(RoomState room, RoomAsset asset) {
-        return freeSlot(room, asset, false);
+        return freeSlot(room, asset, ItemState.Location.SURFACE);
     }
 
-    static int freeSlot(RoomState room, RoomAsset asset, boolean storage) {
-        for (int slot = 0; slot < (storage ? asset.slots() : asset.surfaces().size()); slot++) {
-            int candidate = slot;
-            if (room.items().stream().noneMatch(item -> asset.id().equals(item.assetId()) && item.slot() != null && item.slot() == candidate &&
-                    item.location() == (storage ? ItemState.Location.STORAGE : ItemState.Location.SURFACE))) return slot;
+    static int freeSlot(RoomState room, RoomAsset asset, ItemState.Location location) {
+        int count = location == ItemState.Location.STORAGE ? asset.storageCapacity() : asset.surfaceSlots();
+        for (int slot = 0; slot < count; slot++) {
+            if (!occupied(room, asset.id(), location, slot)) return slot;
         }
         throw new RuleViolation("SURFACE_FULL");
+    }
+
+    static boolean occupied(RoomState room, String assetId, ItemState.Location location, int slot) {
+        return room.items().stream().anyMatch(item -> item.location() == location &&
+                assetId.equals(item.assetId()) && Integer.valueOf(slot).equals(item.slot()));
     }
 }

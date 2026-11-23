@@ -9,7 +9,7 @@
 
 ## 공용 컨테이너 배포
 
-[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 화면이나 npm 의존성만 변경되면 생성된 계약을 검사한다. 서버 테스트·DB 마이그레이션 변경은 Gradle·두 DB WebSocket·Alloy 검증까지 실행한다. 서버 실행 코드, JAR에 포함되는 계약 JSON, 배포 설정이 바뀐 develop push와 develop 수동 실행만 ARM64 이미지를 발행한다. 배포 잡은 개발과 운영이 함께 쓰는 컨테이너를 교체한다. 워크플로 파일이 기본 브랜치인 `main`에 반영된 후에는 Actions에서 `develop`을 선택해 수동으로 실행할 수 있다. PR에서는 GitHub 호스팅 러너에서 검증만 실행한다.
+[Realtime Deploy](../../.github/workflows/realtime-deploy.yml)는 서버 테스트와 아지트 DB 마이그레이션 변경에서 Gradle·두 DB WebSocket·Alloy 검증을 실행한다. 서버 실행 코드나 배포 설정이 바뀐 develop push와 develop 수동 실행에서 ARM64 이미지를 발행한다. 배포 잡은 개발과 운영이 함께 쓰는 컨테이너를 교체한다. 워크플로 파일이 기본 브랜치인 `main`에 반영된 후에는 Actions에서 `develop`을 선택해 수동으로 실행할 수 있다. PR에서는 GitHub 호스팅 러너에서 검증만 실행한다.
 
 - 준비 잡 두 개와 배포 잡은 `jarihana-realtime` 라벨의 Linux ARM64 러너 한 대에서 실행한다. 러너 서비스 계정으로 Docker와 Compose를 실행할 수 있어야 한다.
 - 준비 잡은 기존 GitHub `dev`·`prod` Environment에서 `RDS_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_ORIGIN`, `ACCESS_TOKEN_SECRET`을 읽는다. 환경별 JDBC 주소와 입장 키를 계산해 배포 잡에 전달한다. 배포 잡은 두 Origin을 합쳐 `REALTIME_ALLOWED_ORIGINS`로 설정한다.
@@ -19,13 +19,13 @@
 
 서버는 정확히 `/ws/realtime`에 연결을 받는다. `/ws/realtime/*`만 등록하면 끝에 `/`가 없는 이 주소와 일치하지 않으므로 정확한 경로의 Behavior가 필요하다. 기존 프론트 배포의 CDN 사전 검사는 정확한 경로와 기존 wildcard 경로를 모두 허용하지만, 이 검사를 통과했다고 실제 WebSocket 연결까지 확인한 것은 아니다.
 
-배포 잡은 새 이미지로 각 환경에서 현재 필요한 스키마와 읽기 권한을 검사한다. 예를 들어 개발이 V45, 운영이 V40이면 개발에서는 DB 도면 조회를, 운영에서는 기존 가구·입장 정보 조회를 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
+배포 잡은 새 이미지의 `--check-blueprints`로 두 환경의 도면, 기본 배치, 가구·소품 카탈로그와 조회 권한을 검사한다. 이 검사가 실패하면 실행 중인 서버는 계속 요청을 처리한다. 성공하면 이미지 digest로 Compose를 갱신하고 EC2에서 `http://127.0.0.1:8080/healthz`를 확인한다. 이 점검에는 개발과 운영 양쪽 PostgreSQL의 연결과 조회 권한이 포함된다. 실패하면 현재 Actions 설정으로 마지막 성공 이미지, Compose와 Alloy 설정을 복원한다. 첫 배포에는 복원 기록이 없다.
 
 준비 잡은 설정을 EC2의 메모리 파일시스템 `/dev/shm`에 실행 번호와 시도 번호별로 저장한다. 배포 잡이 끝날 때 삭제하며, 강제 종료로 남은 설정은 다음 준비 잡이 1시간 경과 후 정리한다. 재시도할 때는 **Re-run all jobs**를 선택해 이번 시도의 설정을 다시 준비한다.
 
 ## 로컬 빌드와 설정 확인
 
-1. Node 24로 저장소 루트의 `node contracts/realtime/export-runtime.cjs --check`를 실행한다. 플레이어·가구·미저장 방 기본값을 변경했다면 먼저 같은 명령에서 `--check`를 빼고 판정용 JSON을 갱신한다.
+1. JDK 21·Node 24·Docker를 준비한다.
 2. `realtime/`에서 `./gradlew test bootJar`를 실행한다. 이미지 빌드 방법과 앱의 제한값은 [realtime README](../../realtime/README.md)를 따른다.
 3. [예제 설정](.env.example)을 로컬 설정 파일로 복사하고 검증용 값과 이미지 digest를 입력한다.
 4. 저장소 루트에서 `docker compose --env-file <설정파일> -f infra/realtime/compose.yaml config --quiet`로 확인한다.
@@ -44,19 +44,18 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 `RDS_URL`에 등록된 호스트의 5432 포트로 연결한다. 개발은 `jarihana_dev`, 운영은 `jarihana_prod`를 사용하며 기존 API의 DB 계정으로 접속한다. PostgreSQL이 RDS라면 DB 보안 그룹의 TCP 5432 인바운드 소스를 realtime EC2의 보안 그룹으로 지정하고, EC2에서 DB의 사설 엔드포인트를 쓸 수 있는지 확인한다. 가구·아바타 저장과 스키마 변경은 기존 백엔드가 담당한다.
 
-공용 realtime 서버는 개발·운영 DB의 V45 이관을 전제로 도면을 읽는다.
+전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable, display_order, min_room_version)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다.
 
-1. 개발·운영 백엔드가 각 DB에 V45를 적용한다. 도면 43개와 모임별 도면 참조, 이전 백엔드 쓰기 호환 트리거를 같은 트랜잭션에 넣고 마지막에 `space_blueprint_migration(version=1)`을 기록한다.
-2. 전용 읽기 계정에는 기존 권한에 더해 `space_blueprint_migration`, `space_blueprint`, `space_blueprint_default` 및 `group_space`의 두 도면 참조 열을 읽을 권한을 부여한다.
-3. 공용 서버를 교체하기 전에 후보 이미지의 `--check-blueprints`가 두 DB의 완료 표시, 도면·기본판·모임 참조와 조회 권한을 검사한다. 두 DB 모두 통과하면 교체하고, 배포 후 환경별로 기존 방 입장·이동을 확인한다.
+DB의 좌석과 상판 칸 수는 `seat_anchor_count`와 `surface_anchor_count` 범위에서 조정할 수 있다. 이 상한은 프론트 모델의 `seatModelAnchors.json`과 `propSurfaceAnchors.json`에 정의된 좌표 수를 기준으로 한다. 수납 용량은 화면 좌표와 별도로 관리한다.
 
 이미 이전 입장 토큰 형식으로 서비스 중이라면 API의 발급 방식과 realtime의 검증 방식이 모두 전환된 뒤 새 토큰으로 접속할 수 있다. 전환 시간을 잡고 기존 환경값을 보관한다. 이전 컨테이너로 돌아갈 경우 해당 API의 토큰 발급 버전도 함께 복원한다.
 
 ## 운영 동작
 
 - 이동·좌석·손 물건·진행 작업은 환경별 방의 서버 메모리에 있다. 인스턴스를 재시작하면 개발과 운영의 일시 상태가 초기화되고 사용자는 새 방 세대로 재입장한다.
-- 기존 API 배포는 실시간 컨테이너를 재시작하지 않는다. DB에서 권한 재확인이 유효 기한보다 오래 실패하면 접속이 종료된다.
-- 저장 배치·권한은 주기 조회로 갱신한다. 현재는 DB 커밋 순간 모든 클라이언트에 반영되는 트랜잭션이 아니다. 클라이언트의 저장 성공과 realtime의 새 revision 적용은 구분한다.
+- 기존 API 배포는 실시간 컨테이너를 재시작하지 않는다. DB 알림 연결이 기본 60초 안에 복구되지 않으면 해당 환경의 접속이 종료된다.
+- 저장 배치·권한은 변경 커밋의 PostgreSQL 알림을 받으면 관련 DB 상태를 다시 읽어 적용한다. 구독 연결을 복구하면 먼저 `LISTEN`을 시작하고 마지막으로 저장된 상태를 다시 읽는다.
+- realtime은 환경별로 가구와 소품 카탈로그를 함께 갱신해 이미 열린 방의 좌석·소품·생산 상태에 적용한다. 읽기에 실패하면 마지막으로 정상 조회한 규칙으로 열린 방을 유지하고, 복구하면 같은 연결에서 새 규칙을 적용한다. 새 배치를 막을 때는 행을 보존하고 `placeable=false`로 바꾼다.
 - 오래된 layoutRevision 명령은 거절한다. 최신 배치를 로딩할 때까지 공유 조작을 대기시킨다. 착석·물건·생산 작업 정리는 새 배치 적용과 같은 방 처리 흐름을 사용한다.
 - v10 이하 배치를 사용하는 모임은 기존 도면과 가구를 계속 편집할 수 있다. 공동 입장은 모임장이 템플릿 전체 교체로 기본 가구를 새로 배치하고 지원 문서 버전으로 저장한 뒤에 가능하다.
 - 큐·연결·방 정원은 상한이 있다. 느린 사용자 때문에 모든 방 상태 처리가 멈추지 않도록 소켓 전송은 별도 실행 흐름에 둔다.
@@ -66,10 +65,10 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 독립 사용자 A/B와 늦은 C의 이동·착석·손 물건, 같은 좌석/물건 경쟁, 중복 명령, 가구 이동·삭제 중 진행 작업, 이전 연결 close, 권한 상실, DB 장애, realtime 재시작을 확인한다. 로컬 프로토콜 검증은 실제 계정·운영 WSS·다른 네트워크 검증을 대신하지 않는다.
 
-`bootJar` 빌드 후 Docker를 실행하고 저장소 루트에서 Node 24로 `node infra/realtime/verify-protocol.mjs`를 실행한다. 검증 스크립트는 임시 PostgreSQL 17의 두 DB에 기반 스키마와 아지트·아바타 마이그레이션을 적용하고, 읽기 전용 계정 두 개로 실제 Spring WebSocket 서버 하나를 연결한다. 같은 모임과 회원 ID로 개발과 운영에 동시에 접속해 배치·좌석·접속 권한·아바타가 각각의 DB와 방에 반영되는지 확인한다. `JAVA_HOME`은 JDK 21 경로로 지정한다. 결과와 로그는 출력된 임시 디렉터리에 남는다.
+`bootJar` 빌드 후 Docker를 실행하고 저장소 루트에서 Node 24로 `node infra/realtime/verify-protocol.mjs`를 실행한다. 검증 스크립트는 개발·운영용으로 분리한 PostgreSQL 17 컨테이너 두 개에 기반 스키마와 아지트·아바타 마이그레이션을 적용하고, 읽기 전용 계정 두 개로 실제 Spring WebSocket 서버 하나를 연결한다. 같은 모임과 회원 ID로 개발과 운영에 동시에 접속해 배치·좌석·접속 권한·아바타가 각각의 DB와 방에 반영되는지 확인한다. `JAVA_HOME`은 JDK 21 경로로 지정한다. `REALTIME_PREVIOUS_JAR`에 직전 릴리스 JAR 경로를 주면 개발만 이관한 시점에도 기존 서버의 WebSocket이 명령을 처리하는지 검증한다. 결과와 로그는 출력된 임시 디렉터리에 남는다.
 
 프론트 production build 후 `--browser`를 추가하면 설치된 Playwright Chromium의 별도 브라우저 세션 두 개로 입장·인사·이동과 카메라 꺼내기·촬영 미리보기·활동 작성 화면 첨부를 확인한다. 게시 버튼은 누르지 않는다. 미리보기 서버는 loopback의 빈 포트를 할당받으므로 기존 5193 서버를 건드리지 않는다. 계정·모임 HTTP 응답은 fixture이고 멀티플레이 WebSocket은 실제 서버다.
 
 실행 결과와 운영 전 확인할 항목은 [M1·M2 검증 기록](VERIFICATION.md)에 남겼다.
 
-계약은 [실시간 v1](../../contracts/realtime/v1/README.md)을 따른다. 선택 이유와 변경 이력은 [공통 아키텍처 문서](../../docs/clubhouse-realtime-architecture.md), 서버 경계는 [인프라 ADR 0007](../docs/adr/0007-clubhouse-realtime-service.md), 공용 배포·기존 설정 재사용은 [인프라 ADR 0008](../docs/adr/0008-shared-realtime-deployment.md)에 있다. [인프라 ADR 0009](../docs/adr/0009-projector-livekit-direction.md)의 화면 공유는 아직 이 배포에 포함하지 않는다.
+계약은 [실시간 v1](../../docs/clubhouse-realtime-contract-v1.md)을 따른다. 선택 이유와 변경 이력은 [공통 아키텍처 문서](../../docs/clubhouse-realtime-architecture.md), 서버 경계는 [인프라 ADR 0007](../docs/adr/0007-clubhouse-realtime-service.md), 공용 배포·기존 설정 재사용은 [인프라 ADR 0008](../docs/adr/0008-shared-realtime-deployment.md)에 있다. [인프라 ADR 0009](../docs/adr/0009-projector-livekit-direction.md)의 화면 공유는 아직 이 배포에 포함하지 않는다.

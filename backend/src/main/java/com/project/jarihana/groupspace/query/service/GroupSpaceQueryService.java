@@ -8,6 +8,7 @@ import com.project.jarihana.group.domain.GroupType;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.groupspace.domain.BlueprintRef;
 import com.project.jarihana.groupspace.domain.SpaceBlueprint;
+import com.project.jarihana.groupspace.query.repository.FurnitureCatalogRepository;
 import com.project.jarihana.groupspace.query.repository.GroupSpaceQueryRepository;
 import com.project.jarihana.groupspace.query.repository.SpaceBlueprintRepository;
 import com.project.jarihana.groupspace.query.service.dto.GroupSpaceResult;
@@ -22,8 +23,13 @@ import tools.jackson.databind.node.ObjectNode;
 public class GroupSpaceQueryService {
     private final GroupSpaceQueryRepository spaces;
     private final SpaceBlueprintRepository blueprints;
+    private final FurnitureCatalogRepository furniture;
     private final ObjectMapper mapper;
     private final LoginMemberReader loginMemberReader;
+
+    public FurnitureCatalogRepository.Snapshot findFurnitureCatalog() {
+        return furniture.findSnapshot();
+    }
 
     public SpaceBlueprint findDefaultBlueprint(String templateKey) {
         return blueprints.getDefault(templateKey);
@@ -54,6 +60,6 @@ public class GroupSpaceQueryService {
         return new GroupSpaceResult(room,
                 space.revision() == null ? 0 : space.revision(),
                 space.role() == GroupMemberRole.LEADER && space.status() == GroupStatus.ACTIVE, space.updatedAt(),
-                blueprint.ref(), blueprint.geometry());
+                blueprint.ref(), blueprint.geometry(), blueprint.spawn(), room == null ? blueprint.defaultRoom() : null);
     }
 }

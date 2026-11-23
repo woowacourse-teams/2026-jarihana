@@ -3,7 +3,9 @@ import { featureForRoomItem, ROOM_LIGHT_SWITCH_ID, ROOM_LIGHT_TOGGLE_ACTION } fr
 import { boundsForBox, getRoomLayout, PLAYER } from "./roomLayout";
 import { isWalkablePosition, moveWalker } from "./roomNavigation";
 import { footprint } from "./roomState";
-import { capabilitiesFor } from "./roomCapabilities.js";
+import { capabilitiesFor, portableDefinition } from "../../features/group-space/furnitureCatalog.js";
+import { assetScale, localToWorld } from "./assetCustomization.js";
+import { seatedAvatarPlacement, usableSeatCount } from "./seatedAvatar.js";
 
 const FEATURE_LABELS = { dashboard: "공지 읽기", activities: "활동 기록 보기", info: "모임 정보 보기", music: "음악 열기" };
 const WATER = { id: "water", label: "물 주기", action: "space_plant_water" };
@@ -29,21 +31,23 @@ export const GARDEN_CHOICES = [WATER, ...FLOWER_CHOICES];
 
 export function itemInteraction(item, elevation, occupied, room) {
   const definition = capabilitiesFor(item.kind);
-  const seat = definition.seats?.length ? [definition.seats.map((entry) => entry.x), definition.seats[0].y] : null;
+  const seatCount = usableSeatCount(item.kind);
   const feature = featureForRoomItem(item);
   const plant = definition.capabilities.includes("careable");
-  const coffee = Boolean(definition.producer), snacks = definition.storage?.kinds.includes("cookie");
-  if (occupied && seat && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
-  if (!seat && !feature && !definition.capabilities.length) return null;
+  const drinks = DRINKS.filter(({ id }) => definition.producer?.kinds.includes(id) && portableDefinition(id));
+  const snacks = SNACK_CHOICES.filter(({ id }) => definition.storage?.kinds.includes(id) && portableDefinition(id));
+  const carry = drinks.length > 0 || snacks.length > 0;
+  if (occupied && seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
+  if (!seatCount && !feature && definition.capabilities.every((capability) => capability === "seatable")) return null;
   const { width, depth, height, name } = footprint(item, room.version);
   return {
-    id: item.id, item, name, x: item.x, z: item.z, width, depth, floor: seat ? elevation : item.level === 1 ? getRoomLayout(room).mezzanine?.height || 0 : 0,
+    id: item.id, item, name, x: item.x, z: item.z, width, depth, floor: seatCount ? elevation : item.level === 1 ? getRoomLayout(room).mezzanine?.height || 0 : 0,
     minY: elevation, maxY: elevation + height * (item.scaleY || 1),
-    label: seat ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : coffee ? "커피 내리기" : snacks ? "간식 고르기" : "사용하기",
-    action: seat ? "space_seat_sit" : undefined,
-    sharedOnly: !seat && !feature && !plant && !coffee && !snacks,
-    feature, seat, carry: coffee || snacks,
-    choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...(coffee ? DRINKS : []), ...(snacks ? SNACK_CHOICES : [])]
+    label: seatCount ? "앉기" : feature ? FEATURE_LABELS[feature] : plant ? "화분 돌보기" : drinks.length ? "커피 내리기" : snacks.length ? "간식 고르기" : "사용하기",
+    action: seatCount ? "space_seat_sit" : undefined,
+    sharedOnly: !seatCount && !feature && !plant && !carry,
+    feature, seatCount, carry,
+    choices: plant ? (item.kind === "plant" ? GARDEN_CHOICES : [WATER]) : [...drinks, ...snacks]
   };
 }
 
@@ -92,19 +96,17 @@ export function aimedInteraction(targets, position, sight, room) {
 }
 
 export function nearestSeat(target, position, room) {
-  const { item, floor } = target;
-  const { seats } = capabilitiesFor(item.kind);
-  const angle = item.rotation * Math.PI / 2;
-  const c = Math.cos(angle), s = Math.sin(angle);
-  const sx = item.scaleX || 1, sy = item.scaleY || 1, sz = item.scaleZ || 1;
+  const { item, floor, seatCount } = target;
+  const { x: sx, z: sz } = assetScale(item);
   const depth = (item.rotation % 2 ? target.width : target.depth) / 2;
   const width = (item.rotation % 2 ? target.depth : target.width) / 2;
-  const point = (x, z) => ({ x: item.x + x * c + z * s, y: floor, z: item.z - x * s + z * c });
+  const point = (x, z) => ({ ...localToWorld(item, x / sx, z / sz), y: floor });
   const distance = (point) => Math.hypot(point.x - position.x, point.z - position.z);
   const clearance = PLAYER.radius + 0.08;
-  const seatOffsets = seats.map((seat, slot) => ({ x: seat.x * sx, slot }))
-    .sort((a, b) => distance(point(a.x, 0)) - distance(point(b.x, 0)));
-  for (const { x, slot } of seatOffsets) {
+  const seats = Array.from({ length: seatCount }, (_, slot) => seatedAvatarPlacement(item, slot, room))
+    .filter(Boolean).sort((a, b) => distance(a.position) - distance(b.position));
+  for (const { localX, slot, yaw } of seats) {
+    const x = localX * sx;
     const approach = [point(x, depth + clearance), point(-width - clearance, 0), point(width + clearance, 0),
       point(x, -depth - clearance)]
       .filter((candidate) => isWalkablePosition(candidate, room))
@@ -115,10 +117,7 @@ export function nearestSeat(target, position, room) {
         const reached = moveWalker(position, delta, room);
         return Math.hypot(reached.x - candidate.x, reached.z - candidate.z) < 0.04;
       });
-    if (approach) {
-      const seat = seats[slot];
-      return { approach, slot, position: { ...point(x, seat.z * sz), y: floor + seat.y * sy + seat.avatarOffsetY }, yaw: Math.PI - angle };
-    }
+    if (approach) return { approach, assetId: item.id, slot, yaw };
   }
   return null;
 }

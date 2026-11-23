@@ -6,13 +6,16 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 
 - 기존 API: `POST /api/groups/{groupId}/space/join-token`. 기존 로그인/CSRF 정책 사용. 일반 응답 envelope의 data는 `{token,websocketUrl,expiresAt}`. expiresAt은 Unix epoch milliseconds.
 - 클라이언트는 응답의 `websocketUrl`로 연결한다. realtime의 WebSocket 경로는 `/ws/realtime`이다.
+- 브라우저의 혼자 둘러보기, 독립 스튜디오, 랜딩과 공동 입장은 현재 환경의 `GET /api/group-spaces/furniture-catalog`에서 가구와 소품 규칙을 받는다.
 - JWT HS256의 `iss`는 개발 `jarihana-api-dev`, 운영 `jarihana-api-prod`다. 공통 필드는 `aud=jarihana-realtime`, `sub=memberId`, `roomId=groupId`, `jti`, `iat/exp`(seconds)다. 입장 수명은 60초다.
 - realtime은 발급자와 환경별 입장 키로 서명을 함께 검증한 뒤 해당 환경의 PostgreSQL에서 회원, 모임, 역할, 저장 배치를 읽는다. 각 환경의 기존 API가 배치 저장과 스키마 변경을 담당한다.
 - 서버는 발급 환경과 `roomId`를 묶어서 방을 구분한다. 같은 모임이나 회원 ID도 환경이 다르면 별도 상태를 갖는다. WebSocket 경로와 메시지의 `roomId` 형식은 공통이다.
-- room=null이면 `space-runtime.json`의 defaultRoom을 사용한다. 저장 전 클라이언트 배치를 서버가 신뢰하지 않는다.
+- 저장된 방이 없으면 해당 환경 DB의 단층 도면 `lounge:11`에 발행한 기본 방과 시작 위치를 사용한다. 입장만으로 `group_space` 행을 만들거나 revision을 올리지 않는다.
 - 저장 문서는 v11과 기본 아지트 v12를 지원한다. 도면 발행 버전은 저장 문서 형식과 독립적이다. v10 이하 문서로 공동 입장하면 `LAYOUT_UPGRADE_REQUIRED`를 반환한다. 기존 가구를 편집하고 저장하면 문서 버전을 유지한다. 모임장이 템플릿 전체 교체를 선택하고 저장하면 새 템플릿의 기본 가구가 적용되고 공동 입장이 가능해진다.
-- 권한 유효 기한은 60초, 재확인 시작 주기는 20초를 기본으로 한다. 실패로 유효 기한을 연장하지 않는다. 모임원이 아니어도 기존 방문 정책이 허용하면 GUEST로 입장한다.
+- 권한은 입장할 때 확인하고, 회원 탈퇴·모임 상태·모임 역할 변경 시 관련 연결만 다시 확인한다. DB 알림 연결이 끊기면 신규 입장은 재시도 가능한 오류를 반환한다. 기존 연결은 기본 60초 안에 복구되지 않으면 `ACCESS_EXPIRED`로 종료한다. 모임원이 아니어도 기존 방문 정책이 허용하면 GUEST로 입장한다.
 - realtime은 저장 배치에서 상호작용에 필요한 가구 정보를 계산하고 배치 revision을 알린다. 클라이언트는 기존 공개 API로 권한에 맞는 배치를 읽는다.
+
+편집기와 저장 API, realtime은 같은 환경의 가구 카탈로그를 사용한다. `placeable=false`인 종류도 기존 방의 충돌과 상호작용에 참여한다. 전용 3D 모델이나 행동을 쓰는 가구는 클라이언트와 서버가 해당 모델과 행동을 지원해야 한다.
 
 ## 공통 필드
 
@@ -21,8 +24,10 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 AUTH_JOIN 이후 클라이언트 메시지는 `{type,roomEpoch,connectionGeneration,layoutRevision,...}`를 갖는다. 서버는 인증된 소켓의 사용자·방을 기준으로 처리하고 수신자가 신원을 바꿀 수 없다.
 
 ```json
-{"type":"AUTH_JOIN","protocolVersion":1,"token":"<short-lived token>"}
+{"type":"AUTH_JOIN","protocolVersion":1,"token":"<short-lived token>","seatRefs":true}
 ```
+
+`seatRefs`는 선택 항목이다. `true`로 입장한 연결은 좌석을 가구 ID와 슬롯 번호로 받는다. 생략한 연결의 좌석 호환 필드는 아래 서버 상태를 따른다.
 
 ```json
 {"type":"MOVE","roomEpoch":"...","connectionGeneration":"...","layoutRevision":1,"moveSeq":1,"payload":{"x":-2,"y":0,"z":6.8,"yaw":0,"locomotion":"idle"}}
@@ -59,7 +64,7 @@ layoutRevision, controlSeq, frameSeq, serverTime, selfId,
 participants: [{
   memberId, displayName, avatarColor, avatarAppearance?:object|null,
   position:{x,y,z}, yaw, locomotion,
-  seat:{assetId,slot,position,approach,yaw}|null,
+  seat:{assetId,slot}|null,
   heldItemId:string|null, pose,
   emote:{kind,startedAt,expiresAt}|null
 }],
@@ -72,9 +77,11 @@ items: [{
 assets:{ [assetId]:{open,on,wateredAt,production} }
 ```
 
-participant.position은 착석 시 seat.position과 같다. seat.approach는 일어날 때의 후보 위치다. production은 진행 중 `{id,itemId,kind,startedAt,completesAt}` 또는 null이다.
+새 연결의 `position`과 `yaw`는 서버 판정용 자세다. 착석 중 `position`은 가구에 접근한 안전한 바닥 위치를 유지한다. 기존 연결의 호환 응답에는 `seat.position`, `seat.approach`, `seat.yaw`와 기존 브라우저가 기대하는 참가자의 착석 `position`, `yaw`를 포함한다. 입장, RESYNC, 오류 복구, 브로드캐스트와 이동 프레임은 접속할 때 고른 직렬화 방식을 유지한다. production은 진행 중 `{id,itemId,kind,startedAt,completesAt}` 또는 null이다.
 
-`avatarAppearance`은 입장 토큰의 발급 환경에 해당하는 DB에서 읽은 회원의 외형이다. 버전 1은 `{version,hair,skin,hairColor,face,eyes,eyebrows,nose,mouth,glasses,outfit,shoes,shoeColor,hat,hatColor,bag,bagColor,handheld}`를 보낸다. 저장한 외형이 없거나 필드가 없는 이전 메시지에는 `avatarColor`로 기본 캐릭터를 표시한다. 권한 재확인 때 외형이 바뀌면 `ROOM_STATE`에 반영한다.
+`SURFACE`와 `STORAGE` 소품의 위치는 `assetId`와 `slot`으로 식별한다. 기존 클라이언트에는 호환을 위해 현재 가구 배치에서 계산한 `position`도 제공한다. 브라우저는 상판의 표시와 클릭에 현재 가구 배치와 로컬 좌표를 사용하고, 수납은 슬롯 점유와 꺼내기 동작으로 표시한다. 바닥의 `WORLD` 위치와 `THROWN`의 위치·속도는 서버가 제공한다.
+
+`avatarAppearance`은 입장할 때 토큰 발급 환경의 DB에서 읽은 회원의 외형이다. 버전 1은 `{version,hair,skin,hairColor,face,eyes,eyebrows,nose,mouth,glasses,outfit,shoes,shoeColor,hat,hatColor,bag,bagColor,handheld}`를 보낸다. 저장한 외형이 없거나 필드가 없는 이전 메시지에는 `avatarColor`로 기본 캐릭터를 표시한다. 외형을 저장한 뒤 다시 입장하면 최신 외형이 같은 방에 반영된다.
 
 `MOVEMENT_FRAME`은 같은 context와 `participants:[{memberId,position,yaw,locomotion}]`을 포함한다. controlSeq는 해당 프레임의 전제 상태 순번이다. 제어 상태를 먼저 적용하고 이후 프레임을 적용한다. frameSeq 공백은 허용하며, 이전 frame/epoch/generation은 버린다. ROOM_STATE는 전체 상태이므로 더 최신의 전체 상태로 건너뛰어도 복구할 수 있다.
 
@@ -91,18 +98,19 @@ participant.position은 착석 시 seat.position과 같다. seat.approach는 일
 
 ## 가구·물건과 배치 교체
 
-- asset-capabilities.json은 종류별 capability·로컬 앵커 설정이다. 같은 종류도 배치 인스턴스 ID는 다르다.
+- 환경별 DB의 `space_furniture_catalog.definition.interaction`이 종류별 기능을 정의한다. `seatCount`, `surface.slots`, `storage.capacity`는 각각 좌석, 상판과 수납의 칸 수다. 같은 환경의 `space_portable_item_catalog.definition`에 소품의 휴대·소비·투척·빈 용기 규칙을 둔다. 브라우저는 두 카탈로그를 `GET /api/group-spaces/furniture-catalog`에서 함께 읽는다.
 - instance rotation은 기존 저장 계약의 사분회전(0..3), scaleX/Y/Z, elevation, level, parentId/surfaceIndex를 적용한다.
-- 좌석 y는 좌판 높이이며 avatarOffsetY는 캐릭터 원점 보정이다. 서버 좌석의 worldY는 배치 elevation + y*scaleY + avatarOffsetY로 계산한다. 화면에서는 `seatFit`으로 좌판 앞쪽과 팔걸이 간격에 맞춰 착석 위치를 보정한다. 좁거나 낮은 가구에서는 앉아 있는 동안만 캐릭터를 줄인다.
-- `space-runtime.json`은 플레이어·가구 규격과 미저장 기본 배치를 제공한다. 벽·층·통로는 해당 환경 PostgreSQL에서 모임에 연결된 불변 도면을 읽는다. 미저장 방문자는 단층 기본 도면 `lounge:11`을 사용한다. 서버가 브라우저가 보낸 앵커나 capability를 신뢰하지 않는다.
-- 좌석을 옮기거나 삭제·종류 변경하면 점유를 해제하고 유효한 위치로 보정한다.
-- surface slot은 `surface-anchors.json`에 있는 종류별 로컬 x·y·z 배열의 인덱스이며 한 위치에 하나의 물건을 둔다. 좌표는 소품 밑면을 받치는 위치다. 가구 이동·회전·크기 변경 뒤 같은 종류·슬롯이 남으면 새 월드 좌표로 옮긴다. 삭제/종류 변경/기능 제거 시 안전한 바닥으로 옮긴다. storage 용량과 편집기에서 저장한 장식의 높이 배열은 별개다.
-- 선반에 놓인 소품은 같은 층에서 가구에 다가가 집을 수 있다. 높은 선반은 가구 메뉴에서도 소품을 집을 수 있다. 카페 음료 생성도 동일한 배치 좌표를 사용한다.
-- 손에 든 물건은 source 가구와 별개인 인스턴스다. source 삭제로 제거하지 않는다.
+- 프론트에서 좌석 번호에 맞는 높이와 상대 좌표를 현재 가구 위치·회전·배율·층에 적용한다. `avatarOffsetY`는 캐릭터 원점, `seatFit`은 좌판 앞쪽과 팔걸이 간격에 맞춘 보정이다. 1인칭 카메라, 로컬 3인칭 아바타, 원격 참가자가 같은 계산을 사용한다.
+- 환경 DB의 `space_furniture_catalog.definition`에서 치수·장착 방식·부착면 높이를 읽고, 모임에 연결된 도면 버전에서 지형과 시작 위치를 읽는다.
+- 서버는 좌석 범위·가구와의 거리·같은 층·중복 점유를 검사하고, 앉아 있는 동안 이동을 거절한다. 일어나거나 좌석이 이동·삭제·종류 변경되면 점유를 해제하고 안전한 접근 위치로 복귀시킨다.
+- realtime은 가구 ID, 상판·수납 구분과 슬롯 번호로 범위와 점유를 검사한다. 같은 가구의 상판 0번과 수납 0번을 각각 점유할 수 있다. 프론트의 가구 기준 좌표는 소품 밑면을 받치는 위치다. 가구를 옮기거나 돌리거나 크기를 바꿔도 슬롯이 남으면 소품은 가구를 따라간다.
+- 선반에 놓인 소품은 같은 층에서 가구에 다가가 집을 수 있다. 높은 선반은 가구 메뉴에서도 소품을 집을 수 있다. 카페 음료는 생산 가구의 상판 슬롯에 놓인다.
+- 가구가 삭제되거나 현재 슬롯을 잃으면 그곳에 놓였거나 수납된 소품을 방에서 제거한다. 바닥에 있거나 던져졌거나 손에 든 소품은 `sourceAssetId`로 출처만 기록하며 출처 가구를 삭제한 뒤에도 방에 남는다.
 - 생산 중 기계 이동·삭제는 취소하며 컵을 복구한다. 작업 ID·방 세대·배치 버전으로 오래된 완료를 차단한다.
 - 퇴장 시 좌석 해제, 손 물건 내려놓기, 생산 취소를 같은 방 처리 구간에서 수행한다.
 - DB 커밋 뒤 새 layoutRevision을 적용한다. 이전 revision 명령은 LAYOUT_MISMATCH로 거절한다. 프론트는 최신 저장 배치를 읽은 뒤 조작을 재개한다.
-- 배치는 기본 10초, 권한은 20초 주기로 조회한다. 저장 직후 모든 참가자에게 동시에 적용되는 것은 아니다. 다른 groupId로 이동하면 기존 연결을 정리하고 새 방의 스냅샷을 받는다.
+- 환경별 카탈로그 변경은 기존 연결의 `ROOM_SNAPSHOT`·`ROOM_STATE`에 `catalogGeneration`으로 알린다. 브라우저는 해당 HTTP 카탈로그를 다시 읽는다. 서버는 저장 배치 revision이 같아도 새 규칙으로 검증하고 범위를 벗어난 좌석과 소품을 정리한다.
+- 배치·카탈로그·권한의 변경은 PostgreSQL 커밋 후 알림으로 전달된다. 구독 연결을 복구하면 열린 방의 배치·접속 권한과 환경별 카탈로그를 다시 읽어 누락을 복구한다. 다른 groupId로 이동하면 기존 연결을 정리하고 새 방의 스냅샷을 받는다.
 
 ## 검증 범위
 

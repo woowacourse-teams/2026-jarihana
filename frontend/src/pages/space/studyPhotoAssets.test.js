@@ -1,5 +1,6 @@
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import * as THREE from "three";
-import { STUDY_PHOTO_ASSETS, STUDY_PHOTO_LAYOUTS, createStudyPhotoAsset, createStudyPhotoPresetItems } from "./studyPhotoAssets";
+import { STUDY_PHOTO_KINDS, STUDY_PHOTO_LAYOUTS, createStudyPhotoAsset } from "./studyPhotoAssets";
 import { CATALOG, canPlace, createInitialRoom } from "./roomState";
 import { getRoomLayout } from "./roomLayout";
 import { moveWalker } from "./roomNavigation";
@@ -18,7 +19,7 @@ function resources(group) {
 
 function dispose(group) { resources(group).forEach((resource) => resource.dispose()); }
 
-test.each(STUDY_PHOTO_ASSETS)("$kind fits its catalog footprint and owns its resources", (asset) => {
+test.each(STUDY_PHOTO_KINDS.map(furnitureType))("$kind fits its catalog footprint and owns its resources", (asset) => {
   const first = createStudyPhotoAsset(asset.kind);
   const second = createStudyPhotoAsset(asset.kind);
   try {
@@ -104,5 +105,4 @@ test("study and photo retain distinct structural dimensions and loft proportions
   expect(STUDY_PHOTO_LAYOUTS.photo.mezzanine.maxX).toBeLessThan(STUDY_PHOTO_LAYOUTS.photo.building.maxX);
   expect(STUDY_PHOTO_LAYOUTS.study.stairs.minX).toBeGreaterThan(0);
   expect(STUDY_PHOTO_LAYOUTS.photo.stairs.maxX).toBeLessThan(0);
-  expect(createStudyPhotoPresetItems("unknown")).toEqual([]);
 });

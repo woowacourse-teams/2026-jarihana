@@ -1,0 +1,31 @@
+{
+  "sofa": [
+    {"x": -0.81, "y": 0.675, "z": 0.33, "avatarOffsetY": -0.34},
+    {"x": 0, "y": 0.675, "z": 0.33, "avatarOffsetY": -0.34},
+    {"x": 0.81, "y": 0.675, "z": 0.33, "avatarOffsetY": -0.34}
+  ],
+  "clubSofa": [
+    {"x": -1.04, "y": 0.635, "z": 0.33, "avatarOffsetY": -0.34},
+    {"x": 0, "y": 0.635, "z": 0.33, "avatarOffsetY": -0.34},
+    {"x": 1.04, "y": 0.635, "z": 0.33, "avatarOffsetY": -0.34}
+  ],
+  "armchair": [
+    {"x": 0, "y": 0.66, "z": 0.34, "avatarOffsetY": -0.34}
+  ],
+  "beanbag": [
+    {"x": 0, "y": 0.62, "z": 0.39, "avatarOffsetY": -0.34}
+  ],
+  "roundChair": [
+    {"x": 0, "y": 0.602, "z": 0.465, "avatarOffsetY": -0.34}
+  ],
+  "bench": [
+    {"x": -0.48, "y": 0.78, "z": 0.08, "avatarOffsetY": -0.34},
+    {"x": 0.48, "y": 0.78, "z": 0.08, "avatarOffsetY": -0.34}
+  ],
+  "stool": [
+    {"x": 0, "y": 0.7, "z": 0.08, "avatarOffsetY": -0.34}
+  ],
+  "gameChair": [
+    {"x": 0, "y": 0.548, "z": 0.28, "avatarOffsetY": -0.34}
+  ]
+}

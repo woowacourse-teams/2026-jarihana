@@ -14,7 +14,7 @@
 
 루트 `realtime/`에 Java 21·Spring Boot 독립 Gradle 앱을 둔다. 기존 API의 배포와 장기 WebSocket 연결·방 메모리의 수명을 분리한다. 기존 Java/Spring 기반을 유지하면서 방 상태 규칙을 별도 앱에서 구현한다. 서버·실행 구성·메시지 계약을 같은 저장소에서 변경하고 검증할 수 있다.
 
-기존 backend는 로그인·방문 정책·가구 배치·아바타 저장과 Flyway를 소유한다. realtime은 입장 상태를 확인하고 이동·좌석·물건을 방 메모리에서 관리한다. 별도 게임 엔진이나 Java 엔티티 공유 모듈은 추가하지 않는다. 가구의 좌석·표면 정보는 프론트 카탈로그에서 생성한 판정용 JSON으로 공유하고 메시지는 버전 있는 계약으로 관리한다.
+기존 backend는 로그인·방문 정책·가구 배치·아바타 저장과 Flyway를 소유한다. realtime은 입장 상태를 확인하고 이동·좌석·물건을 방 메모리에서 관리한다. 별도 게임 엔진이나 Java 엔티티 공유 모듈은 추가하지 않는다. 도면과 초기 배치, 가구 규격·상호작용, 소품 규칙은 환경 DB에서 읽는다. 화면에 가구와 소품을 그릴 때 쓰는 모델 접점은 애셋과 함께 관리한다.
 
 분리로 인해 앱 두 개의 호환성을 관리해야 한다. API 배포만으로 realtime이 재시작되지는 않지만, 같은 develop 변경이 두 workflow의 조건을 만족하면 둘 다 각각 배포된다. [인프라 ADR 0008](0008-shared-realtime-deployment.md)
 
@@ -77,4 +77,4 @@ Redis나 다중 서버 방 인계는 현재 도입하지 않는다. 빈 방 정�
 
 가구 이동 중 착석·물건 처리와 개인 아바타는 [공통 아키텍처 문서](../../../docs/clubhouse-realtime-architecture.md)에 기록했다. 배포·관측은 [인프라 ADR 0008](0008-shared-realtime-deployment.md), 미래 화면 공유는 [인프라 ADR 0009](0009-projector-livekit-direction.md)를 따른다.
 
-메시지 상세는 [실시간 v1 계약](../../../contracts/realtime/v1/README.md), 실행은 [배포 가이드](../../realtime/README.md), 기존 로컬 결과와 남은 운영 확인은 [검증 기록](../../realtime/VERIFICATION.md)에 둔다. 이번 문서 보강 자체가 운영 배포나 성능 검증의 근거는 아니다.
+메시지 상세는 [실시간 v1 계약](../../../docs/clubhouse-realtime-contract-v1.md), 실행은 [배포 가이드](../../realtime/README.md), 기존 로컬 결과와 남은 운영 확인은 [검증 기록](../../realtime/VERIFICATION.md)에 둔다. 이번 문서 보강 자체가 운영 배포나 성능 검증의 근거는 아니다.
