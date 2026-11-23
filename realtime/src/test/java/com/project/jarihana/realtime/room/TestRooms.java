@@ -20,7 +20,7 @@ public final class TestRooms {
     }
 
     public static Admission admission(String memberId) {
-        return new Admission("7", memberId, "사용자 " + memberId, "#536bd6", null, "MEMBER", 100000, 1, null, BlueprintRef.UNSAVED_ROOM);
+        return new Admission("7", memberId, "사용자 " + memberId, "#536bd6", null, "MEMBER", 1, null, BlueprintRef.UNSAVED_ROOM);
     }
 
     public static RoomLayout layout(long revision, double sofaX) {

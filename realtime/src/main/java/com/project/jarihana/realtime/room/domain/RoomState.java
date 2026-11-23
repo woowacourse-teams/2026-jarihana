@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,7 +37,7 @@ public final class RoomState {
     }
 
     public void join(Admission admission, String generation, long now) {
-        if (!roomId.equals(admission.roomId()) || admission.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_DENIED");
+        if (!roomId.equals(admission.roomId())) throw new RuleViolation("ACCESS_DENIED");
         ParticipantState previous = participants.get(admission.memberId());
         if (previous == null && participants.size() >= capacity) throw new RuleViolation("ROOM_FULL");
         ParticipantState joined = previous == null
@@ -67,26 +66,19 @@ public final class RoomState {
         return true;
     }
 
-    public ParticipantState actor(String memberId, String generation, long now) {
+    public ParticipantState actor(String memberId, String generation) {
         ParticipantState actor = participants.get(memberId);
         if (actor == null || !actor.connectionGeneration().equals(generation)) throw new RuleViolation("CONNECTION_REPLACED");
-        if (actor.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_EXPIRED");
         return actor;
     }
 
-    public boolean renew(Admission admission, String generation, long now) {
-        ParticipantState actor = actor(admission.memberId(), generation, now);
-        if (!roomId.equals(admission.roomId()) || admission.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_DENIED");
-        participants.put(actor.memberId(), actor.renew(admission));
-        boolean changed = !actor.displayName().equals(admission.displayName())
-                || !actor.avatarColor().equals(admission.avatarColor())
-                || !Objects.equals(actor.avatarAppearance(), admission.avatarAppearance());
-        if (changed) controlSeq++;
-        return changed;
+    public void updateRole(String memberId, String generation, String role) {
+        ParticipantState actor = actor(memberId, generation);
+        if (!actor.role().equals(role)) participants.put(memberId, actor.withRole(role));
     }
 
     public boolean move(String memberId, String generation, long seq, Map<String, Object> payload, long now) {
-        ParticipantState actor = actor(memberId, generation, now);
+        ParticipantState actor = actor(memberId, generation);
         if (seq <= actor.lastMoveSeq()) return false;
         if (actor.seat() != null) throw new RuleViolation("SEATED");
         Vec3 point = Values.point(payload);
@@ -109,7 +101,7 @@ public final class RoomState {
     }
 
     public void command(String memberId, String generation, Map<String, Object> payload, long now) {
-        interactions.execute(this, actor(memberId, generation, now), payload, now);
+        interactions.execute(this, actor(memberId, generation), payload, now);
         controlSeq++;
     }
 

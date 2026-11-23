@@ -44,7 +44,7 @@ Grafana의 **Jarihana → 자리하나 · 아지트 실시간**에서 개발·�
 
 `RDS_URL`에 등록된 호스트의 5432 포트로 연결한다. 개발은 `jarihana_dev`, 운영은 `jarihana_prod`를 사용하며 기존 API의 DB 계정으로 접속한다. PostgreSQL이 RDS라면 DB 보안 그룹의 TCP 5432 인바운드 소스를 realtime EC2의 보안 그룹으로 지정하고, EC2에서 DB의 사설 엔드포인트를 쓸 수 있는지 확인한다. 가구·아바타 저장과 스키마 변경은 기존 백엔드가 담당한다.
 
-전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다.
+전용 계정은 기존 입장·도면 조회 권한과 함께 `space_runtime_migration.version`, `space_furniture_catalog_migration.version`, `space_portable_item_catalog_migration.version`, `space_portable_item_catalog(kind, definition)`, `space_furniture_catalog(kind, definition, placeable, display_order, min_room_version)`, `space_blueprint_runtime(template_key, blueprint_version, spawn, default_room)`을 읽을 수 있어야 한다.
 
 DB의 좌석과 상판 칸 수는 `seat_anchor_count`와 `surface_anchor_count` 범위에서 조정할 수 있다. 이 상한은 프론트 모델의 `seatModelAnchors.json`과 `propSurfaceAnchors.json`에 정의된 좌표 수를 기준으로 한다. 수납 용량은 화면 좌표와 별도로 관리한다.
 
@@ -53,8 +53,8 @@ DB의 좌석과 상판 칸 수는 `seat_anchor_count`와 `surface_anchor_count` 
 ## 운영 동작
 
 - 이동·좌석·손 물건·진행 작업은 환경별 방의 서버 메모리에 있다. 인스턴스를 재시작하면 개발과 운영의 일시 상태가 초기화되고 사용자는 새 방 세대로 재입장한다.
-- 기존 API 배포는 실시간 컨테이너를 재시작하지 않는다. DB에서 권한 재확인이 유효 기한보다 오래 실패하면 접속이 종료된다.
-- 저장 배치·권한은 주기 조회로 갱신한다. 현재는 DB 커밋 순간 모든 클라이언트에 반영되는 트랜잭션이 아니다. 클라이언트의 저장 성공과 realtime의 새 revision 적용은 구분한다.
+- 기존 API 배포는 실시간 컨테이너를 재시작하지 않는다. DB 알림 연결이 기본 60초 안에 복구되지 않으면 해당 환경의 접속이 종료된다.
+- 저장 배치·권한은 변경 커밋의 PostgreSQL 알림을 받으면 관련 DB 상태를 다시 읽어 적용한다. 구독 연결을 복구하면 먼저 `LISTEN`을 시작하고 마지막으로 저장된 상태를 다시 읽는다.
 - realtime은 환경별로 가구와 소품 카탈로그를 함께 갱신해 이미 열린 방의 좌석·소품·생산 상태에 적용한다. 읽기에 실패하면 마지막으로 정상 조회한 규칙으로 열린 방을 유지하고, 복구하면 같은 연결에서 새 규칙을 적용한다. 새 배치를 막을 때는 행을 보존하고 `placeable=false`로 바꾼다.
 - 오래된 layoutRevision 명령은 거절한다. 최신 배치를 로딩할 때까지 공유 조작을 대기시킨다. 착석·물건·생산 작업 정리는 새 배치 적용과 같은 방 처리 흐름을 사용한다.
 - v10 이하 배치를 사용하는 모임은 기존 도면과 가구를 계속 편집할 수 있다. 공동 입장은 모임장이 템플릿 전체 교체로 기본 가구를 새로 배치하고 지원 문서 버전으로 저장한 뒤에 가능하다.

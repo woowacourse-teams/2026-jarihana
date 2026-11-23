@@ -30,5 +30,5 @@ realtime:
     db-jdbc-url: ${REALTIME_PROD_DB_JDBC_URL:}
     db-username: ${REALTIME_PROD_DB_USERNAME:}
     db-password: ${REALTIME_PROD_DB_PASSWORD:}
-  lease-validity: ${REALTIME_LEASE_VALIDITY:60s}
+  notification-outage-grace: ${REALTIME_LEASE_VALIDITY:60s}
   allowed-origins: ${REALTIME_ALLOWED_ORIGINS:http://localhost:5173}

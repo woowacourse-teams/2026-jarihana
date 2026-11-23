@@ -12,7 +12,7 @@ M1·M2를 함께 구현한다. 기존 API·DB는 접근 권한과 저장 배치�
 - 서버는 발급 환경과 `roomId`를 묶어서 방을 구분한다. 같은 모임이나 회원 ID도 환경이 다르면 별도 상태를 갖는다. WebSocket 경로와 메시지의 `roomId` 형식은 공통이다.
 - 저장된 방이 없으면 해당 환경 DB의 단층 도면 `lounge:11`에 발행한 기본 방과 시작 위치를 사용한다. 입장만으로 `group_space` 행을 만들거나 revision을 올리지 않는다.
 - 저장 문서는 v11과 기본 아지트 v12를 지원한다. 도면 발행 버전은 저장 문서 형식과 독립적이다. v10 이하 문서로 공동 입장하면 `LAYOUT_UPGRADE_REQUIRED`를 반환한다. 기존 가구를 편집하고 저장하면 문서 버전을 유지한다. 모임장이 템플릿 전체 교체를 선택하고 저장하면 새 템플릿의 기본 가구가 적용되고 공동 입장이 가능해진다.
-- 권한 유효 기한은 60초, 재확인 시작 주기는 20초를 기본으로 한다. 실패로 유효 기한을 연장하지 않는다. 모임원이 아니어도 기존 방문 정책이 허용하면 GUEST로 입장한다.
+- 권한은 입장할 때 확인하고, 회원 탈퇴·모임 상태·모임 역할 변경 시 관련 연결만 다시 확인한다. DB 알림 연결이 끊기면 신규 입장은 재시도 가능한 오류를 반환한다. 기존 연결은 기본 60초 안에 복구되지 않으면 `ACCESS_EXPIRED`로 종료한다. 모임원이 아니어도 기존 방문 정책이 허용하면 GUEST로 입장한다.
 - realtime은 저장 배치에서 상호작용에 필요한 가구 정보를 계산하고 배치 revision을 알린다. 클라이언트는 기존 공개 API로 권한에 맞는 배치를 읽는다.
 
 편집기와 저장 API, realtime은 같은 환경의 가구 카탈로그를 사용한다. `placeable=false`인 종류도 기존 방의 충돌과 상호작용에 참여한다. 전용 3D 모델이나 행동을 쓰는 가구는 클라이언트와 서버가 해당 모델과 행동을 지원해야 한다.
@@ -81,7 +81,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 
 `SURFACE`와 `STORAGE` 소품의 위치는 `assetId`와 `slot`으로 식별한다. 기존 클라이언트에는 호환을 위해 현재 가구 배치에서 계산한 `position`도 제공한다. 브라우저는 상판의 표시와 클릭에 현재 가구 배치와 로컬 좌표를 사용하고, 수납은 슬롯 점유와 꺼내기 동작으로 표시한다. 바닥의 `WORLD` 위치와 `THROWN`의 위치·속도는 서버가 제공한다.
 
-`avatarAppearance`은 입장 토큰의 발급 환경에 해당하는 DB에서 읽은 회원의 외형이다. 버전 1은 `{version,hair,skin,hairColor,face,eyes,eyebrows,nose,mouth,glasses,outfit,shoes,shoeColor,hat,hatColor,bag,bagColor,handheld}`를 보낸다. 저장한 외형이 없거나 필드가 없는 이전 메시지에는 `avatarColor`로 기본 캐릭터를 표시한다. 권한 재확인 때 외형이 바뀌면 `ROOM_STATE`에 반영한다.
+`avatarAppearance`은 입장할 때 토큰 발급 환경의 DB에서 읽은 회원의 외형이다. 버전 1은 `{version,hair,skin,hairColor,face,eyes,eyebrows,nose,mouth,glasses,outfit,shoes,shoeColor,hat,hatColor,bag,bagColor,handheld}`를 보낸다. 저장한 외형이 없거나 필드가 없는 이전 메시지에는 `avatarColor`로 기본 캐릭터를 표시한다. 외형을 저장한 뒤 다시 입장하면 최신 외형이 같은 방에 반영된다.
 
 `MOVEMENT_FRAME`은 같은 context와 `participants:[{memberId,position,yaw,locomotion}]`을 포함한다. controlSeq는 해당 프레임의 전제 상태 순번이다. 제어 상태를 먼저 적용하고 이후 프레임을 적용한다. frameSeq 공백은 허용하며, 이전 frame/epoch/generation은 버린다. ROOM_STATE는 전체 상태이므로 더 최신의 전체 상태로 건너뛰어도 복구할 수 있다.
 
@@ -110,7 +110,7 @@ assets:{ [assetId]:{open,on,wateredAt,production} }
 - 퇴장 시 좌석 해제, 손 물건 내려놓기, 생산 취소를 같은 방 처리 구간에서 수행한다.
 - DB 커밋 뒤 새 layoutRevision을 적용한다. 이전 revision 명령은 LAYOUT_MISMATCH로 거절한다. 프론트는 최신 저장 배치를 읽은 뒤 조작을 재개한다.
 - 환경별 카탈로그 변경은 기존 연결의 `ROOM_SNAPSHOT`·`ROOM_STATE`에 `catalogGeneration`으로 알린다. 브라우저는 해당 HTTP 카탈로그를 다시 읽는다. 서버는 저장 배치 revision이 같아도 새 규칙으로 검증하고 범위를 벗어난 좌석과 소품을 정리한다.
-- 배치는 기본 10초, 권한은 20초 주기로 조회한다. 저장 직후 모든 참가자에게 동시에 적용되는 것은 아니다. 다른 groupId로 이동하면 기존 연결을 정리하고 새 방의 스냅샷을 받는다.
+- 배치·카탈로그·권한의 변경은 PostgreSQL 커밋 후 알림으로 전달된다. 구독 연결을 복구하면 열린 방의 배치·접속 권한과 환경별 카탈로그를 다시 읽어 누락을 복구한다. 다른 groupId로 이동하면 기존 연결을 정리하고 새 방의 스냅샷을 받는다.
 
 ## 검증 범위
 

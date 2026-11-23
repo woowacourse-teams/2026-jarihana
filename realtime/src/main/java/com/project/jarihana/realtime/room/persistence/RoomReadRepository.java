@@ -2,7 +2,6 @@ package com.project.jarihana.realtime.room.persistence;
 
 import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
-import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.BlueprintRuntime;
 import com.project.jarihana.realtime.room.domain.AvatarAppearance;
@@ -10,7 +9,6 @@ import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.domain.Vec3;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Clock;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -39,30 +37,37 @@ public final class RoomReadRepository {
                   AND EXISTS (SELECT 1 FROM space_furniture_catalog WHERE kind IS NOT NULL AND definition IS NOT NULL)
             ) AS runtime_readable
             """;
+    private static final String ACCESS_TABLES = """
+            FROM groups g
+            JOIN member m ON m.id = :memberId AND m.withdrawn_at IS NULL
+            LEFT JOIN group_member gm ON gm.group_id = g.id AND gm.member_id = m.id
+            """;
+    private static final String ACTIVE_ROOM = "WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'";
     private static final String ADMISSION_SQL = """
             SELECT m.crew_name, COALESCE(gm.role, 'GUEST') AS role, s.room_json, COALESCE(s.revision, 0) AS revision,
                    %s,
                    a.version AS avatar_version, a.hair, a.skin, a.hair_color, a.face, a.eyes, a.eyebrows, a.nose,
                    a.mouth, a.glasses, a.outfit, a.shoes, a.shoe_color, a.hat, a.hat_color, a.bag, a.bag_color, a.handheld
-            FROM groups g
-            JOIN member m ON m.id = :memberId AND m.withdrawn_at IS NULL
-            LEFT JOIN group_member gm ON gm.group_id = g.id AND gm.member_id = m.id
+            %s
             LEFT JOIN group_space s ON s.group_id = g.id
             LEFT JOIN member_avatar a ON a.member_id = m.id
-            WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """.formatted(DATABASE_COLUMNS);
+            %s
+            """.formatted(DATABASE_COLUMNS, ACCESS_TABLES.stripTrailing(), ACTIVE_ROOM);
+    private static final String ACCESS_SQL = """
+            SELECT COALESCE(gm.role, 'GUEST') AS role
+            %s
+            %s
+            """.formatted(ACCESS_TABLES.stripTrailing(), ACTIVE_ROOM);
     private static final String LAYOUT_SQL = """
             SELECT s.room_json, COALESCE(s.revision, 0) AS revision, %s
             FROM groups g
             LEFT JOIN group_space s ON s.group_id = g.id
-            WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """.formatted(DATABASE_COLUMNS);
+            %s
+            """.formatted(DATABASE_COLUMNS, ACTIVE_ROOM);
 
     private final RealtimeDatabases databases;
     private final RuntimeSchema schema;
     private final ObjectMapper mapper;
-    private final Clock clock;
-    private final RealtimeProperties properties;
     private static final int BLUEPRINT_CACHE_SIZE = 256;
     private final Map<EnvironmentBlueprint, BlueprintRuntime> blueprints = Collections.synchronizedMap(
             new LinkedHashMap<>(32, 0.75f, true) {
@@ -75,17 +80,14 @@ public final class RoomReadRepository {
 
     private static final class CatalogCache {
         private volatile RuntimeCatalog current;
-        private long lastAttempt;
     }
 
     private record EnvironmentBlueprint(RealtimeEnvironment environment, BlueprintRef reference) {}
 
-    RoomReadRepository(RealtimeDatabases databases, RuntimeSchema schema, ObjectMapper mapper, Clock clock, RealtimeProperties properties) {
+    RoomReadRepository(RealtimeDatabases databases, RuntimeSchema schema, ObjectMapper mapper) {
         this.databases = databases;
         this.schema = schema;
         this.mapper = mapper;
-        this.clock = clock;
-        this.properties = properties;
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) catalogs.put(environment, new CatalogCache());
     }
 
@@ -94,8 +96,15 @@ public final class RoomReadRepository {
         return admissionQuery(environment, Long.parseLong(roomId), member)
                 .query((row, index) -> new Admission(roomId, memberId, row.getString("crew_name"),
                         AVATAR_COLORS.get((int) (member % AVATAR_COLORS.size())), readAvatar(row), row.getString("role"),
-                        clock.millis() + properties.leaseValidity().toMillis(), row.getLong("revision"),
+                        row.getLong("revision"),
                         readRoom(row.getString("room_json")), blueprintRef(row)))
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
+    }
+
+    public String access(RealtimeEnvironment environment, String roomId, String memberId) {
+        return databases.client(environment).sql(ACCESS_SQL)
+                .param("roomId", Long.parseLong(roomId)).param("memberId", Long.parseLong(memberId))
+                .query(String.class)
                 .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
     }
 
@@ -136,40 +145,33 @@ public final class RoomReadRepository {
     public RuntimeCatalog catalog(RealtimeEnvironment environment, JsonNode room) {
         var cache = catalogs.get(environment);
         var current = cache.current;
-        if (hasFurniture(current, room)) return current;
-        synchronized (cache) {
-            current = cache.current;
-            if (hasFurniture(current, room)) return current;
-            if (current == null || clock.millis() - cache.lastAttempt >= Math.min(10_000, properties.refreshIntervalMs())) {
-                current = loadCatalog(environment, cache);
-            }
-        }
+        if (current == null) throw new DataRetrievalFailureException("Runtime catalogs are not loaded for " + environment);
         if (!hasFurniture(current, room)) throw new DataRetrievalFailureException("A furniture kind is missing from the catalog for " + environment);
         return current;
     }
 
     private static boolean hasFurniture(RuntimeCatalog catalog, JsonNode room) {
-        if (catalog == null) return false;
         for (JsonNode item : room.path("items")) {
             if (!catalog.furniture().has(item.path("kind").asString())) return false;
         }
         return true;
     }
 
-    public void refreshCatalog(RealtimeEnvironment environment) {
+    public boolean refreshCatalog(RealtimeEnvironment environment) {
         var cache = catalogs.get(environment);
         synchronized (cache) {
-            loadCatalog(environment, cache);
+            var previous = cache.current;
+            return loadCatalog(environment, cache) != previous;
         }
     }
 
     private RuntimeCatalog loadCatalog(RealtimeEnvironment environment, CatalogCache cache) {
-        cache.lastAttempt = clock.millis();
         var previous = cache.current;
         long generation = previous == null ? 1 : previous.generation() + 1;
         // Both catalogs must come from the same PostgreSQL statement snapshot.
         var current = databases.client(environment).sql("""
-                SELECT (SELECT jsonb_object_agg(kind, definition || jsonb_build_object('placeable', placeable))
+                SELECT (SELECT jsonb_object_agg(kind, definition || jsonb_build_object(
+                            'placeable', placeable, 'minRoomVersion', min_room_version, 'displayOrder', display_order))
                         FROM space_furniture_catalog) AS furniture,
                        (SELECT COALESCE(jsonb_object_agg(kind, definition), '{}'::jsonb)
                         FROM space_portable_item_catalog) AS portable_items

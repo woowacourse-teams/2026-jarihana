@@ -19,7 +19,7 @@ public final class TestSettings {
         var dev = new EnvironmentSettings(devKey, "jdbc:postgresql://localhost/dev", "reader", "test");
         var prod = new EnvironmentSettings(prodKey, "jdbc:postgresql://localhost/prod", "reader", "test");
         return new RealtimeProperties(true, dev, prod, Duration.ofMinutes(1),
-                "http://localhost:5173", 8, 10, 100, 32, 16, 262144, 5000, 100, 200, 30000);
+                "http://localhost:5173", 8, 10, 100, 32, 16, 262144, 5000, 100, 30000);
     }
 
     public static final class MutableClock extends Clock {

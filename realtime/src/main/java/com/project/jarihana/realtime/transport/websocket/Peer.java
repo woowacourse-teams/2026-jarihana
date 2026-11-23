@@ -20,7 +20,6 @@ public final class Peer {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean authenticating = new AtomicBoolean();
     private final AtomicBoolean admissionRecorded = new AtomicBoolean();
-    private final AtomicBoolean refreshing = new AtomicBoolean();
     private final Executor closers;
     private final RealtimeSocketMetrics metrics;
     private final long openedAt;
@@ -53,8 +52,6 @@ public final class Peer {
         this.seatRefs = seatRefs;
         return true;
     }
-    public boolean beginRefresh() { return refreshing.compareAndSet(false, true); }
-    public void endRefresh() { refreshing.set(false); }
     public void identify(Identity value) { identity = value; }
     public void joined() {
         joined = true;

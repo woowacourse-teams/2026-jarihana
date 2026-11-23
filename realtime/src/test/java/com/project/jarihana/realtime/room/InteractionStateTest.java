@@ -297,9 +297,8 @@ class InteractionStateTest {
     }
 
     @Test
-    void staleGenerationAndExpiredLeaseCannotChangeState() {
+    void staleGenerationCannotChangeState() {
         assertThatThrownBy(() -> room.command("1", "old", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cup"), 1200)).hasMessage("CONNECTION_REPLACED");
-        assertThatThrownBy(() -> room.command("1", "a", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cup"), 100001)).hasMessage("ACCESS_EXPIRED");
         assertThat(room.items()).isEmpty();
     }
 

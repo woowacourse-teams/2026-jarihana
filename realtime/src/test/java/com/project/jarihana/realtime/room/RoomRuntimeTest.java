@@ -192,14 +192,14 @@ class RoomRuntimeTest {
     }
 
     @Test
-    void expiredLeasePreventsCommandsEvenBeforeCleanupTick() throws Exception {
+    void anOpenRoomDoesNotExpireAccessByTimeAlone() throws Exception {
         List<JsonNode> messages = new ArrayList<>(); Peer peer = peer("a", messages);
         RoomRuntime room = runtime(Runnable::run, () -> {});
         room.join(peer, TestRooms.admission("1"), TestRooms.layout(1, 0));
         clock.set(100001);
-        room.message(peer, command(messages.getFirst(), "expired", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cup")));
-        assertThat(peer.isClosed()).isTrue();
-        assertThat(messages.stream().anyMatch(message -> message.path("items").size() > 0)).isFalse();
+        room.message(peer, command(messages.getFirst(), "after-idle", Map.of("action", "TAKE", "assetId", "shelf", "kind", "cookie")));
+        assertThat(peer.isClosed()).isFalse();
+        assertThat(messages.stream().anyMatch(message -> message.path("items").size() > 0)).isTrue();
     }
 
     @Test

@@ -116,7 +116,7 @@ async function startDatabase() {
       (4, now(), now(), 'Fixture', 'Session group', 'ACTIVE', 'SESSION', 'OFFLINE'),
       (10, now(), now(), 'Fixture', 'Browser room', 'ACTIVE', 'CLUB', 'OFFLINE');
     INSERT INTO member (id, created_at, updated_at, crew_name, github_id, member_type)
-      SELECT id, now(), now(), id::text, 'fixture-' || id, 'COACH' FROM unnest(ARRAY[1, 2, 101, 102, 103, 201]) AS ids(id);
+      SELECT id, now(), now(), id::text, 'fixture-' || id, 'COACH' FROM unnest(ARRAY[1, 2, 101, 102, 103, 104, 201]) AS ids(id);
     INSERT INTO group_member (created_at, updated_at, joined_at, role, group_id, member_id) VALUES
       (now(), now(), now(), 'LEADER', 1, 101), (now(), now(), now(), 'MEMBER', 1, 102),
       (now(), now(), now(), 'LEADER', 2, 201), (now(), now(), now(), 'LEADER', 10, 1);
@@ -236,7 +236,7 @@ function startServer(extraArgs = [], jar = candidateJar) {
   const allowedOrigins = ["http://localhost:5193", "http://127.0.0.1:5193"];
   if (browserPreview) allowedOrigins.push(browserPreview.originUrl);
   const child = spawn(java, ["-jar", jar,
-    "--server.port=0", "--realtime.refresh-interval-ms=200", "--realtime.reconnect-grace-ms=3000",
+    "--server.port=0", "--realtime.reconnect-grace-ms=3000",
     `--realtime.allowed-origins=${allowedOrigins.join(",")}`, ...extraArgs], {
     cwd: root,
     env: { ...process.env, ...environmentSettings, REALTIME_ENABLED: "true" },
@@ -448,7 +448,6 @@ async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
   const generation = dev.state.catalogGeneration;
   const productionGeneration = prod.state.catalogGeneration;
   sql("UPDATE space_furniture_catalog SET definition=definition WHERE kind IN ('liveSofa', 'liveCabinet');");
-  // Keep the room open across several configured poll intervals after a write of identical data.
   await new Promise(resolve => setTimeout(resolve, 850));
   assert.equal(dev.state.catalogGeneration, generation);
   assert.deepEqual(context(dev), initial);
@@ -456,7 +455,7 @@ async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
   assert.equal(dev.state.assets.counter?.production?.itemId, cupId);
   assert.equal(devProp(onRemovedSurface)?.slot, 1);
   assert.equal(devProp(storedCookie)?.slot, 0);
-  receipt.push("polling identical definitions keeps the same catalog generation, occupancy, attachments and in-progress production");
+  receipt.push("writing identical definitions keeps the same catalog generation, occupancy, attachments and in-progress production");
   sql(`BEGIN;
     UPDATE space_furniture_catalog SET definition=jsonb_set(definition,'{interaction,seatCount}','1')
       WHERE kind='liveSofa';
@@ -494,6 +493,61 @@ async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
   assert.deepEqual(context(dev), initial);
   await perform(dev, { action: "SIT", assetId: "seat", slot: 1 });
   receipt.push("catalog read failure keeps last-good rules, then recovery restores the authored seat from 2 to 1 to 2 on an open socket for a retired kind");
+
+  const metadataGeneration = dev.state.catalogGeneration;
+  sql("UPDATE space_furniture_catalog SET display_order=display_order+100 WHERE kind='liveSofa';");
+  await waitFor(() => dev.state.catalogGeneration > metadataGeneration, "catalog display order refresh");
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  receipt.push("a furniture display order change invalidates the dev catalog without moving its occupants or changing the production catalog");
+
+  const revoked = await connect(url, "104", newRoomId);
+  await waitFor(() => participant(dev, "104"), "connected member before listener interruption");
+  await perform(dev, { action: "TAKE", assetId: "counter", kind: "cookie" });
+  await waitFor(() => participant(dev, "101").heldItemId === storedCookie, "retained cookie before interruption");
+  const beforeDisconnect = dev.state.catalogGeneration;
+  const missedRevision = initial.layoutRevision + 1;
+  const addedTable = { id: "late-table", kind: "table", x: -5, z: 5.5, rotation: 0 };
+  const useAddedTable = { action: "SIT", assetId: addedTable.id, slot: 0 };
+  sql(`ALTER ROLE ${reader} NOLOGIN;`);
+  try {
+    // Keep existing reader SELECT sessions usable while the separate LISTEN session is offline.
+    assert.equal(sql(`SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity
+      WHERE datname = current_database() AND usename = '${reader}'
+        AND application_name = 'jarihana-realtime-listener';`).trim(), "t");
+    saveLayout([groupId], { ...testRoom, items: [...testRoom.items, addedTable] }, missedRevision, "dev", 11);
+    sql(`BEGIN;
+      UPDATE space_furniture_catalog SET definition=jsonb_set(definition, '{interaction,seatCount}', '1')
+        WHERE kind='liveSofa';
+      UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'false')
+        WHERE kind='cookie';
+      UPDATE member SET withdrawn_at=now() WHERE id=104;
+      COMMIT;`);
+    saveLayout([groupId], testRoom, prodInitial.layoutRevision + 1, "prod", 11);
+    await checkLiveRoom(prod, prodInitial, prodInitial.layoutRevision + 1);
+    await checkLiveRoom(dev, initial, initial.layoutRevision);
+    assert.equal(dev.state.catalogGeneration, beforeDisconnect);
+    assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+    assert.equal((await command(dev, useAddedTable)).code, "ASSET_NOT_FOUND");
+    await checkLiveRoom(revoked, context(revoked), initial.layoutRevision);
+  } finally {
+    sql(`ALTER ROLE ${reader} LOGIN;`);
+  }
+  await waitFor(() => dev.state.catalogGeneration > beforeDisconnect, "missed catalog edits apply after LISTEN reconnect");
+  await checkLiveRoom(dev, initial, missedRevision);
+  await waitFor(() => revoked.close, "missed withdrawal closes the original connection after LISTEN reconnect");
+  assert.deepEqual(revoked.close, { code: 4001, reason: "ACCESS_DENIED" });
+  await waitFor(() => !participant(dev, "104"), "revoked member leaves other clients' snapshots");
+  assert.equal((await command(dev, useAddedTable)).code, "UNSUPPORTED_ACTION");
+  assert.equal(participant(dev, "101").seat, null);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  assert.equal(participant(dev, "101").heldItemId, storedCookie);
+  assert.equal((await command(dev, { action: "THROW", itemId: storedCookie })).code, "NOT_THROWABLE");
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  assert.deepEqual(participant(prod, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal((await command(prod, useAddedTable)).code, "ASSET_NOT_FOUND");
+  receipt.push("after the dev LISTEN connection is terminated, reconnect picks up a missed layout, furniture and portable catalog edits and account withdrawal on existing sockets; production keeps receiving its own changes");
   dev.socket.close(1000, "LEAVE");
   prod.socket.close(1000, "LEAVE");
 }
@@ -543,6 +597,8 @@ try {
   await migrateBlueprintRuntime("dev", 1);
   await migrateFurnitureInteractions("dev");
   await migratePortableItems("dev");
+  const changeNotifications = await readMigration("space_change_notifications.sql");
+  sql(`BEGIN; ${changeNotifications} COMMIT;`, environments.dev.databaseName);
   assert.notEqual(await checkRuntime(), 0, "Both databases must have the room runtime schema and catalog");
   if (previousDev) {
     assert.equal(previousServer.exitCode, null);
@@ -553,6 +609,7 @@ try {
   await migrateBlueprintRuntime("prod", 3);
   await migrateFurnitureInteractions("prod");
   await migratePortableItems("prod");
+  sql(`BEGIN; ${changeNotifications} COMMIT;`, environments.prod.databaseName);
   if (previousUrl) {
     for (const environment of Object.keys(environments)) {
       const cold = await connect(previousUrl, "101", "12", { environment });
@@ -719,13 +776,7 @@ try {
   assert.equal(participant(a, "102").avatarAppearance.outfit, "coral");
   assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
   assert.equal(participant(productionB, "102").avatarAppearance, null);
-  const avatarControlSeq = b.state.controlSeq;
   sql("UPDATE member_avatar SET outfit = 'ochre', updated_at = now() WHERE member_id = 101;");
-  await waitFor(() => participant(b, "101").avatarAppearance.outfit === "ochre", "avatar changes on refresh");
-  assert.ok(b.state.controlSeq > avatarControlSeq);
-  assert.equal(b.state.layoutRevision, revision);
-  assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
-  receipt.push("participant avatars come from the verified environment and update without movement or layout changes");
 
   const beforeSitting = participant(a, "101");
   assert.equal((await command(a, { action: "SIT", assetId: "seat", slot: 3 })).code, "INVALID_SLOT");
@@ -757,7 +808,7 @@ try {
   let c = await connect(url, "103");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "101").seat.assetId, "seat");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "103").displayName, "103");
-  assert.equal(participant(c, "101").avatarAppearance.outfit, "ochre");
+  assert.equal(participant(c, "101").avatarAppearance.outfit, "mint");
   assert.equal(participant(c, "103").avatarAppearance, null);
   assert.deepEqual(productionA.state.participants.map(({ memberId }) => memberId).sort(), ["101", "102"]);
   receipt.push("one seat owner and late-joining guest receives the seated snapshot");
@@ -894,11 +945,15 @@ try {
   await waitFor(() => a.state.layoutRevision === revision, "producer restored for reconnect");
   receipt.push("furniture movement preserves slot attachments; deleting furniture removes only attached and stored props");
 
+  assert.equal(participant(b, "101").avatarAppearance.outfit, "mint");
   const replacement = await connect(url, "101");
   await waitFor(() => a.closed, "old connection replacement");
   await waitFor(() => replacement.state.participants.filter((participant) => participant.memberId === "101").length === 1, "replacement identity");
   assert.notEqual(replacement.state.connectionGeneration, a.state.connectionGeneration);
   assert.equal(participant(replacement, "101").avatarAppearance.outfit, "ochre");
+  await waitFor(() => participant(b, "101").avatarAppearance.outfit === "ochre", "observer sees new avatar after rejoin");
+  assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
+  receipt.push("participant avatars come from the verified environment and refresh on rejoin");
   receipt.push("replacement connection survives old close without duplicate avatar");
 
   sql("UPDATE member SET withdrawn_at = now() WHERE id = 102;");

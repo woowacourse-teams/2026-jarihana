@@ -17,9 +17,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
+import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -51,15 +51,13 @@ public final class RoomRegistry {
     private final Map<String, Peer> peers = new ConcurrentHashMap<>();
     private final Map<RoomKey, RoomRuntime> rooms = new ConcurrentHashMap<>();
     private final Map<TokenKey, Long> consumedTokens = new ConcurrentHashMap<>();
-    private final Set<RealtimeEnvironment> refreshingCatalog = ConcurrentHashMap.newKeySet();
+    private final Map<RealtimeEnvironment, NotificationState> notifications = new EnumMap<>(RealtimeEnvironment.class);
     private final ExecutorService roomWorkers;
     private final ExecutorService databaseWorkers;
     private final ExecutorService writers;
     private final ExecutorService closers;
     private final ScheduledExecutorService scheduler;
     private volatile boolean stopped;
-    private long lastRefresh;
-    private long lastLayout;
 
     public RoomRegistry(RealtimeProperties properties, AdmissionTokenVerifier tokens, RoomReadRepository roomReads,
             LayoutCatalog catalog, ObjectMapper mapper, Clock clock, MeterRegistry metrics) {
@@ -80,6 +78,7 @@ public final class RoomRegistry {
         metrics.gauge("realtime.outbound.bytes", peers, values -> values.values().stream().mapToLong(Peer::bufferedBytes).sum());
         metrics.gauge("realtime.room.queue", rooms, values -> values.values().stream().mapToInt(RoomRuntime::queued).sum());
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) {
+            notifications.put(environment, new NotificationState(clock.millis()));
             Tags tags = Tags.of("environment", environment.name().toLowerCase(Locale.ROOT));
             metrics.gauge("realtime.active.players", tags, peers, values -> values.values().stream()
                     .filter(peer -> peer.isJoined() && !peer.isClosed() && peer.identity().environment() == environment).count());
@@ -153,16 +152,33 @@ public final class RoomRegistry {
                 TokenKey tokenKey = new TokenKey(identity.environment(), identity.tokenId());
                 if (consumedTokens.putIfAbsent(tokenKey, identity.expiresAt()) != null) throw new RuleViolation("TOKEN_REPLAYED");
             }
-            Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
-            validate(admission, peer);
-            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
-            if (peer.isClosed() || stopped) return;
-            acquire(roomKey(identity), layout).join(peer, admission, layout);
+            admit(peer, identity);
         } catch (RuleViolation error) { reject(peer, error.code()); }
         catch (RuntimeException error) {
             if (peer.identity() != null) warnOnDatabaseFailure(error, peer.identity().environment(), "admission");
             reject(peer, "BACKEND_UNAVAILABLE");
         }
+    }
+
+    private void admit(Peer peer, Identity identity) {
+        NotificationState state = notifications.get(identity.environment());
+        for (int attempt = 0; attempt < 3; attempt++) {
+            long revision;
+            synchronized (state) {
+                if (state.unavailableSince >= 0) throw new RuleViolation("BACKEND_UNAVAILABLE");
+                revision = state.revision;
+            }
+            Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
+            validate(admission, peer);
+            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
+            synchronized (state) {
+                if (peer.isClosed() || stopped) return;
+                if (state.revision != revision) continue;
+                acquire(roomKey(identity), layout).join(peer, admission, layout);
+                return;
+            }
+        }
+        throw new RuleViolation("BACKEND_UNAVAILABLE");
     }
 
     private static void validate(Admission admission, Peer peer) {
@@ -197,62 +213,105 @@ public final class RoomRegistry {
         consumedTokens.entrySet().removeIf(entry -> entry.getValue() <= now);
         for (Peer peer : peers.values()) {
             if (peer.isClosed()) { peers.remove(peer.socketId(), peer); continue; }
+            if (expireUnsynchronizedAccess(peer, now)) continue;
             if (!peer.isJoined() && now - peer.openedAt() > properties.authenticationTimeoutMs()) peer.close(4005, "AUTH_TIMEOUT");
             else if (now - peer.lastSeen() > properties.heartbeatTimeoutMs()) peer.close(4004, "HEARTBEAT_TIMEOUT");
             else if (peer.stalled(now)) peer.close(4004, "SLOW_CONSUMER");
         }
         rooms.values().forEach(RoomRuntime::tick);
-        if (now - lastRefresh >= properties.refreshIntervalMs()) {
-            lastRefresh = now;
-            for (Peer peer : peers.values()) if (peer.isJoined() && !peer.isClosed() && peer.beginRefresh()) {
-                submit(() -> refresh(peer), peer::endRefresh);
+    }
+
+    private boolean expireUnsynchronizedAccess(Peer peer, long now) {
+        Identity identity = peer.identity();
+        if (identity == null) return false;
+        NotificationState state = notifications.get(identity.environment());
+        if (state.unavailableSince < 0) return false;
+        synchronized (state) {
+            if (state.unavailableSince < 0 || now - state.unavailableSince < properties.notificationOutageGrace().toMillis()) {
+                return false;
             }
-        }
-        if (now - lastLayout >= Math.min(10000, properties.refreshIntervalMs())) {
-            lastLayout = now;
-            rooms.keySet().stream().map(RoomKey::environment).distinct().forEach(environment -> {
-                if (refreshingCatalog.add(environment)) {
-                    submit(() -> refreshLayouts(environment), () -> refreshingCatalog.remove(environment));
-                }
-            });
+            peer.close(4001, "ACCESS_EXPIRED");
+            return true;
         }
     }
 
-    private void refresh(Peer peer) {
-        try {
+    public void notificationsDisconnected(RealtimeEnvironment environment) {
+        NotificationState state = notifications.get(environment);
+        synchronized (state) {
+            if (state.unavailableSince < 0) state.unavailableSince = clock.millis();
+            state.revision++;
+        }
+    }
+
+    public void reconcileNotifications(RealtimeEnvironment environment) {
+        refreshPermissions(environment, null, null);
+        roomReads.refreshCatalog(environment);
+        refreshLayouts(environment);
+    }
+
+    public void notificationsReady(RealtimeEnvironment environment) {
+        NotificationState state = notifications.get(environment);
+        synchronized (state) {
+            state.unavailableSince = -1;
+            state.revision++;
+        }
+    }
+
+    public void layoutChanged(RealtimeEnvironment environment, String roomId) {
+        beginChange(environment);
+        RoomKey key = new RoomKey(environment, roomId);
+        RoomRuntime room = rooms.get(key);
+        if (room != null) refreshLayout(key, room);
+    }
+
+    public void catalogChanged(RealtimeEnvironment environment) {
+        beginChange(environment);
+        if (roomReads.refreshCatalog(environment)) refreshLayouts(environment);
+    }
+
+    public void permissionsChanged(RealtimeEnvironment environment, String roomId, String memberId) {
+        beginChange(environment);
+        refreshPermissions(environment, roomId, memberId);
+    }
+
+    private void beginChange(RealtimeEnvironment environment) {
+        NotificationState state = notifications.get(environment);
+        synchronized (state) {
+            // Do not enqueue admissions read before an invalidation overtook them.
+            state.revision++;
+        }
+    }
+
+    private void refreshPermissions(RealtimeEnvironment environment, String roomId, String memberId) {
+        for (Peer peer : peers.values()) {
             Identity identity = peer.identity();
-            Admission admission = roomReads.admission(identity.environment(), identity.roomId(), identity.memberId());
-            validate(admission, peer);
-            RoomLayout layout = readLayout(identity.environment(), admission.layoutRevision(), admission.room(), admission.blueprint());
+            if (peer.isClosed() || identity == null || identity.environment() != environment ||
+                    (roomId != null && !roomId.equals(identity.roomId())) ||
+                    (memberId != null && !memberId.equals(identity.memberId()))) continue;
             RoomRuntime room = rooms.get(roomKey(identity));
-            if (room != null && !peer.isClosed()) room.renew(peer, admission, layout);
-        } catch (RuleViolation error) { reject(peer, error.code()); }
-        catch (RuntimeException error) { warnOnDatabaseFailure(error, peer.identity().environment(), "permission_refresh"); }
-        finally { peer.endRefresh(); }
+            if (room == null) continue;
+            try {
+                String role = roomReads.access(environment, identity.roomId(), identity.memberId());
+                room.updateRole(peer, role);
+            } catch (RuleViolation error) {
+                reject(peer, error.code());
+            }
+        }
     }
 
     private void refreshLayout(RoomKey key, RoomRuntime room) {
         try {
             var stored = roomReads.layout(key.environment(), key.roomId());
             room.layout(readLayout(key.environment(), stored.revision(), stored.room(), stored.blueprint()));
-        } catch (RuleViolation error) { room.terminate(error.code()); }
-        catch (RuntimeException error) { warnOnDatabaseFailure(error, key.environment(), "layout_refresh"); }
-        finally { room.endRefresh(); }
+        } catch (RuleViolation error) {
+            room.terminate(error.code());
+        }
     }
 
     private void refreshLayouts(RealtimeEnvironment environment) {
-        try {
-            roomReads.refreshCatalog(environment);
-        } catch (RuntimeException error) {
-            warnOnDatabaseFailure(error, environment, "catalog_refresh");
-        } finally {
-            rooms.forEach((key, room) -> {
-                if (key.environment() == environment && room.beginRefresh()) {
-                    submit(() -> refreshLayout(key, room), room::endRefresh);
-                }
-            });
-            refreshingCatalog.remove(environment);
-        }
+        rooms.forEach((key, room) -> {
+            if (key.environment() == environment) refreshLayout(key, room);
+        });
     }
 
     private RoomLayout readLayout(RealtimeEnvironment environment, long revision, JsonNode room, BlueprintRef blueprint) {
@@ -295,6 +354,15 @@ public final class RoomRegistry {
         roomWorkers.shutdownNow();
         writers.shutdownNow();
         closers.shutdown();
+    }
+
+    private static final class NotificationState {
+        private volatile long unavailableSince;
+        private long revision;
+
+        private NotificationState(long unavailableSince) {
+            this.unavailableSince = unavailableSince;
+        }
     }
 
     private record RoomKey(RealtimeEnvironment environment, String roomId) {}
