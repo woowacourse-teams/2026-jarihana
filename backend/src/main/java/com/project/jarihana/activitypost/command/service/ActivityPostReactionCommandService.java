@@ -36,36 +36,28 @@ public class ActivityPostReactionCommandService {
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
+    /**
+     * 이미 있는지 먼저 읽고 저장하면, 거의 동시에 온 두 요청이 모두 "없음"을 보고 저장해 유니크 제약에 걸린다.
+     * 그래서 확인과 저장을 DB의 한 문장으로 맡기고, 실제로 새로 남긴 경우에만 반응 사건을 낸다.
+     */
     @Transactional
     public void addToPost(long memberId, long postId, ReactionEmoji emoji) {
         ActivityPost post = getActivePost(postId);
-        if (activityPostReactionCommandRepository.existsByPostIdAndMemberIdAndEmoji(postId, memberId, emoji)) {
-            return;
-        }
-        ActivityPostReaction reaction = activityPostReactionCommandRepository.save(
+        activityPostReactionCommandRepository.saveIfAbsent(
                 ActivityPostReaction.create(post, getMember(memberId), emoji, LocalDateTime.now(clock))
-        );
-        events.publishEvent(ActivityPostReactedEvent.from(reaction));
+        ).ifPresent(reaction -> events.publishEvent(ActivityPostReactedEvent.from(reaction)));
     }
 
     @Transactional
     public void removeFromPost(long memberId, long postId, ReactionEmoji emoji) {
         getActivePost(postId);
-        activityPostReactionCommandRepository.findByPostIdAndMemberIdAndEmoji(postId, memberId, emoji)
-                .ifPresent(activityPostReactionCommandRepository::delete);
+        activityPostReactionCommandRepository.removeByPostIdAndMemberIdAndEmoji(postId, memberId, emoji);
     }
 
     @Transactional
     public void addToComment(long memberId, long commentId, ReactionEmoji emoji) {
         ActivityPostComment comment = getActiveComment(commentId);
-        if (activityPostCommentReactionCommandRepository.existsByCommentIdAndMemberIdAndEmoji(
-                commentId,
-                memberId,
-                emoji
-        )) {
-            return;
-        }
-        activityPostCommentReactionCommandRepository.save(
+        activityPostCommentReactionCommandRepository.saveIfAbsent(
                 ActivityPostCommentReaction.create(comment, getMember(memberId), emoji, LocalDateTime.now(clock))
         );
     }
@@ -73,8 +65,7 @@ public class ActivityPostReactionCommandService {
     @Transactional
     public void removeFromComment(long memberId, long commentId, ReactionEmoji emoji) {
         getActiveComment(commentId);
-        activityPostCommentReactionCommandRepository.findByCommentIdAndMemberIdAndEmoji(commentId, memberId, emoji)
-                .ifPresent(activityPostCommentReactionCommandRepository::delete);
+        activityPostCommentReactionCommandRepository.removeByCommentIdAndMemberIdAndEmoji(commentId, memberId, emoji);
     }
 
     private ActivityPost getActivePost(long postId) {

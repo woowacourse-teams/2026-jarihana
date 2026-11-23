@@ -4,7 +4,6 @@ import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.RefreshTokenHasher;
 import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
 import com.project.jarihana.auth.config.JwtProperties;
-import com.project.jarihana.auth.domain.RefreshToken;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notificationdelivery.command.repository.NotificationDeliveryCommandRepository;
@@ -62,7 +61,10 @@ class PushLogoutAcceptanceTest extends PushIntegrationTestSupport {
         Member owner = member("101");
         var current = subscription(owner, "current");
         String raw = "expired-stored-refresh";
-        refreshTokens.save(RefreshToken.issue(owner, hasher.hash(raw), NOW.minusDays(1)));
+        jdbc.update("""
+                insert into refresh_token (created_at, updated_at, expires_at, token_hash, member_id)
+                values (?, ?, ?, ?, ?)
+                """, NOW.minusDays(15), NOW.minusDays(15), NOW.minusDays(1), hasher.hash(raw), owner.getId());
         Clock earlier = Clock.fixed(NOW.minusHours(2).atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
         String expiredAccess = new AccessTokenProvider(jwtProperties, earlier).issue(owner.getId()).value();
         String csrf = RestAssured.get("/groups").cookie("XSRF-TOKEN");

@@ -40,6 +40,7 @@ TRUNCATE TABLE
     sparring_post,
     sparring_vote,
     refresh_token,
+    refresh_token_family,
     crew_roster,
     proposal_comment,
     proposal_interest,
