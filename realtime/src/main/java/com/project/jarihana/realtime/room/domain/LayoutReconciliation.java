@@ -2,56 +2,77 @@ package com.project.jarihana.realtime.room.domain;
 
 import com.project.jarihana.realtime.layout.RoomAsset;
 import com.project.jarihana.realtime.layout.RoomLayout;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 final class LayoutReconciliation {
     void apply(RoomState room, RoomLayout next, long now) {
-        List<ParticipantState> participants = new ArrayList<>();
-        List<ItemState> items = new ArrayList<>();
-        Map<String, AssetState> assets = new HashMap<>();
+        RoomLayout previous = room.layout();
+        Map<String, ItemState> heldItems = new HashMap<>();
+        for (ItemState item : room.items()) {
+            if (!next.itemCapability(item.kind(), "portable") || item.attached() && !attachmentExists(previous, next, item)) {
+                room.removeItem(item.id());
+            } else if (item.location() == ItemState.Location.THROWN && !next.itemCapability(item.kind(), "throwable")) {
+                Vec3 point = item.thrownPosition(Math.max(0, now - item.startedAt()) / 1000.0);
+                room.put(item.dropAt(next.safe(point)));
+            } else if (item.location() == ItemState.Location.WORLD && !next.valid(item.position(), false)) {
+                room.put(item.dropAt(next.safe(item.position())));
+            } else if (item.location() == ItemState.Location.HELD) {
+                heldItems.put(item.id(), item);
+            }
+        }
         for (ParticipantState actor : room.participants()) {
             ParticipantState updated = actor;
-            if (actor.seat() != null && changed(room.layout(), next, actor.seat().assetId())) {
-                updated = actor.stand(next.safe(actor.seat().approach()), now);
-            } else if (actor.seat() == null && !next.valid(actor.position(), false)) {
+            boolean jumping = previous.revision() == next.revision() && actor.locomotion().equals("jumping");
+            if (!next.valid(actor.position(), jumping) ||
+                    (actor.seat() != null && !seatExists(previous, next, actor))) {
                 updated = actor.stand(next.safe(actor.position()), now);
             }
-            participants.add(updated);
+            if (updated.heldItemId() != null) {
+                ItemState held = heldItems.get(updated.heldItemId());
+                if (held == null) updated = updated.hold(null);
+                else if (updated.pose().equals("drinking") && !next.canDrink(held.kind())) updated = updated.withPose("relaxed");
+            }
+            room.put(updated);
         }
-        for (ItemState item : room.items()) {
-            if (item.location() == ItemState.Location.HELD) { items.add(item); continue; }
-            RoomAsset oldAsset = item.assetId() == null ? null : room.layout().assets().get(item.assetId());
-            RoomAsset nextAsset = item.assetId() == null ? null : next.assets().get(item.assetId());
-            boolean attached = item.location() == ItemState.Location.SURFACE || item.location() == ItemState.Location.STORAGE;
-            String capability = item.location() == ItemState.Location.STORAGE ? "storage" : "surface";
-            boolean storage = item.location() == ItemState.Location.STORAGE;
-            boolean compatible = attached && oldAsset != null && nextAsset != null && oldAsset.kind().equals(nextAsset.kind()) &&
-                    nextAsset.has(capability) && item.slot() != null && item.slot() >= 0 &&
-                    item.slot() < (storage ? nextAsset.slots() : nextAsset.surfaces().size()) &&
-                    (!storage || nextAsset.supplies().contains(item.kind()));
-            if (compatible) {
-                items.add(item.place(item.location(), storage ? nextAsset.storage(item.slot()) : nextAsset.surface(item.slot()), item.assetId(), item.slot()));
-            } else if (attached || item.location() == ItemState.Location.THROWN || !next.valid(item.position(), false)) {
-                items.add(item.place(ItemState.Location.WORLD, next.safe(item.position()), null, null));
-            } else items.add(item);
-        }
+        Map<String, AssetState> assets = new HashMap<>();
         for (Map.Entry<String, AssetState> entry : room.assetStates().entrySet()) {
-            if (!next.assets().containsKey(entry.getKey())) continue;
+            RoomAsset oldAsset = previous.assets().get(entry.getKey());
+            RoomAsset asset = next.assets().get(entry.getKey());
+            if (asset == null || oldAsset == null || !asset.samePlacement(oldAsset)) continue;
             AssetState state = entry.getValue();
-            if (changed(room.layout(), next, entry.getKey())) state = AssetState.initial();
-            assets.put(entry.getKey(), state);
+            AssetState.Production production = state.production();
+            if (production != null && (!asset.has("producer") || !asset.products().contains(production.kind()) ||
+                    !next.itemCapability(production.kind(), "portable") ||
+                    asset.productionMs() != oldAsset.productionMs() || room.items().stream().noneMatch(item ->
+                            item.id().equals(production.itemId()) && asset.id().equals(item.assetId()) &&
+                            item.location() == ItemState.Location.SURFACE))) {
+                state = state.producing(null);
+            }
+            AssetState updated = new AssetState(asset.has("openable") && state.open(),
+                    !asset.has("switchable") || state.on(), asset.has("careable") ? state.wateredAt() : 0, state.production());
+            if (!updated.equals(AssetState.initial())) assets.put(entry.getKey(), updated);
         }
-        participants.forEach(room::put);
-        items.forEach(room::put);
         room.assetStates().keySet().forEach(room::removeAssetState);
         assets.forEach(room::put);
     }
 
-    private boolean changed(RoomLayout previous, RoomLayout next, String id) {
-        return !Objects.equals(previous.assets().get(id), next.assets().get(id));
+    private boolean seatExists(RoomLayout previous, RoomLayout next, ParticipantState actor) {
+        String id = actor.seat().assetId();
+        RoomAsset oldAsset = previous.assets().get(id);
+        RoomAsset asset = next.assets().get(id);
+        return asset != null && oldAsset != null && asset.samePlacement(oldAsset) && asset.has("seatable") &&
+                actor.seat().slot() < asset.seatCount() && asset.seatReachable(actor.position());
     }
+
+    private boolean attachmentExists(RoomLayout previous, RoomLayout next, ItemState item) {
+        RoomAsset oldAsset = previous.assets().get(item.assetId());
+        RoomAsset nextAsset = next.assets().get(item.assetId());
+        if (nextAsset == null || oldAsset == null || !oldAsset.kind().equals(nextAsset.kind())) return false;
+        if (item.location() == ItemState.Location.STORAGE) {
+            return nextAsset.has("storage") && item.slot() < nextAsset.storageCapacity() && nextAsset.supplies().contains(item.kind());
+        }
+        return nextAsset.has("surface") && item.slot() < nextAsset.surfaceSlots();
+    }
+
 }

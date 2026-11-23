@@ -13,7 +13,7 @@ M1·M2는 로컬 구현과 검증 기록이 있다. M3는 LiveKit을 사용하�
 | [인프라 ADR 0007](../infra/docs/adr/0007-clubhouse-realtime-service.md) | 독립 Spring 앱, DB 직접 조회, 환경·방 분리, 입장 토큰, 방 메모리 |
 | [인프라 ADR 0008](../infra/docs/adr/0008-shared-realtime-deployment.md) | 공용 컨테이너, CloudFront·8080, 기존 Environment 값 재사용, 배포·복구·모니터링 |
 | [인프라 ADR 0009](../infra/docs/adr/0009-projector-livekit-direction.md) | P2P·TURN 검토 후 LiveKit SFU 선택, 시그널링·영상 경로, 남은 네트워크 결정 |
-| [실시간 v1 계약](../contracts/realtime/v1/README.md) | 메시지·상태·오류·카탈로그의 실행 가능한 계약 |
+| [실시간 v1 계약](clubhouse-realtime-contract-v1.md) | 메시지·상태·오류·카탈로그의 통신 규격 |
 | [프론트 런타임](../frontend/docs/group-space-realtime.md) | 연결·배치 갱신·원격 캐릭터·상호작용 표시 |
 | [배포 실행 가이드](../infra/realtime/README.md) | 실제 변수 이름, 러너·DB·CloudFront 준비와 실행 순서 |
 
@@ -54,13 +54,14 @@ realtime/                           독립 Java 21 / Spring Boot / Gradle 앱
 frontend/src/features/group-space/realtime/
                                     입장권 요청, 연결, 상태 저장, 보간
 frontend/src/pages/space/            장면·입력·가구·아바타 표시
-contracts/realtime/                 버전 있는 메시지 계약과 판정용 JSON 생성
+docs/clubhouse-realtime-contract-v1.md
+                                    실시간 메시지와 동작 규격
 infra/realtime/                     Docker Compose, Alloy, 검증 도구
 .github/workflows/realtime-deploy.yml
                                     검증, GHCR 발행, 설정 전달, 공용 배포
 ```
 
-저장소를 나누지 않고 빌드·프로세스·배포 단위를 나눈다. backend의 JPA 엔티티를 realtime에 공유하지 않는다. 프론트의 가구 카탈로그에서 판정용 JSON을 생성해 Java와 JavaScript가 같은 좌석·표면 정보를 사용한다. 건물 경계·벽·층·통로는 각 환경 PostgreSQL의 발행 도면에서 읽는다. 모임의 가구 배치에는 도면 참조를 함께 저장한다.
+backend가 환경별 PostgreSQL에 도면과 가구·휴대 소품 카탈로그를 발행한다. API는 현재 환경의 두 카탈로그를 편집기와 방문 화면에 전달한다. realtime은 입장 토큰에 해당하는 DB에서 같은 카탈로그를 읽는다. 가구별 상판과 좌석의 모델 기준 위치는 프론트에서 계산한다.
 
 | 데이터 | 기준을 정하는 곳 | 저장 수명 |
 | --- | --- | --- |
@@ -91,6 +92,10 @@ flowchart LR
     API -->|도면과 가구 배치| BROWSER["브라우저 · 렌더링과 편집"]
     GROUP --> RT["공용 realtime · 이동과 충돌 판정"]
     PLAN --> RT
+    CATALOG["환경별 가구 규격<br/>space_furniture_catalog"] --> RT
+    CATALOG --> API
+    INITIAL["도면별 시작 위치·기본 방<br/>space_blueprint_runtime"] --> RT
+    INITIAL --> API
 ```
 
 | 데이터 | 버전이 바뀌는 시점 |
@@ -98,18 +103,27 @@ flowchart LR
 | `space_blueprint(template_key, blueprint_version)` | 벽·계단·층고를 수정하면 새 행을 발행한다. `geometry_schema_version`은 JSON 형식을 식별한다. |
 | `space_blueprint_default` | 새 모임 또는 사용자가 직접 선택한 템플릿 교체에 적용할 발행본을 지정한다. |
 | `group_space` | 가구 저장은 기존 도면 참조를 유지하고 `revision`을 증가시킨다. `room_json.version`은 기존 저장 문서 형식이다. |
-| `space_blueprint_migration` | V45 마지막에 버전 1 행을 넣는다. 세팅·이관·구버전 쓰기 호환을 완료한 트랜잭션이 커밋된 뒤 realtime 배포 검사에서 확인한다. |
+| `space_furniture_catalog` | 기존 종류의 물리 규격을 보존한다. `definition.interaction`을 바꾸면 API의 새 조회와 realtime의 환경별 갱신에 반영된다. 신규 배치 중단은 `placeable=false`로 표시한다. |
+| `space_blueprint_runtime` | 도면 버전별 시작 위치와 초기 방 문서를 발행한다. 미저장 방문은 단층 라운지 11판을 읽고 revision 0을 유지한다. |
+| `space_runtime_migration` | 도면별 시작 위치와 초기 방 데이터의 준비를 표시한다. |
+| `space_furniture_catalog_migration` | 가구 상호작용 규칙 데이터의 준비를 표시한다. |
+| `space_portable_item_catalog` | 휴대·투척·소비·빈 용기 규칙을 저장한다. 가구의 수납·생산 종류와 빈 용기는 존재하는 소품을 참조한다. |
+| `space_portable_item_catalog_migration` | 휴대 소품 규칙 데이터의 준비를 표시한다. |
 
-V45는 기존 도면 43개를 등록하고 저장 문서 원문의 테마·버전에 맞는 FK만 채운다. 원문의 가구 ID·좌표·부착 정보와 revision은 유지한다. 매칭할 수 없는 데이터가 있으면 마이그레이션이 실패한다. 개발·운영 각각에서 적용 전 방 수와 버전 분포, 마이그레이션 잠금을 검토한다.
+공용 realtime의 후보 서버는 교체 전에 두 DB에서 완료 표시와 필요한 도면·카탈로그를 조회한다. 모임은 저장된 도면 참조를 유지하고 새 기본 도면은 이후에 선택하는 모임에 적용된다.
 
-새 도면은 지원하는 테마와 형식 안에서 발행한다. 예를 들어 다음 SQL은 검수한 JSON을 psql 변수 `geometry`로 받아 기본 아지트 13판을 등록한다. 개발에서 기존 가구 배치·계단 보행·착석을 확인한 뒤 대상 환경에 같은 내용을 등록한다.
+새 도면은 지원하는 테마와 형식 안에서 발행한다. 예를 들어 다음 SQL은 검수한 JSON을 psql 변수 `geometry`, `spawn`, `default_room`으로 받아 기본 아지트 13판을 등록한다. 개발에서 기존 가구 배치·계단 보행·착석을 확인한 뒤 대상 환경에 같은 내용을 등록한다.
 
 ```sql
+BEGIN;
 INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
 VALUES ('lounge', 13, 1, :'geometry'::jsonb);
+INSERT INTO space_blueprint_runtime (template_key, blueprint_version, spawn, default_room)
+VALUES ('lounge', 13, :'spawn'::jsonb, :'default_room'::jsonb);
+COMMIT;
 ```
 
-realtime 배포 전에 개발·운영 두 DB의 이관 완료 표시, 발행 도면, 모임별 도면 참조와 조회 권한을 검사한다. DB 권한·연결 오류는 장애로 처리하며, DB가 정상화되면 조회할 수 있다. 해당 환경의 API·realtime·프론트에서 DB 도면으로 기존 방이 정상 동작하는 것을 확인한 뒤 신규 선택을 활성화한다. 다음 변경은 기존 12판을 쓰는 모임의 FK에 영향을 주지 않는다.
+신규 선택을 활성화하기 전에 대상 환경에서 API·편집기·realtime이 새 발행본을 읽는지 확인한다. 다음 변경은 현재 12판을 쓰는 모임의 FK를 유지한다.
 
 ```sql
 UPDATE space_blueprint_default SET blueprint_version = 13
@@ -136,7 +150,7 @@ WHERE template_key = 'lounge' AND blueprint_version = 12;
 | 물건을 꺼낸 원본 가구가 삭제됨 | 이미 손에 든 물건은 유지 | 가구 수명과 꺼낸 물건 수명을 구분함 |
 | 제조 중인 기계 이동·삭제 | 작업을 취소하고 컵은 보존 | 진행 시간은 이어받지 않음 |
 
-“예전 위치에서 누른 앉기도 허용하자”는 중간 논의 뒤에 “거절하도록 하자”는 요청이 있어 최종 정책은 거절로 정했다. 앉아 있는 사람을 가구와 함께 이동시키는 정책은 채택하지 않았다. 구현 근거는 [배치 조정](../realtime/src/main/java/com/project/jarihana/realtime/room/domain/LayoutReconciliation.java)과 [실시간 v1 계약](../contracts/realtime/v1/README.md)에 있다.
+“예전 위치에서 누른 앉기도 허용하자”는 중간 논의 뒤에 “거절하도록 하자”는 요청이 있어 최종 정책은 거절로 정했다. 앉아 있는 사람을 가구와 함께 이동시키는 정책은 채택하지 않았다. 구현 근거는 [배치 조정](../realtime/src/main/java/com/project/jarihana/realtime/room/domain/LayoutReconciliation.java)과 [실시간 v1 계약](clubhouse-realtime-contract-v1.md)에 있다.
 
 ### 개인 아바타와 동작
 

@@ -1,32 +1,12 @@
 // Preset facilities use the same editable item contract as ordinary furnishings.
 // Wall and ceiling fixtures retain floor-relative heights when moved to another map.
-export const LEGACY_FACILITY_ASSETS = Object.freeze([
-  { kind: "libraryShelfWood", name: "원목 게임 라이브러리", width: 2.4, depth: 0.7, height: 3.34, collection: "boardgame" },
-  { kind: "libraryShelfDisplay", name: "게임 전시 라이브러리", width: 2.4, depth: 0.7, height: 3.34, collection: "boardgame" },
-  { kind: "libraryShelfDark", name: "다크 게임 라이브러리", width: 2.4, depth: 0.7, height: 3.34, collection: "boardgame" },
-  { kind: "gameWallBoard", name: "게임방 추억 게시판", width: 4.8, depth: 0.18, height: 3.45, mount: "wall", collection: "boardgame" },
-  { kind: "gameWallArt", name: "게임 아트와 벽 조명", width: 2.7, depth: 0.5, height: 3.4, mount: "wall", collection: "boardgame" },
-  { kind: "gameNeon", name: "Good Game 네온", width: 3.1, depth: 0.7, height: 7.8, mount: "wall", collection: "boardgame" },
-  { kind: "pendantLight", name: "높은 홀 펜던트", width: 0.8, depth: 0.8, height: 7.8, mount: "ceiling", collection: "common" },
-  { kind: "pendantBulb", name: "높은 홀 전구", width: 0.3, depth: 0.3, height: 7.8, mount: "ceiling", collection: "common" },
-  { kind: "loftPendant", name: "다락 펜던트", width: 0.8, depth: 0.8, height: 4.2, mount: "ceiling", collection: "common" },
-  { kind: "shelfPendant", name: "서가 펜던트", width: 0.3, depth: 0.3, height: 3.34, mount: "ceiling", collection: "common" },
-  { kind: "climbingWallWide", name: "높은 클라이밍 월", width: 3.34, depth: 2.06, height: 11.31, connectedSurface: true, collection: "climbing" },
-  { kind: "climbingWallOverhang", name: "오버행 클라이밍 월", width: 3.34, depth: 2.5, height: 11.31, connectedSurface: true, collection: "climbing" },
-  { kind: "climbingWallNarrow", name: "코너 클라이밍 월", width: 3, depth: 2.08, height: 11.31, connectedSurface: true, collection: "climbing" },
-  { kind: "crashMat", name: "35cm 클라이밍 매트", width: 4.15, depth: 2.3, height: 0.35, walkableHeight: 0.35, collection: "climbing" },
-  { kind: "crashMatWide", name: "35cm 와이드 매트", width: 4.75, depth: 1.8, height: 0.35, walkableHeight: 0.35, collection: "climbing" },
-  { kind: "climbingShoeShelf", name: "암벽화 보관장", width: 1.66, depth: 0.95, height: 3.53, collection: "climbing" },
-  { kind: "climbingHelmetShelf", name: "헬멧 보관장", width: 1.66, depth: 0.95, height: 2.5, collection: "climbing" },
-  { kind: "climbingGearShelf", name: "초크백과 장비 보관장", width: 1.66, depth: 0.95, height: 3.53, collection: "climbing" },
-  { kind: "ropeRack", name: "클라이밍 로프 걸이", width: 1.65, depth: 0.35, height: 3.5, mount: "wall", collection: "climbing" },
-  { kind: "climbingPlant", name: "암장의 잎사귀 화분", width: 0.7, depth: 0.7, height: 1.1, collection: "common" },
-  { kind: "climbingSign", name: "Higher Together 사인", width: 2.65, depth: 0.22, height: 3.88, mount: "wall", collection: "climbing" },
-  { kind: "climbingBoard", name: "클라이밍 기록 보드", width: 4.8, depth: 0.18, height: 3.58, mount: "wall", collection: "climbing" },
-  { kind: "clubPinboard", name: "덩굴 추억 게시판", width: 5.6, depth: 0.8, height: 3.8, mount: "wall", collection: "common" },
-  { kind: "cafeCounter", name: "아지트 카페 카운터", width: 3.8, depth: 1.2, height: 3.1, collection: "common" },
-  { kind: "cafeFridge", name: "아지트 냉장고", width: 0.92, depth: 1, height: 1.95, collection: "common" }
-].map((asset) => Object.freeze({ category: "furniture", ...asset })));
+export const LEGACY_FACILITY_KINDS = Object.freeze([
+  "libraryShelfWood", "libraryShelfDisplay", "libraryShelfDark", "gameWallBoard", "gameWallArt", "gameNeon",
+  "pendantLight", "pendantBulb", "loftPendant", "shelfPendant", "climbingWallWide", "climbingWallOverhang",
+  "climbingWallNarrow", "crashMat", "crashMatWide", "climbingShoeShelf", "climbingHelmetShelf", "climbingGearShelf",
+  "ropeRack", "climbingPlant", "climbingSign", "climbingBoard", "clubPinboard", "cafeCounter",
+  "cafeFridge"
+]);
 
 export function createLegacyFacilityItems(template) {
   const item = (id, kind, x, z, rotation = 0, level = 0) => ({ id: `facility-${id}`, kind, x, z, rotation, ...(level ? { level } : {}) });

@@ -28,7 +28,6 @@ public final class RoomRuntime {
     private final Map<String, LinkedHashMap<String, CachedResult>> results = new LinkedHashMap<>();
     private final Map<String, AtomicReference<Map<String, Object>>> pendingMoves = new ConcurrentHashMap<>();
     private final AtomicBoolean ticking = new AtomicBoolean();
-    private final AtomicBoolean refreshing = new AtomicBoolean();
     private final AtomicInteger pendingJoins = new AtomicInteger();
     private long lastFrame;
     private boolean hasJoined;
@@ -53,7 +52,6 @@ public final class RoomRuntime {
             if (peer.isClosed()) return;
             if (closed) { reject(peer, "ROOM_CLOSED", true); return; }
             try {
-                if (admission.leaseExpiresAt() <= clock.millis()) throw new RuleViolation("ACCESS_EXPIRED");
                 Peer previous = peers.get(admission.memberId());
                 if (previous != null && previous.order() > peer.order()) { peer.close(4002, "CONNECTION_REPLACED"); return; }
                 if (state.replaceLayout(layout, clock.millis())) broadcast();
@@ -63,7 +61,7 @@ public final class RoomRuntime {
                 peer.joined();
                 hasJoined = true;
                 if (previous != null && previous != peer) previous.close(4002, "CONNECTION_REPLACED");
-                peer.send(state.snapshot("ROOM_SNAPSHOT", admission.memberId(), peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
                 broadcast();
             } catch (RuleViolation error) { reject(peer, error.code(), true); }
             }
@@ -120,13 +118,13 @@ public final class RoomRuntime {
         String commandId = null;
         try {
             if (peers.get(memberId) != peer) throw new RuleViolation("CONNECTION_REPLACED");
-            state.actor(memberId, peer.generation(), clock.millis());
+            state.actor(memberId, peer.generation());
             if (!state.epoch().equals(message.get("roomEpoch")) || !peer.generation().equals(message.get("connectionGeneration"))) {
                 throw new RuleViolation("STALE_CONNECTION");
             }
             String type = Values.text(message, "type");
             if (type.equals("RESYNC")) {
-                peer.send(state.snapshot("ROOM_SNAPSHOT", memberId, peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
                 return;
             }
             if (type.equals("PING")) {
@@ -157,9 +155,8 @@ public final class RoomRuntime {
             else peer.send(Map.of("type", "ERROR", "code", error.code(), "message", error.code(),
                     "reason", error.reason(), "retryable", false), false, clock.millis());
             if (error.code().equals("INVALID_MOVEMENT") || error.code().equals("LAYOUT_MISMATCH")) {
-                peer.send(state.snapshot("ROOM_SNAPSHOT", memberId, peer.generation(), clock.millis()), false, clock.millis());
+                snapshot(peer, "ROOM_SNAPSHOT", clock.millis());
             }
-            if (error.code().equals("ACCESS_EXPIRED")) peer.close(4001, error.code());
         }
     }
 
@@ -178,13 +175,12 @@ public final class RoomRuntime {
         peer.send(result, false, clock.millis());
     }
 
-    public void renew(Peer peer, Admission admission, RoomLayout layout) {
+    public void updateRole(Peer peer, String role) {
         control(() -> {
-            if (closed || peer.isClosed() || peers.get(admission.memberId()) != peer) return;
+            String memberId = peer.identity().memberId();
+            if (closed || peer.isClosed() || peers.get(memberId) != peer) return;
             try {
-                long now = clock.millis();
-                boolean presentationChanged = state.renew(admission, peer.generation(), now);
-                if (state.replaceLayout(layout, now) || presentationChanged) broadcast();
+                state.updateRole(memberId, peer.generation(), role);
             } catch (RuleViolation error) { peer.close(4001, error.code()); }
         });
     }
@@ -201,7 +197,6 @@ public final class RoomRuntime {
                 boolean changed = state.tick(now);
                 for (ParticipantState actor : state.participants()) {
                     Peer peer = peers.get(actor.memberId());
-                    if (actor.leaseExpiresAt() <= now) peer.close(4001, "ACCESS_EXPIRED");
                     if (peer.isClosed() && now - peer.disconnectedAt() >= graceMs) {
                         changed |= state.leave(actor.memberId(), peer.generation(), now);
                         peers.remove(actor.memberId());
@@ -211,7 +206,9 @@ public final class RoomRuntime {
                 if (changed) broadcast();
                 if (lastFrame != state.frameSeq()) {
                     lastFrame = state.frameSeq();
-                    for (Peer peer : peers.values()) peer.send(state.movement(peer.identity().memberId(), peer.generation(), now), true, now);
+                    for (Peer peer : peers.values()) {
+                        peer.send(state.movement(peer.identity().memberId(), peer.generation(), now, peer.seatRefs()), true, now);
+                    }
                 }
                 if (peers.isEmpty() && pendingJoins.get() == 0 && (hasJoined || now - createdAt >= 5000)) terminate("EMPTY");
             } finally { ticking.set(false); }
@@ -220,7 +217,11 @@ public final class RoomRuntime {
 
     private void broadcast() {
         long now = clock.millis();
-        for (Peer peer : peers.values()) peer.send(state.snapshot("ROOM_STATE", peer.identity().memberId(), peer.generation(), now), false, now);
+        for (Peer peer : peers.values()) snapshot(peer, "ROOM_STATE", now);
+    }
+
+    private void snapshot(Peer peer, String type, long now) {
+        peer.send(state.snapshot(type, peer.identity().memberId(), peer.generation(), now, peer.seatRefs()), false, now);
     }
 
     private void control(Runnable action) {
@@ -244,8 +245,6 @@ public final class RoomRuntime {
         if (close) peer.close(code.equals("OVERLOADED") || code.equals("ROOM_CLOSED") ? 4004 : code.equals("LAYOUT_UPGRADE_REQUIRED") ? 4003 : 4001, code);
     }
 
-    public boolean beginRefresh() { return !closed && refreshing.compareAndSet(false, true); }
-    public void endRefresh() { refreshing.set(false); }
     public boolean isClosed() { return closed; }
     public boolean hasConnectedPlayers() { return !closed && peers.values().stream().anyMatch(peer -> peer.isJoined() && !peer.isClosed()); }
     public String roomId() { return state.roomId(); }

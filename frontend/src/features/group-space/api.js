@@ -15,20 +15,66 @@ const geometrySchema = z.object({
   island: z.object({ surface: bounds, walkable: bounds, bottomY: z.number() }).passthrough().optional(),
   terrace: bounds.extend({ fixtures: z.array(wall) }).optional()
 }).passthrough().refine((geometry) => !geometry.mezzanine || (geometry.stairs && geometry.mezzaninePaths && geometry.pillars && geometry.railings && geometry.stairRails));
-const blueprintSchema = z.object({ blueprintRef: blueprintRefSchema, geometry: geometrySchema });
+const spawnSchema = z.object({ x: z.number(), z: z.number() });
+const initialRoomSchema = z.object({ template: z.string(), version: z.number().int(), items: z.array(z.object({}).passthrough()) }).passthrough();
+export const pinnedBlueprintSchema = z.object({ blueprintRef: blueprintRefSchema, geometry: geometrySchema, spawn: spawnSchema });
+const blueprintSchema = pinnedBlueprintSchema.extend({ defaultRoom: initialRoomSchema }).refine(blueprint => blueprint.blueprintRef.templateKey === blueprint.defaultRoom.template);
 
 export function fetchDefaultSpaceBlueprint(templateKey) {
   return apiRequest(`group-spaces/blueprints/${encodeURIComponent(templateKey)}/default`, { schema: blueprintSchema });
 }
 
+const assetKinds = z.array(z.string());
+const slotCount = z.number().int().positive().max(64);
+const interaction = z.object({
+  capabilities: assetKinds,
+  seatCount: slotCount.optional(),
+  surface: z.object({ slots: slotCount }).optional(),
+  storage: z.object({ kinds: assetKinds, capacity: slotCount }).optional(),
+  producer: z.object({ kinds: assetKinds }).optional(),
+  panel: z.enum(["dashboard", "activities", "music"]).optional()
+}).refine((definition) => (definition.capabilities.includes("seatable") === Boolean(definition.seatCount)) &&
+  (definition.capabilities.includes("surface") === Boolean(definition.surface)) &&
+  (definition.capabilities.includes("storage") === Boolean(definition.storage)) &&
+  (definition.capabilities.includes("producer") === Boolean(definition.producer)) &&
+  (definition.capabilities.includes("panelEntry") === Boolean(definition.panel)));
+const furniture = z.object({
+  kind: z.string().min(1), name: z.string().min(1), category: z.enum(["furniture", "memories"]),
+  placeable: z.boolean(), minRoomVersion: z.number().int().positive(),
+  width: z.number().positive(), depth: z.number().positive(), height: z.number().positive(),
+  surfaces: z.array(z.number().positive()), collection: z.string().optional(),
+  mount: z.enum(["wall", "ceiling"]).optional(), prop: z.boolean().optional(),
+  underlay: z.boolean().optional(), connectedSurface: z.boolean().optional(), walkableHeight: z.number().positive().optional(),
+  interaction: interaction.optional()
+});
+const portableItem = z.object({
+  portable: z.boolean(),
+  throwable: z.boolean(),
+  consumable: z.boolean(),
+  camera: z.boolean().optional(),
+  emptyKind: z.string().min(1).optional()
+});
+const furnitureCatalogSchema = z.object({
+  interactionCatalogVersion: z.literal(1),
+  items: z.array(furniture).min(1).refine(items => new Set(items.map(item => item.kind)).size === items.length),
+  portableCatalogVersion: z.literal(1),
+  portableItems: z.record(z.string().min(1), portableItem)
+});
+
+export function fetchFurnitureCatalog(signal) {
+  return apiRequest("group-spaces/furniture-catalog", { schema: furnitureCatalogSchema, signal, cache: "no-cache" });
+}
+
 export const groupSpaceSchema = z.object({
   blueprintRef: blueprintRefSchema.nullish(), geometry: geometrySchema.nullish(),
+  spawn: spawnSchema.nullish(), defaultRoom: initialRoomSchema.nullish(),
   room: z.record(z.string(), z.unknown()).nullable(),
   revision: z.number().int().nonnegative(),
   canEdit: z.boolean(),
   updatedAt: localDateTimeSchema.nullable()
 }).refine((space) => (space.room !== null || space.revision === 0) &&
-  Boolean(space.blueprintRef) === Boolean(space.geometry) &&
+  Boolean(space.blueprintRef) === Boolean(space.geometry) && Boolean(space.blueprintRef) === Boolean(space.spawn) &&
+  (space.room !== null || (space.defaultRoom?.template === "lounge" && space.blueprintRef?.templateKey === "lounge")) &&
   (!space.blueprintRef || space.blueprintRef.templateKey === (space.room?.template ?? "lounge")));
 
 export function fetchGroupSpace(groupId) {
@@ -57,8 +103,10 @@ function normalizeMemoryLink(item) {
   }
 }
 
-export function saveGroupSpace(groupId, { room, expectedRevision, blueprintRef, replaceLayout }) {
-  const payload = Array.isArray(room.items) ? { ...room, items: room.items.map(normalizeMemoryLink) } : room;
+export function saveGroupSpace(groupId, { room, expectedRevision, blueprintRef, replaceLayout }, previousRoom) {
+  const savedLinks = new Map(previousRoom?.items.filter(item => item.kind === "memory").map(item => [item.id, item.link]));
+  const payload = Array.isArray(room.items) ? { ...room, items: room.items.map(item =>
+    savedLinks.get(item.id) === item.link ? item : normalizeMemoryLink(item)) } : room;
   if (new TextEncoder().encode(JSON.stringify(payload)).length > MAX_SPACE_BYTES) {
     throw new Error("사진을 조금 줄여 주세요. 공간 전체는 2MB까지 저장할 수 있어요.");
   }

@@ -7,7 +7,3 @@
 !realtime/gradle/**
 !realtime/src
 !realtime/src/**
-!contracts
-!contracts/realtime
-!contracts/realtime/v1
-!contracts/realtime/v1/*.json

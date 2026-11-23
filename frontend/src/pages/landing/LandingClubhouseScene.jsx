@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // 영상으로 녹화하던 회전 속도와 비슷하게 1초에 약 4.6도씩 돈다.
@@ -30,11 +31,14 @@ function sceneZoom(host, defaultZoom) {
   return width && height && width / height < 0.8 ? defaultZoom * PORTRAIT_ZOOM_SCALE : defaultZoom;
 }
 
-function loadClubhouseRuntime() {
+function loadClubhouseRuntime(queryClient) {
   return Promise.all([
     import("../space/roomScene"),
     import("../space/roomState"),
-    import("../space/roomCameraZoom")
+    import("../space/roomCameraZoom"),
+    import("../../features/group-space/api.js").then(({ fetchDefaultSpaceBlueprint }) =>
+      queryClient.fetchQuery({ queryKey: ["space-blueprint-default", "lounge"], queryFn: () => fetchDefaultSpaceBlueprint("lounge") })),
+    import("../../features/group-space/hooks.js").then(({ furnitureCatalogQuery }) => queryClient.fetchQuery(furnitureCatalogQuery))
   ]);
 }
 
@@ -49,6 +53,7 @@ function sendKey(host, type, code) {
 // 화면에 들어오면 three.js 장면을 불러오고, 준비되기 전이나 그래픽 가속을 쓸 수 없을 때는 녹화 장면 이미지를 보여 준다.
 // 화면 밖에서는 멈추고, 동작 줄이기 설정에서는 돌거나 걷지 않고 시점만 바꾼다.
 export function LandingClubhouseScene({ label, mode = "orbit", poster }) {
+  const queryClient = useQueryClient();
   const hostRef = useRef(null);
   const runtimeRef = useRef(null);
   const sceneRef = useRef(null);
@@ -79,8 +84,8 @@ export function LandingClubhouseScene({ label, mode = "orbit", poster }) {
     let cancelled = false;
     let runtime;
     let resizeObserver;
-    loadClubhouseRuntime()
-      .then(([{ createRoomScene }, { createInitialRoom }, { DEFAULT_ROOM_ZOOM }]) => {
+    loadClubhouseRuntime(queryClient)
+      .then(([{ createRoomScene }, { createInitialRoom }, { DEFAULT_ROOM_ZOOM }, blueprint]) => {
         const host = hostRef.current;
         if (cancelled || !host) return;
         runtime = createRoomScene(host, {
@@ -102,7 +107,7 @@ export function LandingClubhouseScene({ label, mode = "orbit", poster }) {
           preserveWalkPose: () => false,
           showPreviewExterior: () => true
         });
-        const scene = { room: createInitialRoom(), zoom: sceneZoom(host, DEFAULT_ROOM_ZOOM), view: null, flight: null };
+        const scene = { room: createInitialRoom("lounge", { blueprint }), zoom: sceneZoom(host, DEFAULT_ROOM_ZOOM), view: null, flight: null };
         sceneRef.current = scene;
         runtimeRef.current = runtime;
         if (typeof ResizeObserver !== "undefined") {
@@ -126,7 +131,7 @@ export function LandingClubhouseScene({ label, mode = "orbit", poster }) {
       runtimeRef.current = null;
       sceneRef.current = null;
     };
-  }, [started]);
+  }, [started, queryClient]);
 
   // 둘러보기와 3인칭 걷기 사이를 오간다. 처음 그릴 때와 동작 줄이기 설정에서는 날지 않고 바로 바꾼다.
   useEffect(() => {

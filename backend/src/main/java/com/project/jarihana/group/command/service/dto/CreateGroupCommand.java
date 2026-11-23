@@ -17,8 +17,16 @@ public record CreateGroupCommand(
         String location,
         String representativeImageKey,
         RecurringSchedule recurringSchedule,
-        SessionSchedule sessionSchedule
+        SessionSchedule sessionSchedule,
+        String clubhouseTemplateKey
 ) {
+
+    public CreateGroupCommand(GroupType type, String name, String introduction, String description,
+                              MeetingType meetingType, String location, String representativeImageKey,
+                              RecurringSchedule recurringSchedule, SessionSchedule sessionSchedule) {
+        this(type, name, introduction, description, meetingType, location, representativeImageKey,
+                recurringSchedule, sessionSchedule, null);
+    }
 
     public record RecurringSchedule(
             Set<DayOfWeek> daysOfWeek,

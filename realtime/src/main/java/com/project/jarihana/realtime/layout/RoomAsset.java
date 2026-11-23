@@ -1,23 +1,25 @@
 package com.project.jarihana.realtime.layout;
 
-import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.domain.Vec3;
 import java.util.List;
 import java.util.Set;
 
 public record RoomAsset(String id, String kind, Vec3 position, double rotation, double scaleX, double scaleY,
         double scaleZ, double width, double depth, double height, Set<String> capabilities,
-        List<Vec3> seats, List<String> supplies, List<String> products, int slots,
-        boolean obstacle, double platformHeight, List<Vec3> surfaces, double interactionFloor, long productionMs, long cooldownMs) {
+        int seatCount, List<String> supplies, List<String> products, int storageCapacity,
+        boolean obstacle, double platformHeight, int surfaceSlots, double interactionFloor, long productionMs, long cooldownMs) {
     public RoomAsset {
         capabilities = Set.copyOf(capabilities);
-        seats = List.copyOf(seats);
         supplies = List.copyOf(supplies);
         products = List.copyOf(products);
-        surfaces = List.copyOf(surfaces);
     }
 
     public boolean has(String capability) { return capabilities.contains(capability); }
+
+    public boolean samePlacement(RoomAsset other) {
+        return kind.equals(other.kind) && position.equals(other.position) && rotation == other.rotation &&
+                scaleX == other.scaleX && scaleY == other.scaleY && scaleZ == other.scaleZ;
+    }
 
     public Vec3 world(Vec3 local) {
         double angle = rotation * Math.PI / 2;
@@ -34,20 +36,8 @@ public record RoomAsset(String id, String kind, Vec3 position, double rotation, 
                 (x * Math.sin(angle) + z * Math.cos(angle)) / scaleZ);
     }
 
-    public Vec3 seat(int slot) {
-        if (!has("seatable") || slot < 0 || slot >= seats.size()) throw new RuleViolation("INVALID_SLOT");
-        return world(seats.get(slot));
-    }
-
-    public Vec3 surface(int slot) {
-        if (slot < 0 || slot >= surfaces.size()) throw new RuleViolation("INVALID_SLOT");
-        return world(surfaces.get(slot));
-    }
-
-    public Vec3 storage(int slot) {
-        if (slot < 0 || slot >= slots) throw new RuleViolation("INVALID_SLOT");
-        return world(new Vec3((slot - (slots - 1) / 2.0) * Math.min(0.28, width / Math.max(slots, 1)),
-                surfaces.isEmpty() ? Math.min(height, 1.2) : surfaces.getFirst().y(), 0));
+    public boolean seatReachable(Vec3 point) {
+        return withinReach(point) && Math.abs(point.y() - interactionFloor) <= 0.4;
     }
 
     public boolean reachable(Vec3 point) {

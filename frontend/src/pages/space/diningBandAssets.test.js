@@ -1,5 +1,6 @@
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import * as THREE from "three";
-import { DINING_BAND_ASSETS, DINING_BAND_LAYOUTS, createDiningBandAsset, createDiningBandPresetItems } from "./diningBandAssets";
+import { DINING_BAND_KINDS, DINING_BAND_LAYOUTS, createDiningBandAsset, createDiningBandPresetItems } from "./diningBandAssets";
 import { canPlace, createInitialRoom, validateRoom } from "./roomState";
 
 function resources(object) {
@@ -20,7 +21,7 @@ function dispose(object) {
   Object.values(resources(object)).forEach((entries) => entries.forEach((entry) => entry.dispose()));
 }
 
-test.each(DINING_BAND_ASSETS)("$kind fits its catalog footprint with a floor-aligned origin", ({ kind, width, depth, height }) => {
+test.each(DINING_BAND_KINDS.map(furnitureType))("$kind fits its catalog footprint with a floor-aligned origin", ({ kind, width, depth, height }) => {
   const object = createDiningBandAsset(kind);
   try {
     expect(object.isGroup).toBe(true);
@@ -36,7 +37,7 @@ test.each(DINING_BAND_ASSETS)("$kind fits its catalog footprint with a floor-ali
   } finally { dispose(object); }
 });
 
-test.each(DINING_BAND_ASSETS)("$kind owns independent buffers, materials, and textures", ({ kind }) => {
+test.each(DINING_BAND_KINDS.map(furnitureType))("$kind owns independent buffers, materials, and textures", ({ kind }) => {
   const first = createDiningBandAsset(kind);
   const second = createDiningBandAsset(kind);
   try {
@@ -62,7 +63,7 @@ test("stage top and adjustable room light metadata match the navigation and atmo
   const stage = createDiningBandAsset("rehearsalStage");
   const light = createDiningBandAsset("stageLight");
   try {
-    expect(new THREE.Box3().setFromObject(stage).max.y).toBeCloseTo(DINING_BAND_ASSETS.find((asset) => asset.kind === "rehearsalStage").walkableHeight);
+    expect(new THREE.Box3().setFromObject(stage).max.y).toBeCloseTo(furnitureType("rehearsalStage").walkableHeight);
     const lamp = light.children.find((child) => child.userData.roomLamp);
     expect(lamp.isSpotLight).toBe(true);
     expect(lamp.userData.roomLampStrength).toBe(lamp.intensity);

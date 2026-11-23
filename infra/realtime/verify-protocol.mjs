@@ -8,25 +8,28 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawn } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const runtime = JSON.parse(await readFile(path.join(root, "contracts/realtime/v1/space-runtime.json"), "utf8"));
+const migrations = path.join(root, "backend/src/main/resources/db/migration");
+const migrationFiles = await readdir(migrations);
+const previousJar = process.env.REALTIME_PREVIOUS_JAR;
 const jarName = (await readdir(path.join(root, "realtime/build/libs"))).find((name) => name.endsWith(".jar") && !name.endsWith("-plain.jar"));
 assert.ok(jarName, "Run realtime ./gradlew bootJar before verification");
 const evidence = await mkdtemp(path.join(tmpdir(), "jarihana-realtime-protocol-"));
 // Preflight processes and the live JVM must test the same artifact throughout a local rebuild.
 const candidateJar = path.join(evidence, jarName);
 await copyFile(path.join(root, "realtime/build/libs", jarName), candidateJar);
-const database = `jarihana-realtime-test-${randomUUID()}`;
+const fixtureId = `jarihana-realtime-test-${randomUUID()}`;
 const databasePassword = randomUUID();
 const environments = Object.fromEntries(["dev", "prod"].map((environment) => [environment, {
+  container: fixtureId + "-" + environment,
   databaseName: `realtime_${environment}_test`,
   reader: `realtime_${environment}_reader`,
   password: randomUUID(),
   tokenKey: randomBytes(32)
 }]));
 const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin/java") : "java";
-const room = structuredClone(runtime.defaultRoom);
+const room = { version: 11, template: "lounge", name: "Saved room", theme: "blue" };
 room.items = [
-  { id: "seat", kind: "sofa", x: -2, z: 5.1, rotation: 0 },
+  { id: "seat", kind: "sofa", x: -2, z: 5.1, rotation: 0, level: 0, scaleY: 1.15, color: "#536bd6", title: "오래된 소파" },
   { id: "counter", kind: "cafeCabinet", x: 0, z: 5.8, rotation: 0 },
   { id: "table", kind: "table", x: -4.3, z: 5.5, rotation: 0 }
 ];
@@ -38,7 +41,8 @@ let revision = 1;
 let server;
 let browserPreview;
 let verifyBrowser;
-let databaseStarted = false;
+const startedDatabases = [];
+let previousServer;
 let serverLog = "";
 const clients = [];
 const receipt = [];
@@ -47,8 +51,10 @@ function docker(args, options = {}) {
   return execFileSync("docker", args, { encoding: "utf8", timeout: 120000, ...options });
 }
 
-function sql(input, databaseName = environments.dev.databaseName) {
-  return docker(["exec", "-i", database, "psql", "-X", "-qAt", "-U", "postgres", "-d", databaseName, "-v", "ON_ERROR_STOP=1"], { input });
+function sql(input, databaseName = environments.dev.databaseName, owner) {
+  const database = owner ?? Object.values(environments).find(candidate => candidate.databaseName === databaseName);
+  assert.ok(database, "A PostgreSQL fixture must be selected");
+  return docker(["exec", "-i", database.container, "psql", "-X", "-qAt", "-U", "postgres", "-d", databaseName, "-v", "ON_ERROR_STOP=1"], { input });
 }
 
 function saveLayout(groupIds = [1, 2], layout = room, layoutRevision = revision, environment = "dev", blueprintVersion) {
@@ -69,28 +75,27 @@ function seedAvatar(memberId, hair, outfit, environment = "dev") {
 }
 
 async function startDatabase() {
-  docker(["run", "--detach", "--rm", "--name", database, "--publish", "127.0.0.1::5432",
-    "--env", "POSTGRES_PASSWORD", "postgres:17"],
-  { env: { ...process.env, POSTGRES_PASSWORD: databasePassword } });
-  databaseStarted = true;
-  await waitFor(() => {
-    try {
-      docker(["exec", database, "pg_isready", "--host", "127.0.0.1", "--quiet"], { stdio: "ignore" });
-      return true;
-    } catch { return false; }
-  }, "PostgreSQL startup", 30000);
-  const migrations = path.join(root, "backend/src/main/resources/db/migration");
-  const schema = [];
-  for (const file of ["V1__baseline.sql", "V39__member_avatar.sql", "V40__group_space.sql"]) {
-    schema.push(await readFile(path.join(migrations, file), "utf8"));
-  }
-  for (const { databaseName, reader, password } of Object.values(environments)) {
+  const schema = await Promise.all(["baseline.sql", "member_avatar.sql", "group_space.sql"].map(readMigration));
+  for (const db of Object.values(environments)) {
+    const { databaseName, reader, password, container } = db;
+    docker(["run", "--detach", "--rm", "--name", container, "--publish", "127.0.0.1::5432",
+      "--env", "POSTGRES_PASSWORD", "postgres:17"],
+    { env: { ...process.env, POSTGRES_PASSWORD: databasePassword } });
+    startedDatabases.push(container);
+    await waitFor(() => {
+      try {
+        docker(["exec", container, "pg_isready", "--host", "127.0.0.1", "--quiet"], { stdio: "ignore" });
+        return true;
+      } catch { return false; }
+    }, "PostgreSQL " + databaseName, 30000);
+    db.port = docker(["port", container, "5432/tcp"]).trim().match(/^127\.0\.0\.1:(\d+)$/)?.[1];
+    assert.ok(db.port, "PostgreSQL must bind to a dynamic loopback port");
     sql(`
       CREATE ROLE ${reader} LOGIN PASSWORD '${password}';
       CREATE DATABASE ${databaseName};
       REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC;
       GRANT CONNECT ON DATABASE ${databaseName} TO ${reader};
-    `, "postgres");
+    `, "postgres", db);
     for (const migration of schema) {
       sql(`BEGIN;\n${migration}\nCOMMIT;`, databaseName);
     }
@@ -111,7 +116,7 @@ async function startDatabase() {
       (4, now(), now(), 'Fixture', 'Session group', 'ACTIVE', 'SESSION', 'OFFLINE'),
       (10, now(), now(), 'Fixture', 'Browser room', 'ACTIVE', 'CLUB', 'OFFLINE');
     INSERT INTO member (id, created_at, updated_at, crew_name, github_id, member_type)
-      SELECT id, now(), now(), id::text, 'fixture-' || id, 'COACH' FROM unnest(ARRAY[1, 2, 101, 102, 103, 201]) AS ids(id);
+      SELECT id, now(), now(), id::text, 'fixture-' || id, 'COACH' FROM unnest(ARRAY[1, 2, 101, 102, 103, 104, 201]) AS ids(id);
     INSERT INTO group_member (created_at, updated_at, joined_at, role, group_id, member_id) VALUES
       (now(), now(), now(), 'LEADER', 1, 101), (now(), now(), now(), 'MEMBER', 1, 102),
       (now(), now(), now(), 'LEADER', 2, 201), (now(), now(), now(), 'LEADER', 10, 1);
@@ -137,14 +142,17 @@ async function startDatabase() {
                (12, now(), now(), 'Fixture', 'Cold blueprint room', 'ACTIVE', 'CLUB', 'OFFLINE');`, databaseName);
     saveLayout([11, 12], { ...room, items: [] }, 1, environment);
   }
-  const dbPort = docker(["port", database, "5432/tcp"]).trim().match(/^127\.0\.0\.1:(\d+)$/)?.[1];
-  assert.ok(dbPort, "PostgreSQL fixture must bind to a dynamic loopback port");
-  return dbPort;
 }
 
-async function migrateBlueprints(environment, wallWidth) {
+function readMigration(name) {
+  const files = migrationFiles.filter(file => file.replace(/^V\d+__/, "") === name);
+  assert.equal(files.length, 1, "Expected one migration for " + name);
+  return readFile(path.join(migrations, files[0]), "utf8");
+}
+
+async function migrateBlueprintKeys(environment) {
   const { databaseName, reader } = environments[environment];
-  const migration = await readFile(path.join(root, "backend/src/main/resources/db/migration/V45__versioned_space_blueprints.sql"), "utf8");
+  const migration = await readMigration("versioned_space_blueprints.sql");
   sql(`BEGIN;
     ${migration}
     GRANT SELECT (blueprint_template_key, blueprint_version) ON group_space TO ${reader};
@@ -154,28 +162,81 @@ async function migrateBlueprints(environment, wallWidth) {
     COMMIT;`, databaseName);
   assert.equal(sql("SELECT version FROM space_blueprint_migration;", databaseName).trim(), "1");
   assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 11;", databaseName).trim(), "lounge:11");
+}
+
+async function migrateBlueprintRuntime(environment, wallWidth) {
+  const { databaseName } = environments[environment];
+  const catalog = await readMigration("space_furniture_catalog.sql");
+  const runtime = await readMigration("space_blueprint_runtime.sql");
+  sql(`BEGIN; ${catalog} COMMIT;`, databaseName);
+  sql(`BEGIN; ${runtime} COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_runtime_migration;", databaseName).trim(), "1");
   const blocker = JSON.stringify([{ x: -2, z: 6.8, width: wallWidth, depth: wallWidth, height: 2 }]);
   sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
     SELECT 'lounge', version, 1, jsonb_set(geometry, '{walls}', geometry->'walls' || '${blocker}'::jsonb)
     FROM space_blueprint CROSS JOIN (VALUES (13), (15)) AS published(version)
-    WHERE template_key = 'lounge' AND blueprint_version = 11;`, databaseName);
+    WHERE template_key = 'lounge' AND blueprint_version = 11;
+    INSERT INTO space_blueprint_runtime (template_key, blueprint_version, spawn)
+    SELECT 'lounge', version, spawn FROM space_blueprint_runtime CROSS JOIN (VALUES (13), (15)) AS published(version)
+    WHERE template_key = 'lounge' AND blueprint_version = 11;
+    UPDATE space_furniture_catalog SET placeable = false WHERE kind IN ('sofa', 'propPlant');
+    INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
+      VALUES (16, now(), now(), 'Fixture', 'Unsaved lounge', 'ACTIVE', 'CLUB', 'OFFLINE'),
+             (17, now(), now(), 'Fixture', 'Environment furniture', 'ACTIVE', 'CLUB', 'OFFLINE'),
+             (18, now(), now(), 'Fixture', 'Published spawn', 'ACTIVE', 'CLUB', 'OFFLINE');
+    INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
+      SELECT 'lounge', 18, 1, geometry FROM space_blueprint WHERE template_key='lounge' AND blueprint_version=11;
+    INSERT INTO space_blueprint_runtime (template_key, blueprint_version, spawn)
+      VALUES ('lounge', 18, jsonb_build_object('x', ${wallWidth}, 'z', 7));
+    INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition)
+      SELECT 'publishedShelf', 900, 11, false, definition || jsonb_build_object('width', ${wallWidth},
+        'depth', ${wallWidth}, 'height', 3, 'surfaces', jsonb_build_array(${environment === "dev" ? 0.25 : 2.75}))
+      FROM space_furniture_catalog WHERE kind = 'table';`, databaseName);
+  saveLayout([18], { ...room, items: [] }, 1, environment, 18);
+  saveLayout([17], { ...room, items: [
+    { id: "support", kind: "publishedShelf", x: -2, z: 6.8, rotation: 0 },
+    { id: "plant", kind: "propPlant", x: -2, z: 6.8, rotation: 1, parentId: "support", surfaceIndex: 0 }
+  ] }, 9, environment, 11);
   saveLayout([11], { ...room, items: [] }, 2, environment, 13);
   saveLayout([12], { ...room, items: [] }, 2, environment, 15);
 }
 
-function startServer(dbPort, extraArgs = []) {
+async function migrateFurnitureInteractions(environment) {
+  const { databaseName } = environments[environment];
+  const migration = await readMigration("space_furniture_interactions.sql");
+  const before = sql("SELECT kind, display_order, min_room_version, placeable, definition FROM space_furniture_catalog ORDER BY kind;", databaseName);
+  sql(`BEGIN; ${migration} COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_furniture_catalog_migration;", databaseName).trim(), "1");
+  const after = sql(`SELECT kind, display_order, min_room_version, placeable, definition - 'interaction'
+    FROM space_furniture_catalog WHERE kind <> 'room-general-light-switch' ORDER BY kind;`, databaseName);
+  assert.equal(after, before, "Adding interactions must preserve the existing furniture rows");
+}
+
+async function migratePortableItems(environment) {
+  const { databaseName } = environments[environment];
+  const migration = await readMigration("space_portable_item_catalog.sql");
+  const furnitureQuery = "SELECT kind, definition FROM space_furniture_catalog ORDER BY kind;";
+  const before = sql(furnitureQuery, databaseName);
+  sql(`BEGIN; ${migration} COMMIT;`, databaseName);
+  assert.equal(sql("SELECT version FROM space_portable_item_catalog_migration;", databaseName).trim(), "1");
+  const definitions = sql("SELECT jsonb_object_agg(kind, definition) FROM space_portable_item_catalog;", databaseName);
+  assert.deepEqual(JSON.parse(definitions), JSON.parse(migration.split("$portable_items$")[1]));
+  assert.equal(sql(furnitureQuery, databaseName), before);
+}
+
+function startServer(extraArgs = [], jar = candidateJar) {
   const environmentSettings = {};
-  for (const [environment, { databaseName, reader, password, tokenKey }] of Object.entries(environments)) {
+  for (const [environment, { databaseName, reader, password, tokenKey, port }] of Object.entries(environments)) {
     const prefix = `REALTIME_${environment.toUpperCase()}`;
     environmentSettings[`${prefix}_TOKEN_KEY`] = tokenKey.toString("base64url");
-    environmentSettings[`${prefix}_DB_JDBC_URL`] = `jdbc:postgresql://127.0.0.1:${dbPort}/${databaseName}`;
+    environmentSettings[`${prefix}_DB_JDBC_URL`] = `jdbc:postgresql://127.0.0.1:${port}/${databaseName}`;
     environmentSettings[`${prefix}_DB_USERNAME`] = reader;
     environmentSettings[`${prefix}_DB_PASSWORD`] = password;
   }
   const allowedOrigins = ["http://localhost:5193", "http://127.0.0.1:5193"];
   if (browserPreview) allowedOrigins.push(browserPreview.originUrl);
-  const child = spawn(java, ["-jar", candidateJar,
-    "--server.port=0", "--realtime.refresh-interval-ms=200", "--realtime.reconnect-grace-ms=3000",
+  const child = spawn(java, ["-jar", jar,
+    "--server.port=0", "--realtime.reconnect-grace-ms=3000",
     `--realtime.allowed-origins=${allowedOrigins.join(",")}`, ...extraArgs], {
     cwd: root,
     env: { ...process.env, ...environmentSettings, REALTIME_ENABLED: "true" },
@@ -218,7 +279,8 @@ async function connect(url, memberId, roomId = "1", options = {}) {
   clients.push(client);
   await waitFor(() => socket.readyState === WebSocket.OPEN || client.closed, "socket open");
   assert.equal(client.closed, false);
-  socket.send(JSON.stringify({ type: "AUTH_JOIN", protocolVersion: 1, token: token(memberId, roomId, options) }));
+  socket.send(JSON.stringify({ type: "AUTH_JOIN", protocolVersion: 1, token: token(memberId, roomId, options),
+    ...(options.seatRefs && { seatRefs: true }) }));
   if (options.expectedError) {
     await waitFor(() => client.close || client.state, "access denied closes connection");
     assert.deepEqual(client.close, { code: options.expectedCloseCode ?? 4001, reason: options.expectedError });
@@ -257,38 +319,334 @@ async function command(client, payload, extra = {}) {
     || client.messages.slice(start).find((message) => message.type === "ERROR"), `command ${payload.action}`);
 }
 
+async function verifyLiveFurnitureCatalog(url, checkHealth, openRoom) {
+  const groupId = 19;
+  const newRoomId = String(groupId);
+  const testRoom = { ...room, items: [
+    { id: "seat", kind: "liveSofa", x: -2, z: 5.1, rotation: 0 },
+    { id: "counter", kind: "liveCabinet", x: 0.5, z: 5.8, rotation: 0 }
+  ] };
+  const originalRoom = context(openRoom);
+  const originalCatalog = openRoom.state.catalogGeneration;
+  for (const [environment, { databaseName }] of Object.entries(environments)) {
+    sql(`INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition, seat_anchor_count)
+        SELECT 'liveSofa', (SELECT MAX(display_order) + 1 FROM space_furniture_catalog), min_room_version, true,
+          jsonb_set(definition,'{interaction,seatCount}','2'), seat_anchor_count
+        FROM space_furniture_catalog WHERE kind = 'sofa';
+        INSERT INTO space_furniture_catalog (kind, display_order, min_room_version, placeable, definition, surface_anchor_count)
+        SELECT 'liveCabinet', (SELECT MAX(display_order) + 1 FROM space_furniture_catalog), min_room_version, true,
+          definition || jsonb_build_object('interaction', definition->'interaction' || '{
+            "capabilities":["surface","storage","openable","producer"],"surface":{"slots":3},
+            "storage":{"capacity":8,"kinds":["cup","tea","cookie","book"]},
+            "producer":{"kinds":["coffee","latte"],"durationMs":20000}
+          }'::jsonb), surface_anchor_count
+        FROM space_furniture_catalog WHERE kind = 'kitchenCounter';
+        INSERT INTO groups (id, created_at, updated_at, introduction, name, status, type, meeting_type)
+          VALUES (${groupId}, now(), now(), 'Fixture', 'Live catalog', 'ACTIVE', 'CLUB', 'OFFLINE');
+        INSERT INTO group_member (created_at, updated_at, joined_at, role, group_id, member_id)
+          VALUES (now(), now(), now(), 'LEADER', ${groupId}, 101);`, databaseName);
+    saveLayout([groupId], testRoom, 1, environment, 11);
+  }
+  await waitFor(() => openRoom.state.catalogGeneration > originalCatalog, "existing room sees a newly added catalog kind");
+  assert.deepEqual(context(openRoom), originalRoom);
+  const dev = await connect(url, "101", newRoomId, { seatRefs: true });
+  const prod = await connect(url, "101", newRoomId, { environment: "prod", seatRefs: true });
+  const initial = context(dev);
+  const prodInitial = context(prod);
+  const devApproach = participant(dev, "101").position;
+  const devProp = (id) => dev.state.items.find(item => item.id === id);
+  const perform = async (client, payload) => {
+    const result = await command(client, payload);
+    assert.equal(result.success, true, JSON.stringify(result));
+  };
+  const take = async (kind) => {
+    await perform(dev, { action: "TAKE", assetId: "counter", kind });
+    return waitFor(() => participant(dev, "101").heldItemId, "taken " + kind);
+  };
+  const attach = async (kind, action, location, slot) => {
+    const itemId = await take(kind);
+    await perform(dev, { action, assetId: "counter", itemId, ...(action === "PLACE" && { slot }) });
+    await waitFor(() => devProp(itemId)?.location === location, "item attached to " + location);
+    assert.equal(devProp(itemId).slot, slot);
+    return itemId;
+  };
+  await perform(dev, { action: "OPEN", assetId: "counter" });
+  await perform(prod, { action: "OPEN", assetId: "counter" });
+  const tea = await take("tea");
+  await perform(prod, { action: "TAKE", assetId: "counter", kind: "tea" });
+  const prodTea = await waitFor(() => participant(prod, "101").heldItemId, "production tea");
+  const originalGeneration = dev.state.catalogGeneration;
+  const originalProdGeneration = prod.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET
+    definition = definition || '{"throwable":false,"consumable":false}'::jsonb WHERE kind = 'tea';`);
+  await waitFor(() => dev.state.catalogGeneration > originalGeneration, "portable definition refresh");
+  assert.deepEqual(context(dev), initial);
+  assert.equal(prod.state.catalogGeneration, originalProdGeneration);
+  assert.equal((await command(dev, { action: "THROW", itemId: tea })).code, "NOT_THROWABLE");
+  assert.equal((await command(dev, { action: "CONSUME", itemId: tea })).code, "NOT_CONSUMABLE");
+  await perform(prod, { action: "THROW", itemId: prodTea });
+  await waitFor(() => prod.state.items.some(item => item.id === prodTea && item.location === "THROWN"), "production still throws tea");
+  const editedGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET
+    definition = definition || '{"throwable":true,"consumable":true}'::jsonb WHERE kind = 'tea';`);
+  await waitFor(() => dev.state.catalogGeneration > editedGeneration, "restored portable definition");
+  for (let sip = 0; sip < 3; sip++) await perform(dev, { action: "CONSUME", itemId: tea });
+  await waitFor(() => devProp(tea)?.kind === "cup", "tea changes into its DB-defined empty kind");
+  assert.equal(participant(dev, "101").heldItemId, tea);
+  await perform(dev, { action: "DROP", itemId: tea });
+  receipt.push("portable rules refresh on the same dev socket, production still throws tea, and consuming restored tea keeps its ID and yields a cup");
+
+  const bookGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'true')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > bookGeneration, "development fixture enables throwing books");
+  const book = await take("book");
+  await perform(prod, { action: "TAKE", assetId: "counter", kind: "book" });
+  const prodBook = await waitFor(() => participant(prod, "101").heldItemId, "production holds the original book kind");
+  const throwableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'false')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > throwableGeneration, "held book's throw rule is disabled");
+  assert.deepEqual(context(dev), initial);
+  assert.equal(devProp(book)?.location, "HELD");
+  const deniedThrow = await command(dev, { action: "THROW", itemId: book });
+  assert.equal(deniedThrow.success, false);
+  assert.equal(deniedThrow.code, "NOT_THROWABLE");
+  assert.equal(participant(dev, "101").heldItemId, book);
+
+  const nonThrowableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{portable}', 'false')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > nonThrowableGeneration && participant(dev, "101").heldItemId === null,
+    "disabled portable book leaves the participant's hand");
+  assert.equal(devProp(book), undefined);
+  assert.equal((await command(dev, { action: "TAKE", assetId: "counter", kind: "book" })).code, "INVALID_ITEM_KIND");
+  assert.deepEqual(context(prod), prodInitial);
+  assert.equal(prod.state.catalogGeneration, originalProdGeneration);
+  assert.equal(participant(prod, "101").heldItemId, prodBook);
+  assert.equal((await command(prod, { action: "THROW", itemId: prodBook })).code, "NOT_THROWABLE");
+  await perform(prod, { action: "DROP", itemId: prodBook });
+  const nonPortableGeneration = dev.state.catalogGeneration;
+  sql(`UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{portable}', 'true')
+    WHERE kind='book';`);
+  await waitFor(() => dev.state.catalogGeneration > nonPortableGeneration, "development restores the seeded book rules");
+  assert.deepEqual(context(dev), initial);
+  receipt.push("a held book keeps its ID when throw is revoked, rejects direct THROW, and follows portability changes only in the edited environment");
+
+  const onFirstSurface = await attach("cookie", "PLACE", "SURFACE", 0);
+  const onRemovedSurface = await attach("cookie", "PLACE", "SURFACE", 1);
+  const storedCookie = await attach("cookie", "RETURN", "STORAGE", 0);
+  const excludedTea = await attach("tea", "RETURN", "STORAGE", 1);
+  const excessBook = await attach("book", "RETURN", "STORAGE", 2);
+  const cupId = await take("cup");
+  await perform(dev, { action: "PRODUCE", assetId: "counter", kind: "coffee", itemId: cupId });
+  await waitFor(() => dev.state.assets.counter?.production?.itemId === cupId, "production occupies the last surface slot");
+  assert.equal(devProp(cupId).slot, 2);
+  await perform(dev, { action: "SIT", assetId: "seat", slot: 1 });
+  await perform(prod, { action: "SIT", assetId: "seat", slot: 1 });
+  await waitFor(() => participant(dev, "101")?.seat?.slot === 1 && participant(prod, "101")?.seat?.slot === 1, "both databases permit the original seat");
+  const generation = dev.state.catalogGeneration;
+  const productionGeneration = prod.state.catalogGeneration;
+  sql("UPDATE space_furniture_catalog SET definition=definition WHERE kind IN ('liveSofa', 'liveCabinet');");
+  await new Promise(resolve => setTimeout(resolve, 850));
+  assert.equal(dev.state.catalogGeneration, generation);
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(dev.state.assets.counter?.production?.itemId, cupId);
+  assert.equal(devProp(onRemovedSurface)?.slot, 1);
+  assert.equal(devProp(storedCookie)?.slot, 0);
+  receipt.push("writing identical definitions keeps the same catalog generation, occupancy, attachments and in-progress production");
+  sql(`BEGIN;
+    UPDATE space_furniture_catalog SET definition=jsonb_set(definition,'{interaction,seatCount}','1')
+      WHERE kind='liveSofa';
+    UPDATE space_furniture_catalog SET definition=jsonb_set(jsonb_set(definition,'{interaction,surface,slots}','1'),
+      '{interaction,storage}','{"capacity":2,"kinds":["cookie","cup","book"]}') WHERE kind='liveCabinet';
+    COMMIT;`);
+  await waitFor(() => dev.state.catalogGeneration > generation, "edited rules reach the already connected development room");
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(context(prod), prodInitial);
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  assert.deepEqual(participant(prod, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(participant(dev, "101").seat, null);
+  assert.deepEqual(participant(dev, "101").position, devApproach);
+  assert.equal(devProp(onFirstSurface)?.slot, 0);
+  assert.equal(devProp(storedCookie)?.slot, 0);
+  for (const id of [onRemovedSurface, excludedTea, excessBook, cupId]) assert.equal(devProp(id), undefined);
+  assert.equal(dev.state.assets.counter?.production ?? null, null);
+  assert.equal(dev.state.assets.counter?.open, true);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  assert.equal((await command(dev, { action: "TAKE", assetId: "counter", kind: "tea" })).code, "INVALID_ITEM_KIND");
+  receipt.push("same-socket catalog edits dismount invalid seats, reconcile slots, cancel the removed cup's production and keep valid state; production is isolated");
+
+  const { reader } = environments.dev;
+  const lastGood = dev.state.catalogGeneration;
+  sql(`REVOKE SELECT (placeable) ON space_furniture_catalog FROM ${reader};
+    UPDATE space_furniture_catalog SET placeable=false, definition=jsonb_set(definition,'{interaction,seatCount}','2')
+      WHERE kind='liveSofa';`);
+  assert.equal((await checkHealth()).status, 503);
+  await new Promise(resolve => setTimeout(resolve, 650));
+  assert.equal(dev.state.catalogGeneration, lastGood);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  sql(`GRANT SELECT (placeable) ON space_furniture_catalog TO ${reader};`);
+  await waitFor(() => dev.state.catalogGeneration > lastGood, "same socket applies the catalog after grants recover");
+  assert.equal((await checkHealth()).status, 200);
+  assert.deepEqual(context(dev), initial);
+  await perform(dev, { action: "SIT", assetId: "seat", slot: 1 });
+  receipt.push("catalog read failure keeps last-good rules, then recovery restores the authored seat from 2 to 1 to 2 on an open socket for a retired kind");
+
+  const metadataGeneration = dev.state.catalogGeneration;
+  sql("UPDATE space_furniture_catalog SET display_order=display_order+100 WHERE kind='liveSofa';");
+  await waitFor(() => dev.state.catalogGeneration > metadataGeneration, "catalog display order refresh");
+  assert.deepEqual(context(dev), initial);
+  assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  receipt.push("a furniture display order change invalidates the dev catalog without moving its occupants or changing the production catalog");
+
+  const revoked = await connect(url, "104", newRoomId);
+  await waitFor(() => participant(dev, "104"), "connected member before listener interruption");
+  await perform(dev, { action: "TAKE", assetId: "counter", kind: "cookie" });
+  await waitFor(() => participant(dev, "101").heldItemId === storedCookie, "retained cookie before interruption");
+  const beforeDisconnect = dev.state.catalogGeneration;
+  const missedRevision = initial.layoutRevision + 1;
+  const addedTable = { id: "late-table", kind: "table", x: -5, z: 5.5, rotation: 0 };
+  const useAddedTable = { action: "SIT", assetId: addedTable.id, slot: 0 };
+  sql(`ALTER ROLE ${reader} NOLOGIN;`);
+  try {
+    // Keep existing reader SELECT sessions usable while the separate LISTEN session is offline.
+    assert.equal(sql(`SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity
+      WHERE datname = current_database() AND usename = '${reader}'
+        AND application_name = 'jarihana-realtime-listener';`).trim(), "t");
+    saveLayout([groupId], { ...testRoom, items: [...testRoom.items, addedTable] }, missedRevision, "dev", 11);
+    sql(`BEGIN;
+      UPDATE space_furniture_catalog SET definition=jsonb_set(definition, '{interaction,seatCount}', '1')
+        WHERE kind='liveSofa';
+      UPDATE space_portable_item_catalog SET definition=jsonb_set(definition, '{throwable}', 'false')
+        WHERE kind='cookie';
+      UPDATE member SET withdrawn_at=now() WHERE id=104;
+      COMMIT;`);
+    saveLayout([groupId], testRoom, prodInitial.layoutRevision + 1, "prod", 11);
+    await checkLiveRoom(prod, prodInitial, prodInitial.layoutRevision + 1);
+    await checkLiveRoom(dev, initial, initial.layoutRevision);
+    assert.equal(dev.state.catalogGeneration, beforeDisconnect);
+    assert.deepEqual(participant(dev, "101").seat, { assetId: "seat", slot: 1 });
+    assert.equal((await command(dev, useAddedTable)).code, "ASSET_NOT_FOUND");
+    await checkLiveRoom(revoked, context(revoked), initial.layoutRevision);
+  } finally {
+    sql(`ALTER ROLE ${reader} LOGIN;`);
+  }
+  await waitFor(() => dev.state.catalogGeneration > beforeDisconnect, "missed catalog edits apply after LISTEN reconnect");
+  await checkLiveRoom(dev, initial, missedRevision);
+  await waitFor(() => revoked.close, "missed withdrawal closes the original connection after LISTEN reconnect");
+  assert.deepEqual(revoked.close, { code: 4001, reason: "ACCESS_DENIED" });
+  await waitFor(() => !participant(dev, "104"), "revoked member leaves other clients' snapshots");
+  assert.equal((await command(dev, useAddedTable)).code, "UNSUPPORTED_ACTION");
+  assert.equal(participant(dev, "101").seat, null);
+  assert.equal((await command(dev, { action: "SIT", assetId: "seat", slot: 1 })).code, "INVALID_SLOT");
+  assert.equal(participant(dev, "101").heldItemId, storedCookie);
+  assert.equal((await command(dev, { action: "THROW", itemId: storedCookie })).code, "NOT_THROWABLE");
+  assert.equal(prod.state.catalogGeneration, productionGeneration);
+  assert.deepEqual(participant(prod, "101").seat, { assetId: "seat", slot: 1 });
+  assert.equal((await command(prod, useAddedTable)).code, "ASSET_NOT_FOUND");
+  receipt.push("after the dev LISTEN connection is terminated, reconnect picks up a missed layout, furniture and portable catalog edits and account withdrawal on existing sockets; production keeps receiving its own changes");
+  dev.socket.close(1000, "LEAVE");
+  prod.socket.close(1000, "LEAVE");
+}
+
+async function stopServer(server) {
+  if (!server?.pid || server.exitCode !== null || server.signalCode !== null) return;
+  const stopped = new Promise((resolve) => {
+    const timer = setTimeout(() => { server.kill("SIGKILL"); }, 12000);
+    server.once("exit", () => { clearTimeout(timer); resolve(); });
+  });
+  server.kill("SIGTERM");
+  await stopped;
+}
+
 try {
   if (process.argv.includes("--browser")) {
     const browser = await import("./verify-browser.mjs");
     browserPreview = await browser.startBrowserPreview(root);
     verifyBrowser = browser.verifyBrowser;
   }
-  const dbPort = await startDatabase();
-  async function checkBlueprints() {
-    const probe = startServer(dbPort, ["--check-blueprints"]);
-    const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "blueprint preflight", 45000);
+  await startDatabase();
+  async function checkRuntime() {
+    const probe = startServer(["--check-blueprints"]);
+    const exitCode = await waitFor(() => probe.exitCode === null ? false : { code: probe.exitCode }, "two-database runtime preflight", 45000);
     return exitCode.code;
   }
   const savedRows = Object.fromEntries(Object.entries(environments).map(([environment, { databaseName }]) =>
     [environment, sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName)]));
-  assert.notEqual(await checkBlueprints(), 0);
-  await migrateBlueprints("dev", 1);
-  assert.notEqual(await checkBlueprints(), 0);
-  await migrateBlueprints("prod", 3);
-  assert.equal(await checkBlueprints(), 0);
-  receipt.push("preflight requires migrated blueprint tables, catalog, references and grants in both databases");
+  assert.notEqual(await checkRuntime(), 0);
+  for (const environment of Object.keys(environments)) await migrateBlueprintKeys(environment);
+  let previousUrl;
+  let previousDev;
+  if (previousJar) {
+    // The previous release already requires versioned blueprints for a cold join.
+    const logOffset = serverLog.length;
+    previousServer = startServer([], previousJar);
+    const oldPort = await waitFor(() => serverLog.slice(logOffset).match(/Tomcat started on port (\d+)/)?.[1],
+      "previous server startup", 45000);
+    previousUrl = `ws://127.0.0.1:${oldPort}/ws/realtime`;
+    previousDev = await connect(previousUrl, "101");
+    const previousProd = await connect(previousUrl, "101", "1", { environment: "prod" });
+    assert.equal(previousDev.state.layoutRevision, 1);
+    assert.equal(previousProd.state.layoutRevision, productionRevision);
+    previousProd.socket.close(1000, "LEAVE");
+    receipt.push("the previous develop JAR cold-joins existing saved rooms before the runtime catalog changes");
+  }
+  await migrateBlueprintRuntime("dev", 1);
+  await migrateFurnitureInteractions("dev");
+  await migratePortableItems("dev");
+  const changeNotifications = await readMigration("space_change_notifications.sql");
+  sql(`BEGIN; ${changeNotifications} COMMIT;`, environments.dev.databaseName);
+  assert.notEqual(await checkRuntime(), 0, "Both databases must have the room runtime schema and catalog");
+  if (previousDev) {
+    assert.equal(previousServer.exitCode, null);
+    assert.equal((await command(previousDev, { action: "SIT", assetId: "seat", slot: 0 })).success, true);
+    receipt.push("the previous release keeps serving its existing socket after the candidate rejects a development-only migration");
+    previousDev.socket.close(1000, "LEAVE");
+  }
+  await migrateBlueprintRuntime("prod", 3);
+  await migrateFurnitureInteractions("prod");
+  await migratePortableItems("prod");
+  sql(`BEGIN; ${changeNotifications} COMMIT;`, environments.prod.databaseName);
+  if (previousUrl) {
+    for (const environment of Object.keys(environments)) {
+      const cold = await connect(previousUrl, "101", "12", { environment });
+      assert.equal(cold.state.layoutRevision, 2);
+      cold.socket.close(1000, "LEAVE");
+    }
+    receipt.push("the previous develop JAR still cold-joins both databases after the runtime catalog changes");
+  }
+  for (const [column, table] of [["blueprint_version", "space_blueprint_default"], ["spawn", "space_blueprint_runtime"],
+    ["default_room", "space_blueprint_runtime"], ["definition", "space_furniture_catalog"],
+    ["placeable", "space_furniture_catalog"], ["version", "space_furniture_catalog_migration"],
+    ["kind", "space_portable_item_catalog"], ["definition", "space_portable_item_catalog"],
+    ["version", "space_portable_item_catalog_migration"]]) {
+    const { databaseName, reader } = environments.prod;
+    sql(`REVOKE SELECT (${column}) ON ${table} FROM ${reader};`, databaseName);
+    assert.notEqual(await checkRuntime(), 0, "candidate must read " + table + "." + column);
+    sql(`GRANT SELECT (${column}) ON ${table} TO ${reader};`, databaseName);
+  }
+  sql("UPDATE space_blueprint_default SET blueprint_version = 10 WHERE template_key = 'lounge';");
+  assert.notEqual(await checkRuntime(), 0, "a default must have an initialized room");
+  sql("UPDATE space_blueprint_default SET blueprint_version = 12 WHERE template_key = 'lounge';");
+  assert.equal(await checkRuntime(), 0);
+  receipt.push("preflight requires readable catalogs and initialized blueprints in both databases");
   for (const [environment, { databaseName }] of Object.entries(environments)) {
     assert.equal(sql("SELECT revision, room_json FROM group_space WHERE group_id = 1;", databaseName), savedRows[environment]);
     assert.equal(sql("SELECT blueprint_template_key || ':' || blueprint_version FROM group_space WHERE group_id = 1;", databaseName).trim(), "lounge:11");
   }
-  receipt.push("both migrations pin existing saved rooms and preserve their furniture JSON and revision");
+  receipt.push("the migrations pin existing saved rooms and preserve their furniture JSON and revision");
+  if (previousServer) await stopServer(previousServer);
   serverLog = "";
-  server = startServer(dbPort);
+  server = startServer();
   const port = await waitFor(() => {
     if (!server.pid || server.exitCode !== null) throw new Error(`Server exited: ${serverLog.slice(-8000)}`);
     return serverLog.match(/Tomcat started on port (\d+)/)?.[1];
   }, "Spring startup", 45000);
-  const healthUrl = `http://127.0.0.1:${port}/actuator/health`;
+  const realtimeOrigin = `http://127.0.0.1:${port}`;
+  const healthUrl = `${realtimeOrigin}/actuator/health`;
   const checkHealth = () => fetch(healthUrl, { signal: AbortSignal.timeout(5000) });
   const health = await checkHealth();
   assert.equal(health.status, 200);
@@ -304,6 +662,32 @@ try {
   receipt.push("health depends on SELECT grants in both databases");
 
   const url = `ws://127.0.0.1:${port}/ws/realtime`;
+  const shelfPositions = {};
+  for (const [environment, db] of Object.entries(environments)) {
+    const unsaved = await connect(url, "101", "16", { environment });
+    assert.equal(unsaved.state.layoutRevision, 0);
+    assert.deepEqual(participant(unsaved, "101").position, { x: -2, y: 0, z: 6.8 });
+    const bench = await command(unsaved, { action: "SIT", assetId: "entrance-bench", slot: 0 });
+    const absent = await command(unsaved, { action: "SIT", assetId: "missing-bench", slot: 0 });
+    assert.equal(absent.code, "ASSET_NOT_FOUND");
+    assert.ok(bench.success || bench.code === "TOO_FAR", JSON.stringify(bench));
+    unsaved.socket.close(1000, "LEAVE");
+    assert.equal(sql("SELECT count(*) FROM group_space WHERE group_id = 16;", db.databaseName).trim(), "0");
+    const shelf = await connect(url, "101", "17", { environment });
+    assert.equal(shelf.state.layoutRevision, 9);
+    shelfPositions[environment] = participant(shelf, "101").position;
+    const water = await command(shelf, { action: "WATER", assetId: "plant" });
+    assert.equal(water.success, environment === "dev", JSON.stringify(water));
+    if (environment === "prod") assert.equal(water.code, "TOO_FAR");
+    const published = await connect(url, "101", "18", { environment });
+    assert.deepEqual(participant(published, "101").position, { x: environment === "dev" ? 1 : 3, y: 0, z: 7 });
+    published.socket.close(1000, "LEAVE");
+    shelf.socket.close(1000, "LEAVE");
+  }
+  assert.notDeepEqual(shelfPositions.dev, shelfPositions.prod);
+  receipt.push("both unsaved rooms use the original flat lounge, entry bench and spawn at revision zero without inserting a row");
+  receipt.push("the same retired shelf key has different collision bounds and attachment heights in each database; a retired plant is reachable only on the lower surface");
+  receipt.push("a published blueprint has different spawn coordinates in development and production for the same template and version");
   const devMap = await connect(url, "101", "11");
   const prodMap = await connect(url, "101", "11", { environment: "prod" });
   const devInitial = context(devMap), prodInitial = context(prodMap);
@@ -329,11 +713,11 @@ try {
 
   const { reader: prodReader, databaseName: prodDb } = environments.prod;
   sql(`REVOKE SELECT (blueprint_version) ON space_blueprint_default FROM ${prodReader};`, prodDb);
-  assert.notEqual(await checkBlueprints(), 0);
+  assert.notEqual(await checkRuntime(), 0);
   sql(`GRANT SELECT (blueprint_version) ON space_blueprint_default TO ${prodReader};`, prodDb);
   // Terminate only the production reader's connections, and prevent Hikari from immediately opening new ones.
   sql(`ALTER DATABASE ${prodDb} ALLOW_CONNECTIONS false;
-    SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${prodDb}' AND usename = '${prodReader}';`, "postgres");
+    SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${prodDb}' AND usename = '${prodReader}';`, "postgres", environments.prod);
   try {
     const [unaffected, , failedHealth] = await Promise.all([
       connect(url, "102", "11"), connect(url, "101", "12", { environment: "prod", expectedError: "BACKEND_UNAVAILABLE", expectedCloseCode: 4004 }),
@@ -345,9 +729,9 @@ try {
     assert.deepEqual(await checkLiveRoom(devMap, devInitial, 2), devStart);
     unaffected.socket.close(1000, "LEAVE");
   } finally {
-    sql(`ALTER DATABASE ${prodDb} ALLOW_CONNECTIONS true;`, "postgres");
+    sql(`ALTER DATABASE ${prodDb} ALLOW_CONNECTIONS true;`, "postgres", environments.prod);
   }
-  assert.equal(await checkBlueprints(), 0);
+  assert.equal(await checkRuntime(), 0);
   assert.equal((await checkHealth()).status, 200);
   const restored = await connect(url, "101", "12", { environment: "prod" });
   assert.deepEqual(participant(restored, "101").position, prodStart);
@@ -365,7 +749,7 @@ try {
 
   const jti = randomUUID();
   const [a, productionA] = await Promise.all([
-    connect(url, "101", "1", { jti }),
+    connect(url, "101", "1", { jti, seatRefs: true }),
     connect(url, "101", "1", { environment: "prod", jti })
   ]);
   await connect(url, "101", "1", { jti, expectedError: "TOKEN_REPLAYED" });
@@ -392,25 +776,39 @@ try {
   assert.equal(participant(a, "102").avatarAppearance.outfit, "coral");
   assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
   assert.equal(participant(productionB, "102").avatarAppearance, null);
-  const avatarControlSeq = b.state.controlSeq;
   sql("UPDATE member_avatar SET outfit = 'ochre', updated_at = now() WHERE member_id = 101;");
-  await waitFor(() => participant(b, "101").avatarAppearance.outfit === "ochre", "avatar changes on refresh");
-  assert.ok(b.state.controlSeq > avatarControlSeq);
-  assert.equal(b.state.layoutRevision, revision);
-  assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
-  receipt.push("participant avatars come from the verified environment and update without movement or layout changes");
 
+  const beforeSitting = participant(a, "101");
+  assert.equal((await command(a, { action: "SIT", assetId: "seat", slot: 3 })).code, "INVALID_SLOT");
   assert.equal((await command(a, { action: "SIT", assetId: "seat", slot: 1 })).success, true);
   assert.equal((await command(productionA, { action: "SIT", assetId: "seat", slot: 1 })).success, true);
-  const devSeat = await waitFor(() => a.state.participants.find((participant) => participant.memberId === "101")?.seat, "development seat");
+  const canonicalSeat = await waitFor(() => participant(a, "101")?.seat, "canonical seat");
+  assert.deepEqual(canonicalSeat, { assetId: "seat", slot: 1 });
+  assert.deepEqual(participant(a, "101").position, beforeSitting.position);
+  assert.equal(participant(a, "101").yaw, beforeSitting.yaw);
+  const devSeat = await waitFor(() => participant(b, "101")?.seat, "legacy seat");
+  assert.deepEqual(devSeat.approach, beforeSitting.position);
+  assert.deepEqual(participant(b, "101").position, devSeat.position);
+  assert.equal(participant(b, "101").yaw, devSeat.yaw);
+  const staleSeatCommand = await command(a, { action: "STAND" }, { layoutRevision: revision - 1 });
+  assert.equal(staleSeatCommand.code, "LAYOUT_MISMATCH");
+  await checkLiveRoom(a, context(a), revision);
+  assert.deepEqual(participant(a, "101").seat, canonicalSeat);
+  const blockedMoveStart = a.messages.length;
+  a.socket.send(JSON.stringify({ type: "MOVE", ...context(a), moveSeq: 1, payload: {
+    ...beforeSitting.position, yaw: beforeSitting.yaw, locomotion: "walking"
+  } }));
+  await waitFor(() => a.messages.slice(blockedMoveStart).find(
+    message => message.type === "ERROR" && message.code === "SEATED"), "seated movement is rejected");
+  receipt.push("canonical and legacy peers see different seat views of the same actor; resync preserves seat references and movement is blocked while seated");
   const prodSeat = await waitFor(() => productionA.state.participants.find((participant) => participant.memberId === "101")?.seat, "production seat");
   assert.ok(Math.abs(devSeat.position.x - prodSeat.position.x - 0.25) < 0.0001);
   const conflict = await command(b, { action: "SIT", assetId: "seat", slot: 1 });
-  assert.equal(conflict.success, false);
-  const c = await connect(url, "103");
+  assert.equal(conflict.code, "OCCUPIED");
+  let c = await connect(url, "103");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "101").seat.assetId, "seat");
   assert.equal(c.state.participants.find((participant) => participant.memberId === "103").displayName, "103");
-  assert.equal(participant(c, "101").avatarAppearance.outfit, "ochre");
+  assert.equal(participant(c, "101").avatarAppearance.outfit, "mint");
   assert.equal(participant(c, "103").avatarAppearance, null);
   assert.deepEqual(productionA.state.participants.map(({ memberId }) => memberId).sort(), ["101", "102"]);
   receipt.push("one seat owner and late-joining guest receives the seated snapshot");
@@ -451,8 +849,15 @@ try {
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "source removal");
   assert.equal(self().heldItemId, itemId);
-  assert.equal((await command(a, { action: "THROW", itemId, velocity: { x: 0, y: 3, z: 2 } })).success, true);
+  const throwStart = a.messages.length;
+  const throwVelocity = { x: 0, y: 3, z: 2 };
+  assert.equal((await command(a, { action: "THROW", itemId, velocity: throwVelocity })).success, true);
+  const thrown = await waitFor(() => a.messages.slice(throwStart).flatMap(message => message.items ?? [])
+    .find(item => item.id === itemId && item.location === "THROWN"), "thrown item has a world pose");
+  assert.deepEqual(thrown.velocity, throwVelocity);
+  assert.ok(Object.values(thrown.position).every(Number.isFinite));
   await waitFor(() => a.state.items.some((item) => item.id === itemId && item.location === "WORLD"), "throw landing");
+  assert.ok(Object.values(a.state.items.find(item => item.id === itemId).position).every(Number.isFinite));
   assert.equal(self().heldItemId, null);
   receipt.push("source deletion preserves held item and throw settles in world");
 
@@ -476,27 +881,79 @@ try {
   assert.equal(a.state.items.find((item) => item.id === cupId)?.kind, "cup");
   receipt.push("moving a producer cancels work and preserves the cup past the old deadline");
 
+  const prop = (id) => a.state.items.find((item) => item.id === id);
+  assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
+  assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 1, itemId: cupId })).code, "INVALID_SLOT");
+  assert.equal(self().heldItemId, cupId);
+  assert.equal((await command(a, { action: "PRODUCE", assetId: "counter", kind: "coffee", itemId: cupId })).success, true);
+  await waitFor(() => prop(cupId)?.kind === "coffee", "coffee finishes");
+  assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "counter", 0]);
+  assert.equal((await command(a, { action: "OPEN", assetId: "counter" })).success, true);
+  assert.equal((await command(a, { action: "TAKE", assetId: "counter", kind: "tea" })).success, true);
+  await waitFor(() => self().heldItemId, "held tea");
+  const teaId = self().heldItemId;
+  assert.equal((await command(a, { action: "PLACE", assetId: "counter", slot: 0, itemId: teaId })).code, "OCCUPIED");
+  assert.equal((await command(a, { action: "RETURN", assetId: "counter", itemId: teaId })).success, true);
+  await waitFor(() => prop(teaId)?.location === "STORAGE", "tea is stored");
+  assert.deepEqual([prop(teaId).assetId, prop(teaId).slot], ["counter", 0]);
+  assert.deepEqual([prop(cupId).assetId, prop(cupId).slot], ["counter", 0]);
+  receipt.push("coffee production finishes on the surface and storage can independently occupy slot zero");
+
   assert.equal((await command(a, { action: "PICKUP", itemId: cupId })).success, true);
   assert.equal((await command(a, { action: "PLACE", assetId: "table", slot: 0, itemId: cupId })).success, true);
   await waitFor(() => a.state.items.find((item) => item.id === cupId)?.assetId === "table", "cup on surface");
-  const surfaceX = a.state.items.find((item) => item.id === cupId).position.x;
+  const surfaceX = prop(cupId).position.x;
   room.items = room.items.map((asset) => asset.id === "table" ? { ...asset, x: asset.x - 0.5 } : asset);
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface moved");
-  assert.ok(Math.abs(a.state.items.find((item) => item.id === cupId).position.x - surfaceX + 0.5) < 0.0001);
+  assert.deepEqual([prop(cupId).location, prop(cupId).assetId, prop(cupId).slot], ["SURFACE", "table", 0]);
+  assert.ok(Math.abs(prop(cupId).position.x - surfaceX + 0.5) < 0.0001);
+  const originalC = c;
+  c = await connect(url, "103", "1", { seatRefs: true });
+  await waitFor(() => originalC.closed, "old observer socket is replaced");
+  await waitFor(() => b.state.layoutRevision === revision, "legacy socket sees the moved surface");
+  const restoredAttachment = (id, location, assetId) => {
+    const item = c.state.items.find(item => item.id === id);
+    assert.deepEqual([item.location, item.assetId, item.slot], [location, assetId, 0]);
+    assert.ok(Object.values(item.position).every(Number.isFinite));
+    assert.deepEqual(item.position, prop(id).position);
+    assert.deepEqual(item.position, b.state.items.find(item => item.id === id).position);
+  };
+  restoredAttachment(cupId, "SURFACE", "table");
+  restoredAttachment(teaId, "STORAGE", "counter");
+  assert.equal((await command(a, { action: "TAKE", assetId: "counter", kind: "tea" })).success, true);
+  await waitFor(() => self().heldItemId === teaId, "taking tea restores the originally stored item");
+  assert.equal((await command(a, { action: "RETURN", assetId: "counter", itemId: teaId })).success, true);
+  await waitFor(() => prop(teaId)?.location === "STORAGE", "tea is returned to its storage slot");
+  receipt.push("rejoin restores surface and storage references with compatible positions; taking stored tea preserves its item ID");
   room.items = room.items.filter((asset) => asset.id !== "table");
   revision += 1;
   saveLayout();
   await waitFor(() => a.state.layoutRevision === revision, "surface removed");
-  assert.equal(a.state.items.find((item) => item.id === cupId)?.location, "WORLD");
-  receipt.push("surface attachment follows furniture and becomes a world item after removal");
+  assert.equal(prop(cupId), undefined);
+  assert.equal(prop(teaId).location, "STORAGE");
+  room.items = room.items.filter((asset) => asset.id !== "counter");
+  revision += 1;
+  saveLayout();
+  await waitFor(() => a.state.layoutRevision === revision, "storage removed");
+  assert.equal(prop(teaId), undefined);
+  assert.equal(prop(itemId).location, "WORLD");
+  room.items.push({ id: "counter", kind: "cafeCabinet", x: 0, z: 5.8, rotation: 0 });
+  revision += 1;
+  saveLayout();
+  await waitFor(() => a.state.layoutRevision === revision, "producer restored for reconnect");
+  receipt.push("furniture movement preserves slot attachments; deleting furniture removes only attached and stored props");
 
+  assert.equal(participant(b, "101").avatarAppearance.outfit, "mint");
   const replacement = await connect(url, "101");
   await waitFor(() => a.closed, "old connection replacement");
   await waitFor(() => replacement.state.participants.filter((participant) => participant.memberId === "101").length === 1, "replacement identity");
   assert.notEqual(replacement.state.connectionGeneration, a.state.connectionGeneration);
   assert.equal(participant(replacement, "101").avatarAppearance.outfit, "ochre");
+  await waitFor(() => participant(b, "101").avatarAppearance.outfit === "ochre", "observer sees new avatar after rejoin");
+  assert.equal(participant(productionB, "101").avatarAppearance.outfit, "navy");
+  receipt.push("participant avatars come from the verified environment and refresh on rejoin");
   receipt.push("replacement connection survives old close without duplicate avatar");
 
   sql("UPDATE member SET withdrawn_at = now() WHERE id = 102;");
@@ -512,21 +969,26 @@ try {
   await waitFor(() => !c.state.participants.some((actor) => actor.memberId === "101"), "intentional leave", 1500);
   assert.equal(c.state.items.find((item) => item.id === leftItemId)?.location, "WORLD");
   receipt.push("intentional leave immediately removes the participant and drops the held item");
+  await verifyLiveFurnitureCatalog(url, checkHealth, c);
   if (browserPreview) {
-    Object.assign(room, structuredClone(runtime.defaultRoom), {
+    const defaultRoom = JSON.parse(sql("SELECT default_room FROM space_blueprint_runtime WHERE template_key='lounge' AND blueprint_version=11"));
+    Object.assign(room, defaultRoom, {
       items: [{ id: "camera", kind: "cameraCabinet", x: -5, z: 6.5, rotation: 0 }]
     });
     revision += 1;
     sql(`INSERT INTO space_blueprint (template_key, blueprint_version, geometry_schema_version, geometry)
       SELECT 'lounge', 14, 1, geometry || '{"upperName":"브라우저 검증용 복층"}'::jsonb
-      FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12;`);
+      FROM space_blueprint WHERE template_key = 'lounge' AND blueprint_version = 12;
+      INSERT INTO space_blueprint_runtime (template_key, blueprint_version, spawn)
+      VALUES ('lounge', 14, '{"x":-2,"z":6.8}');`);
     saveLayout([10], room, revision, "dev", 14);
     const snapshot = JSON.parse(sql(`SELECT json_build_object(
         'room', s.room_json::json, 'revision', s.revision,
         'blueprintRef', json_build_object('templateKey', b.template_key, 'version', b.blueprint_version),
-        'geometry', b.geometry)
+        'geometry', b.geometry, 'spawn', r.spawn, 'defaultRoom', null)
       FROM group_space s JOIN space_blueprint b
         ON s.blueprint_template_key = b.template_key AND s.blueprint_version = b.blueprint_version
+      JOIN space_blueprint_runtime r ON r.template_key=b.template_key AND r.blueprint_version=b.blueprint_version
       WHERE s.group_id = 10;`));
     assert.equal(snapshot.room.version, 11);
     assert.equal(snapshot.blueprintRef.version, 14);
@@ -542,15 +1004,8 @@ try {
 } finally {
   await browserPreview?.close();
   for (const client of clients) client.socket.close();
-  if (server?.pid && server.exitCode === null && server.signalCode === null) {
-    const stopped = new Promise((resolve) => {
-      const timer = setTimeout(() => { server.kill("SIGKILL"); }, 12000);
-      server.once("exit", () => { clearTimeout(timer); resolve(); });
-    });
-    server.kill("SIGTERM");
-    await stopped;
-  }
+  await Promise.all([stopServer(server), stopServer(previousServer)]);
   await writeFile(path.join(evidence, "server.log"), serverLog);
-  if (databaseStarted) docker(["rm", "-f", database]);
+  for (const container of startedDatabases) docker(["rm", "-f", container]);
   await unlink(candidateJar);
 }

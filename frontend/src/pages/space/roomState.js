@@ -1,15 +1,14 @@
+import { pinnedBlueprintSchema } from "../../features/group-space/api.js";
+import { canAddFurniture, furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { validateOutdoors } from "./roomOutdoors.js";
-import { DETAIL_ASSETS } from "./detailAssets";
-import { LOW_EDGE_LIGHT_SPEC } from "./lowEdgeLight";
-import { ASSET_SURFACES, surfaceFootprint, assetScale, surfaceHeight, transformAttachedItems, validAssetCustomization } from "./assetCustomization";
+import { surfaceFootprint, assetScale, surfaceHeight, transformAttachedItems, validAssetCustomization } from "./assetCustomization";
 import { FLOOR_MATERIALS, WALL_MATERIALS } from "./surfaceCatalog";
-import { composeReferencePreset, PRESET_MUSIC_POSITIONS } from "./referencePresets";
-import { REFERENCE_FURNISHINGS } from "./referenceFurnishings";
-import { DINING_BAND_ASSETS, createDiningBandPresetItems } from "./diningBandAssets";
-import { STUDY_PHOTO_ASSETS, createStudyPhotoPresetItems } from "./studyPhotoAssets";
-import { LEGACY_FACILITY_ASSETS, createLegacyFacilityItems } from "./legacyFacilityCatalog";
-import { COMMON_ASSET_CATALOG, commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
-import { bindRoomBlueprint, geometryVersion, ROOM_BLUEPRINT, BUILDING, BUILDING_WALLS, CLIMBING_V5, CLIMBING_V6, BOARDGAME_V6, CLEAR_PATHS, LOUNGE_LOFT_VERSION, PLAYER, ROOM_ZONES, YARD, boundsForBox, contains, facilityBounds, getRoomLayout, overlaps } from "./roomLayout";
+import { DINING_BAND_KINDS, createDiningBandPresetItems } from "./diningBandAssets";
+import { LEGACY_FACILITY_KINDS, createLegacyFacilityItems } from "./legacyFacilityCatalog";
+import { commonAssetStatus, commonFunctionForItem } from "./commonFunctionAssets";
+import { initialRoomDocument, bindRoomBlueprint, geometryVersion, ROOM_BLUEPRINT, BUILDING, BUILDING_WALLS, CLIMBING_V5, CLIMBING_V6, BOARDGAME_V6, CLEAR_PATHS, LOUNGE_LOFT_VERSION, PLAYER, ROOM_ZONES, YARD, boundsForBox, contains, facilityBounds, getRoomLayout, overlaps } from "./roomLayout";
+
+export { CATALOG } from "../../features/group-space/furnitureCatalog.js";
 
 export const LOUNGE_LOFT_WRITES_ENABLED = true;
 export const STORAGE_KEY = "jarihana.space-studio.v1";
@@ -52,30 +51,6 @@ export const ACCENT_COLORS = Object.freeze([
 export const FOOD_OPTIONS = Object.freeze([
   { id: "pizza", name: "피자" }, { id: "ramen", name: "라멘" }, { id: "dessert", name: "디저트" }
 ]);
-export const CATALOG = Object.freeze([
-  { kind: "sofa", name: "구름 소파", width: 2.8, depth: 1.1, height: 1.17, category: "furniture" },
-  { kind: "armchair", name: "햇살 의자", width: 1.1, depth: 1.1, height: 1.21, category: "furniture" },
-  { kind: "table", name: "우리 테이블", width: 2.4, depth: 1.5, height: 1.55, category: "furniture" },
-  { kind: "bookshelf", name: "작은 책장", width: 1.8, depth: 0.65, height: 2.17, category: "furniture" },
-  { kind: "plant", name: "초록 친구", width: 0.7, depth: 0.7, height: 1.22, category: "furniture" },
-  { kind: "rug", name: "포근한 러그", width: 2.8, depth: 2, height: 0.06, category: "furniture" },
-  { kind: "stool", name: "동그란 스툴", width: 0.65, depth: 0.65, height: 0.7, category: "furniture" },
-  { kind: "bench", name: "함께 앉는 벤치", width: 2, depth: 0.8, height: 1.26, category: "furniture" },
-  { kind: "beanbag", name: "폭신한 빈백", width: 1.2, depth: 1.2, height: 1.04, category: "furniture" },
-  { kind: "diningTable", name: "여럿이 먹는 식탁", width: 3.4, depth: 1.7, height: 1.21, category: "furniture" },
-  { kind: "gameTable", name: "함께 노는 게임 테이블", width: 4.4, depth: 2.7, height: 0.98, category: "furniture" },
-  { kind: "roundChair", name: "포근한 라운드 체어", width: 1.4, depth: 1.4, height: 1.1, category: "furniture" },
-  { kind: "clubSofa", name: "클럽 라운지 소파", width: 3.6, depth: 1.2, height: 1.18, category: "furniture" },
-  { kind: "gameCredenza", name: "게임 수납 콘솔", width: 3.6, depth: 0.65, height: 1.35, category: "furniture" },
-  { kind: "loungeRug", name: "넓은 라운지 러그", width: 8.6, depth: 7.4, height: 0.04, category: "furniture" },
-  { kind: "gameShelf", name: "보드게임 서가", width: 2.4, depth: 0.55, height: 2.71, category: "furniture" },
-  { kind: "gameChair", name: "게임 의자", width: 0.75, depth: 0.8, height: 1.05, category: "furniture" },
-  { kind: "floorLamp", name: "따뜻한 장스탠드", width: 0.6, depth: 0.6, height: 1.88, category: "furniture" },
-  { kind: "musicConsole", name: "우리 모임 턴테이블", width: 1.44, depth: 0.8, height: 1.01, category: "furniture", collection: "essentials" },
-  ...COMMON_ASSET_CATALOG, ...REFERENCE_FURNISHINGS, ...DETAIL_ASSETS, LOW_EDGE_LIGHT_SPEC,
-  ...LEGACY_FACILITY_ASSETS, ...DINING_BAND_ASSETS, ...STUDY_PHOTO_ASSETS,
-  { kind: "memory", name: "추억 액자", width: 1, depth: 0.6, height: 1.4, category: "memories" }
-]);
 export const THEMES = Object.freeze([
   { id: "blue", name: "파란 오후", floor: "#cda17b", wall: "#e5e9e4" },
   { id: "sage", name: "초록 다락", floor: "#c99c6e", wall: "#dde3ca" },
@@ -89,118 +64,17 @@ export const THEMES = Object.freeze([
 ]);
 export const AVATAR_COLORS = ["#536bd6", "#c991ba", "#7b9b6d", "#d99559"];
 
-export function createInitialRoom(templateId = "lounge", { blueprint, loungeLoft = LOUNGE_LOFT_WRITES_ENABLED } = {}) {
-  const template = ROOM_TEMPLATES.find((entry) => entry.id === templateId) || ROOM_TEMPLATES[0];
-  const item = (id, kind, x, z, rotation = 0, color) => ({ id, kind, x, z, rotation, ...(color ? { color } : {}) });
-  let items = [
-    item("meeting-table", "table", 7.2, -5.25),
-    item("meeting-seat1", "stool", 5.5, -5.25),
-    item("meeting-seat2", "stool", 8.9, -5.25),
-    item("shelf", "bookshelf", 7.2, -7.1),
-    item("sofa", "sofa", 7, 3.7),
-    item("lounge-table", "table", 7, 0.2),
-    item("chair", "armchair", 8.9, 1.8),
-    item("lounge-rug", "rug", 7, 2.2),
-    item("entrance-bench", "bench", -6, 5.85),
-    item("entrance-plant1", "plant", -8, 5.85),
-    item("entrance-plant2", "plant", 7.5, 5.85)
-  ];
-  if (template.id === "climbing") {
-    items = [
-      ...items.slice(8),
-      item("sofa", "clubSofa", 0.6, -0.7, 1, "#b28a5e"),
-      item("lounge-sofa", "clubSofa", 4.4, -1.2, 0, "#454549"),
-      item("lounge-table", "table", 4.1, 1.2),
-      item("lounge-rug", "rug", 4.1, 0.6),
-      item("table", "table", 3, -7),
-      item("seat1", "stool", 1.2, -7), item("seat2", "stool", 4.8, -7),
-      item("bench", "bench", -5.8, 3.5),
-      item("plant", "plant", 5.6, 2.6),
-      ...[
-        item("upper-table", "table", 2.4, -8.4),
-        item("upper-seat1", "gameChair", 0.75, -8.4, 1),
-        item("upper-seat2", "gameChair", 4.05, -8.4, 3),
-        item("upper-table2", "table", 6.6, -8.4),
-        item("upper-seat3", "gameChair", 6.6, -10),
-        item("upper-seat4", "gameChair", 8.25, -8.4, 3),
-        item("upper-sofa", "clubSofa", 2.4, -6.15, 2, "#82746b"),
-        item("upper-chair", "roundChair", 6.6, -6.15, 0, "#b9a58a"),
-        item("upper-plant", "plant", 0.75, -10.2)
-      ].map((entry) => ({ ...entry, level: 1 }))
-    ];
-  } else if (template.id === "boardgame") {
-    items = [
-      ...items.slice(8),
-      item("game-table", "gameTable", -4.3, -0.2, 1),
-      item("game-rug", "rug", -4.3, -0.2, 1),
-      item("game-seat1", "roundChair", -6.65, -1.6, 1, "#3c617d"),
-      item("game-seat2", "roundChair", -6.65, 1.2, 1, "#425f86"),
-      item("game-seat3", "roundChair", -2, -1.6, 3, "#d6bd91"),
-      item("game-seat4", "roundChair", -2, 1.2, 3, "#9e4537"),
-      item("game-seat5", "roundChair", -5.2, -4, 0, "#c6a14a"),
-      item("game-seat6", "roundChair", -3.5, -4, 0, "#728052"),
-      item("game-stool1", "stool", -4.9, 2.8),
-      item("game-stool2", "stool", -3.7, 2.8),
-      item("booth-table", "gameTable", 4.8, -2.2),
-      item("booth-sofa", "clubSofa", 4.8, -5.1, 0, "#353337"),
-      item("booth-sofa2", "clubSofa", 4.8, 0.7, 2, "#353337"),
-      item("booth-sofa3", "clubSofa", 8.4, -2.2, 3, "#353337"),
-      item("booth-sofa4", "clubSofa", 1.2, -2.2, 1, "#353337"),
-      item("booth-rug", "loungeRug", 4.8, -2.2),
-      item("game-console", "gameCredenza", 4.8, 2.5),
-      item("reading-lamp", "floorLamp", 9, -5.2),
-      item("plant", "plant", 9.3, 2.7),
-      ...[
-        item("upper-sofa1", "clubSofa", -5.5, -12, 0, "#684c75"),
-        item("upper-sofa2", "clubSofa", -5.5, -8.7, 2, "#684c75"),
-        item("upper-table1", "table", -5.5, -10.35),
-        item("upper-rug", "rug", -5.5, -10.35),
-        item("upper-table2", "table", 0, -11.3),
-        item("upper-seat1", "roundChair", -1.9, -11.3, 1, "#4b7088"),
-        item("upper-seat2", "roundChair", 1.9, -11.3, 3, "#4b7088"),
-        item("upper-game-table", "gameTable", 6.2, -10.4),
-        ...[4.4, 6.2, 8].flatMap((x, index) => [
-          item(`upper-game-seat${index * 2 + 1}`, "gameChair", x, -12.2),
-          item(`upper-game-seat${index * 2 + 2}`, "gameChair", x, -8.6, 2)
-        ]),
-        item("upper-plant", "plant", 9.2, -12),
-        item("upper-lamp", "floorLamp", -2.8, -9.4),
-        item("upper-greenery", "plant", -9, -12)
-      ].map((entry) => ({ ...entry, level: 1 }))
-    ];
-  } else if (["dining", "band"].includes(template.id)) items = createDiningBandPresetItems(template.id);
-  else if (["study", "photo"].includes(template.id)) items = createStudyPhotoPresetItems(template.id);
-  else items.push(
-    item("table", "table", -6, 0),
-    item("seat1", "stool", -7.7, 0), item("seat2", "stool", -4.3, 0),
-    item("seat3", "stool", -6, -1.3), item("bench", "bench", -6, template.id === "climbing" ? 2.6 : 2),
-    item("lounge", "sofa", 1.4, -0.4), item("beanbag", "beanbag", 1.5, -2.8)
-  );
-  const isLoft = template.id === "lounge" && loungeLoft;
-  if (isLoft && (!blueprint || blueprint.geometry.mezzanine)) items.push(...[
-    item("upper-sofa", "sofa", -10.55, -7.15, 0, "#8c9d85"),
-    item("upper-stool", "stool", -10.55, -6.15, 0, "#c08c64"),
-    item("upper-plant", "plant", -8.35, -7.25),
-    item("upper-bookshelf", "bookshelf", -6.3, -7.35),
-    item("upper-table", "table", -3.35, -6.65),
-    item("upper-seat", "armchair", -1.4, -6.65, 3, "#788f88"),
-    item("upper-sofa2", "sofa", 1.05, -7.15, 0, "#b98567"),
-    item("upper-plant2", "plant", 3, -7.25)
-  ].map((entry) => ({ ...entry, level: 1 })));
-  const musicPosition = template.id === "boardgame" ? { x: 7.8, z: 2.7 } :
-    template.id === "climbing" ? { x: 4.3, z: -3.5 } : { x: 1.5, z: 4.1 };
-  if (!items.some((entry) => entry.kind === "musicConsole")) items.push(item("music-console", "musicConsole", musicPosition.x, musicPosition.z));
-  items.push(...createLegacyFacilityItems(template.id));
-  items = composeReferencePreset(template.id, items);
-  return restoreCommonFunctionAssets(bindRoomBlueprint({
-    version: isLoft ? LOUNGE_LOFT_VERSION : 11, template: template.id, name: "주말 아지트", theme: template.theme, avatarColor: AVATAR_COLORS[0],
-    accentColor: ACCENT_COLORS[0].value, matColor: template.id === "climbing" ? "#7d8b9d" : ACCENT_COLORS[1].value,
-    food: "pizza", coverPhoto: "", notice: "", atmosphere: { ...(TEMPLATE_ATMOSPHERES[template.id] || DEFAULT_ATMOSPHERE) }, items
-  }, blueprint));
+export function createInitialRoom(template = "lounge", options = {}) {
+  const preset = initialRoomDocument(template, options);
+  const available = preset.items.filter(item => canAddFurniture(item.kind, preset.version));
+  const ids = new Set(available.map(item => item.id));
+  // A retired support cannot receive a new prop. Existing saved rooms use readSavedRoom.
+  const items = available.filter(item => !item.parentId || ids.has(item.parentId)).map(item => ({ ...item }));
+  return bindRoomBlueprint({ ...preset, atmosphere: { ...preset.atmosphere }, items }, options.blueprint);
 }
 
 export function restoreCommonFunctionAssets(room) {
-  const missing = commonAssetStatus(room.items).filter((entry) => !entry.items.length);
+  const missing = commonAssetStatus(room.items).filter((entry) => !entry.items.length && canAddFurniture(entry.kind, room.version));
   if (!missing.length) return room;
   if (room.items.length + missing.length > MAX_ITEMS) throw new Error("공통 에셋을 놓을 자리가 부족해요. 가구를 정리한 뒤 다시 추가해 주세요.");
   const items = [...room.items];
@@ -236,11 +110,8 @@ export function applyRoomTemplate(room, templateId, blueprint) {
     matColor: templateId === "climbing" ? fresh.matColor : room.matColor, atmosphere: TEMPLATE_ATMOSPHERES[templateId] ? { ...fresh.atmosphere, ...(room.atmosphere.outdoors && { outdoors: room.atmosphere.outdoors }) } : room.atmosphere, items };
 }
 
-// Placement checks look up item kinds inside nested loops; keep the first entry like Array#find.
-const CATALOG_BY_KIND = new Map();
-for (const entry of CATALOG) if (!CATALOG_BY_KIND.has(entry.kind)) CATALOG_BY_KIND.set(entry.kind, entry);
-export const assetType = (item) => CATALOG_BY_KIND.get(item.kind);
-export const isUnderlay = (item) => ["rug", "loungeRug"].includes(item.kind) || Boolean(assetType(item)?.walkableHeight);
+export const assetType = (item) => furnitureType(item.kind);
+export const isUnderlay = (item) => Boolean(assetType(item)?.underlay || assetType(item)?.walkableHeight);
 export const isMounted = (item) => Boolean(assetType(item)?.mount);
 const isRug = isUnderlay;
 
@@ -276,7 +147,7 @@ function fitsVerticalSpace(item, items, layout) {
 }
 
 export function footprint(item, version = 9) {
-  const type = version < 7 && item.kind === "gameTable" ? { width: 3.2, depth: 1.9 } : CATALOG_BY_KIND.get(item.kind);
+  const type = version < 7 && item.kind === "gameTable" ? { width: 3.2, depth: 1.9 } : furnitureType(item.kind);
   const scale = assetScale(item);
   const width = type.width * scale.x, depth = type.depth * scale.z;
   return { ...type, width: item.rotation % 2 ? depth : width, depth: item.rotation % 2 ? width : depth };
@@ -302,9 +173,9 @@ function canPlaceInLayout(item, items, layout, facilities, version = 9, keepSave
   if (item.parentId) {
     const parent = items.find((other) => other.id === item.parentId);
     if (!assetType(item)?.prop || !parent || parent.parentId || (parent.level || 0) !== level ||
-      ASSET_SURFACES[parent.kind]?.[item.surfaceIndex || 0] === undefined || item.elevation) return false;
-    if (!contains(boundsForBox(surfaceFootprint(parent, item.surfaceIndex || 0, assetType(parent))), boundsForBox({ ...item, ...footprint(item) }))) return false;
-  } else if (item.surfaceIndex !== undefined || item.elevation && !isMounted(item)) return false;
+      assetType(parent)?.surfaces[item.surfaceIndex || 0] === undefined || item.elevation) return false;
+    if (!keepSavedPlacement && !contains(boundsForBox(surfaceFootprint(parent, item.surfaceIndex || 0, assetType(parent))), boundsForBox({ ...item, ...footprint(item) }))) return false;
+  } else if (item.surfaceIndex !== undefined || !keepSavedPlacement && item.elevation && !isMounted(item)) return false;
   if (![0, 1].includes(level) || (level === 1 && !layout.mezzanine)) return false;
   if (keepSavedPlacement) return Math.abs(item.x) <= 64 && Math.abs(item.z) <= 64;
   const bounds = boundsForBox({ ...item, ...footprint(item, version) });
@@ -504,13 +375,16 @@ export function validateRoom(value, { preserveVersion = Boolean(value?.[ROOM_BLU
     !FOOD_OPTIONS.some((entry) => entry.id === food) || !isRoomPhoto(coverPhoto) ||
     typeof notice !== "string" || notice.length > 100 || !atmosphere) return null;
   // Existing server placements can predate the editor's collision rules. Check all new and moved furniture.
-  const savedItems = value[ROOM_BLUEPRINT] && savedRoom?.template === template && savedRoom.version === value.version &&
-    geometryVersion(savedRoom) === geometryVersion(value) ? new Map(savedRoom.items.map(item => [item?.id, item])) : null;
+  const savedItems = new Map(savedRoom?.items?.map(item => [item?.id, item]));
+  const sameLayout = value[ROOM_BLUEPRINT] && savedRoom?.template === template && savedRoom.version === value.version &&
+    geometryVersion(savedRoom) === geometryVersion(value);
   const ids = new Set();
   const items = [];
   for (const item of value.items) {
-    if (!item || typeof item.id !== "string" || !item.id || item.id.length > 80 || ids.has(item.id) ||
-      !CATALOG.some((type) => type.kind === item.kind) ||
+    const type = item && assetType(item);
+    if (!type || typeof item.id !== "string" || !item.id || item.id.length > 80 || ids.has(item.id) ||
+      (preserveVersion && type.minRoomVersion > value.version) ||
+      (!type.placeable && savedItems.get(item.id)?.kind !== item.kind) ||
       (value.version < 7 && ["roundChair", "clubSofa", "gameCredenza", "loungeRug"].includes(item.kind)) ||
       !Number.isFinite(item.x) || !Number.isFinite(item.z) ||
       (item.level !== undefined && (![0, 1].includes(item.level) || (item.level === 1 && (value.version < 5 || !getRoomLayout(value).mezzanine)))) ||
@@ -521,21 +395,25 @@ export function validateRoom(value, { preserveVersion = Boolean(value?.[ROOM_BLU
     if (!validAssetCustomization(item)) return null;
     ids.add(item.id);
     const clean = { id: item.id, kind: item.kind, x: item.x, z: item.z, rotation: item.rotation };
-    for (const key of ["scaleX", "scaleY", "scaleZ", "elevation", "finish", "variant", "parentId", "surfaceIndex"])
+    for (const key of ["scaleX", "scaleY", "scaleZ", "elevation", "finish", "variant", "parentId", "surfaceIndex", "title", "note"])
       if (item[key] !== undefined) clean[key] = item[key];
     if (item.level !== undefined) clean.level = item.level;
     if (item.color !== undefined) clean.color = item.color;
     if (item.kind === "memory") {
-      clean.title = item.title || "추억 액자";
-      clean.note = item.note || "";
-      clean.photo = item.photo ?? "";
-      clean.link = item.link ?? "";
-      if (!isRoomPhoto(clean.photo) || !isSafeRecordLink(clean.link)) return null;
+      if (!isRoomPhoto(item.photo ?? "") || !isSafeRecordLink(item.link ?? "")) return null;
+      if (item.photo !== undefined) clean.photo = item.photo;
+      if (item.link !== undefined) clean.link = item.link;
+      if (!preserveVersion) {
+        clean.title ??= "추억 액자";
+        clean.note ??= "";
+        clean.photo ??= "";
+        clean.link ??= "";
+      }
     }
     const validPlacement = value.version < 4 ? canPlaceLegacy : value.version === 4 ? canPlaceVersion4 : value.version === 5 ? canPlaceVersion5 : value.version === 6 ? canPlaceVersion6 : value.version === 7 ? canPlaceVersion7 : value.version === 8 ? canPlaceVersion8 : value.version === 9 ? canPlaceVersion9 : canPlace;
     const candidates = value.version >= 9 ? value.items : items;
-    const saved = savedItems?.get(clean.id);
-    const keepPlacement = saved && PLACEMENT_FIELDS.every(key => clean[key] === saved[key]);
+    const saved = savedItems.get(clean.id);
+    const keepPlacement = sameLayout && saved && PLACEMENT_FIELDS.every(key => clean[key] === saved[key]);
     const placed = value[ROOM_BLUEPRINT] ? canPlaceInLayout(clean, candidates, getRoomLayout(value), facilityBounds(value, true), value.version, keepPlacement) :
       validPlacement(clean, candidates, value.version >= 10 ? value : template);
     if (!placed) return null;
@@ -544,10 +422,10 @@ export function validateRoom(value, { preserveVersion = Boolean(value?.[ROOM_BLU
   let migrated = !preserveVersion && value.version < 10 ? migrateItems(items, { template, version: 10 }) : items;
   if (migrated && !preserveVersion && value.version < 9) {
     const facilities = ["dining", "band"].includes(template)
-      ? createDiningBandPresetItems(template).filter((entry) => [...DINING_BAND_ASSETS, ...LEGACY_FACILITY_ASSETS].some((type) => type.kind === entry.kind))
+      ? createDiningBandPresetItems(template).filter(({ kind }) => DINING_BAND_KINDS.includes(kind) || LEGACY_FACILITY_KINDS.includes(kind))
       : createLegacyFacilityItems(template);
     const ids = new Set(migrated.map((entry) => entry.id));
-    for (const fixture of facilities) {
+    for (const fixture of facilities.filter(item => canAddFurniture(item.kind, 10))) {
       let id = fixture.id;
       while (ids.has(id)) id = `fixture-${id}`;
       ids.add(id);
@@ -562,8 +440,18 @@ export function validateRoom(value, { preserveVersion = Boolean(value?.[ROOM_BLU
     accentColor, matColor, food, coverPhoto, notice, atmosphere, items: migrated }, value[ROOM_BLUEPRINT]);
 }
 
+// Former positions are required only when upgrading a browser-local v11 save.
+const PRESET_MUSIC_POSITIONS = {
+  climbing: { x: 8.5, z: -1.75, rotation: 0 },
+  band: { x: 7.5, z: 0.75, rotation: 0 },
+  dining: { x: 4.25, z: 2.5, rotation: 0 },
+  boardgame: { x: 10, z: 0.25, rotation: 3 },
+  study: { x: 5, z: 0.75, rotation: 0 },
+  photo: { x: 3, z: 2.5, rotation: 0 }
+};
+
 export function readSavedRoom(value, { preserveVersion = false } = {}) {
-  const room = validateRoom(value, { preserveVersion, savedRoom: preserveVersion ? value : undefined });
+  const room = validateRoom(value, { preserveVersion, savedRoom: value });
   if (preserveVersion) return room;
   if (LOUNGE_LOFT_WRITES_ENABLED && room?.template === "lounge" && room.version < LOUNGE_LOFT_VERSION) {
     const loft = { ...room, version: LOUNGE_LOFT_VERSION };
@@ -587,22 +475,30 @@ export function readSavedRoom(value, { preserveVersion = false } = {}) {
   return { ...room, items: room.items.map((item) => item.id === music.id ? next : item) };
 }
 
-export function loadRoom(storage) {
+export function loadRoom(storage, blueprint) {
   try {
     const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) return { room: createInitialRoom(), warning: "" };
-    const room = readSavedRoom(JSON.parse(raw));
+    if (!raw) return { room: createInitialRoom("lounge", { blueprint }), warning: "" };
+    const { blueprint: storedBlueprint, ...document } = JSON.parse(raw);
+    const pinned = storedBlueprint && pinnedBlueprintSchema.parse(storedBlueprint);
+    if (pinned && pinned.blueprintRef.templateKey !== document.template) throw new Error("Invalid room blueprint");
+    const room = readSavedRoom(bindRoomBlueprint(document, pinned), { preserveVersion: Boolean(pinned) });
     if (!room) throw new Error("Invalid room");
     return { room, warning: "" };
   } catch {
-    return { room: createInitialRoom(), warning: "저장한 공간을 읽지 못했어요. 기본 공간을 열었습니다." };
+    return { room: createInitialRoom("lounge", { blueprint }), warning: "저장한 공간을 읽지 못했어요. 기본 공간을 열었습니다." };
   }
 }
 
-export function saveRoom(storage, room) {
-  const valid = validateRoom(room);
+export function saveRoom(storage, room, savedRoom) {
+  const valid = validateRoom(room, { savedRoom });
   if (!valid) throw new Error("공간 배치를 확인해 주세요.");
-  storage.setItem(STORAGE_KEY, JSON.stringify(valid));
+  // A standalone save keeps the immutable published geometry even if the template default later changes.
+  const blueprint = valid[ROOM_BLUEPRINT];
+  const stored = blueprint ? { ...valid, blueprint: {
+    blueprintRef: blueprint.blueprintRef, geometry: blueprint.geometry, spawn: blueprint.spawn
+  } } : valid;
+  storage.setItem(STORAGE_KEY, JSON.stringify(stored));
   return valid;
 }
 

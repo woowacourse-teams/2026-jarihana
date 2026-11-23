@@ -8,27 +8,6 @@ const DARK = "#343139";
 const STEEL = "#9c9d99";
 const CREAM = "#eee1c7";
 
-export const DINING_BAND_ASSETS = Object.freeze([
-  { kind: "kitchenCounter", name: "싱크대와 조리 수납장", width: 3.2, depth: 0.9, height: 2.8, collection: "dining" },
-  { kind: "kitchenIsland", name: "오픈 키친 아일랜드", width: 3.8, depth: 1.5, height: 1.5, collection: "dining" },
-  { kind: "kitchenRange", name: "레인지와 후드", width: 1.8, depth: 0.9, height: 2.65, collection: "dining" },
-  { kind: "kitchenFridge", name: "메모가 붙은 냉장고", width: 1.2, depth: 1, height: 2.2, collection: "dining" },
-  { kind: "pantryShelf", name: "식재료 팬트리", width: 2.4, depth: 0.65, height: 2.8, collection: "dining" },
-  { kind: "cafeCabinet", name: "커피와 간식 코너", width: 2.4, depth: 0.8, height: 1.9, collection: "dining" },
-  { kind: "feastTable", name: "함께 먹는 긴 식탁", width: 4.8, depth: 1.8, height: 1.5, collection: "dining" },
-  { kind: "menuBoard", name: "오늘의 메뉴 칠판", width: 1.25, depth: 0.6, height: 1.9, collection: "dining" },
-  { kind: "foodMap", name: "우리 맛집 지도 보드", width: 2.6, depth: 0.5, height: 2.6, collection: "dining" },
-  { kind: "drumKit", name: "어쿠스틱 드럼 세트", width: 2.8, depth: 2.5, height: 1.9, collection: "band" },
-  { kind: "guitarRack", name: "기타 세 대와 거치대", width: 2, depth: 0.65, height: 1.7, collection: "band" },
-  { kind: "rehearsalKeyboard", name: "88건반과 연주대", width: 1.8, depth: 0.8, height: 1.1, collection: "band" },
-  { kind: "amplifier", name: "기타 앰프 스택", width: 1.2, depth: 0.65, height: 1.65, collection: "band" },
-  { kind: "microphoneStand", name: "보컬 마이크 스탠드", width: 0.65, depth: 0.65, height: 1.8, collection: "band" },
-  { kind: "mixingDesk", name: "레코딩 믹싱 데스크", width: 2.4, depth: 1, height: 1.65, collection: "band" },
-  { kind: "acousticPanel", name: "이동식 흡음 패널", width: 1.6, depth: 0.35, height: 2.7, collection: "band" },
-  { kind: "bandPoster", name: "공연 포스터 전시대", width: 1.6, depth: 0.4, height: 2.6, collection: "band" },
-  { kind: "rehearsalStage", name: "낮은 연습 무대", width: 6, depth: 4, height: 0.25, walkableHeight: 0.25, collection: "band" },
-  { kind: "stageLight", name: "보라빛 무대 조명", width: 0.7, depth: 0.7, height: 2.9, collection: "band" }
-].map((asset) => Object.freeze({ ...asset, category: "furniture" })));
 
 function grainTexture() { return createWoodGrain(); }
 
@@ -394,6 +373,8 @@ const BUILDERS = { kitchenCounter, kitchenIsland, kitchenRange: range, kitchenFr
   foodMap: (target) => display(target, 2.55, 2.55, "#a4b48b", true), drumKit, guitarRack: guitars,
   rehearsalKeyboard: keyboard, amplifier: amp, microphoneStand: microphone, mixingDesk: mixer,
   acousticPanel: acoustic, bandPoster: poster, rehearsalStage: stage, stageLight };
+
+export const DINING_BAND_KINDS = Object.freeze(Object.keys(BUILDERS));
 
 export function createDiningBandAsset(kind, { color } = {}) {
   if (!Object.hasOwn(BUILDERS, kind)) return null;

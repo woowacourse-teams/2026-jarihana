@@ -1,6 +1,7 @@
+import { portableDefinition } from "../../features/group-space/furnitureCatalog.js";
+
 const DURATION = 900;
 const BITE_AT = 420;
-const CONSUMABLES = new Set(["cookie", "coffee", "latte", "tea"]);
 const smooth = (value) => value * value * (3 - 2 * value);
 
 // Only a new authoritative consumption transition starts a gesture. Snapshots,
@@ -8,14 +9,16 @@ const smooth = (value) => value * value * (3 - 2 * value);
 export function detectHeldConsumption(previous, next, memberId) {
   if (!previous || next.type !== "ROOM_STATE" || next.controlSeq <= previous.controlSeq ||
     next.roomEpoch !== previous.roomEpoch || next.connectionGeneration !== previous.connectionGeneration ||
-    next.layoutRevision !== previous.layoutRevision) return null;
+    next.layoutRevision !== previous.layoutRevision || next.catalogGeneration !== previous.catalogGeneration) return null;
   const before = previous.participants.find((actor) => actor.memberId === memberId);
   const after = next.participants.find((actor) => actor.memberId === memberId);
   const item = previous.items.find((entry) => entry.id === before?.heldItemId);
-  if (!after || !item || item.location !== "HELD" || !CONSUMABLES.has(item.kind)) return null;
+  const rule = portableDefinition(item?.kind);
+  if (!after || !item || item.location !== "HELD" || !rule?.consumable) return null;
   const current = next.items.find((entry) => entry.id === item.id);
-  const reduced = after.heldItemId === item.id && current?.location === "HELD" && current.remaining < item.remaining;
-  const lastBite = item.kind === "cookie" && !current && !after.heldItemId;
+  const reduced = after.heldItemId === item.id && current?.location === "HELD" && current.remaining < item.remaining &&
+    (current.kind === item.kind || current.kind === rule.emptyKind);
+  const lastBite = !portableDefinition(rule.emptyKind) && !current && !after.heldItemId;
   if (!reduced && !lastBite) return null;
   return { item, remaining: current?.remaining ?? 0, startedAt: next.serverTime, lastBite };
 }

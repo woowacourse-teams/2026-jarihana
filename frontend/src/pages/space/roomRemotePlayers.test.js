@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { AVATAR_PRESETS } from "../../../public/sparring-arena/src/avatar-appearance.js";
 import { createRemotePlayers, thrownItemPosition } from "./roomRemotePlayers.js";
+import { walkPropBaseOffset } from "./roomModels.js";
 import { createRoomStore } from "../../features/group-space/realtime/roomStore.js";
+import { installFurnitureCatalog } from "../../features/group-space/furnitureCatalog.js";
+import propSurfaceAnchors from "./propSurfaceAnchors.json";
 
 let frame;
 beforeEach(() => {
@@ -14,6 +17,8 @@ const actor = (memberId, x) => ({ memberId, displayName: memberId, avatarColor: 
   yaw: 0, locomotion: "walking", seat: null, heldItemId: null, pose: "relaxed", emote: null });
 const state = (extra = {}) => ({ type: "ROOM_SNAPSHOT", roomEpoch: "e", connectionGeneration: "g", layoutRevision: 1,
   controlSeq: 1, frameSeq: 1, serverTime: 1000, selfId: "1", participants: [actor("1", 0), actor("2", 3)], items: [], assets: {}, ...extra });
+const seat = { assetId: "stool", slot: 0 };
+const seatedRoom = { template: "lounge", version: 12, items: [{ id: "stool", kind: "stool", x: 4, z: 1, rotation: 0 }] };
 
 test("remote handheld, placed, dropped and thrown props all receive the room lighting", () => {
   const scene = new THREE.Scene();
@@ -34,6 +39,76 @@ test("remote handheld, placed, dropped and thrown props all receive the room lig
   players.dispose();
 });
 
+test("surface slot counts have a local model anchor for every slot", () => {
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const slotCounts = Object.fromEntries(furnitureCatalog.filter(asset => asset.interaction?.surface)
+    .map(({ kind, interaction }) => [kind, interaction.surface.slots]));
+  const anchorCounts = Object.fromEntries(Object.entries(propSurfaceAnchors).map(([kind, anchors]) => [kind, anchors.length]));
+  expect(anchorCounts).toEqual(slotCounts);
+});
+
+test("placed props and their pick targets both follow the furniture after moving, scaling and rotating it", () => {
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => 1000 });
+  const furniture = { id: "shelf", kind: "bookshelf", x: 1, z: -1, rotation: 0, elevation: 0.25 };
+  const room = { template: "lounge", version: 12, items: [furniture] };
+  const item = { id: "cup", kind: "cup", location: "SURFACE", assetId: "shelf", slot: 1, remaining: 0,
+    position: { x: -10, y: 0, z: 9 } };
+  store.apply(state({ items: [item, { ...item, id: "stored", location: "STORAGE", slot: 1 }] }));
+  const players = createRemotePlayers(scene, jest.fn(), () => room);
+  players.setStore(store); frame(1000);
+  const prop = scene.getObjectByName("shared-item-cup");
+  const expectPlacement = (x, y, z, floor) => {
+    const [target] = players.targets();
+    expect(players.targets()).toHaveLength(1);
+    expect(prop.position.x).toBeCloseTo(x);
+    expect(prop.position.y).toBeCloseTo(y + walkPropBaseOffset(item.kind));
+    expect(prop.position.z).toBeCloseTo(z);
+    expect(target.x).toBeCloseTo(prop.position.x);
+    expect(target.z).toBeCloseTo(prop.position.z);
+    expect(target.floor).toBeCloseTo(floor);
+    expect(target.minY).toBeCloseTo(y - 0.1);
+    expect(target.maxY).toBeCloseTo(y + 0.35);
+  };
+  expectPlacement(1.51, 0.99, -0.885, 0);
+  expect(scene.getObjectByName("shared-item-stored")).toBeUndefined();
+
+  room.items = [{ ...furniture, x: 3, z: -6, rotation: 1, scaleX: 1.5, scaleY: 1.25, scaleZ: 2, level: 1 }];
+  players.refresh(); frame(1050);
+  expectPlacement(3.23, 5.625, -6.765, 4.45);
+  expect(prop.rotation.y).toBeCloseTo(Math.PI / 2);
+
+  room.items = [];
+  players.refresh(); frame(1100);
+  expect(prop.visible).toBe(false);
+  expect(players.targets()).toEqual([]);
+  players.dispose();
+});
+
+test("a surface slot beyond the model anchors cannot render a prop or its pick target", () => {
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const table = { id: "table", kind: "table", x: 2, z: -3, rotation: 0, scaleX: 1.5 };
+  const room = { template: "lounge", version: 12, items: [table] };
+  const scene = new THREE.Scene();
+  const store = createRoomStore({ now: () => 1000 });
+  const players = createRemotePlayers(scene, jest.fn(), () => room);
+  const cup = { id: "cup", kind: "cup", location: "SURFACE", assetId: table.id, slot: 0, remaining: 1 };
+  store.apply(state({ items: [cup, { ...cup, id: "extra-cup", slot: 1 }] }));
+  players.setStore(store); frame(1000);
+  installFurnitureCatalog(furnitureCatalog.map(type => type.kind === "table"
+    ? { ...type, interaction: { ...type.interaction, surface: { slots: 2 } } } : type));
+  try {
+    players.refresh(); frame(1050);
+    const prop = scene.getObjectByName("shared-item-extra-cup");
+    expect(prop.visible).toBe(false);
+    expect(scene.getObjectByName("shared-item-cup").visible).toBe(true);
+    expect(players.targets()).toEqual([expect.objectContaining({ itemId: "cup" })]);
+  } finally {
+    players.dispose();
+    installFurnitureCatalog(furnitureCatalog);
+  }
+});
+
 test("remote actors render server positions and disappear on leave or runtime cleanup", () => {
   const scene = new THREE.Scene(); const store = createRoomStore({ now: () => 1000 });
   store.apply(state()); const players = createRemotePlayers(scene, jest.fn()); players.setStore(store); frame(1000);
@@ -46,19 +121,18 @@ test("remote actors render server positions and disappear on leave or runtime cl
 });
 test("late join shows seated actors holding a partially consumed cookie", () => {
   const scene = new THREE.Scene(); const store = createRoomStore({ now: () => 1000 });
-  store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: "cookie", seat: { position: { x: 4, y: .34, z: 1 }, yaw: 1 } }],
+  store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: "cookie", seat }],
     items: [{ id: "cookie", kind: "cookie", location: "HELD", holderId: "2", remaining: .25 }] }));
-  const players = createRemotePlayers(scene, jest.fn()); players.setStore(store); frame(1000);
-  expect(scene.getObjectByName("remote-player-2").position.toArray()).toEqual([4, .34, 1]);
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom); players.setStore(store); frame(1000);
+  expect(scene.getObjectByName("remote-player-2").position.x).toBe(4);
   expect(scene.getObjectByName("shared-held-prop").scale.x).toBe(.5); players.dispose();
 });
 
 test("raising and lowering a cup moves the hand and cup together", () => {
   const scene = new THREE.Scene();
   const store = createRoomStore({ now: () => 1000 });
-  const seat = { position: { x: 4, y: .34, z: 1 }, yaw: Math.PI };
   const cup = { id: "cup", kind: "cup", location: "HELD", holderId: "2", remaining: 0 };
-  const players = createRemotePlayers(scene, jest.fn());
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom);
   const update = (pose) => {
     store.apply(state({ participants: [{ ...actor("2", 3), heldItemId: cup.id, seat, pose }], items: [cup] }));
     players.refresh();
@@ -132,11 +206,10 @@ test("thrown item uses shared timestamps and ballistic gravity", () => {
 test("personalized remote avatars share the rig and keep a raised cup attached", () => {
   const scene = new THREE.Scene();
   const store = createRoomStore({ now: () => 1000 });
-  const seat = { position: { x: 4, y: .34, z: 1 }, yaw: Math.PI };
   const cup = { id: "cup", kind: "cup", location: "HELD", holderId: "2", remaining: 0 };
   const seated = { ...actor("2", 4), avatarAppearance: AVATAR_PRESETS[0].appearance, heldItemId: cup.id, seat };
   const standing = { ...actor("3", -4), avatarAppearance: AVATAR_PRESETS[1].appearance };
-  const players = createRemotePlayers(scene, jest.fn());
+  const players = createRemotePlayers(scene, jest.fn(), () => seatedRoom);
   const update = (pose, time, participants = [{ ...seated, pose }, standing]) => {
     store.apply(state({ participants, items: [cup] }));
     players.refresh();

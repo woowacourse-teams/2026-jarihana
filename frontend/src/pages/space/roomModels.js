@@ -9,6 +9,7 @@ import { createStudyPhotoAsset } from "./studyPhotoAssets";
 import { createCommonFunctionAsset } from "./commonFunctionModels";
 import { createClubhouseArchitecture } from "./clubhouseArchitecture";
 import * as THREE from "three";
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { CLIMBING, BOARDGAME, geometryVersion, getRoomLayout } from "./roomLayout";
 import { createBoardgameFurniture, createBoardgameShell, createBoardgameFacility } from "./boardgameModels";
@@ -428,7 +429,10 @@ export function createFurniture(kind, { color, food = "pizza", accentColor, matC
     addLegs(kit, 0.4, 0.4, 0.58);
     kit.cylinder(0.325, 0.31, 0.12, color || PALETTE.lightWood, 0, 0.64, 0);
   } else {
-    throw new Error(`Unknown room furniture kind: ${kind}`);
+    const type = furnitureType(kind);
+    if (!type) throw new Error(`Unknown room furniture kind: ${kind}`);
+    const { width, height, depth } = type;
+    kit.box(width, height, depth, color || PALETTE.wood, 0, height / 2, 0);
   }
   return kit.group;
 }

@@ -29,7 +29,7 @@ export async function startBrowserPreview(root) {
 }
 
 // Uses the real production bundle and WebSocket server. Existing HTTP UI fixtures
-// supply account/group data; backend authorization is tested separately.
+// supply account/group data and catalog responses; backend APIs are tested separately.
 export async function verifyBrowser({ root, originUrl, url, token, snapshot, evidence }) {
   const require = createRequire(path.join(root, "frontend/package.json"));
   const { chromium } = require("playwright");
@@ -40,7 +40,47 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
   const frames = [];
   const sent = [];
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader"] });
+    const success = (data) => ({ success: true, data, error: null });
+    const waitForCatalog = (page) => page.waitForResponse((response) =>
+      response.url() === `${originUrl}/api/group-spaces/furniture-catalog` && response.request().method() === "GET",
+    { timeout: 60000 });
+    const openPlayMode = async (page) => {
+      const play = page.getByRole("button", { name: "놀러가기", exact: true });
+      await play.focus({ timeout: 90000 });
+      await page.keyboard.press("Enter");
+    };
+    const noSocketScreens = [
+      { route: "/land", selector: '.landing-clubhouse-scene[data-scene-status="ready"] canvas', name: "anonymous landing" },
+      { route: "/space/studio", selector: '.room-canvas[data-canvas-status="ready"] canvas', name: "standalone editor" },
+      { route: `/groups/${group.id}`, selector: '.room-canvas[data-canvas-status="ready"] canvas', name: "solo walkthrough", solo: true }
+    ];
+    for (const { route, selector, name, solo } of noSocketScreens) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ko-KR", reducedMotion: "reduce" });
+      const page = await context.newPage();
+      const sockets = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("websocket", (socket) => sockets.push(socket.url()));
+      await installApiFixture(page, { auth: solo ? "authenticated" : "anonymous" });
+      if (solo) {
+        await page.route(`**/api/groups/${group.id}/space/join-token`, (intercepted) => intercepted.fulfill({
+          status: 503,
+          json: { success: false, data: null, error: { code: "REALTIME_DISABLED", message: "Realtime disabled" } }
+        }));
+      }
+      const catalog = waitForCatalog(page);
+      await page.goto(`${originUrl}${route}`, { waitUntil: "domcontentloaded" });
+      if (solo) await openPlayMode(page);
+      const response = await catalog;
+      assert.equal(response.status(), 200);
+      const { data } = await response.json();
+      assert.equal(data.portableItems.coffee.emptyKind, "cup");
+      await page.locator(selector).waitFor({ state: "visible", timeout: 90000 });
+      assert.deepEqual(sockets, []);
+      receipt.push(`${name} renders after the catalog API GET without opening a WebSocket`);
+      process.stdout.write(`Browser ${name} rendered\n`);
+      await context.close();
+    }
     const pages = [];
     for (const memberId of ["1", "2"]) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 820 }, locale: "ko-KR", reducedMotion: "reduce" });
@@ -53,7 +93,7 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
         socket.on("framesent", ({ payload }) => {
           try {
             const message = JSON.parse(payload.toString());
-            sent.push({ memberId, type: message.type, payload: message.payload, moveSeq: message.moveSeq });
+            sent.push({ memberId, type: message.type, payload: message.payload, moveSeq: message.moveSeq, seatRefs: message.seatRefs });
           } catch { /* non-JSON transport frames */ }
         });
         socket.on("framereceived", ({ payload }) => {
@@ -61,13 +101,11 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
         });
       });
       await installApiFixture(page);
-      const success = (data) => ({ success: true, data, error: null });
       await page.route("**/api/members/me", (route) => route.fulfill({ json: success({ member: { ...leader, id: Number(memberId), crewName: `tester-${memberId}` }, signupCompleted: true }) }));
       await page.route(`**/api/groups/${group.id}/space`, (route) => route.fulfill({ json: success({ ...snapshot, canEdit: memberId === "1", updatedAt: null }) }));
       await page.route(`**/api/groups/${group.id}/space/join-token`, (route) => route.fulfill({ json: success({ token: token(memberId, String(group.id)), websocketUrl: url, expiresAt: Date.now() + 60000 }) }));
       await page.goto(`${originUrl}/groups/${group.id}`);
-      await page.getByRole("button", { name: "놀러가기", exact: true }).waitFor({ timeout: 90000 });
-      await page.getByRole("button", { name: "놀러가기", exact: true }).click();
+      await openPlayMode(page);
       await page.getByText("함께 있는 아지트", { exact: true }).waitFor({ timeout: 45000 });
       await page.keyboard.press("Escape");
       pages.push(page);
@@ -82,13 +120,18 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     await until(() => latest("1")?.participants.length === 2 && latest("2")?.participants.length === 2, "two participants");
     receipt.push("two isolated browser sessions join the same real room");
     for (const memberId of ["1", "2"]) {
+      const joins = sent.filter((frame) => frame.memberId === memberId && frame.type === "AUTH_JOIN");
+      assert.ok(joins.length > 0 && joins.every((frame) => frame.seatRefs === true));
       const appearances = latest(memberId).participants.map((actor) => [actor.memberId, actor.avatarAppearance?.outfit]);
       assert.deepEqual(Object.fromEntries(appearances), { "1": "mint", "2": "coral" });
     }
     receipt.push("both sessions receive each member's saved avatar appearance");
     await pages[0].bringToFront();
-    await pages[0].getByRole("button", { name: "인사 H", exact: true }).click();
-    await until(() => latest("2")?.participants.find((actor) => actor.memberId === "1")?.emote?.kind === "wave", "greeting fan-out");
+    const greetingStart = frames.length;
+    await pages[0].getByRole("button", { name: "인사 H", exact: true }).press("Enter");
+    await until(() => frames.slice(greetingStart).some(({ memberId, message }) => memberId === "2" &&
+      message.type === "ROOM_STATE" && message.participants.some((actor) => actor.memberId === "1" &&
+        actor.emote?.kind === "wave")), "greeting fan-out");
     receipt.push("UI greeting is accepted and delivered to the second browser");
     const origin = latest("2").participants.find((actor) => actor.memberId === "1").position;
     await pages[0].locator(".room-canvas").click({ position: { x: 500, y: 500 } });
@@ -123,11 +166,16 @@ export async function verifyBrowser({ root, originUrl, url, token, snapshot, evi
     await composer.getByRole("button", { name: "닫기", exact: true }).click();
     receipt.push("camera is taken through shared UI, captures a preview and attaches to the activity form");
     for (let index = 0; index < pages.length; index += 1) {
-      await pages[index].keyboard.press("Escape");
-      await pages[index].getByRole("button", { name: "시점 설정", exact: true }).click();
-      await pages[index].getByRole("button", { name: "3인칭", exact: true }).click();
-      await pages[index].screenshot({ path: path.join(evidence, `browser-${index + 1}.png`), fullPage: true });
-      assert.equal(await pages[index].evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      const page = pages[index];
+      await page.bringToFront();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "시점 설정", exact: true }).press("Enter");
+      const thirdPerson = page.getByRole("button", { name: "3인칭", exact: true });
+      await thirdPerson.press("Enter");
+      await page.locator('[data-ph-capture-attribute-action="space_mode_third_person"][aria-pressed="true"]')
+        .waitFor({ state: "attached" });
+      await page.screenshot({ path: path.join(evidence, `browser-${index + 1}.png`), fullPage: true });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
     await pages[0].bringToFront();
     await pages[0].getByRole("button", { name: "꾸미기", exact: true }).click();

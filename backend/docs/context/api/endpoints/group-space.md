@@ -6,10 +6,50 @@
 실시간 위치·상호작용은 별도 realtime 서버가 담당한다. 접속에는
 [실시간 아지트 입장 토큰](group-space-realtime.md)이 필요하다. 공동 편집은 지원하지 않는다.
 
+## GET /api/group-spaces/furniture-catalog
+
+공개 조회다. 응답은 `Cache-Control: no-store`이며 요청마다 현재 환경의 DB를 조회한다.
+`data.interactionCatalogVersion`은 가구 상호작용 계약 버전 1이며, `data.items`는 편집기의 표시 순서대로 정렬된 가구 목록이다.
+각 항목에는 저장 키 `kind`, 이름, 크기(`width`, `depth`, `height`), 분류 `category`,
+지원하는 가장 낮은 서버 문서 버전 `minRoomVersion`, 신규 배치 가능 여부 `placeable`이 있다.
+`surfaces`는 소품을 놓을 표면들의 높이 배열이다. 빈 배열인 가구에는 소품을 부착할 수 없다.
+가구별로 테마 모음(`collection`), 장착 위치(`mount`), 소품 여부(`prop`) 등의 정보가 추가된다.
+
+가구별 `interaction`에는 동작 목록 `capabilities`, 좌석 수 `seatCount`,
+상판 칸 수 `surface.slots`, 수납 용량과 허용 소품 `storage.capacity`·`storage.kinds`,
+생산 종류와 시간 `producer.kinds`·`producer.durationMs`가 있다. 물 주기 대기 시간
+`cooldownMs`와 패널 이름 `panel`도 해당 가구에만 제공한다. 상호작용이 없는 가구는
+`interaction`을 생략할 수 있다. `surfaces`는 편집기에 저장하는 부착 위치의 높이이며
+`surface.slots`는 방문 중 옮길 수 있는 소품의 슬롯 수다. 장면에 고정된
+`room-general-light-switch`는 상호작용 정의를 조회할 수 있으며, 편집기 배치 대상에서 제외된다.
+
+같은 응답에 `data.portableCatalogVersion: 1`과 `data.portableItems`를 제공한다.
+`portableItems`는 소품 `kind`를 키로 사용한다. 값은 집기, 던지기, 소비 가능 여부를 나타내는
+`portable`, `throwable`, `consumable`과 필요한 경우 `camera`, 소비 후 남을 소품 `emptyKind`를 포함한다.
+가구와 휴대 소품 규칙은 같은 시점의 DB 상태에서 읽는다. `storage.kinds`, `producer.kinds`,
+`emptyKind`가 참조하는 소품은 먼저 카탈로그에 등록해야 한다. 참조 중인 소품을 삭제하거나
+저장 키를 바꾸려면 참조부터 제거해야 한다.
+
+편집기와 realtime 서버는 같은 환경의 DB 카탈로그를 사용한다. 상호작용 규칙만 변경하면
+API 재시작이나 배치 재저장 없이 이후 조회에 반영된다. 운영 중 신규 배치를 중단할 때는
+가구의 행과 `kind`를 유지하고 `placeable`을 false로 변경한다.
+비활성 가구도 이 응답에 포함되어 이미 배치된 방에서 계속 표시된다.
+저장할 때는 해당 모임의 직전 저장 문서에 동일한 `id`와 `kind`가 있는 비활성 가구만 허용한다.
+해당 인스턴스의 이동·설정 수정·삭제가 가능하며, 삭제를 저장한 뒤에는 다시 추가할 수 없다.
+
+좌석과 상판의 위치는 프론트엔드 모델에 포함된다. DB의 `seat_anchor_count`와
+`surface_anchor_count`는 가구별로 배포된 위치의 개수이며 카탈로그 API에는 노출하지 않는다.
+신규 가구에서 두 값을 생략하면 모두 0이다. DB는 `seatCount`와 `surface.slots`가 각 개수를
+넘는 규칙을 거부한다. 운영에서 상한을 올릴 때는 해당 가구의 위치를 먼저 지원 중인 모든
+프론트엔드 빌드에 배포한다. 배포된 상한 안에서 활성 좌석과 상판 칸 수를 조절할 수 있다.
+
 ## GET /api/group-spaces/blueprints/{templateKey}/default
 
 신규 방 또는 모임장이 직접 선택한 전체 배치 교체에 사용할 기본 도면이다. 공개 GET의
-`data`는 `blueprintRef: {templateKey, version}`과 `geometry`를 포함한다.
+`data`는 `blueprintRef: {templateKey, version}`, `geometry`, 미터 단위의 시작점 `spawn: {x, z}`와 초기 방 문서 `defaultRoom`을 포함한다.
+이 기본 도면의 배치를 선택하면 편집기는 DB 초기값을 사용한다. 저장된 방의 GET/PUT은 기존 `room`과 시작점을 반환한다.
+그룹 생성 요청에서 테마를 선택하면 서버는 발행된 기본 도면과 신규 배치 가능한 가구를 사용해 배치를 그룹과 함께 저장한다. 이때 배치할 수 없는 가구 위에 놓인 소품도 제외한다.
+미저장 방의 GET은 `room: null`, `revision: 0`을 유지하고 단층 lounge v11의 `defaultRoom`을 반환한다. 새로 꾸밀 때 선택하는 기본 lounge는 별도 발행된 v12 복층이다.
 지원하는 기존 테마의 벽·층·계단·야외 경계 등 도면 형식 1을 제공한다. 발행한
 도면은 불변이며 변경본은 같은 테마의 새 버전으로 추가한다. 기본 도면을 변경해도
 기존 모임은 저장된 버전을 유지한다. 지원하지 않는 도면 형식은 로드하지 않는다.
@@ -21,13 +61,14 @@
 각 에셋의 `title`, `note`, `photo`, `link` 내용을 빈 문자열로 반환한다.
 구성원에게는 원본 문서를 반환하며 공개 조회 과정에서 저장된 원본을 변경하지 않는다.
 저장 이력이 없으면 `room: null`, `revision: 0`, `updatedAt: null`을 반환한다.
+그룹 생성 시 아지트를 선택했다면 첫 조회부터 `room`, `revision: 1`, 저장된 `blueprintRef`를 반환한다.
 `canEdit`은 현재 구성원이 ACTIVE 모임의 LEADER일 때만 참이다.
 응답의 `blueprintRef`와 `geometry`는 이 방이 사용하는 정확한 도면이다.
 미저장 방의 공유 장면은 호환용 단층 `lounge/11`을 사용하며 첫 설정 화면은 테마별 기본 도면을 조회한다.
-아래 예시는 geometry의 세부 좌표를 생략한다.
+아래 예시는 도면과 초기 배치의 세부 필드를 생략한다.
 
 ```json
-{"success":true,"data":{"room":null,"revision":0,"canEdit":true,"updatedAt":null,"blueprintRef":{"templateKey":"lounge","version":11},"geometry":{}},"error":null}
+{"success":true,"data":{"room":null,"revision":0,"canEdit":true,"updatedAt":null,"blueprintRef":{"templateKey":"lounge","version":11},"geometry":{},"spawn":{"x":-2,"z":6.8},"defaultRoom":{"template":"lounge","version":11}},"error":null}
 ```
 
 ## PUT /api/groups/{groupId}/space
@@ -71,27 +112,9 @@
 | items[].link | memory에만 허용, 빈 문자열 또는 사용자정보 없는 HTTP(S) 절대 URL, 최대1,000자 |
 | 전체 문서 | 공백을 제거한 JSON UTF-8 바이트 기준 2,097,152바이트 이하 |
 
-v8의 `items[].kind`는 sofa, armchair, table, bookshelf, plant, rug, stool,
-bench, beanbag, diningTable, gameTable, roundChair, clubSofa, gameCredenza, loungeRug,
-gameShelf, gameChair, floorLamp, memory, musicConsole 중 하나다.
-
-v9 이상은 아래 에셋도 모든 테마에서 공용으로 허용한다. 프리셋은 초기 배치일 뿐 테마별 에셋 제한이 아니다.
-
-libraryShelfWood, libraryShelfDisplay, libraryShelfDark, gameWallBoard, gameWallArt, gameNeon, pendantLight, pendantBulb, loftPendant, shelfPendant, climbingWallWide, climbingWallOverhang, climbingWallNarrow, crashMat, crashMatWide, climbingShoeShelf, climbingHelmetShelf, climbingGearShelf, ropeRack, climbingPlant, climbingSign, climbingBoard, clubPinboard, cafeCounter, cafeFridge, kitchenCounter, kitchenIsland, kitchenRange, kitchenFridge, pantryShelf, cafeCabinet, feastTable, menuBoard, foodMap, drumKit, guitarRack, rehearsalKeyboard, amplifier, microphoneStand, mixingDesk, acousticPanel, bandPoster, rehearsalStage, stageLight, studyDesk, focusDesk, whiteboard, projectScreen, serverRack, projectShelf, studyCabinet, projectDisplay, photoBackdrop, softbox, photoTripod, cameraCabinet, photoEditDesk, photoPrintBench, galleryPartition, photoEquipmentCase, photoReflector.
-
-공통 기능 에셋인 `activityBoard`(활동 기록 보드)와 `clubDashboard`(모임 대시보드)도
-v9 이상에서 모든 테마에 배치할 수 있다. 기존 `musicConsole`과 함께 공통 기능 입구를 구성하며,
-다른 가구와 동일한 위치·회전·색상 필드를 사용한다. 에셋을 지워도 방의 `notice`는 유지된다.
-기존 100자 `notice` 필드는 이전 공간 문서와의 호환용이다. 실제 공지는 기존 공지 API에서
-공개 범위를 확인해 조회한다. 사진 액자도 기존 활동 기록 API를 사용한다.
-
-공용 카탈로그에는 coffeeTable, cafeTable, leafyPlant, vinePlanter, bandNeon,
-diningNeon, studyNeon, photoNeon, galleryWall, posterWall, longCredenza, worktop,
-openDisplayShelf, wallShelf, propBooks, propBookRow, propBottle, propCup, propPlant,
-propPlates, propGameBox, propCamera, propLaptop, propFrame, propLamp, propGameBoard,
-propMonitor, propCanisters, propPedals, hangingLamp, trackLight, ceilingBeam,
-acousticCloud, wallPrint, acousticTile, pictureLight, loftPartition,
-loftGlassPartition, lowEdgeLight도 포함한다.
+v8은 기존 지원 가구 20종을 저장할 수 있고, v9 이상은 카탈로그에 등록된 각 종류의 `minRoomVersion`을 따른다.
+프리셋은 초기 배치를 제공하며 모든 테마에서 같은 카탈로그를 사용한다.
+`musicConsole`, `activityBoard`, `clubDashboard` 등 기능 가구를 삭제해도 음악·활동·공지 내용은 유지된다.
 
 선택 에셋 필드는 다음과 같다. 생략한 값은 서버에서 보충하거나 이전하지 않는다.
 
@@ -101,14 +124,10 @@ loftGlassPartition, lowEdgeLight도 포함한다.
 | elevation | 유한한 수 0~14; 다른 가구에 부착된 소품은 생략 또는 0 |
 | finish | auto, oak, walnut, stone, fabric, metal |
 | variant | 정수 0~5 |
-| parentId | prop 접두사의 소품만 사용; 같은 층의 실제 표면 가구 id, 자기 자신·소품·중첩 부모 불가 |
-| surfaceIndex | parentId가 있을 때만 정수 0~4; 책장·팬트리 0~3, 열린 진열장 0~4, 주방 카운터 0~2, 나머지 표면 0 |
+| parentId | 카탈로그에서 `prop: true`인 소품에 허용. 같은 층에 있는 부모의 유효한 표면에 부착하며 중첩은 불가 |
+| surfaceIndex | parentId가 있을 때만 허용. 부모 가구의 `surfaces` 배열 범위 안에 있는 0부터 시작하는 정수 |
 
-부모로 허용하는 가구는 table, diningTable, feastTable, gameTable, coffeeTable,
-cafeTable, kitchenIsland, kitchenCounter, cafeCabinet, gameCredenza, bookshelf,
-pantryShelf, libraryShelfWood, libraryShelfDark, libraryShelfDisplay, studyDesk,
-focusDesk, photoEditDesk, photoPrintBench, studyCabinet, mixingDesk, cameraCabinet,
-longCredenza, openDisplayShelf, worktop, wallShelf다.
+부모 가구의 표면 개수와 순서는 카탈로그의 `surfaces` 배열을 따른다.
 벽·천장 장착 방식과 충돌 영역은 카탈로그 메타데이터이며 저장 문서에 받지 않는다.
 `photo`/`link`는 memory에만 허용한다. 서버는 링크를 요청하거나 HTML로 해석하지 않는다.
 알려지지 않은 문서 필드는 거절한다. v8 문서는 기존 카탈로그와 64개 한도를 그대로 유지한다.
@@ -181,8 +200,9 @@ wallPatternScale/floorPatternScale은 0.5~2다. 모든 범위는 양끝을 포�
 
 `GroupSpaceControllerTest`는 실제 PostgreSQL Testcontainers에서 저장/재조회, 수정 충돌,
 동시 최초 저장, 인증·권한·CSRF, 종료, 리더 위임, 마이그레이션과 삭제, 입력 한도를 검증한다. v9 공용 카탈로그·7개 프리셋 저장/재조회와 160개 경계,
-v8 호환·64개 경계도 검증한다. `src/test/resources/group-space-v9-catalog.json`은 프론트엔드와
-서버가 함께 확인하는 저장 가능한 에셋 계약 목록이다.
+v8 호환·64개 경계도 검증한다. `src/test/resources/group-space-v9-catalog.json`은 기존 v9
+클라이언트가 사용한 가구 93종과 템플릿 7종의 호환성 검증 기준이다. 현재 전체 가구 목록은
+가구 카탈로그 API에서 조회한다.
 이 체크아웃에는 공통 문서가 언급하는 Swagger/OpenAPI 생성 설정·기존 명세 파일이 없다.
 따라서 위 계약과 실행 가능한 인수 테스트를 함께 관리하며 Swagger 배포 완료로 주장하지 않는다.
 

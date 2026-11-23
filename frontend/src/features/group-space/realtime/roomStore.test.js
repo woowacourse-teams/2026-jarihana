@@ -19,6 +19,27 @@ test("late join preserves seated player, carried cookie, production and open sto
   expect(store.getState().assets.storage.open).toBe(true);
 });
 
+test("seats from both wire shapes are read as furniture and slot references", () => {
+  const seat = { assetId: "sofa", slot: 2 };
+  const position = { x: 1, y: 0, z: 2 };
+  const parse = (wireSeat) => parseRoomMessage(JSON.stringify(snapshot({
+    participants: [{ ...actor(), position, seat: wireSeat, pose: "reading" }]
+  }))).participants[0];
+  expect(parse(seat)).toMatchObject({ seat, position, pose: "reading" });
+  expect(parse({ ...seat, position: { x: 9, y: 8, z: 7 }, approach: position, yaw: 3 })).toEqual(parse(seat));
+});
+
+test.each(["SURFACE", "STORAGE"])("%s uses its furniture slot while accepting older wire coordinates", (location) => {
+  const item = { id: "cup", kind: "cup", holderId: null, location, assetId: "cabinet", slot: 0,
+    remaining: 0, velocity: null, startedAt: 0 };
+  const parse = (wireItem) => parseRoomMessage(JSON.stringify(snapshot({ items: [wireItem] }))).items[0];
+  expect(parse(item)).toEqual(item);
+  expect(parse({ ...item, position: null })).toEqual(item);
+  expect(parse({ ...item, position: { x: -9, y: 0, z: -8 } })).toEqual(item);
+  expect(() => parse({ ...item, slot: null })).toThrow();
+  expect(() => parse({ ...item, assetId: null })).toThrow();
+});
+
 test("stale control movement and old generations cannot undo new occupancy", () => {
   const store = createRoomStore(); store.apply(snapshot());
   store.apply(snapshot({ type: "ROOM_STATE", controlSeq: 3, participants: [actor("1", 5)] }));

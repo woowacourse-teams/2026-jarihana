@@ -1,4 +1,5 @@
 import { consumptionFrame, detectHeldConsumption } from "./heldConsumption.js";
+import { installSpaceCatalog } from "../../features/group-space/furnitureCatalog.js";
 
 const cookie = { id: "cookie", kind: "cookie", location: "HELD", holderId: "1", remaining: 1 };
 const state = (item = cookie, extra = {}) => ({ type: "ROOM_STATE", roomEpoch: "epoch", connectionGeneration: "g",
@@ -23,7 +24,7 @@ test("the last cookie stays in the hand until it reaches the mouth", () => {
 
 test.each([
   { type: "ROOM_SNAPSHOT" }, { controlSeq: 1 }, { roomEpoch: "new" },
-  { connectionGeneration: "new" }, { layoutRevision: 2 }, { participants: [] },
+  { connectionGeneration: "new" }, { layoutRevision: 2 }, { catalogGeneration: 2 }, { participants: [] },
 ])("resyncs and duplicate or unrelated state do not replay a bite: %j", (extra) => {
   expect(detectHeldConsumption(state(cookie, { controlSeq: 1 }), state(null, extra), "1")).toBeNull();
 });
@@ -37,4 +38,20 @@ test("dropping and throwing are not eating; a finished drink still animates befo
   const coffee = { ...cookie, kind: "coffee", remaining: .32 };
   const gesture = detectHeldConsumption(state(coffee, { controlSeq: 1 }), state({ ...coffee, kind: "cup", remaining: 0 }), "1");
   expect(gesture).toMatchObject({ item: { kind: "coffee" }, remaining: 0, lastBite: false });
+});
+
+test("consumption animations follow the rule and its restored kind without hardcoded item IDs", () => {
+  const { spaceCatalog, portableItems } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  const book = { ...cookie, kind: "book" };
+  installSpaceCatalog({ ...spaceCatalog, portableItems: { ...portableItems,
+    cookie: { ...portableItems.cookie, consumable: false },
+    book: { ...portableItems.book, consumable: true, emptyKind: "camera" } } });
+  try {
+    expect(detectHeldConsumption(state(cookie, { controlSeq: 1 }), state(null), "1")).toBeNull();
+    const changed = state({ ...book, kind: "camera", remaining: 0 });
+    expect(detectHeldConsumption(state(book, { controlSeq: 1 }), changed, "1"))
+      .toMatchObject({ item: { kind: "book" }, remaining: 0, lastBite: false });
+  } finally {
+    installSpaceCatalog(spaceCatalog);
+  }
 });

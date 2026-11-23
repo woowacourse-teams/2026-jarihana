@@ -1,6 +1,6 @@
 import previousRooms from './fixtures/rooms-v9.json';
 import { transformAttachedItems } from './assetCustomization';
-import { bindRoomBlueprint, getRoomLayout, PLAYER } from "./roomLayout";
+import { bindRoomBlueprint, getRoomLayout, PLAYER, ROOM_BLUEPRINT, roomSpawn } from "./roomLayout";
 import { createLegacyFacilityItems } from "./legacyFacilityCatalog";
 import {
   ATMOSPHERE_PRESETS, TEMPLATE_ATMOSPHERES, CATALOG, DEFAULT_ATMOSPHERE, MAX_ITEMS, MAX_PHOTO_LENGTH, ROOM_TEMPLATES, STORAGE_KEY, applyRoomTemplate, canPlace,
@@ -19,6 +19,24 @@ describe("space placement", () => {
     expect(JSON.parse(storage.setItem.mock.calls[0][1])).toEqual(room);
     expect(loadRoom(storage)).toEqual({ room, warning: "" });
   });
+  test("a standalone save reopens the published blueprint and spawn after a different default is published", () => {
+    const oldDefault = require("../../../tests/fixtures/clubhouse-seeds.cjs").blueprint("lounge", 11);
+    const blueprint = { ...oldDefault, blueprintRef: { templateKey: "lounge", version: 13 }, spawn: { x: 2, z: 7 } };
+    const room = createInitialRoom("lounge", { blueprint });
+    const storage = { setItem: jest.fn(), getItem: jest.fn() };
+    saveRoom(storage, room, room);
+    const encoded = storage.setItem.mock.calls[0][1];
+    expect(JSON.parse(encoded).blueprint.defaultRoom).toBeUndefined();
+    storage.getItem.mockReturnValue(encoded);
+    const reopened = loadRoom(storage, { ...blueprint, blueprintRef: { templateKey: "lounge", version: 14 }, spawn: { x: -8, z: 12 } });
+    expect(reopened.warning).toBe("");
+    expect(reopened.room[ROOM_BLUEPRINT].blueprintRef).toEqual(blueprint.blueprintRef);
+    expect(getRoomLayout(reopened.room)).toEqual(blueprint.geometry);
+    expect(roomSpawn(reopened.room)).toEqual({ x: 2, z: 7 });
+    expect(reopened.room.version).toBe(11);
+    expect(reopened.room.items).toEqual(room.items);
+  });
+
   test("loading an old v11 preset moves only its default outdoor turntable", () => {
     const room = createInitialRoom("band");
     const turntable = room.items.find(({ kind }) => kind === "musicConsole");
@@ -61,7 +79,7 @@ describe("space placement", () => {
     expect(canPlace(seat, [])).toBe(true);
   });
   test("finds placement for every height-compatible asset in an empty clubhouse", () => {
-    for (const { kind } of CATALOG.filter((asset) => (asset.height || 0) <= getRoomLayout("lounge").building.height)) {
+    for (const { kind } of CATALOG.filter((asset) => asset.placeable && asset.height <= getRoomLayout("lounge").building.height)) {
       const position = findOpenPosition(kind, []);
       expect(position).not.toBeNull();
       expect(canPlace({ kind, rotation: 0, ...position }, [])).toBe(true);
@@ -80,7 +98,7 @@ describe("hobby clubhouse templates", () => {
     expect(room.coverPhoto).toBe("");
     expect(room.notice).toBe("");
     expect(room.items.some((item) => ["stool", "gameChair", "roundChair", "officeChair"].includes(item.kind))).toBe(true);
-    for (const { kind } of CATALOG.filter((asset) => (asset.height || 0) <= getRoomLayout(id).building.height)) {
+    for (const { kind } of CATALOG.filter((asset) => asset.placeable && asset.height <= getRoomLayout(id).building.height)) {
       const position = findOpenPosition(kind, [], id);
       expect(position).not.toBeNull();
       expect(canPlace({ kind, rotation: 0, ...position }, [], id)).toBe(true);
@@ -375,7 +393,7 @@ describe("climbing-specific floors and migration", () => {
   test("new upper-floor furniture stays on the deck and preserves stairs and landing", () => {
     const deck = getRoomLayout("climbing").mezzanine;
     const headroom = getRoomLayout("climbing").building.height - deck.height;
-    for (const { kind } of CATALOG.filter(({ height = 0, width, depth }) => height <= headroom && width < 7 && depth < 5.5)) {
+    for (const { kind } of CATALOG.filter(({ placeable, height, width, depth }) => placeable && height <= headroom && width < 7 && depth < 5.5)) {
       const position = findOpenPosition(kind, [], "climbing", "mezzanine");
       expect(position).toMatchObject({ level: 1 });
       expect(canPlace({ ...position, kind, rotation: 0 }, [], "climbing")).toBe(true);
@@ -801,4 +819,28 @@ test.each([9, 10, 11])("v%s default room relocates furniture and attached props 
   expect(movedCup.z).toBeCloseTo(movedTable.z);
   expect(untouched).toEqual(plant);
   expect(validateRoom(loft)).toEqual(loft);
+});
+
+test("retired kinds stay readable only under their saved identity, including an old placement and optional metadata", () => {
+  const { CATALOG, installFurnitureCatalog } = require("../../features/group-space/furnitureCatalog.js");
+  const original = createInitialRoom("study");
+  const items = [
+    { id: "shelf", kind: "bookshelf", x: 4, z: -8, rotation: 2, level: 1, scaleX: 1.1, scaleY: 0.9, scaleZ: 1.3,
+      finish: "oak", variant: 3, elevation: 0.2, color: "#123456", title: "예전 서가", note: "" },
+    { id: "prop", kind: "propCup", parentId: "shelf", surfaceIndex: 2, x: 4.8, z: -8, rotation: 1, level: 1 },
+    { id: "record", kind: "memory", x: 0, z: 0, rotation: 0, title: "" }
+  ];
+  const pinned = bindRoomBlueprint({ ...original, items }, { blueprintRef: { templateKey: "study", version: 11 }, geometry: getRoomLayout(original) });
+  installFurnitureCatalog(CATALOG.map(type => type.kind === "bookshelf" ? { ...type, placeable: false } : type));
+  try {
+    const savedRoom = readSavedRoom(pinned, { preserveVersion: true });
+    expect(savedRoom.items).toEqual(items);
+    expect(validateRoom({ ...savedRoom, name: "새 방 이름" }, { savedRoom }).items).toEqual(items);
+    const copy = { ...items[0], id: "copy" };
+    expect(validateRoom({ ...savedRoom, items: [...items, copy] }, { savedRoom })).toBeNull();
+    expect(validateRoom({ ...savedRoom, items: [{ ...items[0], id: "record" }] }, { savedRoom })).toBeNull();
+    expect(createInitialRoom("lounge").items.some(item => item.kind === "bookshelf")).toBe(false);
+  } finally {
+    installFurnitureCatalog(CATALOG);
+  }
 });

@@ -143,15 +143,18 @@ test("shows the builders while the clubhouse is loading and clears them when it 
     expect(art.x).toBeGreaterThanOrEqual(0);
     expect(art.x + art.width).toBeLessThanOrEqual(375);
     const caption = await loader.locator("p").boundingBox();
-    const visit = await page.getByRole("button", { name: "놀러가기" }).boundingBox();
+    const loadingVisit = page.getByRole("button", { name: "공간 불러오는 중…", exact: true });
+    await expect(loadingVisit).toBeDisabled();
+    const visit = await loadingVisit.boundingBox();
     expect(caption.y + caption.height).toBeLessThanOrEqual(visit.y);
     await page.screenshot({ path: testInfo.outputPath("clubhouse-loading-mobile.png") });
   } finally {
     finishLoading();
   }
 
-  await expect(page.locator("[data-canvas-status]")).toHaveAttribute("data-canvas-status", "ready");
+  await expect(page.locator("[data-canvas-status]")).toHaveAttribute("data-canvas-status", "ready", { timeout: 45_000 });
   await expect(loader).toBeHidden();
+  await expect(page.getByRole("button", { name: "놀러가기", exact: true })).toBeEnabled();
   expect(state.unexpectedResponses).toEqual([]);
 });
 

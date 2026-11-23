@@ -8,20 +8,24 @@ const movement = z.object({ memberId: id, position: point, yaw: z.number().finit
 const participant = movement.extend({
   displayName: z.string().max(200), avatarColor: z.string().regex(/^#[\da-f]{6}$/i),
   avatarAppearance: z.unknown().transform(readAvatarAppearance).optional(),
-  seat: z.object({ assetId: id, slot: z.number().int().nonnegative(), position: point, approach: point, yaw: z.number().finite() }).nullable(),
+  seat: z.object({ assetId: id, slot: z.number().int().nonnegative() }).nullable(),
   heldItemId: id.nullable(), pose: z.string().max(40),
   emote: z.object({ kind: z.string().max(40), startedAt: z.number(), expiresAt: z.number() }).nullable()
 });
-const item = z.object({ id, kind: z.string().max(40), holderId: id.nullable(),
-  location: z.enum(["HELD", "WORLD", "SURFACE", "STORAGE", "THROWN"]), position: point,
+const itemState = z.object({ id, kind: z.string().max(40), holderId: id.nullable(),
   assetId: id.nullable(), slot: z.number().int().nonnegative().nullable(), remaining: z.number().min(0).max(1),
   velocity: point.nullable(), startedAt: z.number().nullable() });
+const item = z.discriminatedUnion("location", [
+  itemState.extend({ location: z.enum(["HELD", "WORLD", "THROWN"]), position: point }),
+  itemState.extend({ location: z.enum(["SURFACE", "STORAGE"]), assetId: id, slot: z.number().int().nonnegative() })
+]);
 const context = {
   protocolVersion: z.literal(1), roomId: id, roomEpoch: id, connectionGeneration: id,
   layoutRevision: z.number().int().nonnegative(), controlSeq: z.number().int().nonnegative(),
   frameSeq: z.number().int().nonnegative(), serverTime: z.number().finite()
 };
 const state = z.object({ ...context, type: z.enum(["ROOM_SNAPSHOT", "ROOM_STATE"]), selfId: id,
+  catalogGeneration: z.number().int().nonnegative().optional(),
   participants: z.array(participant).max(200), items: z.array(item).max(2000),
   assets: z.record(id, z.object({ open: z.boolean().optional(), on: z.boolean().optional(), wateredAt: z.number().optional(),
     production: z.object({ itemId: id, kind: z.string(), completesAt: z.number() }).passthrough().nullable().optional() }).passthrough()) });
