@@ -141,9 +141,8 @@ class ActivityPostReactionRemovalConcurrencyTest extends IntegrationTestSupport 
 
     /**
      * 먼저 온 요청의 DELETE를 DB에 보낸 뒤 커밋하지 않은 채로 늦게 온 요청을 보낸다. 엔티티 삭제는 커밋할 때까지
-     * 미뤄지므로 flush로 커밋 직전 상태를 만든다. 늦게 온 요청이 행 잠금을 기다리는지는 {@code pg_locks}로 본다.
-     * {@code pg_stat_activity}는 한 트랜잭션 안에서 처음 읽은 값으로 고정되므로 이 트랜잭션 안에서 다시 읽어도
-     * 바뀐 대기 상태를 보지 못한다.
+     * 미뤄지므로 flush로 커밋 직전 상태를 만든다. 늦게 온 요청이 행 잠금을 기다리는지는 {@code pg_locks}에 허가되지
+     * 않은 잠금이 생겼는지로 본다.
      */
     private int sendWhileEarlierRequestIsUncommitted(Runnable earlierRequest, Callable<Integer> lateRequest)
             throws Exception {
