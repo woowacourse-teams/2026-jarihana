@@ -42,6 +42,10 @@ public class AuthCommandController {
     private final JsonMapper jsonMapper;
     private final Validator validator;
 
+    /**
+     * 회전 직후 같은 토큰으로 다시 온 요청에는 Refresh Token 쿠키를 내리지 않는다. 먼저 성공한 응답이
+     * 브라우저의 쿠키를 이미 새 값으로 바꾸었으므로, 여기서 건드리면 그 값을 덮어쓰거나 지우게 된다.
+     */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<RefreshResponse>> refresh(
             HttpServletRequest request,
@@ -49,9 +53,11 @@ public class AuthCommandController {
     ) {
         RefreshCommand command = new RefreshCommand(readRefreshToken(request).orElse(null));
         RefreshResult result = refreshOrExpireCredentials(command, response);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString())
-                .body(ApiResponse.success(RefreshResponse.from(result)));
+        ResponseEntity.BodyBuilder ok = ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authCookieFactory.accessToken(result.accessToken()).toString());
+        result.findRotatedRefreshToken().ifPresent(rotated ->
+                ok.header(HttpHeaders.SET_COOKIE, authCookieFactory.refreshToken(rotated).toString()));
+        return ok.body(ApiResponse.success(RefreshResponse.from(result)));
     }
 
     /**

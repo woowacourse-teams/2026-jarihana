@@ -47,6 +47,11 @@ jarihana:
     frontend-origin: http://localhost:5173
     oauth-state-cookie-name: oauthState
     refresh-token-validity: P14D
+    refresh-token-reuse-grace: PT10S
+    # 캐시된 테스트 컨텍스트가 DB를 함께 쓴다. 배경 정리가 다른 테스트가 넣은 만료 행을 지우지 않게 끄고,
+    # 정리는 테스트가 RefreshTokenCleaner를 직접 불러 검증한다.
+    refresh-token-cleanup:
+      enabled: false
     cookie:
       secure: false
       access-token-name: accessToken

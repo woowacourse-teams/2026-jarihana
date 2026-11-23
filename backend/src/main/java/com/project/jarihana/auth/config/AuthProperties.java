@@ -26,6 +26,13 @@ public record AuthProperties(
         String oauthStateCookieName,
 
         @NotNull
-        Duration refreshTokenValidity
+        Duration refreshTokenValidity,
+
+        /*
+         * 회전 직후 같은 Refresh Token이 다시 와도 재사용으로 보지 않는 시간이다. 탭 여러 개가 같은
+         * 쿠키로 거의 동시에 갱신하는 경우를 덮는다.
+         */
+        @NotNull
+        Duration refreshTokenReuseGrace
 ) {
 }
