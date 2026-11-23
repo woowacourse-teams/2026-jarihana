@@ -162,6 +162,8 @@ public class NotificationEventListener {
     /**
      * 작성자가 아직 읽지 않은 좋아요 알림이 있으면 새 알림과 푸시를 만들지 않고 그 알림에 모은다.
      * 알림함 문구는 조회할 때 현재 좋아요로 계산하므로 모인 인원이 그대로 보인다.
+     * 동시에 들어온 좋아요는 서로의 커밋 전 알림을 보지 못하므로, 확인 전에 기록별 잠금을 잡아 앞선 커밋을 기다린다.
+     * READ COMMITTED에서는 잠금을 얻은 뒤의 확인 쿼리가 앞 트랜잭션이 커밋한 알림을 본다.
      */
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
     public void onActivityPostReacted(ActivityPostReactedEvent event) {
@@ -169,8 +171,11 @@ public class NotificationEventListener {
             return;
         }
         Member author = members.findById(event.postAuthorMemberId()).orElseThrow();
-        if (author.getWithdrawnAt() != null
-                || notifications.existsUnreadActivityPostReaction(author.getId(), event.activityPostId())) {
+        if (author.getWithdrawnAt() != null) {
+            return;
+        }
+        notifications.lockActivityPostReactionNotification(event.activityPostId());
+        if (notifications.existsUnreadActivityPostReaction(author.getId(), event.activityPostId())) {
             return;
         }
         record(author, "activity-post-reaction:" + event.reactionId() + ":created",

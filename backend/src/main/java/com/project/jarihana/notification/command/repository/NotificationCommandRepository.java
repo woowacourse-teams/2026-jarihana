@@ -31,6 +31,17 @@ public interface NotificationCommandRepository extends Repository<Notification, 
     boolean existsUnreadActivityPostReaction(@Param("memberId") long memberId,
                                              @Param("activityPostId") long activityPostId);
 
+    /**
+     * 같은 활동 기록의 좋아요 알림 판단을 한 트랜잭션씩 줄 세운다. 잠금은 커밋이나 롤백 때 풀린다.
+     * 아직 없는 알림 행은 행 잠금으로 막을 수 없어 기록별 advisory lock을 쓴다.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query(value = """
+            select 1 from pg_advisory_xact_lock(
+                hashtextextended('activity-post-reaction-notification:' || cast(:activityPostId as text), 0))
+            """, nativeQuery = true)
+    int lockActivityPostReactionNotification(@Param("activityPostId") long activityPostId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             update notifications set read_at = :now, updated_at = :now
