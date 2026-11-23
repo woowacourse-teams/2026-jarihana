@@ -236,7 +236,10 @@ export function applyRoomTemplate(room, templateId, blueprint) {
     matColor: templateId === "climbing" ? fresh.matColor : room.matColor, atmosphere: TEMPLATE_ATMOSPHERES[templateId] ? { ...fresh.atmosphere, ...(room.atmosphere.outdoors && { outdoors: room.atmosphere.outdoors }) } : room.atmosphere, items };
 }
 
-export const assetType = (item) => CATALOG.find((entry) => entry.kind === item.kind);
+// Placement checks look up item kinds inside nested loops; keep the first entry like Array#find.
+const CATALOG_BY_KIND = new Map();
+for (const entry of CATALOG) if (!CATALOG_BY_KIND.has(entry.kind)) CATALOG_BY_KIND.set(entry.kind, entry);
+export const assetType = (item) => CATALOG_BY_KIND.get(item.kind);
 export const isUnderlay = (item) => ["rug", "loungeRug"].includes(item.kind) || Boolean(assetType(item)?.walkableHeight);
 export const isMounted = (item) => Boolean(assetType(item)?.mount);
 const isRug = isUnderlay;
@@ -273,7 +276,7 @@ function fitsVerticalSpace(item, items, layout) {
 }
 
 export function footprint(item, version = 9) {
-  const type = version < 7 && item.kind === "gameTable" ? { width: 3.2, depth: 1.9 } : CATALOG.find((entry) => entry.kind === item.kind);
+  const type = version < 7 && item.kind === "gameTable" ? { width: 3.2, depth: 1.9 } : CATALOG_BY_KIND.get(item.kind);
   const scale = assetScale(item);
   const width = type.width * scale.x, depth = type.depth * scale.z;
   return { ...type, width: item.rotation % 2 ? depth : width, depth: item.rotation % 2 ? width : depth };
