@@ -1,4 +1,5 @@
 import logo from "../../shared/assets/brand/jarihana-favicon.png";
+import { LandingServiceLink } from "./LandingChrome";
 import { LandingPage } from "./LandingPage";
 import "./landing-demoday.css";
 
@@ -76,13 +77,7 @@ export function DemodayLandingPage() {
       <section aria-labelledby="demoday-invite-title" className="landing-demoday-invite">
         <div className="landing-container">
           <h2 id="demoday-invite-title">어서 우리만의 자리 하나 만들고 아지트 꾸미러가요</h2>
-          <a
-            className="landing-button landing-button--large"
-            data-ph-capture-attribute-action="landing_explore"
-            href="https://jarihana.com/home"
-          >
-            자리하나? 바로가기
-          </a>
+          <LandingServiceLink className="landing-button--large" />
         </div>
       </section>
     </LandingPage>
