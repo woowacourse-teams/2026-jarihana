@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { Link } from "react-router";
 
 import { useToast } from "../../shared/ui";
 import orbitPoster from "../../shared/assets/landing/landing-clubhouse-orbit-poster.webp";
 import decorateImage from "../../shared/assets/landing/landing-clubhouse-decorate.webp";
 import insideImage from "../../shared/assets/landing/landing-clubhouse-inside.webp";
 import musicImage from "../../shared/assets/landing/landing-clubhouse-music.webp";
+import { LandingServiceLink } from "./LandingChrome";
 import { LandingClubhouseScene } from "./LandingClubhouseScene";
 import "./landing-clubhouse.css";
 
@@ -62,7 +62,7 @@ function useCurtainMode(curtainRef) {
   return mode;
 }
 
-export function LandingClubhouseHero({ active, isDemoday = false }) {
+export function LandingClubhouseHero({ active }) {
   const toast = useToast();
   const curtainRef = useRef(null);
   const sceneMode = useCurtainMode(curtainRef);
@@ -90,33 +90,7 @@ export function LandingClubhouseHero({ active, isDemoday = false }) {
             <p className="landing-clubhouse__lead">
               동아리와 스터디마다 아지트가 생겨요. 함께 꾸미고 놀러 오세요.
             </p>
-            {isDemoday ? (
-              <a
-                className="landing-button landing-button--large landing-clubhouse__shortcut"
-                data-ph-capture-attribute-action="landing_explore"
-                href="https://jarihana.com/home"
-              >
-                자리하나? 바로가기
-              </a>
-            ) : (
-              <div className="landing-clubhouse__actions">
-                <button
-                  className="landing-button landing-button--mint landing-button--large"
-                  data-ph-capture-attribute-action="landing_clubhouse_try"
-                  onClick={announce}
-                  type="button"
-                >
-                  아지트 꾸며 보기
-                </button>
-                <Link
-                  className="landing-button landing-button--quiet landing-button--large"
-                  data-ph-capture-attribute-action="landing_explore"
-                  to="/groups?recruiting=true"
-                >
-                  모집 중인 모임 보기
-                </Link>
-              </div>
-            )}
+            <LandingServiceLink className="landing-button--large landing-clubhouse__shortcut" />
           </div>
           <span aria-hidden="true" className="landing-clubhouse__pull">
             끝까지 안 봐도 돼요, 내려 보세요

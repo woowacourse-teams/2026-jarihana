@@ -19,7 +19,7 @@ export function LandingPage({ children, footer, header, isDemoday = false }) {
 
   return (
     <LandingShell footer={footer} header={header} rootRef={pageRef}>
-      <LandingClubhouseHero active={activeChapter === "clubhouse"} isDemoday={isDemoday} />
+      <LandingClubhouseHero active={activeChapter === "clubhouse"} />
       <LandingFeatureCards active={activeChapter === "features"} />
       <LandingCoreCards active={activeChapter === "core"} />
       {!isDemoday && <LandingTechSection activeChapter={activeChapter} />}
