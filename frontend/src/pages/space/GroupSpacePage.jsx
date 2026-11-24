@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useAuth } from "../../features/auth/index.js";
 import { useGroup } from "../../features/group/index.js";
-import { fetchDefaultSpaceBlueprint, fetchGroupSpace, useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
+import { fetchDefaultSpaceBlueprint, fetchGroupSpace, useFurnitureCatalog, useGroupSpace, useSaveGroupSpace } from "../../features/group-space/index.js";
 import { Button, ErrorState, Skeleton } from "../../shared/ui/index.js";
 import { ClubhouseSetupDialog } from "./ClubhouseSetupDialog.jsx";
 import { SpaceStudioPage } from "./SpaceStudioPage.jsx";
@@ -29,7 +29,7 @@ function canEditRoom(snapshot, room) {
 
 function blueprintOf(snapshot) {
   return snapshot.blueprintRef && snapshot.geometry
-    ? { blueprintRef: snapshot.blueprintRef, geometry: snapshot.geometry } : undefined;
+    ? { blueprintRef: snapshot.blueprintRef, geometry: snapshot.geometry, spawn: snapshot.spawn, defaultRoom: snapshot.defaultRoom } : undefined;
 }
 
 function persistedRoom(snapshot, groupName) {
@@ -37,7 +37,9 @@ function persistedRoom(snapshot, groupName) {
   if (snapshot.room !== null) {
     return readSavedRoom(bindRoomBlueprint(snapshot.room, blueprint), { preserveVersion: true });
   }
-  return { ...createInitialRoom("lounge", { blueprint, loungeLoft: false }), name: groupName.slice(0, 30) };
+  if (!blueprint?.defaultRoom) return null;
+  const room = readSavedRoom(bindRoomBlueprint(blueprint.defaultRoom, blueprint), { preserveVersion: true });
+  return room && { ...room, name: groupName.slice(0, 30) };
 }
 
 async function defaultBlueprint(templateKey) {
@@ -46,7 +48,7 @@ async function defaultBlueprint(templateKey) {
   return blueprint;
 }
 
-function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup }) {
+function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clubhouse, setup, catalogData, onCatalogChange }) {
   const [layout, setLayout] = useState(() => ({
     room: initialRoom,
     sharedRoom: initialRoom,
@@ -61,7 +63,7 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
   const [savedAt, setSavedAt] = useState(snapshot.updatedAt);
   const revision = useRef(snapshot.revision);
   const saving = useRef(false);
-  const mutation = useSaveGroupSpace(groupId);
+  const mutation = useSaveGroupSpace(groupId, layout.revision > 0 ? layout.room : undefined);
 
   const acceptSnapshot = useCallback((response, room, sharedRoom = room) => {
     revision.current = response.revision;
@@ -120,10 +122,10 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
     }
   }
 
-  const loadBlueprint = snapshot.blueprintRef ? defaultBlueprint : undefined;
+  const loadBlueprint = defaultBlueprint;
 
   async function saveInitialTemplate(template) {
-    const blueprint = loadBlueprint && await loadBlueprint(template);
+    const blueprint = await loadBlueprint(template);
     const room = { ...createInitialRoom(template, { blueprint }), name: layout.room.name };
     try {
       await save(room, { initialSetup: true });
@@ -147,7 +149,7 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
     let active = true;
     async function prepareFirstDraft() {
       try {
-        const blueprint = loadBlueprint && await loadBlueprint("lounge");
+        const blueprint = await loadBlueprint("lounge");
         const draft = { ...createInitialRoom("lounge", { blueprint }), name: group.name.slice(0, 30) };
         if (active) setFirstDraft(draft);
       } catch (error) {
@@ -166,32 +168,40 @@ function LoadedGroupSpace({ groupId, memberId, group, snapshot, initialRoom, clu
   const scene = clubhouse && needsSetup ? { ...clubhouse, inputBlocked: true } : clubhouse;
   return <>
     <SpaceStudioPage clubhouse={scene} initialRoom={unconfigured && firstDraft ? firstDraft : layout.room} sharedRoom={layout.sharedRoom} layoutRevision={layout.revision} memberId={memberId}
-      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
+      onLoadBlueprint={loadBlueprint} onLayoutChange={reloadLayout} catalogData={catalogData} onCatalogChange={onCatalogChange}
+      layoutError={layoutError} onSave={save} canEdit={canEdit} savedAt={savedAt}
       groupContext={{ id: group.id, name: group.name, memberCount: group.memberCount,
         backHref: `/groups/${groupId}`, membersHref: `/groups/${groupId}?tab=members` }} />
     {needsSetup && <ClubhouseSetupDialog {...setup} onSave={saveInitialTemplate} />}
   </>;
 }
 
-export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
+export function GroupSpaceLoader({ groupId, memberId, clubhouse, onSavedLayout, setup }) {
   const [hasLoaded, setHasLoaded] = useState(false);
+  const catalog = useFurnitureCatalog();
   const group = useGroup(groupId);
   const space = useGroupSpace(groupId, memberId);
   const snapshot = space.isFetchedAfterMount ? space.data : undefined;
   const groupName = group.data?.name;
-  const room = useMemo(() => snapshot && groupName !== undefined ? persistedRoom(snapshot, groupName) : null, [snapshot, groupName]);
+  const catalogData = catalog.isFetchedAfterMount ? catalog.data : undefined;
+  const catalogItems = catalogData?.items;
+  const room = useMemo(() => catalogItems && snapshot && groupName !== undefined ? persistedRoom(snapshot, groupName) : null, [catalogItems, snapshot, groupName]);
   const errors = [space.isError && space.error, group.isError && group.error].filter(Boolean);
   const accessError = errors.find((error) => [401, 403, 404].includes(error.status));
-  const failed = Boolean(accessError || (!hasLoaded && (group.isError || space.isError)));
-  const pending = group.isPending || space.isPending || !space.isFetchedAfterMount || !group.data || !space.data;
+  const failed = Boolean(accessError || (!hasLoaded && (group.isError || space.isError || catalog.isError)));
+  const pending = !catalogItems || group.isPending || space.isPending || !space.isFetchedAfterMount || !group.data || !space.data;
   const unavailableStatus = failed ? "error" : pending ? "loading" : !room ? "error" : null;
   const onSceneStatus = clubhouse?.onSceneStatus;
   useEffect(() => {
     if (unavailableStatus) onSceneStatus?.(unavailableStatus);
   }, [onSceneStatus, unavailableStatus]);
+  const savedLayoutLoaded = Boolean(!unavailableStatus && snapshot?.room && snapshot.revision > 0);
+  useEffect(() => {
+    if (savedLayoutLoaded) onSavedLayout?.(true);
+  }, [onSavedLayout, savedLayoutLoaded]);
   if (failed) {
     return <SpaceError clubhouse={clubhouse} groupId={groupId} error={accessError ?? errors[0]}
-      onRetry={() => { void group.refetch(); void space.refetch(); }} />;
+      onRetry={() => { void group.refetch(); void space.refetch(); if (catalog.isError) void catalog.refetch(); }} />;
   }
   if (pending) {
     return <div className="route-loading"><Skeleton aria-label="우리 모임 공간 불러오는 중" /></div>;
@@ -199,7 +209,8 @@ export function GroupSpaceLoader({ groupId, memberId, clubhouse, setup }) {
   if (!room) return <SpaceError clubhouse={clubhouse} groupId={groupId} onRetry={() => void space.refetch()} />;
   if (!hasLoaded) setHasLoaded(true);
   return <LoadedGroupSpace key={`${groupId}:${memberId}`} groupId={groupId} memberId={memberId}
-    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup} />;
+    clubhouse={clubhouse} group={group.data} snapshot={space.data} initialRoom={room} setup={setup}
+    catalogData={catalogData} onCatalogChange={catalog.refetch} />;
 }
 
 export function GroupSpacePage() {

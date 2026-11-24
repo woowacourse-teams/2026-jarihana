@@ -133,6 +133,14 @@ jarihana:
     frontend-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
     oauth-state-cookie-name: oauthState
     refresh-token-validity: P14D
+    refresh-token-reuse-grace: PT10S
+    refresh-token-cleanup:
+      enabled: true
+      # 만료에서 이만큼 지난 행만 지워 만료 직전에 시작한 갱신 요청과 겹치지 않게 한다.
+      grace-period: P1D
+      batch-size: 100
+      interval: PT1H
+      initial-delay: PT5M
     cookie:
       secure: true
       access-token-name: accessToken

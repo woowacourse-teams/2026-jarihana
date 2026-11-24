@@ -1,4 +1,5 @@
 import { activeSpeechMessages, featureForRoomItem, SPEECH_DURATION_MS } from "./clubhouseInteractions";
+import { installFurnitureCatalog } from "../../features/group-space/furnitureCatalog.js";
 
 test("decorations route to shared features without owning their records", () => {
   ["memory", "clubPinboard", "climbingBoard", "gameWallBoard", "galleryPartition", "foodMap", "bandPoster"].forEach((kind) => {
@@ -7,6 +8,22 @@ test("decorations route to shared features without owning their records", () => 
   expect(featureForRoomItem({ kind: "whiteboard" })).toBe("info");
   expect(featureForRoomItem({ kind: "sofa" })).toBeNull();
   expect(featureForRoomItem(null)).toBeNull();
+});
+
+test("the catalog can change or disable the panel opened by existing furniture", () => {
+  const { furnitureCatalog } = require("../../../tests/fixtures/clubhouse-seeds.cjs");
+  installFurnitureCatalog(furnitureCatalog.map(type => {
+    if (type.kind === "clubDashboard") return { ...type, interaction: { capabilities: ["panelEntry"], panel: "music" } };
+    if (type.kind === "activityBoard") return { ...type, interaction: undefined };
+    return type;
+  }));
+  try {
+    expect(featureForRoomItem({ kind: "clubDashboard" })).toBe("music");
+    expect(featureForRoomItem({ kind: "activityBoard" })).toBeNull();
+    expect(featureForRoomItem({ kind: "whiteboard" })).toBe("info");
+  } finally {
+    installFurnitureCatalog(furnitureCatalog);
+  }
 });
 
 test("speech uses at most three latest speakers and sixty Unicode characters", () => {

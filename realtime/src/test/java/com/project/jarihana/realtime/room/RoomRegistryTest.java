@@ -15,6 +15,7 @@ import com.project.jarihana.realtime.config.RealtimeEnvironment;
 import com.project.jarihana.realtime.layout.LayoutCatalog;
 import com.project.jarihana.realtime.layout.BlueprintRef;
 import com.project.jarihana.realtime.layout.TestBlueprints;
+import com.project.jarihana.realtime.room.domain.RuleViolation;
 import com.project.jarihana.realtime.room.persistence.RoomReadRepository;
 import com.project.jarihana.realtime.room.runtime.RoomRegistry;
 import io.jsonwebtoken.Jwts;
@@ -26,12 +27,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -49,10 +48,13 @@ class RoomRegistryTest {
         var properties = TestSettings.properties(TestSettings.DEV_TOKEN_KEY, TestSettings.PROD_TOKEN_KEY);
         when(roomReads.admission(eq(RealtimeEnvironment.DEV), anyString(), anyString())).thenReturn(admission());
         when(roomReads.layout(eq(RealtimeEnvironment.DEV), anyString())).thenReturn(new RoomReadRepository.StoredLayout(1, null, BlueprintRef.UNSAVED_ROOM));
-        var catalog = new LayoutCatalog(mapper);
-        when(roomReads.geometry(any(), eq(BlueprintRef.UNSAVED_ROOM))).thenReturn(TestBlueprints.geometry("11:lounge"));
+        var catalog = new LayoutCatalog();
+        when(roomReads.blueprint(any(), eq(BlueprintRef.UNSAVED_ROOM))).thenReturn(TestBlueprints.runtime("11:lounge"));
+        when(roomReads.catalog(any(), any())).thenReturn(new RoomReadRepository.RuntimeCatalog(1, TestBlueprints.FURNITURE,
+                TestBlueprints.PORTABLE_ITEMS));
         registry = new RoomRegistry(properties, new AdmissionTokenVerifier(properties, clock), roomReads,
                 catalog, mapper, clock, metrics);
+        for (RealtimeEnvironment environment : RealtimeEnvironment.values()) registry.notificationsReady(environment);
     }
 
     @AfterEach
@@ -103,21 +105,39 @@ class RoomRegistryTest {
     }
 
     @Test
-    void databaseOutageDoesNotExtendPermissionLease() throws Exception {
-        CountDownLatch renewal = new CountDownLatch(1);
-        AtomicInteger calls = new AtomicInteger();
-        when(roomReads.admission(eq(RealtimeEnvironment.DEV), anyString(), anyString())).thenAnswer(invocation -> {
-            if (calls.incrementAndGet() == 1) return admission();
-            renewal.countDown(); throw new DataAccessResourceFailureException("fixture outage");
-        });
+    void notificationOutageExpiresAccessEvenIfReconnectAttemptsKeepFailing() throws Exception {
         Capture connection = socket("a"); authenticate(connection, token());
         assertThat(connection.snapshot.await(5, TimeUnit.SECONDS)).isTrue();
+        registry.notificationsDisconnected(RealtimeEnvironment.DEV);
         clock.set(1500);
-        assertThat(renewal.await(5, TimeUnit.SECONDS)).isTrue();
+        registry.notificationsDisconnected(RealtimeEnvironment.DEV);
         assertThat(connection.status.get()).isNull();
-        clock.set(3001);
+        clock.set(61000);
         assertThat(connection.closed.await(5, TimeUnit.SECONDS)).isTrue();
         assertThat(connection.status.get().getReason()).isEqualTo("ACCESS_EXPIRED");
+    }
+
+    @Test
+    void revocationOvertakingAdmissionPreventsJoiningWithTheOldRead() throws Exception {
+        CountDownLatch oldReadStarted = new CountDownLatch(1);
+        CountDownLatch returnOldRead = new CountDownLatch(1);
+        when(roomReads.admission(RealtimeEnvironment.DEV, "7", "1"))
+                .thenAnswer(invocation -> {
+                    oldReadStarted.countDown();
+                    assertThat(returnOldRead.await(5, TimeUnit.SECONDS)).isTrue();
+                    return admission();
+                })
+                .thenThrow(new RuleViolation("ACCESS_DENIED"));
+
+        Capture joining = socket("a");
+        authenticate(joining, token());
+        assertThat(oldReadStarted.await(5, TimeUnit.SECONDS)).isTrue();
+        registry.permissionsChanged(RealtimeEnvironment.DEV, null, "1");
+        returnOldRead.countDown();
+
+        assertThat(joining.closed.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(joining.status.get().getReason()).isEqualTo("ACCESS_DENIED");
+        assertThat(joining.snapshot.getCount()).isEqualTo(1);
     }
 
     @Test
@@ -154,7 +174,7 @@ class RoomRegistryTest {
         assertThat(connection.snapshot.getCount()).isEqualTo(1);
     }
 
-    private Admission admission() { return new Admission("7", "1", "tester", "#536bd6", null, "MEMBER", 3000, 1, null, BlueprintRef.UNSAVED_ROOM); }
+    private Admission admission() { return new Admission("7", "1", "tester", "#536bd6", null, "MEMBER", 1, null, BlueprintRef.UNSAVED_ROOM); }
 
     private void authenticate(Capture capture, String token) {
         registry.open(capture.socket);

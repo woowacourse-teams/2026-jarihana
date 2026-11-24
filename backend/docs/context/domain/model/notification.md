@@ -22,11 +22,10 @@
 
 ## Notification (`notifications`)
 
-공지 기능의 후속 배포에 앞서 `GROUP_ANNOUNCEMENT_CREATED`와
-`groupId`·`announcementId` payload의 읽기를 지원한다. 선행 호환 PR #490 자체는 공지 알림을
-생성하지 않는다. V12는 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가한다.
-공지 사건 생성은 이 선행 배포 이후 #459의 V13 기능 배포에서 시작한다. 기존 클라이언트에는 신규 사건을 제외하고,
-`clientVersion` 2 이상을 요청한 클라이언트에 공지 target을 반환한다.
+선행 호환 PR #490은 `GROUP_ANNOUNCEMENT_CREATED`와 `groupId`·`announcementId` payload의 읽기를 준비했다.
+V12는 기존 구독을 1로 보존하는 `push_subscriptions.client_version` 컬럼을 추가했고, 공지 사건 생성은 #459의 V13에서 시작했다.
+종 알림함 목록·안 읽은 수·전체 읽음에는 요청 버전과 관계없이 공지 알림을 포함한다.
+개별 알림 상세와 푸시 내용은 `clientVersion` 2 이상에서 공지 알림을 조회할 수 있다.
 배포와 롤백 기준은 [공지 알림 호환성 전환](../../../operations/announcement-notification-compatibility-rollout.md)을 따른다.
 
 회원이 알림함에서 확인하는 사건 기록이다. 신청·참여 사건은 푸시 허용 여부와 무관하게 저장한다.
@@ -67,7 +66,8 @@ payloadVersion은 기존 사건과 초대 사건 모두 1이다. eventType이 �
 - 좋아요(`ACTIVITY_POST_REACTED`)는 하트 반응을 알린다. 작성자에게 같은 기록의 읽지 않은 미삭제 좋아요 알림이 있으면
   새 알림과 전송 대기를 만들지 않고 그 알림에 모은다. 없으면 그 반응의 `activity-post-reaction:{reactionId}:created`
   의미키로 새 알림을 만든다. 따라서 작성자가 읽거나 지운 뒤 들어온 좋아요는 다시 알리고, 읽기 전에 하트를 껐다 켜도
-  알림과 푸시가 늘지 않는다. 동시에 들어온 첫 좋아요들은 드물게 두 건으로 나뉠 수 있다.
+  알림과 푸시가 늘지 않는다. 동시에 들어온 첫 좋아요들이 서로의 커밋 전 알림을 보지 못해 두 건으로 나뉘지 않도록,
+  읽지 않은 알림을 확인하기 전에 기록별 트랜잭션 advisory lock을 잡아 같은 기록의 판단을 한 건씩 처리한다.
 - 댓글에 남긴 하트는 알리지 않는다.
 
 유일키는 `(event_key, member_id)`다. 예: `registration:123:approved`.

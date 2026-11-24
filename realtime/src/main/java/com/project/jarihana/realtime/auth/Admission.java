@@ -5,4 +5,4 @@ import com.project.jarihana.realtime.layout.BlueprintRef;
 import tools.jackson.databind.JsonNode;
 
 public record Admission(String roomId, String memberId, String displayName, String avatarColor, AvatarAppearance avatarAppearance,
-        String role, long leaseExpiresAt, long layoutRevision, JsonNode room, BlueprintRef blueprint) {}
+        String role, long layoutRevision, JsonNode room, BlueprintRef blueprint) {}

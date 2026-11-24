@@ -294,7 +294,8 @@ test("a successful save notice dismisses itself", () => {
 test("explicit template replacement loads the selected default and marks only the replacement save", async () => {
   const original = createInitialRoom("lounge", { loungeLoft: false });
   const room = bindRoomBlueprint(original, { blueprintRef: { templateKey: "lounge", version: 11 }, geometry: getRoomLayout(original) });
-  const next = { blueprintRef: { templateKey: "climbing", version: 13 }, geometry: getRoomLayout("climbing", 11) };
+  const next = { ...require("../../../tests/fixtures/clubhouse-seeds.cjs").blueprint("climbing"),
+    blueprintRef: { templateKey: "climbing", version: 13 } };
   const load = jest.fn().mockResolvedValue(next);
   const save = jest.fn(async draft => draft);
   render(<SpaceStudioPage initialRoom={room} onLoadBlueprint={load} onSave={save} />);

@@ -14,9 +14,7 @@ import tools.jackson.databind.JsonNode;
 
 class RoomLayoutTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
-    private final LayoutCatalog catalog = new LayoutCatalog(mapper);
-
-    RoomLayoutTest() throws java.io.IOException {}
+    private final LayoutCatalog catalog = new LayoutCatalog();
 
     @ParameterizedTest
     @ValueSource(strings = {"lounge", "climbing", "boardgame", "dining", "band", "study", "photo"})
@@ -66,6 +64,20 @@ class RoomLayoutTest {
     }
 
     @Test
+    void raisedRotatedSeatCanOnlyBeReachedFromItsOwnFloor() {
+        RoomLayout layout = readFixture(1, mapper.valueToTree(Map.of("version", 12, "template", "lounge", "items",
+                List.of(Map.of("id", "sofa", "kind", "sofa", "x", 0, "z", -6.1, "level", 1,
+                        "rotation", 1, "scaleX", 1.2, "scaleY", 2, "scaleZ", 1.5)))));
+        RoomAsset seat = layout.asset("sofa", "seatable");
+        double floor = layout.geometry().path("mezzanine").path("height").asDouble();
+        Vec3 approach = new Vec3(1.6, floor, -6.1);
+
+        assertThat(layout.valid(approach, false)).isTrue();
+        assertThat(seat.seatReachable(approach)).isTrue();
+        assertThat(seat.seatReachable(new Vec3(1.6, 0, -6.1))).isFalse();
+    }
+
+    @Test
     void readsLoftGeometryOnlyForSavedVersionTwelveLounges() {
         RoomLayout defaultLayout = readFixture(0, null);
         RoomLayout savedLayout = readFixture(1, mapper.valueToTree(Map.of(
@@ -88,32 +100,51 @@ class RoomLayoutTest {
 
     private RoomLayout readFixture(long revision, JsonNode room) {
         String key = room == null ? "11:lounge" : room.path("version").asInt() + ":" + room.path("template").asString();
-        return catalog.read(revision, room, TestBlueprints.geometry(key));
+        var blueprint = TestBlueprints.runtime(key);
+        return catalog.read(revision, 1, blueprint.document(room), blueprint, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS);
     }
 
     @Test
-    void savedDocumentVersionDoesNotOverridePinnedGeometry() {
+    void pinnedBlueprintDeterminesWhetherTheLoftIsWalkable() {
         var room = mapper.valueToTree(Map.of("version", 11, "template", "lounge", "items", List.of()));
-        var loft = TestBlueprints.geometry("12:lounge");
-        assertThat(catalog.read(9, room, loft).geometry()).isEqualTo(loft);
-    }
+        var flat = TestBlueprints.runtime("11:lounge");
+        var loft = TestBlueprints.runtime("12:lounge");
+        var mezzanine = loft.geometry().path("mezzanine");
+        var upperFloor = new Vec3(
+                (mezzanine.path("minX").asDouble() + mezzanine.path("maxX").asDouble()) / 2,
+                mezzanine.path("height").asDouble(),
+                (mezzanine.path("minZ").asDouble() + mezzanine.path("maxZ").asDouble()) / 2);
 
-    @ParameterizedTest
-    @ValueSource(strings = {"11:lounge", "11:climbing", "11:boardgame", "11:dining", "11:band", "11:study", "11:photo", "12:lounge"})
-    void aRoomKeepsItsGeometryWhenTheEnvironmentMigrates(String key) {
-        String[] parts = key.split(":");
-        var document = mapper.valueToTree(Map.of("version", Integer.parseInt(parts[0]), "template", parts[1],
-                "items", List.of(Map.of("id", "table", "kind", "table", "x", 2, "z", 3))));
-        var before = catalog.readBundled(7, document);
-        var after = catalog.read(7, document, TestBlueprints.geometry(key));
-        assertThat(before.origin()).isEqualTo(RoomLayout.Origin.BUNDLED);
-        assertThat(after.origin()).isEqualTo(RoomLayout.Origin.DATABASE);
-        assertThat(before.geometry()).isEqualTo(after.geometry());
-        assertThat(before.assets()).isEqualTo(after.assets());
+        assertThat(catalog.read(9, 1, room, flat, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS).floorAt(upperFloor)).isZero();
+        assertThat(catalog.read(9, 1, room, loft, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS).floorAt(upperFloor)).isEqualTo(upperFloor.y());
     }
 
     @Test
-    void unsavedRoomUsesTheSameBundledAndDatabaseBlueprint() {
-        assertThat(catalog.readBundled(0, null).geometry()).isEqualTo(TestBlueprints.geometry("11:lounge"));
+    void unsavedRoomUsesTheProvidedBlueprintWithDefaultFurniture() {
+        var blueprint = TestBlueprints.runtime("11:lounge");
+        var layout = catalog.read(0, 1, blueprint.document(null), blueprint, TestBlueprints.FURNITURE, TestBlueprints.PORTABLE_ITEMS);
+        assertThat(layout.geometry()).isEqualTo(blueprint.geometry());
+        assertThat(blueprint.defaultRoom().path("items").size()).isEqualTo(24);
+        assertThat(layout.assets()).containsKeys("meeting-table", "sofa", "entrance-bench", "room-general-light-switch");
+        assertThat(TestBlueprints.runtime("12:lounge").defaultRoom().path("items").size()).isEqualTo(32);
+        assertThat(layout.revision()).isZero();
+    }
+
+    @Test
+    void environmentFurnitureDeterminesBlockingAndAttachedHeightEvenWhenRetired() {
+        var room = mapper.readTree("""
+                {"version":11,"items":[{"id":"p","kind":"table","x":0,"z":0},
+                  {"id":"c","kind":"propCup","parentId":"p","surfaceIndex":0}]}
+                """);
+        var furniture = mapper.readTree("""
+                {"table":{"width":8,"depth":6,"height":4,"surfaces":[3.7],"placeable":false},
+                 "propCup":{"width":0.32,"depth":0.3,"height":0.2,"surfaces":[]}}
+                """);
+        var blueprint = new BlueprintRuntime(TestBlueprints.geometry("11:lounge"), new Vec3(4, 0, 6), room);
+        var layout = catalog.read(37, 1, blueprint.document(room), blueprint, furniture, TestBlueprints.PORTABLE_ITEMS);
+        assertThat(layout.arrival()).isEqualTo(new Vec3(4, 0, 6));
+        assertThat(layout.revision()).isEqualTo(37);
+        assertThat(layout.assets().get("p").blocks(new Vec3(3, 0, 0))).isTrue();
+        assertThat(layout.assets().get("c").position().y()).isEqualTo(3.7);
     }
 }

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect } from "playwright/test";
 import { AVATAR_BASIC_APPEARANCE } from "../../public/sparring-arena/src/avatar-appearance.js";
+import seeds from "../fixtures/clubhouse-seeds.cjs";
 
 export async function prepareVisualCapture(pageInstance) {
   await pageInstance.evaluate(async () => {
@@ -470,7 +471,14 @@ export async function installApiFixture(pageInstance, options = {}) {
     }
     if (match(path, "/groups/:groupId") && method === "GET") return json(route, success(group));
     if (match(path, "/groups/:groupId/space") && method === "GET") {
-      return json(route, success({ room: null, revision: 0, canEdit: state.auth === "authenticated", updatedAt: null }));
+      return json(route, success({ ...seeds.blueprint("lounge", 11), room: null, revision: 0, canEdit: state.auth === "authenticated", updatedAt: null }));
+    }
+    if (match(path, "/group-spaces/blueprints/:templateKey/default") && method === "GET") {
+      return json(route, success(seeds.blueprint(path.split("/")[3])));
+    }
+    if (path === "/group-spaces/furniture-catalog" && method === "GET") {
+      return json(route, success({ ...seeds.spaceCatalog, items: options.furnitureCatalog ?? seeds.furnitureCatalog,
+        portableItems: options.portableItems ?? seeds.portableItems }));
     }
     if (path === "/group-spaces/weather" && method === "GET") {
       return json(route, success({ weatherCode: 0, sunrise: "2026-08-21T06:00:00", sunset: now }));

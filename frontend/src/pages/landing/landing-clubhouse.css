@@ -100,13 +100,6 @@
   line-height: var(--landing-body-leading);
   text-wrap: balance;
 }
-.landing-clubhouse__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-}
 .landing-button.landing-clubhouse__shortcut {
   border: var(--border-thin) solid var(--color-line);
   color: var(--color-ink);

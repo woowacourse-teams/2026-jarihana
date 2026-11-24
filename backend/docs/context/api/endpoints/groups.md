@@ -144,6 +144,8 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 - `meetingType`은 생성·수정 요청과 그룹 상세 응답에서 항상 포함한다.
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
+- `clubhouseTemplateKey`는 `CLUB`·`STUDY`에서 선택한 아지트 테마 키다. 선택한 테마의 발행된 기본 도면과 배치를 사용한다. 이전 클라이언트가 이 필드를 생략하면 그룹만 생성한다.
+
 #### 요청 — CLUB 또는 STUDY
 
 ```json
@@ -155,6 +157,7 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
   "meetingType": "OFFLINE",
   "location": "서울 캠퍼스",
   "representativeImageKey": "groups/tmp/sample.webp",
+  "clubhouseTemplateKey": "study",
   "recurringSchedule": {
     "daysOfWeek": ["MONDAY", "WEDNESDAY"],
     "startTime": "19:00:00",
@@ -217,6 +220,7 @@ Location: /api/groups/12
 
 #### 부수 효과
 요청 회원의 `GroupMember(role = LEADER)`를 함께 생성한다. 모집 공고는 별도 API로 생성한다.
+아지트 테마를 지정하면 그룹, 도면 참조, 초기 배치를 같은 트랜잭션으로 저장한다. 이후 [아지트 조회](group-space.md#get-apigroupsgroupidspace)에서 저장된 배치를 `revision: 1`로 반환한다.
 
 #### 예외
 
@@ -224,6 +228,7 @@ Location: /api/groups/12
 | --- | --- | --- |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |
 | type·문자열 제약 위반 | `INVALID_PARAMETER` | 400 |
+| 선택한 아지트 테마를 사용할 수 없거나 SESSION에 아지트 테마 전달 | `INVALID_PARAMETER` | 400 |
 | CLUB·STUDY에 sessionSchedule 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
 | SESSION에 sessionSchedule 누락 | `SCHEDULE_REQUIRED` | 400 |
 | 두 일정 동시 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
@@ -261,7 +266,7 @@ Request Body는 없다.
 ### `GET /api/groups/{groupId}`
 
 - 설명: 그룹 상세 조회
-- `clubhouseSetupEnabled`는 초기 아지트 선택 기능 적용 이후 생성된 모임에서 `true`다. 동아리·스터디의 모임장은 저장된 아지트가 없을 때 초기 선택 화면을 본다.
+- `clubhouseSetupEnabled`는 초기 아지트 선택 기능 적용 이후 생성된 모임에서 `true`다. 저장된 아지트가 없는 동아리·스터디의 모임장에게 초기 선택 화면을 표시하는 데 사용한다.
 - 권한: `PUBLIC`
 
 #### Path Parameters

@@ -11,10 +11,14 @@ import com.project.jarihana.auth.command.repository.RefreshTokenRepository;
 import com.project.jarihana.auth.command.service.AuthCommandService;
 import com.project.jarihana.pushsubscription.command.service.PushSubscriptionCommandService;
 import com.project.jarihana.auth.command.service.RefreshTokenHasher;
+import com.project.jarihana.auth.command.service.RefreshTokenIssuer;
+import com.project.jarihana.auth.command.service.RefreshTokenRevoker;
 import com.project.jarihana.auth.command.service.dto.LogoutCommand;
+import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.common.config.LoggingConfig;
 import java.time.Clock;
+import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -70,7 +74,9 @@ class LoggingProxyTransactionTest {
         @Bean LocalTransactionManager transactionManager() { return new LocalTransactionManager(); }
         @Bean AuthCommandService service() {
             return new AuthCommandService(mock(RefreshTokenRepository.class), mock(RefreshTokenHasher.class),
-                    mock(AccessTokenProvider.class), Clock.systemUTC(), mock(PushSubscriptionCommandService.class));
+                    mock(RefreshTokenIssuer.class), mock(RefreshTokenRevoker.class), mock(AccessTokenProvider.class),
+                    new AuthProperties("http://localhost:5173", "oauthState", Duration.ofDays(14), Duration.ofSeconds(10)),
+                    Clock.systemUTC(), mock(PushSubscriptionCommandService.class));
         }
     }
     static class LocalTransactionManager extends AbstractPlatformTransactionManager {

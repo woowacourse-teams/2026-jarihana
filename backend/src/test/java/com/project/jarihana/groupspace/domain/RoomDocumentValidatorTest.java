@@ -4,7 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.project.jarihana.common.exception.BusinessException;
+import com.project.jarihana.groupspace.query.repository.FurnitureCatalogRepository;
+import com.project.jarihana.support.IntegrationTestSupport;
 import java.io.IOException;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,22 +18,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-class RoomDocumentValidatorTest {
-    private final ObjectMapper mapper = new ObjectMapper();
-    private final RoomDocumentValidator validator = new RoomDocumentValidator(mapper);
+class RoomDocumentValidatorTest extends IntegrationTestSupport {
+    @Autowired ObjectMapper mapper;
+    @Autowired RoomDocumentValidator validator;
+    @Autowired FurnitureCatalogRepository furniture;
+    private List<FurnitureType> catalog;
+
+    @BeforeEach
+    void loadCatalog() {
+        catalog = furniture.findAll();
+    }
 
     @DisplayName("참고 이미지용 가구와 조명을 v9 공간에 저장할 수 있다")
     @ParameterizedTest
     @ValueSource(strings = {"coffeeTable", "cafeTable", "leafyPlant", "vinePlanter", "bandNeon", "diningNeon", "studyNeon", "photoNeon", "galleryWall", "posterWall"})
     void acceptsReferenceFurnishings(String kind) {
         ObjectNode room = roomWith(kind);
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
     }
 
     @DisplayName("등록되지 않은 에셋은 여전히 거절한다")
     @Test
     void rejectsUnknownAsset() {
-        assertThatThrownBy(() -> validator.validateAndSerialize(roomWith("unregisteredAsset")))
+        assertThatThrownBy(() -> validator.validateAndSerialize(roomWith("unregisteredAsset"), null, catalog))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -41,7 +53,7 @@ class RoomDocumentValidatorTest {
         atmosphere.put("wallMaterial", "brick").put("floorMaterial", "herringbone")
                 .put("wallPatternScale", 0.5).put("floorPatternScale", 2);
         // When / Then
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
     }
 
     @DisplayName("지원하지 않는 재질과 패턴 크기는 거절한다")
@@ -52,11 +64,11 @@ class RoomDocumentValidatorTest {
         ObjectNode atmosphere = (ObjectNode) room.get("atmosphere");
         atmosphere.put("floorMaterial", "remote-texture");
         // When / Then
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
         atmosphere.put("floorMaterial", "oak").put("floorPatternScale", 0);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
         atmosphere.put("floorPatternScale", 3);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     @DisplayName("에셋 크기와 선반 연결 정보를 저장하고 범위를 검증한다")
@@ -70,9 +82,9 @@ class RoomDocumentValidatorTest {
                 .put("x", 0).put("z", 0).put("rotation", 0).put("parentId", "furnishing")
                 .put("surfaceIndex", 0).put("variant", 2);
         // When / Then
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         parent.put("scaleY", 9);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     @DisplayName("존재하지 않는 가구나 소품을 부모로 연결할 수 없다")
@@ -83,9 +95,9 @@ class RoomDocumentValidatorTest {
         ObjectNode prop = (ObjectNode) room.withArray("items").get(0);
         prop.put("parentId", "missing").put("surfaceIndex", 0);
         // When / Then
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
         prop.put("parentId", "furnishing");
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     @DisplayName("프론트엔드의 v10 전체 테마와 연결된 소품을 손실 없이 저장한다")
@@ -96,7 +108,7 @@ class RoomDocumentValidatorTest {
         try (var input = getClass().getResourceAsStream("/group-space-v10-presets.json")) {
             JsonNode room = mapper.readTree(input).get(theme);
             // When / Then
-            assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+            assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         }
     }
 
@@ -108,7 +120,7 @@ class RoomDocumentValidatorTest {
         try (var input = getClass().getResourceAsStream("/group-space-v11-presets.json")) {
             JsonNode room = mapper.readTree(input).get(theme);
             // When / Then
-            assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+            assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         }
     }
 
@@ -119,9 +131,9 @@ class RoomDocumentValidatorTest {
         ObjectNode room = roomWith("coffeeTable");
         room.put("version", 11);
         // When / Then
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         room.put("version", 12);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     @DisplayName("v10과 v11은 400개까지 허용하고 초과 에셋은 거절한다")
@@ -134,10 +146,10 @@ class RoomDocumentValidatorTest {
             items.addObject().put("id", "item-" + index).put("kind", "table")
                     .put("x", 0).put("z", 0).put("rotation", 0);
         }
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         items.addObject().put("id", "overflow").put("kind", "table")
                 .put("x", 0).put("z", 0).put("rotation", 0);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     @DisplayName("선반 부착은 같은 층의 유효한 표면만 허용한다")
@@ -147,13 +159,13 @@ class RoomDocumentValidatorTest {
         ObjectNode prop = room.withArray("items").addObject().put("id", "cup").put("kind", "propCup")
                 .put("x", 0).put("z", 0).put("rotation", 0).put("parentId", "furnishing")
                 .put("surfaceIndex", 3);
-        assertThat(mapper.readTree(validator.validateAndSerialize(room))).isEqualTo(room);
+        assertThat(mapper.readTree(validator.validateAndSerialize(room, null, catalog))).isEqualTo(room);
         prop.put("surfaceIndex", 4);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
         prop.put("surfaceIndex", 0).put("level", 1);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
         prop.put("level", 0).put("elevation", 1);
-        assertThatThrownBy(() -> validator.validateAndSerialize(room)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> validator.validateAndSerialize(room, null, catalog)).isInstanceOf(BusinessException.class);
     }
 
     private ObjectNode roomWith(String kind) {

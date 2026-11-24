@@ -3,12 +3,13 @@ package com.project.jarihana.realtime.room.domain;
 import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.interaction.InteractionService;
 import com.project.jarihana.realtime.layout.RoomLayout;
+import com.project.jarihana.realtime.transport.protocol.LegacyItemView;
+import com.project.jarihana.realtime.transport.protocol.ParticipantView;
 import com.project.jarihana.realtime.transport.protocol.Values;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,7 +37,7 @@ public final class RoomState {
     }
 
     public void join(Admission admission, String generation, long now) {
-        if (!roomId.equals(admission.roomId()) || admission.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_DENIED");
+        if (!roomId.equals(admission.roomId())) throw new RuleViolation("ACCESS_DENIED");
         ParticipantState previous = participants.get(admission.memberId());
         if (previous == null && participants.size() >= capacity) throw new RuleViolation("ROOM_FULL");
         ParticipantState joined = previous == null
@@ -53,7 +54,7 @@ public final class RoomState {
         if (actor == null || !actor.connectionGeneration().equals(generation)) return false;
         if (actor.heldItemId() != null) {
             ItemState item = items.get(actor.heldItemId());
-            if (item != null) items.put(item.id(), item.place(ItemState.Location.WORLD, layout.safe(actor.position()), null, null));
+            if (item != null) items.put(item.id(), item.dropAt(layout.safe(actor.position())));
         }
         for (Map.Entry<String, AssetState> entry : assets.entrySet()) {
             AssetState.Production production = entry.getValue().production();
@@ -65,26 +66,19 @@ public final class RoomState {
         return true;
     }
 
-    public ParticipantState actor(String memberId, String generation, long now) {
+    public ParticipantState actor(String memberId, String generation) {
         ParticipantState actor = participants.get(memberId);
         if (actor == null || !actor.connectionGeneration().equals(generation)) throw new RuleViolation("CONNECTION_REPLACED");
-        if (actor.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_EXPIRED");
         return actor;
     }
 
-    public boolean renew(Admission admission, String generation, long now) {
-        ParticipantState actor = actor(admission.memberId(), generation, now);
-        if (!roomId.equals(admission.roomId()) || admission.leaseExpiresAt() <= now) throw new RuleViolation("ACCESS_DENIED");
-        participants.put(actor.memberId(), actor.renew(admission));
-        boolean changed = !actor.displayName().equals(admission.displayName())
-                || !actor.avatarColor().equals(admission.avatarColor())
-                || !Objects.equals(actor.avatarAppearance(), admission.avatarAppearance());
-        if (changed) controlSeq++;
-        return changed;
+    public void updateRole(String memberId, String generation, String role) {
+        ParticipantState actor = actor(memberId, generation);
+        if (!actor.role().equals(role)) participants.put(memberId, actor.withRole(role));
     }
 
     public boolean move(String memberId, String generation, long seq, Map<String, Object> payload, long now) {
-        ParticipantState actor = actor(memberId, generation, now);
+        ParticipantState actor = actor(memberId, generation);
         if (seq <= actor.lastMoveSeq()) return false;
         if (actor.seat() != null) throw new RuleViolation("SEATED");
         Vec3 point = Values.point(payload);
@@ -107,7 +101,7 @@ public final class RoomState {
     }
 
     public void command(String memberId, String generation, Map<String, Object> payload, long now) {
-        interactions.execute(this, actor(memberId, generation, now), payload, now);
+        interactions.execute(this, actor(memberId, generation), payload, now);
         controlSeq++;
     }
 
@@ -122,9 +116,9 @@ public final class RoomState {
         for (ItemState item : new ArrayList<>(items.values())) {
             if (item.location() != ItemState.Location.THROWN) continue;
             double seconds = (now - item.startedAt()) / 1000.0;
-            Vec3 point = item.position().add(item.velocity().scale(seconds)).add(new Vec3(0, -9 * seconds * seconds, 0));
+            Vec3 point = item.thrownPosition(seconds);
             if (point.y() <= layout.floorAt(point) || seconds >= 3) {
-                items.put(item.id(), item.place(ItemState.Location.WORLD, layout.safe(point), null, null));
+                items.put(item.id(), item.dropAt(layout.safe(point)));
                 changed = true;
             }
         }
@@ -132,7 +126,8 @@ public final class RoomState {
             AssetState.Production production = entry.getValue().production();
             if (production == null || production.completesAt() > now) continue;
             ItemState item = items.get(production.itemId());
-            if (item != null && entry.getKey().equals(item.assetId()) && item.kind().equals("cup")) {
+            if (item != null && item.location() == ItemState.Location.SURFACE &&
+                    entry.getKey().equals(item.assetId()) && item.kind().equals("cup")) {
                 items.put(item.id(), item.fill(production.kind()));
             }
             entry.setValue(entry.getValue().producing(null));
@@ -143,26 +138,23 @@ public final class RoomState {
     }
 
     public boolean replaceLayout(RoomLayout next, long now) {
-        if (next.revision() < layout.revision()) return false;
-        if (layout.origin() == RoomLayout.Origin.DATABASE && next.origin() == RoomLayout.Origin.BUNDLED) return false;
-        if (next.revision() == layout.revision()) {
-            if (next.origin() == layout.origin()) return false;
-            // Hand over equal geometry without changing a live player's position, seat, items or control sequence.
-            if (next.geometry().equals(layout.geometry()) && next.assets().equals(layout.assets())) {
-                layout = next;
-                return false;
-            }
+        if (next.revision() < layout.revision() || next.catalogGeneration() < layout.catalogGeneration()) return false;
+        if (next.revision() == layout.revision() && next.catalogGeneration() == layout.catalogGeneration()) return false;
+        if (next.revision() != layout.revision() || !next.assets().equals(layout.assets()) ||
+                !next.itemRules().equals(layout.itemRules())) {
+            new LayoutReconciliation().apply(this, next, now);
         }
-        new LayoutReconciliation().apply(this, next, now);
         layout = next;
         controlSeq++;
         return true;
     }
 
-    public Map<String, Object> snapshot(String type, String memberId, String generation, long now) {
+    public Map<String, Object> snapshot(String type, String memberId, String generation, long now, boolean seatRefs) {
         Map<String, Object> result = context(type, memberId, generation, now);
-        result.put("participants", participants.values().stream().map(ParticipantState::view).toList());
-        result.put("items", List.copyOf(items.values()));
+        result.put("catalogGeneration", layout.catalogGeneration());
+        result.put("participants", participants.values().stream()
+                .map(actor -> ParticipantView.snapshot(actor, layout, seatRefs)).toList());
+        result.put("items", items.values().stream().map(item -> LegacyItemView.project(item, layout)).toList());
         result.put("assets", Map.copyOf(assets));
         return result;
     }
@@ -182,10 +174,10 @@ public final class RoomState {
         return result;
     }
 
-    public Map<String, Object> movement(String memberId, String generation, long now) {
+    public Map<String, Object> movement(String memberId, String generation, long now, boolean seatRefs) {
         Map<String, Object> result = context("MOVEMENT_FRAME", memberId, generation, now);
-        result.put("participants", participants.values().stream().map(actor -> Map.of("memberId", actor.memberId(),
-                "position", actor.position(), "yaw", actor.yaw(), "locomotion", actor.locomotion())).toList());
+        result.put("participants", participants.values().stream()
+                .map(actor -> ParticipantView.movement(actor, layout, seatRefs)).toList());
         return result;
     }
 

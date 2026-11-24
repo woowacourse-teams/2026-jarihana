@@ -5,5 +5,5 @@
 - 방 메모리의 가변 컬렉션은 실행 큐가 소유하며 외부로 반환하지 않는다. 메시지와 값 객체는 불변 record 및 복사본을 사용한다.
 - DB 조회와 소켓 송신은 방 실행 흐름 밖에서 처리한다. 큐·연결·방·물건 개수에는 상한을 둔다.
 - 테스트는 `./gradlew test`, 실행 이미지 검증은 `./gradlew bootJar`로 수행한다.
-- 계약은 `../contracts/realtime/v1/README.md`를 따른다. 기존 PostgreSQL의 입장과 배치 데이터를 읽기 전용으로 조회한다. 스키마 변경과 배치 저장은 backend가 담당한다.
+- 계약은 [실시간 v1 계약](../docs/clubhouse-realtime-contract-v1.md)를 따른다. 기존 PostgreSQL의 입장과 배치 데이터를 읽기 전용으로 조회한다. 스키마 변경과 배치 저장은 backend가 담당한다.
 - 기존 backend의 JPA 규칙은 이 메모리 실행 모델에 적용하지 않는다. 규칙 테스트에는 제어 가능한 시각을 사용한다.

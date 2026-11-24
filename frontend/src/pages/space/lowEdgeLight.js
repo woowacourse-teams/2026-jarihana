@@ -1,9 +1,6 @@
 import * as THREE from "three";
 
-export const LOW_EDGE_LIGHT_SPEC = Object.freeze({
-  kind: "lowEdgeLight", name: "하부 간접조명", width: 2.4, depth: 0.08, height: 0.08,
-  category: "furniture", collection: "architecture", mount: "wall"
-});
+const MODEL_DEPTH = 0.08;
 
 const WARM_LIGHT = "#ffd29a";
 
@@ -26,7 +23,7 @@ function spillTexture() {
 }
 
 // The fixture sits on the receiving tread/floor; its local +Z side faces the room.
-export function buildLowEdgeLight(root, color = WARM_LIGHT, dimensions = [2.4, 0.08, 0.08]) {
+export function buildLowEdgeLight(root, color = WARM_LIGHT, dimensions = [2.4, 0.08, MODEL_DEPTH]) {
   const [width, depth, height] = dimensions;
   const casing = new THREE.MeshStandardMaterial({ color: "#574b40", roughness: 0.64, metalness: 0.3 });
   const box = (name, w, h, d, y, z, material = casing) => {
@@ -48,7 +45,7 @@ export function buildLowEdgeLight(root, color = WARM_LIGHT, dimensions = [2.4, 0
   emitter.castShadow = emitter.receiveShadow = false;
   Object.assign(emitter.userData, { roomBulb: true, roomBulbColor: color, roomBulbStrength: 1.1 });
 
-  const reach = 0.33 * depth / LOW_EDGE_LIGHT_SPEC.depth;
+  const reach = 0.33 * depth / MODEL_DEPTH;
   const spill = new THREE.Mesh(new THREE.PlaneGeometry(width, reach), new THREE.MeshStandardMaterial({
     color: "#000000", emissive: color, emissiveIntensity: 0.65,
     map: spillTexture(), transparent: true, opacity: 0.5,

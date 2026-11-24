@@ -2,19 +2,18 @@ package com.project.jarihana.realtime.room.persistence;
 
 import com.project.jarihana.realtime.auth.Admission;
 import com.project.jarihana.realtime.config.RealtimeEnvironment;
-import com.project.jarihana.realtime.config.RealtimeProperties;
 import com.project.jarihana.realtime.layout.BlueprintRef;
+import com.project.jarihana.realtime.layout.BlueprintRuntime;
 import com.project.jarihana.realtime.room.domain.AvatarAppearance;
 import com.project.jarihana.realtime.room.domain.RuleViolation;
-import com.project.jarihana.realtime.room.persistence.BlueprintSchema.Source;
+import com.project.jarihana.realtime.room.domain.Vec3;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Clock;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient.StatementSpec;
 import org.springframework.stereotype.Component;
@@ -26,112 +25,168 @@ public final class RoomReadRepository {
     private static final List<String> AVATAR_COLORS = List.of("#536bd6", "#c991ba", "#7b9b6d", "#d99559");
     private static final String DATABASE_COLUMNS = """
             s.blueprint_template_key, s.blueprint_version,
-            EXISTS (SELECT 1 FROM space_blueprint_migration m, space_blueprint b, space_blueprint_default d
-                    WHERE m.version = 1 AND b.template_key = COALESCE(s.blueprint_template_key, 'lounge')
-                      AND b.blueprint_version = COALESCE(s.blueprint_version, 11) AND b.geometry_schema_version = 1
-                      AND b.geometry IS NOT NULL AND d.template_key = 'lounge' AND d.blueprint_version IS NOT NULL)
-                    AS blueprint_readable
+            EXISTS (
+                SELECT 1 FROM space_blueprint b JOIN space_blueprint_runtime r USING (template_key, blueprint_version)
+                WHERE b.template_key = COALESCE(s.blueprint_template_key, 'lounge')
+                  AND b.blueprint_version = COALESCE(s.blueprint_version, 11) AND b.geometry_schema_version = 1
+                  AND b.geometry IS NOT NULL AND r.spawn IS NOT NULL AND (s.group_id IS NOT NULL OR r.default_room IS NOT NULL)
+                  AND EXISTS (SELECT 1 FROM space_runtime_migration WHERE version = 1)
+                  AND EXISTS (SELECT 1 FROM space_blueprint_migration WHERE version = 1)
+                  AND EXISTS (SELECT 1 FROM space_furniture_catalog_migration WHERE version = 1)
+                  AND EXISTS (SELECT 1 FROM space_blueprint_default WHERE template_key = 'lounge' AND blueprint_version IS NOT NULL)
+                  AND EXISTS (SELECT 1 FROM space_furniture_catalog WHERE kind IS NOT NULL AND definition IS NOT NULL)
+            ) AS runtime_readable
             """;
-    private static final String BUNDLED_COLUMNS = BlueprintSchema.SCHEMA_PRESENT + " AS schema_present";
+    private static final String ACCESS_TABLES = """
+            FROM groups g
+            JOIN member m ON m.id = :memberId AND m.withdrawn_at IS NULL
+            LEFT JOIN group_member gm ON gm.group_id = g.id AND gm.member_id = m.id
+            """;
+    private static final String ACTIVE_ROOM = "WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'";
     private static final String ADMISSION_SQL = """
             SELECT m.crew_name, COALESCE(gm.role, 'GUEST') AS role, s.room_json, COALESCE(s.revision, 0) AS revision,
                    %s,
                    a.version AS avatar_version, a.hair, a.skin, a.hair_color, a.face, a.eyes, a.eyebrows, a.nose,
                    a.mouth, a.glasses, a.outfit, a.shoes, a.shoe_color, a.hat, a.hat_color, a.bag, a.bag_color, a.handheld
-            FROM groups g
-            JOIN member m ON m.id = :memberId AND m.withdrawn_at IS NULL
-            LEFT JOIN group_member gm ON gm.group_id = g.id AND gm.member_id = m.id
+            %s
             LEFT JOIN group_space s ON s.group_id = g.id
             LEFT JOIN member_avatar a ON a.member_id = m.id
-            WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """;
+            %s
+            """.formatted(DATABASE_COLUMNS, ACCESS_TABLES.stripTrailing(), ACTIVE_ROOM);
+    private static final String ACCESS_SQL = """
+            SELECT COALESCE(gm.role, 'GUEST') AS role
+            %s
+            %s
+            """.formatted(ACCESS_TABLES.stripTrailing(), ACTIVE_ROOM);
     private static final String LAYOUT_SQL = """
             SELECT s.room_json, COALESCE(s.revision, 0) AS revision, %s
             FROM groups g
             LEFT JOIN group_space s ON s.group_id = g.id
-            WHERE g.id = :roomId AND g.type IN ('CLUB', 'STUDY') AND g.status = 'ACTIVE'
-            """;
+            %s
+            """.formatted(DATABASE_COLUMNS, ACTIVE_ROOM);
 
     private final RealtimeDatabases databases;
-    private final BlueprintSchema schema;
+    private final RuntimeSchema schema;
     private final ObjectMapper mapper;
-    private final Clock clock;
-    private final RealtimeProperties properties;
-    private static final int GEOMETRY_CACHE_SIZE = 256;
-    private final Map<EnvironmentBlueprint, JsonNode> geometries = Collections.synchronizedMap(
+    private static final int BLUEPRINT_CACHE_SIZE = 256;
+    private final Map<EnvironmentBlueprint, BlueprintRuntime> blueprints = Collections.synchronizedMap(
             new LinkedHashMap<>(32, 0.75f, true) {
-                @Override protected boolean removeEldestEntry(Map.Entry<EnvironmentBlueprint, JsonNode> eldest) {
-                    return size() > GEOMETRY_CACHE_SIZE;
+                @Override protected boolean removeEldestEntry(Map.Entry<EnvironmentBlueprint, BlueprintRuntime> eldest) {
+                    return size() > BLUEPRINT_CACHE_SIZE;
                 }
             });
 
+    private final Map<RealtimeEnvironment, CatalogCache> catalogs = new EnumMap<>(RealtimeEnvironment.class);
+
+    private static final class CatalogCache {
+        private volatile RuntimeCatalog current;
+    }
+
     private record EnvironmentBlueprint(RealtimeEnvironment environment, BlueprintRef reference) {}
 
-    RoomReadRepository(RealtimeDatabases databases, BlueprintSchema schema, ObjectMapper mapper, Clock clock, RealtimeProperties properties) {
+    RoomReadRepository(RealtimeDatabases databases, RuntimeSchema schema, ObjectMapper mapper) {
         this.databases = databases;
         this.schema = schema;
         this.mapper = mapper;
-        this.clock = clock;
-        this.properties = properties;
+        for (RealtimeEnvironment environment : RealtimeEnvironment.values()) catalogs.put(environment, new CatalogCache());
     }
 
     public Admission admission(RealtimeEnvironment environment, String roomId, String memberId) {
         long member = Long.parseLong(memberId);
-        return read(environment, source -> admissionQuery(environment, source, Long.parseLong(roomId), member)
+        return admissionQuery(environment, Long.parseLong(roomId), member)
                 .query((row, index) -> new Admission(roomId, memberId, row.getString("crew_name"),
                         AVATAR_COLORS.get((int) (member % AVATAR_COLORS.size())), readAvatar(row), row.getString("role"),
-                        clock.millis() + properties.leaseValidity().toMillis(), row.getLong("revision"),
-                        readRoom(row.getString("room_json")), blueprintRef(row, source)))
-                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED")));
+                        row.getLong("revision"),
+                        readRoom(row.getString("room_json")), blueprintRef(row)))
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
+    }
+
+    public String access(RealtimeEnvironment environment, String roomId, String memberId) {
+        return databases.client(environment).sql(ACCESS_SQL)
+                .param("roomId", Long.parseLong(roomId)).param("memberId", Long.parseLong(memberId))
+                .query(String.class)
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
     }
 
     public StoredLayout layout(RealtimeEnvironment environment, String roomId) {
-        return read(environment, source -> databases.client(environment).sql(LAYOUT_SQL.formatted(columns(source)))
+        return databases.client(environment).sql(LAYOUT_SQL)
                 .param("roomId", Long.parseLong(roomId))
                 .query((row, index) -> new StoredLayout(row.getLong("revision"),
-                        readRoom(row.getString("room_json")), blueprintRef(row, source)))
-                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED")));
+                        readRoom(row.getString("room_json")), blueprintRef(row)))
+                .optional().orElseThrow(() -> new RuleViolation("ACCESS_DENIED"));
     }
 
-    private <T> T read(RealtimeEnvironment environment, Function<Source, T> query) {
-        var source = schema.source(environment);
-        try {
-            return query.apply(source);
-        } catch (SchemaAppeared changed) {
-            // A V45 transaction committed between the last probe and this room read.
-            return query.apply(schema.schemaAppeared(environment));
-        }
-    }
-
-    private static String columns(Source source) {
-        return source == Source.BUNDLED ? BUNDLED_COLUMNS : DATABASE_COLUMNS;
-    }
-
-    private static final class SchemaAppeared extends RuntimeException {}
-
-    private static BlueprintRef blueprintRef(ResultSet row, Source source) throws SQLException {
-        if (source == Source.BUNDLED) {
-            if (row.getBoolean("schema_present")) throw new SchemaAppeared();
-            return null; // This schema has no stored pin; LayoutCatalog uses the document's versioned bundled geometry.
-        }
-        if (!row.getBoolean("blueprint_readable")) throw new DataRetrievalFailureException("Unreadable pinned room blueprint");
+    private static BlueprintRef blueprintRef(ResultSet row) throws SQLException {
+        if (!row.getBoolean("runtime_readable")) throw new DataRetrievalFailureException("Runtime data for pinned room is unreadable");
         if (row.getLong("revision") == 0) return BlueprintRef.UNSAVED_ROOM;
         return new BlueprintRef(row.getString("blueprint_template_key"), row.getInt("blueprint_version"));
     }
 
-    public JsonNode geometry(RealtimeEnvironment environment, BlueprintRef ref) {
-        EnvironmentBlueprint key = new EnvironmentBlueprint(environment, ref);
-        JsonNode cached = geometries.get(key);
+    public BlueprintRuntime blueprint(RealtimeEnvironment environment, BlueprintRef ref) {
+        var key = new EnvironmentBlueprint(environment, ref);
+        var cached = blueprints.get(key);
         if (cached != null) return cached;
-        JsonNode geometry = databases.client(environment).sql("""
-                SELECT geometry FROM space_blueprint
-                WHERE template_key = :template AND blueprint_version = :version AND geometry_schema_version = 1
-                  AND jsonb_typeof(geometry->'building') = 'object' AND jsonb_typeof(geometry->'walls') = 'array'
+        var blueprint = databases.client(environment).sql("""
+                SELECT b.geometry, r.spawn, r.default_room FROM space_blueprint b
+                JOIN space_blueprint_runtime r USING (template_key, blueprint_version)
+                WHERE b.template_key = :template AND b.blueprint_version = :version AND b.geometry_schema_version = 1
+                  AND jsonb_typeof(b.geometry->'building') = 'object' AND jsonb_typeof(b.geometry->'walls') = 'array'
                 """).param("template", ref.templateKey()).param("version", ref.version())
-                .query((row, index) -> mapper.readTree(row.getString("geometry")))
-                .optional().orElseThrow(() -> new DataRetrievalFailureException("Missing or incompatible pinned blueprint"));
-        geometries.put(key, geometry);
-        return geometry;
+                .query((row, index) -> {
+                    JsonNode spawn = mapper.readTree(row.getString("spawn"));
+                    return new BlueprintRuntime(mapper.readTree(row.getString("geometry")),
+                            new Vec3(spawn.path("x").doubleValue(), 0, spawn.path("z").doubleValue()),
+                            readRoom(row.getString("default_room")));
+                }).optional().orElseThrow(() -> new DataRetrievalFailureException("Missing or incompatible pinned blueprint"));
+        blueprints.put(key, blueprint);
+        return blueprint;
+    }
+
+    public RuntimeCatalog catalog(RealtimeEnvironment environment, JsonNode room) {
+        var cache = catalogs.get(environment);
+        var current = cache.current;
+        if (current == null) throw new DataRetrievalFailureException("Runtime catalogs are not loaded for " + environment);
+        if (!hasFurniture(current, room)) throw new DataRetrievalFailureException("A furniture kind is missing from the catalog for " + environment);
+        return current;
+    }
+
+    private static boolean hasFurniture(RuntimeCatalog catalog, JsonNode room) {
+        for (JsonNode item : room.path("items")) {
+            if (!catalog.furniture().has(item.path("kind").asString())) return false;
+        }
+        return true;
+    }
+
+    public boolean refreshCatalog(RealtimeEnvironment environment) {
+        var cache = catalogs.get(environment);
+        synchronized (cache) {
+            var previous = cache.current;
+            return loadCatalog(environment, cache) != previous;
+        }
+    }
+
+    private RuntimeCatalog loadCatalog(RealtimeEnvironment environment, CatalogCache cache) {
+        var previous = cache.current;
+        long generation = previous == null ? 1 : previous.generation() + 1;
+        // Both catalogs must come from the same PostgreSQL statement snapshot.
+        var current = databases.client(environment).sql("""
+                SELECT (SELECT jsonb_object_agg(kind, definition || jsonb_build_object(
+                            'placeable', placeable, 'minRoomVersion', min_room_version, 'displayOrder', display_order))
+                        FROM space_furniture_catalog) AS furniture,
+                       (SELECT COALESCE(jsonb_object_agg(kind, definition), '{}'::jsonb)
+                        FROM space_portable_item_catalog) AS portable_items
+                WHERE EXISTS (SELECT 1 FROM space_furniture_catalog_migration WHERE version = 1)
+                  AND EXISTS (SELECT 1 FROM space_portable_item_catalog_migration WHERE version = 1)
+                """).query((row, index) -> new RuntimeCatalog(generation, readRoom(row.getString("furniture")),
+                        readRoom(row.getString("portable_items"))))
+                .optional().orElseThrow(() -> new DataRetrievalFailureException("Runtime catalog markers are missing for " + environment));
+        if (current.furniture() == null || !current.furniture().has("room-general-light-switch")) {
+            throw new DataRetrievalFailureException("Runtime catalogs are incomplete for " + environment);
+        }
+        if (previous == null || !previous.furniture().equals(current.furniture()) || !previous.portableItems().equals(current.portableItems())) {
+            cache.current = current;
+        }
+        return cache.current;
     }
 
     public void verifyReadAccess(RealtimeEnvironment environment) {
@@ -139,17 +194,17 @@ public final class RoomReadRepository {
     }
 
     private void verifyReadAccess(RealtimeEnvironment environment, boolean fullCheck) {
-        var source = schema.verify(environment, fullCheck);
+        schema.verify(environment, fullCheck);
         // Zero IDs still exercise permissions on every admission and group_space column.
-        admissionQuery(environment, source, 0, 0).query((row, index) -> row.getString("crew_name")).optional();
+        admissionQuery(environment, 0, 0).query((row, index) -> row.getString("crew_name")).optional();
     }
 
     public void verifyBlueprintMigration() {
         for (RealtimeEnvironment environment : RealtimeEnvironment.values()) verifyReadAccess(environment, true);
     }
 
-    private StatementSpec admissionQuery(RealtimeEnvironment environment, Source source, long roomId, long memberId) {
-        return databases.client(environment).sql(ADMISSION_SQL.formatted(columns(source)))
+    private StatementSpec admissionQuery(RealtimeEnvironment environment, long roomId, long memberId) {
+        return databases.client(environment).sql(ADMISSION_SQL)
                 .param("roomId", roomId).param("memberId", memberId);
     }
 
@@ -168,4 +223,5 @@ public final class RoomReadRepository {
     }
 
     public record StoredLayout(long revision, JsonNode room, BlueprintRef blueprint) {}
+    public record RuntimeCatalog(long generation, JsonNode furniture, JsonNode portableItems) {}
 }

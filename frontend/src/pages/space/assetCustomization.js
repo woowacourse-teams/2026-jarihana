@@ -1,20 +1,11 @@
-// Heights are measured from each unscaled model's floor, not from its bounding box.
-export const ASSET_SURFACES = Object.freeze({
-  table: [0.9], diningTable: [0.88], feastTable: [0.98], gameTable: [0.79],
-  coffeeTable: [0.5], cafeTable: [0.775], kitchenIsland: [1.015], kitchenCounter: [1.015, 1.915, 2.415],
-  cafeCabinet: [1.015], gameCredenza: [1.1], bookshelf: [0.55, 1.15, 1.75, 2.05],
-  pantryShelf: [0.65, 1.3, 1.95, 2.65], libraryShelfWood: [3.25], libraryShelfDark: [3.25], libraryShelfDisplay: [3.25],
-  studyDesk: [0.79], focusDesk: [0.79], photoEditDesk: [0.79], photoPrintBench: [0.92],
-  studyCabinet: [0.95], mixingDesk: [0.925], cameraCabinet: [2.7],
-  longCredenza: [0.98], openDisplayShelf: [0.25, 0.95, 1.65, 2.35, 3.05],
-  worktop: [0.92], wallShelf: [0.08]
-});
+import { furnitureType } from "../../features/group-space/furnitureCatalog.js";
+
 export const ASSET_FINISHES = Object.freeze([
   { id: 'auto', name: '기본 재질' }, { id: 'oak', name: '오크' }, { id: 'walnut', name: '월넛' },
   { id: 'stone', name: '석재' }, { id: 'fabric', name: '패브릭' }, { id: 'metal', name: '금속' }
 ]);
 export const assetScale = (item) => ({ x: item.scaleX ?? 1, y: item.scaleY ?? 1, z: item.scaleZ ?? 1 });
-export function surfaceHeight(parent, index = 0) { return (ASSET_SURFACES[parent.kind]?.[index] ?? 0) * (parent.scaleY ?? 1); }
+export function surfaceHeight(parent, index = 0) { return (furnitureType(parent.kind)?.surfaces[index] ?? 0) * (parent.scaleY ?? 1); }
 export function localToWorld(parent, x, z) {
   const a = parent.rotation * Math.PI / 2, s = assetScale(parent);
   return { x: parent.x + x * s.x * Math.cos(a) + z * s.z * Math.sin(a),
@@ -40,7 +31,7 @@ export function validAssetCustomization(item) {
   if (item.finish !== undefined && !ASSET_FINISHES.some((entry) => entry.id === item.finish)) return false;
   if (item.variant !== undefined && (!Number.isInteger(item.variant) || item.variant < 0 || item.variant > 5)) return false;
   if (item.parentId !== undefined && (typeof item.parentId !== 'string' || !item.parentId || item.parentId.length > 80 || item.parentId === item.id)) return false;
-  return item.surfaceIndex === undefined || Boolean(item.parentId) && Number.isInteger(item.surfaceIndex) && item.surfaceIndex >= 0 && item.surfaceIndex <= 4;
+  return item.surfaceIndex === undefined || Boolean(item.parentId) && Number.isInteger(item.surfaceIndex) && item.surfaceIndex >= 0;
 }
 
 export function surfaceFootprint(parent, index, type) {

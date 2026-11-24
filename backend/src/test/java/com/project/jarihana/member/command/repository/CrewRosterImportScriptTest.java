@@ -1,15 +1,14 @@
 package com.project.jarihana.member.command.repository;
 
+import com.project.jarihana.support.WorkerPostgres;
 import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.nio.file.Path;
@@ -25,33 +24,28 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CrewRosterImportScriptTest {
 
-    private static final PostgreSQLContainer DATABASE = new PostgreSQLContainer("postgres:17");
     private static final String SCRIPT_IN_CONTAINER = "/tmp/crew-roster-import.sql";
+    @AutoClose
+    private static WorkerPostgres.Database database;
     private static JdbcTemplate jdbc;
 
     @BeforeAll
-    static void startDatabase() {
-        DATABASE.start();
-        DriverManagerDataSource dataSource = new DriverManagerDataSource(
-                DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword()
-        );
+    static void prepareDatabase() throws Exception {
+        database = WorkerPostgres.createDatabase("crew_roster_import_test");
+        var container = database.container();
+        var dataSource = database.dataSource();
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
         jdbc = new JdbcTemplate(dataSource);
-        DATABASE.copyFileToContainer(
+        container.copyFileToContainer(
                 MountableFile.forHostPath(Path.of("db", "operations", "crew-roster-import.sql")),
                 SCRIPT_IN_CONTAINER
         );
-        DATABASE.copyFileToContainer(
+        container.copyFileToContainer(
                 MountableFile.forClasspathResource("crew-roster/roster-sample.csv"), "/tmp/roster-sample.csv"
         );
-        DATABASE.copyFileToContainer(
+        container.copyFileToContainer(
                 MountableFile.forClasspathResource("crew-roster/roster-invalid-course.csv"), "/tmp/roster-invalid.csv"
         );
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        DATABASE.stop();
     }
 
     @BeforeEach
@@ -194,9 +188,9 @@ class CrewRosterImportScriptTest {
 
     private ExecResult importRoster(String csvInContainer) throws Exception {
         String command = "psql -U %s -d %s -f %s < %s".formatted(
-                DATABASE.getUsername(), DATABASE.getDatabaseName(), SCRIPT_IN_CONTAINER, csvInContainer
+                database.container().getUsername(), database.name(), SCRIPT_IN_CONTAINER, csvInContainer
         );
-        return DATABASE.execInContainer("sh", "-c", command);
+        return database.container().execInContainer("sh", "-c", command);
     }
 
     private void insertBasicMember(String crewName, String githubId) {

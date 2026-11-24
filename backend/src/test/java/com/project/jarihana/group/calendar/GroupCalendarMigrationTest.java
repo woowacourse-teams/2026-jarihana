@@ -1,11 +1,11 @@
 package com.project.jarihana.group.calendar;
 
+import com.project.jarihana.support.WorkerPostgres;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -18,8 +18,9 @@ class GroupCalendarMigrationTest {
     @Test
     void expandsAndBackfillsLegacyGroupsIdempotently() throws Exception {
         // Given
-        String url = "jdbc:tc:postgresql:17:///group_calendar_migration_test";
-        try (var connection = DriverManager.getConnection(url); var statement = connection.createStatement()) {
+        try (var database = WorkerPostgres.createDatabase("group_calendar_migration_test");
+                var connection = database.dataSource().getConnection();
+                var statement = connection.createStatement()) {
             statement.execute("""
                     CREATE TABLE groups (
                         id BIGINT PRIMARY KEY,

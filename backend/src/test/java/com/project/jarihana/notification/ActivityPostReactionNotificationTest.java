@@ -12,7 +12,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -135,6 +143,89 @@ class ActivityPostReactionNotificationTest extends NotificationIntegrationTestSu
         assertThat(jdbc.queryForObject("select count(*) from activity_post_reaction", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("서로 다른 두 회원의 첫 좋아요가 함께 커밋 직전에 이르러도 읽지 않은 좋아요 알림과 전송은 한 건만 만든다.")
+    void concurrentFirstHeartsShareOneUnreadNotification() throws Exception {
+        // Given
+        Member author = member("101");
+        Member firstReactor = member("102");
+        Member secondReactor = member("103");
+        subscription(author, "phone");
+        ActivityPost post = post(author);
+        CountDownLatch firstBeforeCommit = new CountDownLatch(1);
+        CountDownLatch secondBeforeCommit = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicInteger firstPid = new AtomicInteger();
+        AtomicInteger secondPid = new AtomicInteger();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            try {
+                // When
+                var first = executor.submit(() -> heartHeldBeforeCommit(firstReactor, post, firstPid,
+                        firstBeforeCommit, release));
+                await(firstBeforeCommit);
+                var second = executor.submit(() -> heartHeldBeforeCommit(secondReactor, post, secondPid,
+                        secondBeforeCommit, release));
+                awaitBeforeCommitOrBlocked(secondBeforeCommit, secondPid);
+                release.countDown();
+                first.get(10, TimeUnit.SECONDS);
+                second.get(10, TimeUnit.SECONDS);
+            } finally {
+                release.countDown();
+            }
+        }
+
+        // Then
+        assertThat(jdbc.queryForObject("select count(*) from activity_post_reaction", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                select count(*) from notifications where read_at is null and deleted_at is null
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isEqualTo(1);
+    }
+
+    /**
+     * 좋아요 트랜잭션을 BEFORE_COMMIT 알림 판단까지 마친 뒤 실제 커밋 직전에서 붙잡아 둔다.
+     */
+    private void heartHeldBeforeCommit(Member reactor, ActivityPost post, AtomicInteger pid,
+                                       CountDownLatch beforeCommit, CountDownLatch release) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            pid.set(jdbc.queryForObject("select pg_backend_pid()", Integer.class));
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void beforeCompletion() {
+                    beforeCommit.countDown();
+                    await(release);
+                }
+            });
+            reactionService.addToPost(reactor.getId(), post.getId(), ReactionEmoji.HEART);
+        });
+    }
+
+    /**
+     * 두 번째 좋아요가 알림 판단을 마쳐 커밋 직전에 왔거나, 첫 트랜잭션의 잠금을 기다리기 시작할 때까지 기다린다.
+     */
+    private void awaitBeforeCommitOrBlocked(CountDownLatch beforeCommit, AtomicInteger pid) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (System.nanoTime() < deadline) {
+            if (beforeCommit.getCount() == 0 || pid.get() != 0 && Boolean.TRUE.equals(jdbc.queryForObject(
+                    "select cardinality(pg_blocking_pids(?)) > 0", Boolean.class, pid.get()))) {
+                return;
+            }
+            Thread.sleep(10);
+        }
+        throw new AssertionError("두 번째 좋아요가 커밋 직전에 이르지도, 잠금을 기다리지도 않았습니다.");
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new AssertionError("트랜잭션 실행 신호가 도착하지 않았습니다.");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
     }
 
     private int groupSequence;

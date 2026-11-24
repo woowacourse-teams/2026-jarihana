@@ -66,6 +66,8 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.named('test') {
+	// 로컬 기본값은 1이고, CI에서 워커 수를 지정한다.
+	maxParallelForks = providers.gradleProperty('testForks').map { it.toInteger() }.getOrElse(1)
 	useJUnitPlatform {
 		excludeTags 'gomoku-cutover'
 	}

@@ -199,7 +199,6 @@ class CursorBoundaryRegressionTest {
                 (NotificationProjection last) -> notificationQueryRepository.findPage(1L,
                         last == null ? CursorBounds.LATEST_TIME : last.createdAt(),
                         last == null ? CursorBounds.LAST_ID : last.id(),
-                        true,
                         PAGE)
                         .getContent(),
                 NotificationProjection::id);

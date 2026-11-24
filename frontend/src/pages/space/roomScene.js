@@ -4,6 +4,7 @@ import { applyAssetAppearance } from "./assetAppearance";
 import { assetScale, transformAttachedItems } from "./assetCustomization";
 import { setSurfaceColor } from "./woodSurfaceMaps";
 import * as THREE from "three";
+import { capabilitiesFor, furnitureType } from "../../features/group-space/furnitureCatalog.js";
 import { ACCENT_COLORS, CATALOG, placedItemElevation, DEFAULT_ATMOSPHERE, THEMES, canPlace, footprint, snapPosition } from "./roomState";
 import { climbingPanelBacking, createFurniture, createMascot, createRoomShell, disposeObject } from "./roomModels";
 import { createRoomLighting } from "./roomLighting";
@@ -60,7 +61,7 @@ function labelTexture(text, background = "#f5ddb0", color = "#604431") {
 }
 
 function furnitureContactShadow(kind) {
-  const type = CATALOG.find((entry) => entry.kind === kind);
+  const type = furnitureType(kind);
   const size = 32;
   const pixels = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
@@ -561,13 +562,23 @@ export function createRoomScene(container, callbacks) {
     walkthrough.setRealtime(next); remotePlayers.setStore(next?.store);
     if (mascotLayer) mascotLayer.visible = !next;
     rebuildSpeech(); rebuildGreetings();
-    if (room) {
-      const occupied = new Set(next ? [] : mascotLayer?.children.map((actor) => actor.userData.seatId));
-      interactionTargets = room.items.map((item) => itemInteraction(item, placedItemElevation(item, room), occupied.has(item.id), room)).filter(Boolean)
-        .concat(interactionTargets.filter((target) => target.id === ROOM_LIGHT_SWITCH_ID || target.bed));
-    }
+    if (room) rebuildInteractionTargets();
     unsubscribeRealtime = next?.store.subscribe(applyRealtimeState);
     applyRealtimeState(); render();
+  }
+
+  function rebuildInteractionTargets() {
+    const occupied = new Set(realtime ? [] : mascotLayer?.children.map((avatar) => avatar.userData.seatId));
+    interactionTargets = room.items.map((item) =>
+      itemInteraction(item, itemElevations.get(item.id) ?? placedItemElevation(item, room), occupied.has(item.id), room)).filter(Boolean);
+    const wallSwitch = shell.getObjectByName(ROOM_LIGHT_SWITCH_ID);
+    if (wallSwitch && capabilitiesFor(ROOM_LIGHT_SWITCH_ID).capabilities.includes("switchable")) {
+      const { x, y, z } = wallSwitch.position;
+      interactionTargets.push(lightInteraction({ x, y, z: z - 0.09 }));
+    }
+    for (const bed of islandGround?.getObjectByName("island-garden")?.userData.flowerBeds || []) {
+      interactionTargets.push({ ...bed, bed, minY: 0, maxY: bed.y, name: "정원 화단", label: "화단 돌보기", choices: GARDEN_CHOICES });
+    }
   }
 
   function clearWater() {
@@ -770,13 +781,13 @@ export function createRoomScene(container, callbacks) {
     // Decorative occupants follow actual stools, never implied online members.
     const colors = ["#83a375", "#b99acb", "#e7c6a2", nextRoom.avatarColor];
     nextRoom.items.filter((item) => ["stool", "gameChair", "roundChair"].includes(item.kind)).sort((a, b) => Number(a.z >= getRoomLayout(nextRoom).building.maxZ) - Number(b.z >= getRoomLayout(nextRoom).building.maxZ)).slice(0, 6).forEach((seat, index) => {
-      const fit = seatedAvatarPlacement(seat, 0, placedItemElevation(seat, nextRoom));
+      const fit = seatedAvatarPlacement(seat, 0, nextRoom);
       const character = createMascot({ color: colors[index % colors.length], pose: "seated" });
       character.position.set(fit.position.x, fit.position.y, fit.position.z);
       character.scale.setScalar(fit.scale);
       character.userData.roomLevel = seat.level || 0;
       character.userData.seatId = seat.id;
-      character.rotation.y = seat.rotation * Math.PI / 2;
+      character.rotation.y = Math.PI - fit.yaw;
       mascotLayer.add(character);
     });
     mascotLayer.visible = !realtime;
@@ -981,8 +992,8 @@ export function createRoomScene(container, callbacks) {
         applyAssetAppearance(object, { ...item, color: item.kind === "lowEdgeLight" ? undefined : color });
         applyBakedFurnitureOcclusion(object, item.kind);
         const common = commonFunctionForItem(item);
-        if (common) object.add(commonFunctionMarker(common, CATALOG.find((entry) => entry.kind === item.kind).height));
-        if (!CATALOG.find((entry) => entry.kind === item.kind)?.mount && !["rug", "loungeRug"].includes(item.kind)) object.add(furnitureContactShadow(item.kind));
+        if (common) object.add(commonFunctionMarker(common, furnitureType(item.kind).height));
+        if (!furnitureType(item.kind)?.mount && !["rug", "loungeRug"].includes(item.kind)) object.add(furnitureContactShadow(item.kind));
         object.userData.modelKey = modelKey;
         object.userData.itemId = item.id;
         objectLayer.add(object);
@@ -1032,18 +1043,7 @@ export function createRoomScene(container, callbacks) {
     updatePresentation(frontage, !frontage && (walking || Boolean(flight?.fromWalking)), interactive);
     if (greetingLayoutChanged) rebuildGreetings();
     if (!walking || !interactive || greetingLayoutChanged) resetGarden();
-    if (roomChanged || shellChanged || avatarsChanged) {
-      const occupied = new Set(realtime ? [] : mascotLayer?.children.map((avatar) => avatar.userData.seatId));
-      interactionTargets = room.items.map((item) => itemInteraction(item, itemElevations.get(item.id), occupied.has(item.id), room)).filter(Boolean);
-      const wallSwitch = shell.getObjectByName(ROOM_LIGHT_SWITCH_ID);
-      if (wallSwitch) {
-        const { x, y, z } = wallSwitch.position;
-        interactionTargets.push(lightInteraction({ x, y, z: z - 0.09 }));
-      }
-      for (const bed of islandGround?.getObjectByName("island-garden")?.userData.flowerBeds || []) {
-        interactionTargets.push({ ...bed, bed, minY: 0, maxY: bed.y, name: "정원 화단", label: "화단 돌보기", choices: GARDEN_CHOICES });
-      }
-    }
+    if (roomChanged || shellChanged || avatarsChanged) rebuildInteractionTargets();
     scene.updateMatrixWorld(true);
     walkthrough.update(view, room.avatarColor, interactive, {
       preservePose: callbacks.preserveWalkPose?.(), playing: callbacks.isPlayMode?.(),
@@ -1364,6 +1364,12 @@ export function createRoomScene(container, callbacks) {
       renderer.shadowMap.needsUpdate = true;
       walkthrough.setPlayerAppearance(appearance);
     },
+    refreshCatalog() {
+      if (!room) return;
+      rebuildInteractionTargets();
+      remotePlayers.refresh();
+      walkthrough.refreshInteractions();
+    },
     setRealtime, capturePhoto,
     requestVisitPointerLock: walkthrough.requestVisitPointerLock,
     setWalkInputBlocked: walkthrough.setInputBlocked,
@@ -1418,7 +1424,7 @@ export function createRoomScene(container, callbacks) {
 const furnitureThumbnailCache = new Map();
 
 export async function createFurnitureThumbnails(signal) {
-  const missingKinds = CATALOG.filter(({ kind }) => !furnitureThumbnailCache.has(kind));
+  const missingKinds = CATALOG.filter(({ kind, placeable }) => placeable && !furnitureThumbnailCache.has(kind));
   if (signal?.aborted || missingKinds.length === 0) return Object.fromEntries(furnitureThumbnailCache);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(180, 140);

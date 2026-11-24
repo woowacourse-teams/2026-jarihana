@@ -2,10 +2,10 @@ package com.project.jarihana.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.project.jarihana.support.WorkerPostgres;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -17,8 +17,9 @@ class ImageLifecycleMigrationTest {
     @DisplayName("PostgreSQL 이미지 수명주기 SQL은 종료 그룹을 보존하고 숨김 활동기록을 제외해 재실행할 수 있다.")
     @Test
     void migratesAndBackfillsLegacyImagesIdempotently() throws Exception {
-        String url = "jdbc:tc:postgresql:17:///image_lifecycle_migration_test";
-        try (var connection = DriverManager.getConnection(url); var statement = connection.createStatement()) {
+        try (var database = WorkerPostgres.createDatabase("image_lifecycle_migration_test");
+                var connection = database.dataSource().getConnection();
+                var statement = connection.createStatement()) {
             createLegacySchema(statement);
             insertLegacyRows(statement);
             String migration = Files.readString(Path.of("src/main/resources/db/migration/V4__image_lifecycle.sql"));
