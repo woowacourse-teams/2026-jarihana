@@ -13,6 +13,8 @@ const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL", "M
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
+/* 이 값을 모르는 이전 서버 응답에는 필드가 없다. 화면은 값이 없으면 전체 공개로 다룬다. */
+export const groupVisibilitySchema = z.enum(["PUBLIC", "CREW_ONLY"]);
 export const groupRoleSchema = z.enum(["LEADER", "MEMBER"]);
 export const groupRegistrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const groupRelationSchema = z.literal("JOINED");
@@ -155,7 +157,8 @@ export const groupListItemSchema = z.object({
   leader: leaderSchema.nullable(),
   memberCount: z.number().int().nonnegative(),
   activeRecruitment: activeRecruitmentSchema.nullable(),
-  currentMemberRole: groupRoleSchema.nullable().optional()
+  currentMemberRole: groupRoleSchema.nullable().optional(),
+  visibility: groupVisibilitySchema.optional()
 });
 
 export const groupListPageSchema = cursorPageSchema(groupListItemSchema);

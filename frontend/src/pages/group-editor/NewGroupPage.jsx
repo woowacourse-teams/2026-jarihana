@@ -4,6 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
+import { useAuth } from "../../features/auth/index.js";
 import { useCreateGroup } from "../../features/group/index.js";
 import {
   DEFAULT_GROUP_IMAGE_URL,
@@ -12,6 +13,7 @@ import {
 import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import { ClubhouseThemePicker } from "../space/ClubhouseThemePicker.jsx";
+import { CrewOnlyField } from "./CrewOnlyField.jsx";
 import {
   RepresentativeImageNotice,
   ScheduleFact,
@@ -47,7 +49,8 @@ const baseSchema = z.object({
   sessionDate: z.string(),
   startTime: timeSchema,
   endTime: timeSchema,
-  flexibleTime: z.boolean()
+  flexibleTime: z.boolean(),
+  crewOnly: z.boolean()
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
@@ -79,7 +82,7 @@ export const newGroupSchema = baseSchema.superRefine((values, context) => {
  * 종류를 바꿔도 폼의 일정 값은 그대로 둔다. 저장할 때만 종류에 맞는 쪽을 보내므로,
  * 실수로 종류를 바꿨다 되돌려도 다시 입력할 필요가 없다.
  */
-function toCreateBody(values, representativeImageKey, clubhouseTemplateKey) {
+function toCreateBody(values, representativeImageKey, clubhouseTemplateKey, canChooseVisibility = false) {
   const location = values.location.trim();
   const common = {
     type: values.type,
@@ -88,7 +91,9 @@ function toCreateBody(values, representativeImageKey, clubhouseTemplateKey) {
     description: values.description,
     meetingType: values.meetingType,
     location: location || null,
-    representativeImageKey
+    representativeImageKey,
+    /* 크루가 아니면 보내지 않는다. 서버는 빠진 값을 전체 공개로 만든다. */
+    ...(canChooseVisibility ? { visibility: values.crewOnly ? "CREW_ONLY" : "PUBLIC" } : {})
   };
   if (values.type === "SESSION") {
     return {
@@ -151,6 +156,8 @@ function draftSummary(values) {
 export function NewGroupPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { member } = useAuth();
+  const canChooseVisibility = member?.memberType === "CREW";
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
@@ -192,7 +199,8 @@ export function NewGroupPage() {
       sessionDate: "",
       startTime: "19:00",
       endTime: "21:00",
-      flexibleTime: false
+      flexibleTime: false,
+      crewOnly: false
     }
   });
 
@@ -243,7 +251,7 @@ export function NewGroupPage() {
     await createLock.run(async () => {
       try {
         const result = await createMutation.mutateAsync(
-          toCreateBody(formValues, representativeImageKey, clubhouseTemplateKey)
+          toCreateBody(formValues, representativeImageKey, clubhouseTemplateKey, canChooseVisibility)
         );
         toast.show({ title: "모임을 만들었어요.", tone: "success" });
         navigate(`/groups/${result.id}`, { state: { justCreated: true } });
@@ -370,6 +378,8 @@ export function NewGroupPage() {
             />
           </section>
         )}
+
+        {canChooseVisibility && <CrewOnlyField canTurnOn registration={register("crewOnly")} />}
 
         <div className="group-detail-tabs group-editor__tabs">
           <Tabs

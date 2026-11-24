@@ -15,8 +15,9 @@ const mockNavigate = jest.fn();
 const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
+let mockAuthMember = { id: 7 };
 
-jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: { id: 7 } }) }));
+jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: mockAuthMember }) }));
 jest.mock("../../../src/features/group/index.js", () => ({
   useCreateGroup: () => ({ mutateAsync: mockCreateGroup, isPending: false }),
   useDeleteGroup: () => ({ mutateAsync: mockDeleteGroup, isPending: false }),
@@ -104,11 +105,12 @@ jest.mock(
         </button>
       ),
       Avatar: ({ alt, fallback }) => <span aria-label={alt}>{fallback}</span>,
-      Checkbox: React.forwardRef(function Checkbox({ label, error, ...props }, ref) {
+      Checkbox: React.forwardRef(function Checkbox({ label, error, description, ...props }, ref) {
         return (
           <label>
             <input type="checkbox" ref={ref} {...props} />
             {label}
+            {description ? <span>{description}</span> : null}
             {error ? <span role="alert">{error}</span> : null}
           </label>
         );
@@ -199,7 +201,43 @@ describe("NewGroupPage", () => {
   });
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthMember = { id: 7 };
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
+  });
+
+  it("크루가 아니면 공개 범위를 고르지 않고 전체 공개로 만든다", async () => {
+    // Given
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "매주 함께 공부해요");
+
+    // When
+    submitForm("group-create-form");
+
+    // Then
+    expect(screen.queryByRole("checkbox", { name: /크루 전용으로 열기/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    expect(mockCreateGroup.mock.calls[0][0]).not.toHaveProperty("visibility");
+  });
+
+  it("크루는 처음부터 크루 전용 모임으로 만들 수 있다", async () => {
+    // Given
+    mockAuthMember = { id: 7, memberType: "CREW" };
+    const user = userEvent.setup();
+    renderPage(<NewGroupPage />);
+    await user.type(screen.getByLabelText("모임 이름"), "크루 스터디");
+    await user.type(screen.getByLabelText("한 줄 소개"), "크루끼리 공부해요");
+
+    // When
+    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
+    expect(crewOnly).toHaveAttribute("data-ph-capture-attribute-action", "group_visibility_crew_only_toggle");
+    await user.click(crewOnly);
+    submitForm("group-create-form");
+
+    // Then
+    await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
+    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ name: "크루 스터디", visibility: "CREW_ONLY" });
   });
 
   it("모임 종류 안내를 선택과 분리하고 순서대로 제공한다", async () => {
@@ -623,6 +661,7 @@ describe("GroupManagePage", () => {
       activeRecruitment: null,
       createdAt: "2026-08-20T12:00:00"
     };
+    mockAuthMember = { id: 7 };
     mockModifyGroup.mockResolvedValue(mockGroupFixture);
     mockDeleteGroup.mockResolvedValue(undefined);
     mockTerminateGroup.mockResolvedValue({ id: 17, status: "ENDED" });
@@ -724,6 +763,53 @@ describe("GroupManagePage", () => {
     // Then
     await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
     expect(mockReplaceSessionSchedule).not.toHaveBeenCalled();
+  });
+
+  it("크루인 모임장은 크루 전용을 끄고 켤 수 있다", async () => {
+    // Given
+    mockAuthMember = { id: 7, memberType: "CREW" };
+    mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
+    expect(crewOnly).toBeChecked();
+
+    // When
+    await user.click(crewOnly);
+    submitForm("group-overview-form");
+
+    // Then
+    await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
+    expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PUBLIC" });
+  });
+
+  it("위임으로 모임장이 된 비크루는 크루 전용을 끌 수 있다", async () => {
+    // Given
+    mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
+    const user = userEvent.setup();
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
+
+    // When
+    await user.click(crewOnly);
+    submitForm("group-overview-form");
+
+    // Then
+    expect(crewOnly).not.toBeChecked();
+    expect(screen.getByText(/끈 뒤에는 다시 켤 수 없어요/)).toBeVisible();
+    await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
+    expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PUBLIC" });
+  });
+
+  it("크루가 아닌 모임장의 전체 공개 모임에는 공개 범위 칸을 두지 않는다", () => {
+    // Given
+    renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
+
+    // When
+    const crewOnly = screen.queryByRole("checkbox", { name: /크루 전용으로 열기/ });
+
+    // Then
+    expect(crewOnly).not.toBeInTheDocument();
   });
 
   it("edits the meeting type and location alongside the overview", async () => {

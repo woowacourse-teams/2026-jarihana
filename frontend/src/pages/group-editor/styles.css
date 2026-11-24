@@ -339,11 +339,13 @@
 }
 
 .group-editor__clubhouse,
+.group-editor__visibility,
 .group-editor__tabs {
     margin-block-start: var(--space-8);
 }
 
-.group-editor__clubhouse h2 {
+.group-editor__clubhouse h2,
+.group-editor__visibility h2 {
     font-size: var(--text-h3);
     margin: 0 0 var(--space-3);
 }

@@ -4,6 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
+import { useAuth } from "../../features/auth/index.js";
 import {
   useDeleteGroup,
   useGroup,
@@ -38,6 +39,7 @@ import {
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
+import { CrewOnlyField } from "./CrewOnlyField.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
@@ -62,7 +64,8 @@ const manageSchema = z
     sessionDate: z.string(),
     startTime: timeSchema,
     endTime: timeSchema,
-    flexibleTime: z.boolean()
+    flexibleTime: z.boolean(),
+    crewOnly: z.boolean()
   })
   .superRefine((values, context) => {
     /* 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. */
@@ -107,7 +110,8 @@ function toFormValues(group) {
     startTime: timeValue(schedule?.startTime) || DEFAULT_TIMES.startTime,
     endTime: timeValue(schedule?.endTime) || DEFAULT_TIMES.endTime,
     /* 요일은 있는데 시각이 비어 있으면 시간을 유동적으로 둔 일정이다. */
-    flexibleTime: Boolean(recurring) && !recurring.startTime
+    flexibleTime: Boolean(recurring) && !recurring.startTime,
+    crewOnly: group.visibility === "CREW_ONLY"
   };
 }
 
@@ -148,6 +152,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const groupId = suppliedGroupId ?? params.groupId;
   const navigate = useNavigate();
   const toast = useToast();
+  const { member } = useAuth();
+  const canTurnOnCrewOnly = member?.memberType === "CREW";
   const groupQuery = useGroup(groupId);
   const modifyMutation = useModifyGroup(groupId);
   const deleteMutation = useDeleteGroup(groupId);
@@ -188,6 +194,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       daysOfWeek: [],
       sessionDate: "",
       flexibleTime: false,
+      crewOnly: false,
       ...DEFAULT_TIMES
     }
   });
@@ -198,6 +205,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const daysOfWeek = values.daysOfWeek ?? [];
   const flexibleTime = values.flexibleTime ?? false;
   const group = groupQuery.data;
+  /* 비크루 모임장은 크루 전용인 모임에서 끄는 것만 할 수 있으므로 그때만 칸을 보여 준다. */
+  const showsVisibility = canTurnOnCrewOnly || group?.visibility === "CREW_ONLY";
 
   useEffect(
     () => () => {
@@ -335,7 +344,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           description: formValues.description,
           meetingType: formValues.meetingType,
           location: formValues.location.trim() || null,
-          representativeImageKey: representativeImageKey ?? null
+          representativeImageKey: representativeImageKey ?? null,
+          /* 칸이 없으면 보내지 않아 서버가 지금 공개 범위를 그대로 둔다. */
+          ...(showsVisibility ? { visibility: formValues.crewOnly ? "CREW_ONLY" : "PUBLIC" } : {})
         });
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
         navigate(`/groups/${groupId}`, { replace: true });
@@ -486,6 +497,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               />
             </div>
           </section>
+
+          {showsVisibility && (
+            <CrewOnlyField canTurnOn={canTurnOnCrewOnly} registration={register("crewOnly")} />
+          )}
 
           <div className="group-detail-tabs group-editor__tabs">
             <Tabs

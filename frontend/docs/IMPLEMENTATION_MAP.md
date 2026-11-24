@@ -412,7 +412,12 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - `401 + UNAUTHENTICATED`에서만 refresh하고, 동시 refresh는 하나로 합치며 원 요청은
   최대 한 번만 재시도한다. `403`은 refresh하지 않는다.
 - 가입 결정 payload는 UI의 승인/미승인을 백엔드 값 `APPROVED`/`REJECTED`로 보낸다.
-- 그룹: `CLUB | STUDY | SESSION`, 상태: `ACTIVE | ENDED`.
+- 그룹: `CLUB | STUDY | SESSION`, 상태: `ACTIVE | ENDED`, 공개 범위: `PUBLIC | CREW_ONLY`.
+- 크루 전용(`CREW_ONLY`) 모임은 `memberType = CREW`인 회원과 현재 모임원에게만 보인다. 그 밖의 사용자에게
+  목록, 검색, 홈에서 빠지고 상세와 하위 API는 없는 모임과 같은 404를 받으므로, 화면은 기존 404 상태를 그대로 쓴다.
+  생성 화면은 `CREW`에게만 `크루 전용으로 열기` 체크박스를 보여 주고 `visibility`를 보낸다. 수정 화면은 `CREW`
+  모임장에게 체크박스를 보여 준다. 위임으로 모임장이 된 비크루는 크루 전용인 모임에서만 체크박스를 보고 끄는 것만
+  할 수 있으며, 전체 공개 모임에서는 칸이 없어 `visibility`를 보내지 않는다. 서버도 같은 규칙으로 거절한다.
 - 그룹 모임 방식: `ONLINE | OFFLINE | FLEXIBLE`. `FLEXIBLE`은 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 경우다. `type`은 그룹 종류이고 `meetingType`은 진행 방식이므로 서로 다른 값이다.
 - 그룹 상세 응답의 `location`은 nullable 문자열이며 최대 255자다. 오프라인 장소뿐 아니라 온라인 접속 정보도 저장할 수 있다.
 - 모집 방식: `AUTO | APPROVAL`, 조회 상태: `SCHEDULED | OPEN | ALWAYS_OPEN | CLOSED`.
@@ -446,6 +451,7 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - `location`: 최대 255자의 nullable 문자열
 - `currentMemberRegistrationId`: 현재 모집에 대한 본인 신청 ID, 신청이 없으면 `null`
 - 목록 응답은 현재 모임 방식·장소를 제공하지 않으므로 `groupListItemSchema`에는 포함하지 않는다.
+- `visibility`: 목록과 상세 모두 `PUBLIC` 또는 `CREW_ONLY`. 필드가 없는 이전 서버 응답은 화면에서 `PUBLIC`으로 다룬다.
 
 ### 내 신청 목록 응답 스키마
 
