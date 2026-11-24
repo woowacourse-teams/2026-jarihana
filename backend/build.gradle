@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'io.github.sjacek.shardpilot' version '0.6.0'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -66,7 +67,12 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.named('test') {
-	// 로컬 기본값은 1이고, CI에서 워커 수를 지정한다.
+	shardPilot {
+		enabled = true
+	}
+	// 일반 테스트에서는 실제 사용하는 JPA 저장소만 초기화한다.
+	systemProperty 'spring.data.jpa.repositories.bootstrap-mode', 'lazy'
+	// 워커마다 별도 JVM과 PostgreSQL 컨테이너를 사용한다.
 	maxParallelForks = providers.gradleProperty('testForks').map { it.toInteger() }.getOrElse(1)
 	useJUnitPlatform {
 		excludeTags 'gomoku-cutover'

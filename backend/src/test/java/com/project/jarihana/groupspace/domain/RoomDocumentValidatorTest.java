@@ -5,27 +5,33 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.groupspace.query.repository.FurnitureCatalogRepository;
-import com.project.jarihana.support.IntegrationTestSupport;
+import com.project.jarihana.support.TestSupportConfig;
 import java.io.IOException;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.beans.factory.annotation.Autowired;
-import tools.jackson.databind.JsonNode;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-class RoomDocumentValidatorTest extends IntegrationTestSupport {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TestSupportConfig.class)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class RoomDocumentValidatorTest {
     @Autowired ObjectMapper mapper;
     @Autowired RoomDocumentValidator validator;
-    @Autowired FurnitureCatalogRepository furniture;
     private List<FurnitureType> catalog;
 
-    @BeforeEach
-    void loadCatalog() {
+    // 이 클래스는 Flyway가 넣은 카탈로그만 읽으므로 케이스 사이에 DB를 초기화할 필요가 없다.
+    @BeforeAll
+    void loadCatalog(@Autowired FurnitureCatalogRepository furniture) {
         catalog = furniture.findAll();
     }
 
