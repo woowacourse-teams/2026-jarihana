@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      ORG_GRADLE_PROJECT_testForks: "4"
+      ORG_GRADLE_PROJECT_testForks: "2"
 
     defaults:
       run:
