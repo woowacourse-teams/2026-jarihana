@@ -58,11 +58,11 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
               and (:onlyMine = false or author.id = :memberId)
               and (
                   activityGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC
-                  or exists (
+                  or (activityGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY and exists (
                       select viewer.id from Member viewer
                       where viewer.id = :memberId
                         and viewer.memberType = com.project.jarihana.member.domain.MemberType.CREW
-                  )
+                  ))
                   or exists (
                       select viewerMembership.id from GroupMember viewerMembership
                       where viewerMembership.group.id = activityGroup.id

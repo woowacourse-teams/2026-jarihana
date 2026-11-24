@@ -28,20 +28,8 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                   or lower(g.introduction) like lower(concat('%', cast(:keyword as String), '%'))
               )
               and (g.createdAt, g.id) < (:cursorCreatedAt, :cursorId)
-              and (
-                  g.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC
-                  or exists (
-                      select viewer.id
-                      from Member viewer
-                      where viewer.id = :viewerId
-                        and viewer.memberType = com.project.jarihana.member.domain.MemberType.CREW
-                  )
-                  or exists (
-                      select viewerMembership.id
-                      from GroupMember viewerMembership
-                      where viewerMembership.group = g
-                        and viewerMembership.member.id = :viewerId
-                  )
+              and not (
+            """ + GroupVisibilityRepository.HIDDEN_FROM_VIEWER + """
               )
               and (
                   :joinedOnly = false

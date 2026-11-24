@@ -49,7 +49,7 @@ class GroupVisibilityMigrationTest extends IntegrationTestSupport {
                 .isEqualTo("CREW_ONLY");
     }
 
-    @DisplayName("정해진 두 값 밖의 공개 범위는 저장할 수 없다.")
+    @DisplayName("정해진 공개 범위 외의 값은 저장할 수 없다.")
     @Test
     void rejectsUnknownVisibility() {
         // Given

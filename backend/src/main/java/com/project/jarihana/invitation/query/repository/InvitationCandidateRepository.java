@@ -20,7 +20,7 @@ public interface InvitationCandidateRepository extends Repository<Member, Long> 
               and not exists (select gm.id from GroupMember gm where gm.group.id = :groupId and gm.member.id = m.id)
               and (m.memberType = com.project.jarihana.member.domain.MemberType.CREW or exists (
                   select g.id from Group g where g.id = :groupId
-                    and g.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC))
+                    and g.visibility <> com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY))
               and (m.createdAt, m.id) < (:createdAt, :id)
             order by m.createdAt desc, m.id desc
             """)

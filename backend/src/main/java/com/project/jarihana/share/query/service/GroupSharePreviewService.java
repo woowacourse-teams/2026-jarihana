@@ -37,14 +37,14 @@ public class GroupSharePreviewService {
 
     /**
      * CloudFront는 모임 페이지의 모든 첫 요청을 이 미리보기로 보내고, 응답을 공개 캐시에 둔다.
-     * 그래서 크루 전용 모임은 조회자와 관계없이 이름과 소개를 빼고 모임 페이지로 넘기기만 한다.
+     * 그래서 크루 공개와 비공개 모임은 이름과 소개를 빼고 모임 페이지로 넘긴다.
      * 실제로 볼 수 있는지는 넘어간 화면이 모임 API를 부를 때 다시 판단한다.
      */
     public GroupSharePreview findGroupPreview(long groupId) {
         Group stored = groups.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND, "그룹을 찾을 수 없습니다."));
         String canonicalUrl = frontendOrigin + "/groups/" + groupId;
-        if (stored.getVisibility() == GroupVisibility.CREW_ONLY) {
+        if (stored.getVisibility() != GroupVisibility.PUBLIC) {
             return new GroupSharePreview(
                     SITE_NAME,
                     HIDDEN_GROUP_DESCRIPTION,

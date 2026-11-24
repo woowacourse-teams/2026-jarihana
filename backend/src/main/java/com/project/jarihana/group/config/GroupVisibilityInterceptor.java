@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 크루 전용 모임을 컨트롤러에 닿기 전에 숨긴다.
+ * 크루 공개와 비공개 모임을 컨트롤러에 닿기 전에 숨긴다.
  *
  * <p>경로 변수로 모임을 찾을 수 있는 요청은 조회와 명령 모두 여기서 판정하고, 보이지 않으면 없는 자원과 같은 404로
  * 응답한다. 서블릿 필터가 아니라 인터셉터에 두는 이유는 Spring이 이미 매칭한 경로 패턴과 변수를 그대로 쓰고,
@@ -57,20 +57,21 @@ public class GroupVisibilityInterceptor implements HandlerInterceptor {
                 viewerId = loginMemberReader.currentMemberId().orElse(null);
                 viewerRead = true;
             }
-            if (isHidden(guard, id.get(), viewerId)) {
+            if (isHidden(guard, path, id.get(), viewerId)) {
                 throw notFound(guard);
             }
         }
         return true;
     }
 
-    private boolean isHidden(GroupVisibilityGuard guard, long id, Long viewerId) {
+    private boolean isHidden(GroupVisibilityGuard guard, String path, long id, Long viewerId) {
         return switch (guard) {
             case GROUP -> visibility.isGroupHidden(id, viewerId);
             case RECRUITMENT -> visibility.isRecruitmentHidden(id, viewerId);
             case ACTIVITY_POST -> visibility.isActivityPostHidden(id, viewerId);
             case ACTIVITY_POST_COMMENT -> visibility.isActivityPostCommentHidden(id, viewerId);
-            case INVITATION -> visibility.isInvitationHidden(id, viewerId);
+            case INVITATION -> visibility.isInvitationHidden(
+                    id, viewerId, path.equals("/invitations/{invitationId}/acceptances"));
         };
     }
 

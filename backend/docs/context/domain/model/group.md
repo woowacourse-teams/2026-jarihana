@@ -14,7 +14,7 @@
 | `description` | String | nullable, 최대 10000자 | 상세 소개 |
 | `representativeImageKey` | String | nullable | 이미지 URL이 아닌 스토리지 키 |
 | `status` | Enum (`GroupStatus`) | NOT NULL, 기본값 `ACTIVE` | 그룹의 활동 상태. `ACTIVE`는 활동 중인 모임, `ENDED`는 종료된 모임 |
-| `visibility` | Enum (`GroupVisibility`) | NOT NULL, 기본값 `PUBLIC` | 모임을 누구에게 보여 줄지. `PUBLIC`은 누구에게나, `CREW_ONLY`는 크루와 현재 구성원에게만 |
+| `visibility` | Enum (`GroupVisibility`) | NOT NULL, 기본값 `PUBLIC` | 모임을 볼 수 있는 범위. `PUBLIC`, `PRIVATE`, `CREW_ONLY` |
 | `createdAt` | LocalDateTime | NOT NULL | 그룹 생성 시각 |
 | `updatedAt` | LocalDateTime | NOT NULL | 최종 수정 시각 |
 
@@ -52,12 +52,14 @@ ENDED    종료된 모임
 
 ```javascript
 PUBLIC     누구에게나 보이는 모임
+PRIVATE    현재 구성원에게만 보이는 모임
 CREW_ONLY  memberType = CREW인 회원과 그 모임의 현재 구성원에게만 보이는 모임
 ```
 
-- 크루 전용으로 켜는 사람은 `CREW`인 모임장뿐이다. 위임으로 모임장이 된 비크루는 끄는 것만 할 수 있다. 값을 그대로 두는 수정은 모임장 유형과 관계없이 허용한다.
+- 크루 전용으로 켜는 사람은 `CREW`인 모임장뿐이다. 위임받은 비크루 모임장은 `PUBLIC` 또는 `PRIVATE`로 바꿀 수 있다. 값을 그대로 두는 수정은 모임장 유형과 관계없이 허용한다.
 - `CREW_ONLY` 모임에는 `CREW`만 새로 신청하거나 초대를 수락할 수 있다. 크루 전용으로 바뀌기 전에 들어온 비크루 구성원은 내보내지 않으며, 구성원인 동안 계속 볼 수 있다. 모임을 나가면 다른 비크루 회원과 같이 보이지 않는다.
 - 크루 전용으로 바뀌기 전에 남은 비크루의 대기 신청은 모임장이 재량으로 승인하거나 미승인한다. 승인되면 구성원이 된다.
+- `PRIVATE` 모임에는 유효한 지정 초대 또는 공유 초대 링크로만 새로 합류한다. 비공개 상태에서는 대기 신청을 승인할 수 없다.
 - 코치(`COACH`)도 크루가 아니므로 비크루와 같게 다룬다.
 - 보이지 않는 모임은 모든 조회 경로에서 없는 모임처럼 다룬다. 선택 이유는 [백엔드 ADR 0033](../../../adr/0033-crew-only-group-visibility.md)을 따른다.
 

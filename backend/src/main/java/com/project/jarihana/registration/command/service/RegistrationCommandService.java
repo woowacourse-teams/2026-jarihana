@@ -6,6 +6,7 @@ import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.transaction.ConcurrentCommandExecutor;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
@@ -70,7 +71,7 @@ public class RegistrationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다."));
         Member member = memberRepository.findWithLockById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
-        // 앞단 인터셉터가 이미 막지만, 크루 전용 전환과 동시에 온 신청은 모임 행 공유 잠금 안에서 다시 판정한다.
+        // 공개 범위 전환과 겹친 신청은 모임 행 공유 잠금 안에서 다시 판정한다.
         boolean groupMember = groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent();
         if (!group.isVisibleTo(member.getMemberType(), groupMember)) {
             throw new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다.");
@@ -257,7 +258,12 @@ public class RegistrationCommandService {
         }
 
         Registration decidedRegistration = switch (command.status()) {
-            case APPROVED -> approveRegistration(registration, recruitment, memberId);
+            case APPROVED -> {
+                if (group.getVisibility() == GroupVisibility.PRIVATE) {
+                    throw new BusinessException(ErrorCode.REGISTRATION_ACCESS_DENIED, "비공개 모임에는 초대로만 합류할 수 있습니다.");
+                }
+                yield approveRegistration(registration, recruitment, memberId);
+            }
             case REJECTED -> registrationRepository.save(
                     registration.reject(
                             DecisionActor.member(memberId),

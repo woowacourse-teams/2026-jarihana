@@ -81,7 +81,8 @@ public class InvitationCommandService {
         long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
         Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
         // 앞단 인터셉터가 이미 막지만, 크루 전용 전환과 동시에 온 수락은 낙관적 잠금 안에서 다시 판정한다.
-        if (!group.isVisibleTo(member.getMemberType(), groupMembers.findByGroupIdAndMemberId(groupId, memberId).isPresent())) {
+        var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
+        if (existing.isEmpty() && !group.allowsInvitationTo(member.getMemberType())) {
             throw notFound();
         }
         Invitation invitation = invitations.findDirectWithOptimisticLockById(invitationId).orElseGet(() ->
@@ -99,7 +100,6 @@ public class InvitationCommandService {
         if (invitation.getState() == InvitationState.REJECTED) {
             throw new BusinessException(ErrorCode.INVITATION_REJECTED, "거절한 초대장입니다.");
         }
-        var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
         if (existing.isPresent()) {
             var membership = existing.orElseThrow();
             return new AcceptInvitationResult(false, invitationId, groupId, membership.getId(), membership.getJoinedAt());
@@ -217,7 +217,7 @@ public class InvitationCommandService {
             Member target = members.findById(command.targetMemberId()).filter(member -> member.getWithdrawnAt() == null)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER, "가입 완료한 초대 대상을 지정해야 합니다."));
             if (inviter.equals(target)) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "자신을 초대할 수 없습니다.");
-            if (!group.admits(target.getMemberType())) {
+            if (!group.allowsInvitationTo(target.getMemberType())) {
                 throw new BusinessException(ErrorCode.INVALID_PARAMETER, "크루 전용 모임에는 크루만 초대할 수 있습니다.");
             }
             if (groupMembers.findByGroupIdAndMemberId(groupId, target.getId()).isPresent()) {

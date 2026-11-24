@@ -372,6 +372,71 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
         }
     }
 
+    @Test
+    void hidesPrivateGroupsFromAllNonMembers() {
+        makePrivate();
+
+        for (Member viewer : List.of(crew, outsider)) {
+            as(viewer).get("/groups?size=20").then().statusCode(200)
+                    .body("data.items.name", not(hasItem(GROUP_NAME)));
+            as(viewer).get("/home").then().statusCode(200)
+                    .body("data.recruiting.items.name", not(hasItem(GROUP_NAME)));
+            as(viewer).get("/groups/{id}", group.getId()).then().statusCode(404);
+            as(viewer).get("/activity-posts").then().statusCode(200)
+                    .body("data.items.group.name", not(hasItem(GROUP_NAME)));
+        }
+        anonymous().get("/groups/{id}", group.getId()).then().statusCode(404);
+        as(insider).get("/groups/{id}", group.getId()).then().statusCode(200)
+                .body("data.visibility", equalTo("PRIVATE"));
+        String preview = anonymous().get("/share/groups/{id}", group.getId())
+                .then().statusCode(200).extract().asString();
+        assertThat(preview).doesNotContain(GROUP_NAME, "크루끼리 공부해요");
+    }
+
+    @Test
+    void letsOnlyPrivateInviteesViewAndAcceptInvitations() {
+        makePrivate();
+        as(crew).get("/invitations/{id}", directInvitationId).then().statusCode(404);
+        as(crew).get("/invitations/{id}", linkInvitationId).then().statusCode(404);
+        as(crew).contentType("application/json").body(Map.of())
+                .post("/invitations/{id}/acceptances", linkInvitationId).then().statusCode(404);
+        as(outsider).get("/invitations/received?size=20").then().statusCode(200)
+                .body("data.items.size()", equalTo(1));
+        as(outsider).get("/notifications/unread-count").then().statusCode(200)
+                .body("data.unreadCount", equalTo(1));
+        as(outsider).get("/invitations/{id}", directInvitationId).then().statusCode(200)
+                .body("data.group.introduction", equalTo(""));
+        as(outsider).contentType("application/json").body(Map.of())
+                .post("/invitations/{id}/acceptances", directInvitationId).then().statusCode(201);
+        as(outsider).get("/groups/{id}", group.getId()).then().statusCode(200);
+
+        Member linkInvitee = members.save(Member.createBasic("마루", "private-link-invitee"));
+        anonymous().get("/invitations/links/{token}", linkToken).then().statusCode(200)
+                .body("data.group.introduction", equalTo(""));
+        as(linkInvitee).contentType("application/json").body(Map.of("token", linkToken))
+                .post("/invitations/{id}/acceptances", linkInvitationId).then().statusCode(201);
+        as(linkInvitee).get("/groups/{id}", group.getId()).then().statusCode(200);
+    }
+
+    @Test
+    void preventsRegistrationJoinAfterTurningPrivate() {
+        Registration pending = registrations.save(
+                Registration.createPending(recruitment, crew, "참여하고 싶어요", FIXED_NOW.minusHours(6)));
+        makePrivate();
+        as(crew).get("/registrations?applicant=me&size=20").then().statusCode(200)
+                .body("data.items.size()", equalTo(0));
+        as(outsider).contentType("application/json").body(Map.of("message", "참여하고 싶어요"))
+                .post("/recruitments/{id}/registrations", recruitment.getId()).then().statusCode(404);
+        as(leader).contentType("application/json").body(Map.of("status", "APPROVED"))
+                .patch("/recruitments/{rid}/registrations/{id}", recruitment.getId(), pending.getId())
+                .then().statusCode(403).body("error.code", equalTo("REGISTRATION_ACCESS_DENIED"));
+    }
+
+    private void makePrivate() {
+        group = groups.save(groups.findById(group.getId()).orElseThrow()
+                .changeVisibility(GroupVisibility.PRIVATE, MemberType.CREW));
+    }
+
     private JsonPath issueInvitation(Map<String, Object> body) {
         return as(leader).contentType("application/json").body(body)
                 .post("/groups/{id}/invitations", group.getId())

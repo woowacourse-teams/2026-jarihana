@@ -335,13 +335,13 @@ class GroupTest {
 
         // When & Then
         assertThat(open.isVisibleTo(null, false)).isTrue();
-        assertThat(open.admits(MemberType.MEMBER)).isTrue();
+        assertThat(open.allowsInvitationTo(MemberType.MEMBER)).isTrue();
         assertThat(crewOnly.isVisibleTo(null, false)).isFalse();
         assertThat(crewOnly.isVisibleTo(MemberType.MEMBER, false)).isFalse();
         assertThat(crewOnly.isVisibleTo(MemberType.COACH, false)).isFalse();
         assertThat(crewOnly.isVisibleTo(MemberType.MEMBER, true)).isTrue();
         assertThat(crewOnly.isVisibleTo(MemberType.CREW, false)).isTrue();
-        assertThat(crewOnly.admits(MemberType.MEMBER)).isFalse();
-        assertThat(crewOnly.admits(MemberType.CREW)).isTrue();
+        assertThat(crewOnly.allowsInvitationTo(MemberType.MEMBER)).isFalse();
+        assertThat(crewOnly.allowsInvitationTo(MemberType.CREW)).isTrue();
     }
 }

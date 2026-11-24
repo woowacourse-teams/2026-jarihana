@@ -8,6 +8,7 @@ import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.invitation.command.service.InvitationTokenCodec;
@@ -95,12 +96,15 @@ public class InvitationQueryService {
 
     public InvitationDetailResult previewLink(String token) {
         long id = invitations.findLinkIdByTokenHash(tokens.hash(token)).orElseThrow(InvitationQueryService::notFound);
-        // 공유 링크 미리보기는 경로에 모임 ID가 없어 인터셉터가 막지 못하므로 여기서 판정한다.
-        InvitationDetailProjection item = invitations.findDetail(id, 0)
-                .filter(found -> groupVisibility.existsVisibleById(
-                        found.groupId(), loginMemberReader.currentMemberId().orElse(null)))
+        Long viewerId = loginMemberReader.currentMemberId().orElse(null);
+        InvitationDetailProjection item = invitations.findDetail(id, viewerId == null ? 0 : viewerId)
                 .orElseThrow(InvitationQueryService::notFound);
         InvitationStatus status = status(item);
+        if (item.visibility() == GroupVisibility.PRIVATE) {
+            if (!item.viewerPresent() && status != InvitationStatus.VALID) throw notFound();
+        } else if (!groupVisibility.existsVisibleById(item.groupId(), viewerId)) {
+            throw notFound();
+        }
         return detail(item, status, status == InvitationStatus.VALID, false, null);
     }
 
@@ -111,7 +115,9 @@ public class InvitationQueryService {
 
     private InvitationDetailResult detail(InvitationDetailProjection item, InvitationStatus status,
             boolean canAccept, boolean canRevoke, String path) {
-        return new InvitationDetailResult(item.id(), item.type(), item.groupId(), item.groupName(), item.groupIntroduction(),
+        String introduction = item.visibility() == GroupVisibility.PRIVATE && !item.viewerPresent()
+                ? "" : item.groupIntroduction();
+        return new InvitationDetailResult(item.id(), item.type(), item.groupId(), item.groupName(), introduction,
                 item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(),
                 status, canAccept, canRevoke, path);
     }

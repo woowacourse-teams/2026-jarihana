@@ -514,7 +514,7 @@ public class Group extends BaseEntity {
 
     /**
      * 공개 범위를 바꾼다. 크루 전용으로 켜는 것은 크루인 모임장만 할 수 있다. 위임으로 모임장이 된 비크루는
-     * 전체 공개로 끄는 것만 할 수 있다. 어느 쪽이든 이미 들어와 있는 구성원은 그대로 둔다.
+     * 전체 공개나 비공개로 바꿀 수 있다. 공개 범위 전환은 기존 구성원에 영향을 주지 않는다.
      */
     public Group changeVisibility(GroupVisibility nextVisibility, MemberType leaderType) {
         requireActive();
@@ -534,8 +534,8 @@ public class Group extends BaseEntity {
         return visibility.isVisibleTo(viewerType, groupMember);
     }
 
-    public boolean admits(MemberType joinerType) {
-        return visibility.admits(joinerType);
+    public boolean allowsInvitationTo(MemberType inviteeType) {
+        return visibility.allowsInvitationTo(inviteeType);
     }
 
     public boolean canEndAt(LocalDateTime now) {

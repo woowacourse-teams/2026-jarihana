@@ -31,8 +31,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and not exists (
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
-                    and hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                    and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
+                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
                     and not exists (
                         select viewerMembership.id from GroupMember viewerMembership
                         where viewerMembership.group.id = hiddenGroup.id
@@ -57,8 +61,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and not exists (
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
-                    and hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                    and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
+                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
                     and not exists (
                         select viewerMembership.id from GroupMember viewerMembership
                         where viewerMembership.group.id = hiddenGroup.id
@@ -109,8 +117,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and not exists (
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
-                    and hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                    and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
+                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
                     and not exists (
                         select viewerMembership.id from GroupMember viewerMembership
                         where viewerMembership.group.id = hiddenGroup.id
