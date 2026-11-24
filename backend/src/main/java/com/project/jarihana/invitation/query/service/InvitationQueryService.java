@@ -1,5 +1,7 @@
 package com.project.jarihana.invitation.query.service;
 
+import com.project.jarihana.common.auth.LoginMemberReader;
+import com.project.jarihana.group.query.repository.GroupVisibilityRepository;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
@@ -41,6 +43,8 @@ public class InvitationQueryService {
     private final GroupMemberCommandRepository groupMembers;
     private final Clock clock;
     private final InvitationTokenCodec tokens;
+    private final GroupVisibilityRepository groupVisibility;
+    private final LoginMemberReader loginMemberReader;
 
     public IssuedInvitationResult findIssued(long memberId, long groupId, IssuedInvitationQuery query) {
         requireMember(memberId);
@@ -91,7 +95,11 @@ public class InvitationQueryService {
 
     public InvitationDetailResult previewLink(String token) {
         long id = invitations.findLinkIdByTokenHash(tokens.hash(token)).orElseThrow(InvitationQueryService::notFound);
-        InvitationDetailProjection item = invitations.findDetail(id, 0).orElseThrow(InvitationQueryService::notFound);
+        // 공유 링크 미리보기는 경로에 모임 ID가 없어 인터셉터가 막지 못하므로 여기서 판정한다.
+        InvitationDetailProjection item = invitations.findDetail(id, 0)
+                .filter(found -> groupVisibility.existsVisibleById(
+                        found.groupId(), loginMemberReader.currentMemberId().orElse(null)))
+                .orElseThrow(InvitationQueryService::notFound);
         InvitationStatus status = status(item);
         return detail(item, status, status == InvitationStatus.VALID, false, null);
     }

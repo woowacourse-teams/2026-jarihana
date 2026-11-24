@@ -3,6 +3,7 @@ package com.project.jarihana.group.domain;
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
+import com.project.jarihana.member.domain.MemberType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -85,6 +86,10 @@ public class Group extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     private GroupStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false, length = 20)
+    private GroupVisibility visibility = GroupVisibility.PUBLIC;
+
     private Group(
             Long id,
             Long version,
@@ -100,7 +105,8 @@ public class Group extends BaseEntity {
             GroupStatus status,
             LocalDateTime createdAt,
             boolean showBaseScheduleInCalendar,
-            LocalDate endedOn
+            LocalDate endedOn,
+            GroupVisibility visibility
     ) {
         super(require(createdAt, "생성 시각"));
         this.id = id;
@@ -118,6 +124,7 @@ public class Group extends BaseEntity {
         this.status = require(status, "그룹 상태");
         this.showBaseScheduleInCalendar = showBaseScheduleInCalendar;
         this.endedOn = endedOn;
+        this.visibility = require(visibility, "공개 범위");
     }
 
     private static void validateSchedule(
@@ -226,7 +233,8 @@ public class Group extends BaseEntity {
                 GroupStatus.ACTIVE,
                 createdAt,
                 true,
-                null
+                null,
+                GroupVisibility.PUBLIC
         );
     }
 
@@ -318,7 +326,8 @@ public class Group extends BaseEntity {
                 GroupStatus.ACTIVE,
                 createdAt,
                 true,
-                null
+                null,
+                GroupVisibility.PUBLIC
         );
     }
 
@@ -383,7 +392,8 @@ public class Group extends BaseEntity {
                 status,
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
-                endedOn
+                endedOn,
+                visibility
         );
     }
 
@@ -413,7 +423,8 @@ public class Group extends BaseEntity {
                 status,
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
-                endedOn
+                endedOn,
+                visibility
         );
     }
 
@@ -440,7 +451,8 @@ public class Group extends BaseEntity {
                 status,
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
-                endedOn
+                endedOn,
+                visibility
         );
     }
 
@@ -464,7 +476,8 @@ public class Group extends BaseEntity {
                 status,
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
-                endedOn
+                endedOn,
+                visibility
         );
     }
 
@@ -487,7 +500,8 @@ public class Group extends BaseEntity {
                 GroupStatus.ENDED,
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
-                now.toLocalDate()
+                now.toLocalDate(),
+                visibility
         );
     }
 
@@ -495,7 +509,33 @@ public class Group extends BaseEntity {
         requireActive();
         return new Group(id, version, type, meetingType, location, recurringSchedule, sessionSchedule,
                 name, introduction, description, representativeImageKey, status, getCreatedAt(),
-                visible, endedOn);
+                visible, endedOn, visibility);
+    }
+
+    /**
+     * 공개 범위를 바꾼다. 크루 전용으로 켜는 것은 크루인 모임장만 할 수 있다. 위임으로 모임장이 된 비크루는
+     * 전체 공개로 끄는 것만 할 수 있다. 어느 쪽이든 이미 들어와 있는 구성원은 그대로 둔다.
+     */
+    public Group changeVisibility(GroupVisibility nextVisibility, MemberType leaderType) {
+        requireActive();
+        GroupVisibility next = require(nextVisibility, "공개 범위");
+        if (next == visibility) {
+            return this;
+        }
+        if (next == GroupVisibility.CREW_ONLY && leaderType != MemberType.CREW) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "크루인 모임장만 크루 전용으로 바꿀 수 있습니다.");
+        }
+        return new Group(id, version, type, meetingType, location, recurringSchedule, sessionSchedule,
+                name, introduction, description, representativeImageKey, status, getCreatedAt(),
+                showBaseScheduleInCalendar, endedOn, next);
+    }
+
+    public boolean isVisibleTo(MemberType viewerType, boolean groupMember) {
+        return visibility.isVisibleTo(viewerType, groupMember);
+    }
+
+    public boolean admits(MemberType joinerType) {
+        return visibility.admits(joinerType);
     }
 
     public boolean canEndAt(LocalDateTime now) {
@@ -555,6 +595,10 @@ public class Group extends BaseEntity {
 
     public LocalDate getEndedOn() {
         return endedOn;
+    }
+
+    public GroupVisibility getVisibility() {
+        return visibility;
     }
 
     @Override

@@ -80,6 +80,10 @@ public class InvitationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
         long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
         Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
+        // 앞단 인터셉터가 이미 막지만, 크루 전용 전환과 동시에 온 수락은 낙관적 잠금 안에서 다시 판정한다.
+        if (!group.isVisibleTo(member.getMemberType(), groupMembers.findByGroupIdAndMemberId(groupId, memberId).isPresent())) {
+            throw notFound();
+        }
         Invitation invitation = invitations.findDirectWithOptimisticLockById(invitationId).orElseGet(() ->
                 invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound));
         if (invitation.getType() == InvitationType.DIRECT) {
@@ -213,6 +217,9 @@ public class InvitationCommandService {
             Member target = members.findById(command.targetMemberId()).filter(member -> member.getWithdrawnAt() == null)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER, "가입 완료한 초대 대상을 지정해야 합니다."));
             if (inviter.equals(target)) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "자신을 초대할 수 없습니다.");
+            if (!group.admits(target.getMemberType())) {
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "크루 전용 모임에는 크루만 초대할 수 있습니다.");
+            }
             if (groupMembers.findByGroupIdAndMemberId(groupId, target.getId()).isPresent()) {
                 throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 모임에 참여 중인 회원입니다.");
             }

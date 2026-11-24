@@ -37,6 +37,16 @@ public interface RegistrationListJpaRepository extends JpaRepository<Registratio
             from Registration registration
             where registration.member.id = :memberId
               and (cast(:status as String) is null or registration.status = :status)
+              and (
+                  registration.recruitment.group.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC
+                  or registration.member.memberType = com.project.jarihana.member.domain.MemberType.CREW
+                  or exists (
+                      select viewerMembership.id
+                      from GroupMember viewerMembership
+                      where viewerMembership.group = registration.recruitment.group
+                        and viewerMembership.member.id = :memberId
+                  )
+              )
               and (registration.registeredAt, registration.id) < (:cursorRegisteredAt, :cursorId)
             order by registration.registeredAt desc, registration.id desc
             """)

@@ -34,7 +34,8 @@ public record GroupDetailResponse(
         Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus,
         LocalDateTime createdAt,
-        boolean clubhouseSetupEnabled
+        boolean clubhouseSetupEnabled,
+        String visibility
 ) {
 
     public static GroupDetailResponse from(GroupDetailResult result) {
@@ -58,7 +59,8 @@ public record GroupDetailResponse(
                 result.currentMemberRegistrationId(),
                 result.currentMemberRegistrationStatus(),
                 group.getCreatedAt(),
-                group.isClubhouseSetupEnabled()
+                group.isClubhouseSetupEnabled(),
+                group.getVisibility().name()
         );
     }
 

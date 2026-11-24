@@ -6,6 +6,8 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
@@ -124,6 +126,21 @@ class RealtimeJoinTokenAcceptanceTest extends IntegrationTestSupport {
         // When / Then
         memberRequest(visitor).post("/groups/" + session.getId() + "/space/join-token")
                 .then().statusCode(404).body("error.code", equalTo("GROUP_SPACE_NOT_AVAILABLE"));
+    }
+
+    @Test
+    @DisplayName("크루 전용 모임의 아지트 입장 토큰은 비크루 외부인에게 없는 모임처럼 404로 응답한다")
+    void rejectsNonCrewVisitorOfCrewOnlyGroup() {
+        // Given
+        group = groups.save(group.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW));
+        Member basic = members.save(Member.createBasic("외부", "realtime-basic"));
+
+        // When / Then
+        memberRequest(basic).post(tokenPath())
+                .then().statusCode(404).body("error.code", equalTo("GROUP_NOT_FOUND"));
+        memberRequest(visitor).post(tokenPath()).then().statusCode(200);
+        memberships.save(GroupMember.createMember(group, basic, FIXED_NOW));
+        memberRequest(basic).post(tokenPath()).then().statusCode(200);
     }
 
     private RequestSpecification memberRequest(Member member) {

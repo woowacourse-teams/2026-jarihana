@@ -25,7 +25,8 @@ public record GroupListResult(List<Item> items, String nextCursor, boolean hasNe
             SessionSchedule sessionSchedule,
             Leader leader,
             int memberCount,
-            ActiveRecruitment activeRecruitment
+            ActiveRecruitment activeRecruitment,
+            String visibility
     ) {
     }
 

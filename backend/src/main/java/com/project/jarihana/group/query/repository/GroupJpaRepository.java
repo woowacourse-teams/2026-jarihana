@@ -29,6 +29,21 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
               )
               and (g.createdAt, g.id) < (:cursorCreatedAt, :cursorId)
               and (
+                  g.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC
+                  or exists (
+                      select viewer.id
+                      from Member viewer
+                      where viewer.id = :viewerId
+                        and viewer.memberType = com.project.jarihana.member.domain.MemberType.CREW
+                  )
+                  or exists (
+                      select viewerMembership.id
+                      from GroupMember viewerMembership
+                      where viewerMembership.group = g
+                        and viewerMembership.member.id = :viewerId
+                  )
+              )
+              and (
                   :joinedOnly = false
                   or exists (
                       select member.id
@@ -93,6 +108,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             @Param("currentMemberId") Long currentMemberId,
             @Param("recruiting") Boolean recruiting,
             @Param("now") LocalDateTime now,
+            @Param("viewerId") Long viewerId,
             Pageable pageable
     );
 }
