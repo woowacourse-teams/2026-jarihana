@@ -6,10 +6,10 @@ import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.announcement.domain.event.AnnouncementCreatedEvent;
 import com.project.jarihana.chat.domain.ChatMessageCreatedEvent;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
 import com.project.jarihana.notification.command.repository.NotificationCommandRepository;
 import com.project.jarihana.notification.config.NotificationProperties;
@@ -53,9 +53,11 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
     public void onGroupCreated(GroupCreatedEvent event) {
+        if (event.visibility() == GroupVisibility.PRIVATE) {
+            return;
+        }
         Map<Long, List<PushSubscription>> activeByMember = subscriptions.findActiveExceptCreator(event.creatorMemberId()).stream()
-                .filter(subscription -> !event.crewOnly()
-                        || subscription.getMember().getMemberType() == MemberType.CREW)
+                .filter(subscription -> event.visibility().isVisibleTo(subscription.getMember().getMemberType(), false))
                 .collect(Collectors.groupingBy(subscription -> subscription.getMember().getId(),
                         LinkedHashMap::new, Collectors.toList()));
         List<Member> recipients = activeByMember.values().stream().map(active -> active.getFirst().getMember()).toList();

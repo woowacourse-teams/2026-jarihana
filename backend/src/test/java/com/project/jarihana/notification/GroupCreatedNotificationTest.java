@@ -96,6 +96,20 @@ class GroupCreatedNotificationTest extends NotificationIntegrationTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void privateGroupCreationDoesNotNotifyOutsideSubscribers() {
+        var creator = members.save(Member.createBasic("모임장", "101"));
+        subscription(member("102"), "crew");
+        subscription(members.save(Member.createBasic("기본", "203")), "basic");
+        var command = new CreateGroupCommand(GroupType.CLUB, "비공개 모임", "초대로 모여요", null,
+                MeetingType.FLEXIBLE, null, null, null, null, null, GroupVisibility.PRIVATE);
+
+        groupService.createGroup(creator.getId(), command);
+
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isZero();
+    }
+
     private CreateGroupCommand command() {
         return new CreateGroupCommand(GroupType.CLUB, "새 모임", "함께해요", null,
                 MeetingType.FLEXIBLE, null, null, null, null);

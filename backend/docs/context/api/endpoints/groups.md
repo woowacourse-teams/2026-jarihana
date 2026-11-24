@@ -158,8 +158,8 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
 - `clubhouseTemplateKey`는 `CLUB`·`STUDY`에서 선택한 아지트 테마 키다. 선택한 테마의 발행된 기본 도면과 배치를 사용한다. 이전 클라이언트가 이 필드를 생략하면 그룹만 생성한다.
-- `visibility`는 선택 필드이며 `PUBLIC` 또는 `CREW_ONLY`다. 생략하면 `PUBLIC`이다. `CREW_ONLY`는 요청 회원이 `CREW`일 때만 허용한다.
-- 크루 전용 모임의 새 모임 알림은 활성 푸시 구독이 있는 `CREW` 회원에게만 저장한다.
+- `visibility`는 선택 필드이며 `PUBLIC`, `PRIVATE`, `CREW_ONLY` 중 하나다. 생략하면 `PUBLIC`이다. `CREW_ONLY`는 요청 회원이 `CREW`일 때만 허용한다.
+- 비공개 모임은 새 모임 알림을 발송하지 않는다. 크루 공개 모임의 새 모임 알림은 활성 푸시 구독이 있는 `CREW`에게만 저장한다.
 
 #### 요청 — CLUB 또는 STUDY
 
@@ -402,7 +402,7 @@ Request Body는 없다.
 - 수정 가능한 기본 정보의 전체 표현을 전달한다. 전달하지 않은 필드를 기존 값으로 보존하는 부분 수정은 지원하지 않는다.
 - `description`, `location`, `representativeImageKey`는 nullable 필드지만 요청에 반드시 포함해야 하며, 비우려면 각각 `null`을 명시한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
-- `visibility`는 선택 필드다. 생략하면 지금 공개 범위를 유지하므로, 이 필드를 모르는 이전 클라이언트도 기존 요청을 그대로 보낼 수 있다. `CREW_ONLY`로 켜는 요청은 모임장이 `CREW`일 때만 허용하고, 위임으로 모임장이 된 비크루는 `PUBLIC`으로 끄는 것만 할 수 있다. 크루 전용으로 바꿔도 기존 비크루 구성원과 대기 신청은 그대로 남으며, 대기 신청은 모임장이 지금처럼 결정한다.
+- `visibility`를 생략하면 지금 값을 유지한다. 모임장은 `PUBLIC` 또는 `PRIVATE`로 바꿀 수 있고 `CREW_ONLY`로 바꾸는 것은 크루인 모임장만 할 수 있다. 위임받은 비크루 모임장은 이미 설정된 `CREW_ONLY`를 유지할 수 있다.
 - `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
 
 #### 응답 200

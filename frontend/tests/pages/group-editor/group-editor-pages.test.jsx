@@ -205,20 +205,23 @@ describe("NewGroupPage", () => {
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
   });
 
-  it("크루가 아니면 공개 범위를 고르지 않고 전체 공개로 만든다", async () => {
+  it("비크루는 공개와 비공개 중 선택해 모임을 만든다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await user.type(screen.getByLabelText("모임 이름"), "리액트 스터디");
     await user.type(screen.getByLabelText("한 줄 소개"), "매주 함께 공부해요");
 
+    const visibility = screen.getByRole("combobox", { name: "공개 범위" });
+    expect(visibility).toHaveValue("PUBLIC");
+    expect(screen.queryByRole("option", { name: "크루 공개" })).not.toBeInTheDocument();
     // When
+    await user.selectOptions(visibility, "PRIVATE");
     submitForm("group-create-form");
 
     // Then
-    expect(screen.queryByRole("checkbox", { name: /크루 전용으로 열기/ })).not.toBeInTheDocument();
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
-    expect(mockCreateGroup.mock.calls[0][0]).not.toHaveProperty("visibility");
+    expect(mockCreateGroup.mock.calls[0][0]).toHaveProperty("visibility", "PRIVATE");
   });
 
   it("크루는 처음부터 크루 전용 모임으로 만들 수 있다", async () => {
@@ -230,9 +233,9 @@ describe("NewGroupPage", () => {
     await user.type(screen.getByLabelText("한 줄 소개"), "크루끼리 공부해요");
 
     // When
-    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
-    expect(crewOnly).toHaveAttribute("data-ph-capture-attribute-action", "group_visibility_crew_only_toggle");
-    await user.click(crewOnly);
+    const visibility = screen.getByRole("combobox", { name: "공개 범위" });
+    expect(visibility).toHaveAttribute("data-ph-capture-attribute-action", "group_visibility_change");
+    await user.selectOptions(visibility, "CREW_ONLY");
     submitForm("group-create-form");
 
     // Then
@@ -771,11 +774,11 @@ describe("GroupManagePage", () => {
     mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
-    expect(crewOnly).toBeChecked();
+    const visibility = screen.getByRole("combobox", { name: "공개 범위" });
+    expect(visibility).toHaveValue("CREW_ONLY");
 
     // When
-    await user.click(crewOnly);
+    await user.selectOptions(visibility, "PUBLIC");
     submitForm("group-overview-form");
 
     // Then
@@ -788,28 +791,29 @@ describe("GroupManagePage", () => {
     mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
-    const crewOnly = screen.getByRole("checkbox", { name: /크루 전용으로 열기/ });
+    const visibility = screen.getByRole("combobox", { name: "공개 범위" });
 
     // When
-    await user.click(crewOnly);
+    await user.selectOptions(visibility, "PRIVATE");
     submitForm("group-overview-form");
 
     // Then
-    expect(crewOnly).not.toBeChecked();
-    expect(screen.getByText(/끈 뒤에는 다시 켤 수 없어요/)).toBeVisible();
+    expect(visibility).toHaveValue("PRIVATE");
+    expect(visibility).toHaveAccessibleDescription("다른 공개 범위로 저장하면 크루 공개로 다시 바꿀 수 없어요.");
     await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
-    expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PUBLIC" });
+    expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PRIVATE" });
   });
 
-  it("크루가 아닌 모임장의 전체 공개 모임에는 공개 범위 칸을 두지 않는다", () => {
+  it("크루가 아닌 모임장의 전체 공개 모임에는 크루 공개 선택지를 두지 않는다", () => {
     // Given
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
     // When
-    const crewOnly = screen.queryByRole("checkbox", { name: /크루 전용으로 열기/ });
+    const visibility = screen.getByRole("combobox", { name: "공개 범위" });
 
     // Then
-    expect(crewOnly).not.toBeInTheDocument();
+    expect(visibility).toHaveValue("PUBLIC");
+    expect(screen.queryByRole("option", { name: "크루 공개" })).not.toBeInTheDocument();
   });
 
   it("edits the meeting type and location alongside the overview", async () => {

@@ -13,8 +13,4 @@ public record GroupCreatedEvent(long groupId, long creatorMemberId, LocalDateTim
     public static GroupCreatedEvent from(Group group, long creatorMemberId) {
         return new GroupCreatedEvent(group.getId(), creatorMemberId, group.getCreatedAt(), group.getVisibility());
     }
-
-    public boolean crewOnly() {
-        return visibility == GroupVisibility.CREW_ONLY;
-    }
 }

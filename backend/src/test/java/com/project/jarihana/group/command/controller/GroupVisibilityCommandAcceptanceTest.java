@@ -74,6 +74,21 @@ class GroupVisibilityCommandAcceptanceTest extends IntegrationTestSupport {
                 .body("error.code", equalTo("GROUP_NOT_FOUND"));
     }
 
+    @Test
+    void nonCrewCanCreatePrivateGroup() {
+        int groupId = as(basic).body("""
+                        {"type":"CLUB","name":"비공개 모임","introduction":"초대로 모여요","meetingType":"ONLINE",
+                         "visibility":"PRIVATE"}
+                        """)
+                .post("/groups").then().statusCode(201).extract().path("data.id");
+
+        as(basic).get("/groups/{id}", groupId).then().statusCode(200)
+                .body("data.visibility", equalTo("PRIVATE"));
+        as(crew).get("/groups/{id}", groupId).then().statusCode(404);
+        modify(basic, groups.findById((long) groupId).orElseThrow(), ",\"visibility\":\"PUBLIC\"")
+                .then().statusCode(200).body("data.visibility", equalTo("PUBLIC"));
+    }
+
     @DisplayName("크루가 아닌 회원은 크루 전용 모임을 만들 수 없다.")
     @Test
     void nonCrewCannotCreateCrewOnlyGroup() {
@@ -112,8 +127,8 @@ class GroupVisibilityCommandAcceptanceTest extends IntegrationTestSupport {
         // When & Then
         modify(basic, group, ",\"visibility\":\"CREW_ONLY\"").then().statusCode(403)
                 .body("error.code", equalTo("GROUP_ACCESS_DENIED"));
-        modify(basic, group, ",\"visibility\":\"PUBLIC\"").then().statusCode(200)
-                .body("data.visibility", equalTo("PUBLIC"));
+        modify(basic, group, ",\"visibility\":\"PRIVATE\"").then().statusCode(200)
+                .body("data.visibility", equalTo("PRIVATE"));
     }
 
     @DisplayName("위임으로 크루 전용 모임의 모임장이 된 비크루는 크루 전용을 끌 수 있지만 다시 켤 수는 없다.")
