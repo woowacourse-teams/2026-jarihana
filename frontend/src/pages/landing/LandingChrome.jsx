@@ -8,6 +8,18 @@ import "./landing-tokens.css";
 import "./landing.css";
 import "./landing-chrome.css";
 
+export function LandingServiceLink({ className }) {
+  return (
+    <a
+      className={`landing-button ${className}`}
+      data-ph-capture-attribute-action="landing_explore"
+      href="https://jarihana.com/home"
+    >
+      자리하나? 바로가기
+    </a>
+  );
+}
+
 export function LandingStartButton({ children = "시작하기", className = "", target = "/home" }) {
   const { login, status } = useAuth();
   const [error, setError] = useState("");
@@ -109,7 +121,7 @@ export function LandingHeader() {
           >
             모집 중인 모임 보기
           </Link>
-          <LandingStartButton className="landing-button--quiet" />
+          <LandingServiceLink className="landing-button--quiet" />
         </div>
       </div>
     </header>
