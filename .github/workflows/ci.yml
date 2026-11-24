@@ -5,18 +5,26 @@ on:
     branches:
       - develop
       - main
+  push:
+    branches: [develop, main]
+    paths:
+      - backend/src/**/*.java
+      - backend/**/*.gradle*
+      - backend/gradle/**
+      - backend/gradle.properties
+      - .github/workflows/ci.yml
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   backend:
-    name: Backend Test
+    name: ${{ github.event_name == 'push' && 'Backend Compile Cache' || 'Backend Test' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -29,17 +37,51 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Java 설정
+        id: java
         uses: actions/setup-java@v5
         with:
           distribution: corretto
           java-version: "21"
           cache: gradle
-          cache-dependency-path: backend/**/*.gradle*
+          cache-dependency-path: |
+            backend/**/*.gradle*
+            backend/gradle/**
+            backend/gradle.properties
+
+      # 같은 경로에서 클래스와 실행 이력을 함께 복원해야 Gradle이 증분 컴파일할 수 있다.
+      # buildOutputCleanup의 기록이 빠지면 Gradle이 복원한 클래스를 오래된 출력으로 삭제한다.
+      - name: Java 증분 컴파일 캐시
+        id: compile-cache
+        uses: actions/cache@v5
+        env:
+          COMPILE_ENV: ${{ runner.os }}-${{ runner.arch }}-${{ github.workspace }}-corretto-${{ steps.java.outputs.version }}
+          BUILD_CONFIG: ${{ hashFiles('backend/**/*.gradle*', 'backend/gradle/**', 'backend/gradle.properties') }}
+        with:
+          path: |
+            backend/.gradle/*/executionHistory
+            backend/.gradle/buildOutputCleanup
+            backend/build/classes/java
+            backend/build/generated/sources
+            backend/build/tmp/compileJava/previous-compilation-data.bin
+            backend/build/tmp/compileTestJava/previous-compilation-data.bin
+          key: java-compile-v1-${{ env.COMPILE_ENV }}-${{ env.BUILD_CONFIG }}-${{ hashFiles('backend/src/**/*.java') }}
+          restore-keys: java-compile-v1-${{ env.COMPILE_ENV }}-${{ env.BUILD_CONFIG }}-
+
+      # 의존성 캐시가 비었으면 테스트 실행에만 쓰이는 라이브러리까지 내려받는다.
+      - name: 기준 브랜치의 컴파일 결과와 테스트 의존성 준비
+        if: github.event_name == 'push' && steps.java.outputs.cache-hit != 'true'
+        run: ./gradlew test --test-dry-run --no-daemon
+
+      - name: 기준 브랜치의 컴파일 결과 갱신
+        if: github.event_name == 'push' && steps.java.outputs.cache-hit == 'true' && steps.compile-cache.outputs.cache-hit != 'true'
+        run: ./gradlew testClasses --no-daemon
 
       - name: 백엔드 테스트
-        run: ./gradlew test --no-daemon
+        if: github.event_name != 'push'
+        run: ./gradlew test --rerun --no-daemon
 
   frontend:
+    if: github.event_name != 'push'
     name: Frontend Verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -77,6 +119,7 @@ jobs:
         run: npm run build
 
   frontend-e2e:
+    if: github.event_name != 'push'
     name: Frontend E2E
     runs-on: ubuntu-latest
     timeout-minutes: 25
