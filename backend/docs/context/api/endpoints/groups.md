@@ -17,6 +17,17 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 `recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
 `recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
 
+### 공개 범위
+
+모임의 `visibility`는 `PUBLIC`(전체 공개)과 `CREW_ONLY`(크루 전용) 중 하나이며 기본값은 `PUBLIC`이다.
+크루 전용 모임은 `memberType = CREW`인 회원과 그 모임의 현재 구성원에게만 보인다. 그 밖의 회원과 비로그인
+사용자에게는 목록, 검색, 홈에서 빠지고, 모임 ID로 직접 조회하면 없는 모임과 같은 `GROUP_NOT_FOUND`(404)를
+반환한다. 하위 자원(구성원, 모집, 캘린더, 아지트, 그룹 음악, 공지, 활동 기록, 초대, 알림)도 같은 기준으로 숨긴다.
+경로에 모임, 모집, 활동 기록, 댓글, 초대 ID가 있는 요청은 조회와 명령 모두 컨트롤러 앞의 인터셉터가 판정하므로,
+모임장 전용 조회나 모임원 전용 명령도 보이지 않는 조회자에게는 403 대신 404를 반환한다.
+크루 전용으로 바꾸기 전에 들어온 비크루 구성원은 내보내지 않으며 구성원인 동안 계속 볼 수 있다.
+결정 배경은 [백엔드 ADR 0033](../../../adr/0033-crew-only-group-visibility.md)을 따른다.
+
 ### `GET /api/home`
 
 - 설명: 홈 초기 화면의 오늘 세션, 모집 중 모임, 종료 모임을 한 응답으로 조회
@@ -116,7 +127,8 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
         "approvedCount": 5,
         "startsAt": "2026-08-13T00:00:00",
         "endsAt": "2026-08-31T23:59:59"
-      }
+      },
+      "visibility": "PUBLIC"
     }],
     "nextCursor": null,
     "hasNext": false
@@ -300,7 +312,8 @@ Request Body는 없다.
     "currentMemberRegistrationId": null,
     "currentMemberRegistrationStatus": null,
     "createdAt": "2026-08-13T10:00:00",
-    "clubhouseSetupEnabled": false
+    "clubhouseSetupEnabled": false,
+    "visibility": "PUBLIC"
   },
   "error": null
 }
@@ -313,7 +326,7 @@ Request Body는 없다.
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+| 그룹 없음 또는 조회자에게 보이지 않는 크루 전용 모임 | `GROUP_NOT_FOUND` | 404 |
 
 ### `PATCH /api/groups/{groupId}`
 
