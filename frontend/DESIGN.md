@@ -138,7 +138,7 @@
   (`354:1479`)의 초안 frame이다.
 - 기능 기준: 현재 `backend/`의 Controller, DTO, Security, domain service, acceptance test.
 - 생성/관리 초안은 실제 backend API가 지원하는 동작만 남기고 제품 화면으로 구현했다.
-- 자산: Figma export 원본을 `src/shared/assets/figma/`에 저장했다. 화면 screenshot 자체를 UI로
+- 자산: 모집 관리 화면의 Figma 일러스트는 `src/shared/assets/figma/my-profile-illustration.png`에 둔다. 화면 screenshot 자체를 UI로
   사용하지 않는다. 교체 가능한 브랜드 이미지는 `src/shared/assets/brand/`에 둔다.
 - 글꼴: Figma의 Noto Sans KR를 Google Fonts CSS로 불러오고, 로딩 실패/전에는
   `Apple SD Gothic Neo`, `Malgun Gothic`, sans-serif fallback을 둔다.
@@ -492,9 +492,7 @@ light canvas 위 text 용도로 분리해 대비와 의미를 함께 유지한�
   이름은 `뭐있나?`(`/groups`), `뭐했나?`(`/activities`), `뭐할래?`(`/board`)이며 설명은 각각
   `함께할 자리 둘러보기`, `사진으로 보는 자리 이야기`, `하고 싶은 자리 제안하기`다.
   아이콘은 승인된 입체 의자 캐릭터형을 사용한다. 민트색 의자에 돋보기, 사진, 말풍선을 조합한
-  투명 PNG를 `app/headerChairAssets.js`의 dev/prod 공개 S3 URL에서 직접 가져온다.
-  `APP_DEPLOY_ENV=production`이면 `jarihana/images/header-chairs`, 나머지는
-  `jarihana-dev/images/header-chairs`를 사용하며 이미지 파일은 저장소에 두지 않는다. 원본은 144px 정사각형이며
+  투명 PNG를 `src/shared/assets/brand/header-chairs/`에 보관하고 `app/headerChairAssets.js`에서 가져온다. 원본은 144px 정사각형이며
   표시 크기는 새 토큰 `--header-group-icon-size: 36px`로 데스크톱과 모바일에 동일하게 적용한다.
   회색 타일 배경은 두지 않으며 장식 이미지는 빈 alt/aria-hidden으로 접근성 이름에서 제외한다.
   패널 폭은 새 토큰 `--header-group-menu-width: 19.5rem`, 모서리는 radius-lg, border-thin/line 테두리,
@@ -1450,7 +1448,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - 기록 즉시 읽기, 다음 대화 보기, 일시정지, 말풍선 포커스 고정, 받아치기 충돌/VS 흐름은 유지한다. 모션 감소는 걷기와 몸짓을 생략한다.
 - 추가 버튼이나 게임 수치는 만들지 않는다. 캐릭터의 입체 조명과 바닥 그림자는 기존 경기장 조명/재질을 공유한다. 큰 화면에서 표정이 보이도록 최종 모델 배율은 1.8로 둔다.
 - 원본의 머리 실루엣·작은 미소·회색 맨투맨/청바지/배낭과 검정 옷/민트 명찰을 기준으로 둥근 입체 부품을 구성한다. 천과 머리의 미세 질감까지 동일하게 복제한 자산은 아니다.
-- 입체 모델은 `crew-coach-atlas.png`의 얼굴 비율과 크루의 곱슬·백팩·회색 맨투맨·청바지, 코치의 옆가르마·검은 옷·민트 명찰을 기준으로 조형한다. 머리카락은 두피 위로 휘어지는 머릿결이며, 소매·바지는 끊어진 부품 대신 팔꿈치·무릎을 따라 변형되는 연속 곡면이다. 입체 피부와 옷에는 약한 무광 표면 질감을 사용한다. 얼굴은 둥근 턱과 옅은 볼 색, 머리는 겹쳐지는 곱슬과 옆가르마의 차이, 옷은 넉넉한 소매·바지 밑단·골지 옷깃·납작한 명찰 끈으로 구분한다. 머리 덩어리는 인물별 하나의 메시로 묶고, 소매와 바지의 겉면은 바깥을 향하도록 생성한다. 발 원점과 약 2.1의 높이는 포장·보행·말풍선 앵커의 기준이므로 유지한다. 관절별 변형은 인스턴스마다 독립적이며 그림자에도 적용한다.
+- 입체 모델은 초기 캐릭터 시안의 얼굴 비율과 크루의 곱슬·백팩·회색 맨투맨·청바지, 코치의 옆가르마·검은 옷·민트 명찰을 기준으로 조형한다. 머리카락은 두피 위로 휘어지는 머릿결이며, 소매·바지는 끊어진 부품 대신 팔꿈치·무릎을 따라 변형되는 연속 곡면이다. 입체 피부와 옷에는 약한 무광 표면 질감을 사용한다. 얼굴은 둥근 턱과 옅은 볼 색, 머리는 겹쳐지는 곱슬과 옆가르마의 차이, 옷은 넉넉한 소매·바지 밑단·골지 옷깃·납작한 명찰 끈으로 구분한다. 머리 덩어리는 인물별 하나의 메시로 묶고, 소매와 바지의 겉면은 바깥을 향하도록 생성한다. 발 원점과 약 2.1의 높이는 포장·보행·말풍선 앵커의 기준이므로 유지한다. 관절별 변형은 인스턴스마다 독립적이며 그림자에도 적용한다.
 
 ## 토론 입력 말풍선과 캡슐 포장
 
@@ -1510,7 +1508,7 @@ Figma reference screenshot은 root의 `.omo/evidence/figma/`에 보관한다. �
 - 게임 목록은 최대 72rem의 두 열 카드 그리드이며 600px 이하에서 한 열로 전환한다. 카드마다 큰 3:2 일러스트 프레임, 제목/설명, 하단 전체 너비 버튼을 같은 순서로 배치한다. 문구는 "잠깐 쉬었다, 한 판 어때요?"를 사용한다. 오목은 민트 CTA, 리듬게임은 중립 회색 비활성 CTA로 구분한다. 일러스트를 카드 배경 전체나 UI 캡처로 사용하지 않는다.
 - 대기실도 최대 72rem으로 정렬한다. 상단은 왼쪽 복귀 링크/제목과 오른쪽 작은 오목 일러스트를 두고, 검색/생성은 다음 행에 둔다. 방 목록은 공통 Avatar의 실제 GitHub 이미지 또는 첫 글자 대체 표시, 방 이름/대기 배지, 인원/규칙, 참여 버튼 순이다. 내 방 안내는 brand-soft 바탕과 게임패드 아이콘으로 구분한다. 다른 방 참가 시 기존 안내와 내 방 재진입 동작을 유지하며 시안의 비활성 예시를 새 권한 제한으로 옮기지 않는다.
 - 대국은 최대 40rem이며 판의 최대 크기는 페이지 전용 --gomoku-board-max-size: 36rem을 사용한다. 준비 상태 참가자 영역은 별도 배경 없이 대국 카드의 흰 바탕을 사용하며 준비 여부는 danger-soft/success-soft 배지다. 진행 상태는 민트 상태 행과 시계 아이콘/남은 시간 pill, 촉감 있는 목재 판, 중앙의 착수 확정 버튼으로 구성한다. 판 그림자는 `--shadow-gomoku-board`를 사용하고 5개 화점은 장식으로만 표시한다. 모바일에서도 두 참가자 열과 정사각형 판을 유지하며 확정 버튼은 전체 너비로 펼친다. 작은 판 교차점의 기존 접근성 제약은 유지하고 화살표 이동/44px 확정 버튼으로 보완한다.
-- 시각 자산은 imagegen으로 분리 제작하고 WebP로 인코딩한다. 오목은 dev/prod S3 `images/games/`의 기존 자산을 사용한다. 리듬 작살 카드는 실제 클레이 스프라이트의 행성이가 사방에서 오는 세균을 작살로 잡는 장면이며, `public/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp`를 프론트엔드와 함께 배포한다. 생성 프롬프트는 `docs/rhythm-harpoon-card-art.md`에 보관한다. 그림은 alt=""인 장식이며 오류 시 기존 게임 아이콘으로 대체한다. width/height와 고정 비율로 로딩 중 레이아웃을 유지한다.
+- 시각 자산은 imagegen으로 분리 제작하고 WebP로 인코딩한다. 오목 일러스트는 `public/game-assets/gomoku/`에서 배포한다. 리듬 작살 카드는 실제 클레이 스프라이트의 행성이가 사방에서 오는 세균을 작살로 잡는 장면이며, `public/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp`를 프론트엔드와 함께 배포한다. 생성 프롬프트는 `docs/rhythm-harpoon-card-art.md`에 보관한다. 그림은 alt=""인 장식이며 오류 시 기존 게임 아이콘으로 대체한다. width/height와 고정 비율로 로딩 중 레이아웃을 유지한다.
 - 레이아웃 근거: [StyleGallery card-grid](https://github.com/changeroa/StyleGallery/blob/main/patterns/grid-repetition/card-grid.md), [frame](https://github.com/changeroa/StyleGallery/blob/main/patterns/media-fit/frame.md). 문서가 유일한 세로 스크롤 소유자이며 카드/목록 안에 별도 스크롤을 만들지 않는다. 테두리는 neutral 1px, 색과 그림자는 기존 공통 토큰을 재사용한다. 준비 버튼과 모바일 도구의 focus-visible, reduced-motion, 긴 이름 줄바꿈을 검증한다.
 
 - 오목판 전용 색상: `--color-gomoku-board` #dfb879, `--color-gomoku-board-light` #edcd95, `--color-gomoku-board-edge` #b88345, `--color-gomoku-grain` #976431. 격자는 nav black을 사용한다. 나뭇결은 CSS로 표현하며 이미지 파일은 추가하지 않는다.
