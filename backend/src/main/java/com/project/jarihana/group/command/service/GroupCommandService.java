@@ -145,7 +145,8 @@ public class GroupCommandService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
-        Group group = groupCommandRepository.save(createGroup(command, now));
+        Group group = groupCommandRepository.save(createGroup(command, now)
+                .changeVisibility(visibilityOrDefault(command.visibility()), member.getMemberType()));
         if (command.clubhouseTemplateKey() != null) {
             groupSpaces.initializeForNewGroup(group, command.clubhouseTemplateKey(), now);
         }
@@ -325,6 +326,11 @@ public class GroupCommandService {
         if (groupCommandRepository.existsByNameAndIdNot(command.name(), groupId)) {
             throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
         }
+        // 공개 범위 권한은 이미지를 옮기기 전에 확인해, 거절된 요청이 스토리지를 건드리지 않게 한다.
+        Group visibilityApplied = group.changeVisibility(
+                command.visibility() == null ? group.getVisibility() : command.visibility(),
+                member.getMemberType()
+        );
         LocalDateTime now = LocalDateTime.now(clock);
         GroupImages images = promoteGroupImages(
                 memberId,
@@ -338,7 +344,7 @@ public class GroupCommandService {
         if (!Objects.equals(group.getLocation(), command.location())) {
             recordLocationChange(group, command.location(), now);
         }
-        groupCommandRepository.save(group.modify(
+        groupCommandRepository.save(visibilityApplied.modify(
                 command.name(),
                 command.introduction(),
                 images.description(),
@@ -349,6 +355,10 @@ public class GroupCommandService {
                 group.getSessionSchedule()
         ));
         replaceGroupImageReferences(groupId, images, now);
+    }
+
+    private static GroupVisibility visibilityOrDefault(GroupVisibility visibility) {
+        return visibility == null ? GroupVisibility.PUBLIC : visibility;
     }
 
     private void recordLocationChange(Group group, String nextLocation, LocalDateTime now) {

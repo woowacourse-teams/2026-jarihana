@@ -2,6 +2,7 @@ package com.project.jarihana.group.command.controller.dto;
 
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.group.domain.MeetingType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -23,7 +24,8 @@ public record CreateGroupRequest(
         @Size(max = 255) String representativeImageKey,
         @Valid RecurringScheduleRequest recurringSchedule,
         @Valid SessionScheduleRequest sessionSchedule,
-        @Size(max = 32) String clubhouseTemplateKey
+        @Size(max = 32) String clubhouseTemplateKey,
+        GroupVisibility visibility
 ) {
 
     public CreateGroupCommand toCommand() {
@@ -37,7 +39,8 @@ public record CreateGroupRequest(
                 representativeImageKey,
                 recurringSchedule == null ? null : recurringSchedule.toCommand(),
                 sessionSchedule == null ? null : sessionSchedule.toCommand(),
-                clubhouseTemplateKey
+                clubhouseTemplateKey,
+                visibility
         );
     }
 

@@ -9,6 +9,7 @@ import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
 import com.project.jarihana.member.domain.Member;
+import com.project.jarihana.member.domain.MemberType;
 import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
 import com.project.jarihana.notification.command.repository.NotificationCommandRepository;
 import com.project.jarihana.notification.config.NotificationProperties;
@@ -53,6 +54,8 @@ public class NotificationEventListener {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
     public void onGroupCreated(GroupCreatedEvent event) {
         Map<Long, List<PushSubscription>> activeByMember = subscriptions.findActiveExceptCreator(event.creatorMemberId()).stream()
+                .filter(subscription -> !event.crewOnly()
+                        || subscription.getMember().getMemberType() == MemberType.CREW)
                 .collect(Collectors.groupingBy(subscription -> subscription.getMember().getId(),
                         LinkedHashMap::new, Collectors.toList()));
         List<Member> recipients = activeByMember.values().stream().map(active -> active.getFirst().getMember()).toList();

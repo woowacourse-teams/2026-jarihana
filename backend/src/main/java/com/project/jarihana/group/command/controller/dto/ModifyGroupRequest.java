@@ -3,6 +3,7 @@ package com.project.jarihana.group.command.controller.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.project.jarihana.group.command.service.dto.ModifyGroupCommand;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.group.domain.MeetingType;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -32,6 +33,8 @@ public final class ModifyGroupRequest {
     @Size(max = 255)
     private final String representativeImageKey;
 
+    private final GroupVisibility visibility;
+
     private final boolean representativeImageKeyPresent;
     private final boolean representativeImageKeyValueValid;
     private final boolean descriptionPresent;
@@ -46,8 +49,10 @@ public final class ModifyGroupRequest {
             @JsonProperty("description") JsonNode description,
             @JsonProperty("meetingType") MeetingType meetingType,
             @JsonProperty("location") JsonNode location,
-            @JsonProperty("representativeImageKey") JsonNode representativeImageKey
+            @JsonProperty("representativeImageKey") JsonNode representativeImageKey,
+            @JsonProperty("visibility") GroupVisibility visibility
     ) {
+        this.visibility = visibility;
         this.name = name;
         this.introduction = introduction;
         this.description = nullableTextValue(description);
@@ -111,6 +116,6 @@ public final class ModifyGroupRequest {
 
     public ModifyGroupCommand toCommand() {
         return new ModifyGroupCommand(name, introduction, description, meetingType, location,
-                representativeImageKey);
+                representativeImageKey, visibility);
     }
 }
