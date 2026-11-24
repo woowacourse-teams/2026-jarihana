@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
@@ -153,6 +153,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const groupId = suppliedGroupId ?? params.groupId;
   const navigate = useNavigate();
   const toast = useToast();
+  const visibilityWarningId = useId();
   const { member } = useAuth();
   const canChooseCrew = member?.memberType === "CREW";
   const groupQuery = useGroup(groupId);
@@ -206,6 +207,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const daysOfWeek = values.daysOfWeek ?? [];
   const flexibleTime = values.flexibleTime ?? false;
   const group = groupQuery.data;
+  const showsVisibilityWarning =
+    group?.status === "ACTIVE" && group.visibility === "CREW_ONLY" && !canChooseCrew;
 
   useEffect(
     () => () => {
@@ -463,6 +466,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   {group.status === "ACTIVE" && (
                     <VisibilityField
                       canChooseCrew={canChooseCrew}
+                      descriptionId={showsVisibilityWarning ? visibilityWarningId : undefined}
                       savedVisibility={group.visibility}
                       registration={register("visibility")}
                     />
@@ -504,6 +508,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               />
             </div>
           </section>
+
+          {showsVisibilityWarning && (
+            <p className="group-editor__visibility-warning" id={visibilityWarningId}>
+              다른 공개 범위로 저장하면 크루 공개로 다시 바꿀 수 없어요.
+            </p>
+          )}
 
           <div className="group-detail-tabs group-editor__tabs">
             <Tabs

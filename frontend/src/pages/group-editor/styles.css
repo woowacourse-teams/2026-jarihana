@@ -392,10 +392,8 @@
 }
 
 .group-editor__visibility-warning {
-    grid-column: 2;
-    max-inline-size: 18ch;
-    margin: calc(-1 * var(--space-2)) 0 0;
-    color: #ff9d94;
+    margin: var(--space-3) var(--space-3) 0;
+    color: var(--color-danger);
     font-size: var(--text-caption);
     font-weight: var(--font-weight-semibold);
 }
