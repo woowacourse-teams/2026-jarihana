@@ -1,0 +1,417 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="background: #ffffff; background-color: light-dark(#ffffff, #121212); color-scheme: light;" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="943px" height="406px" viewBox="0 0 943 406">
+<title>develop에 배포 대상 변경을 푸시하면 백엔드는 GHCR 이미지를 개발 EC2에서 실행하고 프론트엔드는 개발 설정으로 빌드해 S3 개발 경로에 게시합니다. 아지트 실시간 서버는 develop에서 Realtime Deploy가 이미지를 빌드해 GHCR에 게시한 뒤 개발과 운영이 함께 쓰는 컨테이너를 교체합니다. main에서는 변경 범위에 따라 백엔드와 프론트엔드를 배포합니다. 백엔드는 기존 GHCR 이미지를 main 커밋의 Compose로 기동한 뒤 Nginx 트래픽을 전환하고 프론트엔드는 운영 설정으로 빌드해 S3 운영 경로에 게시합니다.</title>
+<defs>
+<symbol id="mx-image-gxg1am" viewBox="0 0 23 23">
+<image width="23" height="23" xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjUwIj48cGF0aCBmaWxsPSIjMTYxNjE0IiBkPSJNMTI4LjAwMSAwQzU3LjMxNyAwIDAgNTcuMzA3IDAgMTI4LjAwMWMwIDU2LjU1NCAzNi42NzYgMTA0LjUzNSA4Ny41MzUgMTIxLjQ2YzYuMzk3IDEuMTg1IDguNzQ2LTIuNzc3IDguNzQ2LTYuMTU4YzAtMy4wNTItLjEyLTEzLjEzNS0uMTc0LTIzLjgzYy0zNS42MSA3Ljc0Mi00My4xMjQtMTUuMTAzLTQzLjEyNC0xNS4xMDNjLTUuODIzLTE0Ljc5NS0xNC4yMTMtMTguNzMtMTQuMjEzLTE4LjczYy0xMS42MTMtNy45NDQuODc2LTcuNzguODc2LTcuNzhjMTIuODUzLjkwMiAxOS42MjEgMTMuMTkgMTkuNjIxIDEzLjE5YzExLjQxNyAxOS41NjggMjkuOTQ1IDEzLjkxMSAzNy4yNDkgMTAuNjRjMS4xNDktOC4yNzIgNC40NjYtMTMuOTIgOC4xMjctMTcuMTE2Yy0yOC40MzEtMy4yMzYtNTguMzE4LTE0LjIxMi01OC4zMTgtNjMuMjU4YzAtMTMuOTc1IDUtMjUuMzk0IDEzLjE4OC0zNC4zNThjLTEuMzI5LTMuMjI0LTUuNzEtMTYuMjQyIDEuMjQtMzMuODc0YzAgMCAxMC43NDktMy40NCAzNS4yMSAxMy4xMjFjMTAuMjEtMi44MzYgMjEuMTYtNC4yNTggMzIuMDM4LTQuMzA3YzEwLjg3OC4wNDkgMjEuODM3IDEuNDcgMzIuMDY2IDQuMzA3YzI0LjQzMS0xNi41NiAzNS4xNjUtMTMuMTIgMzUuMTY1LTEzLjEyYzYuOTY3IDE3LjYzIDIuNTg0IDMwLjY1IDEuMjU1IDMzLjg3M2M4LjIwNyA4Ljk2NCAxMy4xNzMgMjAuMzgzIDEzLjE3MyAzNC4zNThjMCA0OS4xNjMtMjkuOTQ0IDU5Ljk4OC01OC40NDcgNjMuMTU3YzQuNTkxIDMuOTcyIDguNjgyIDExLjc2MiA4LjY4MiAyMy43MDRjMCAxNy4xMjYtLjE0OCAzMC45MS0uMTQ4IDM1LjEyNmMwIDMuNDA3IDIuMzA0IDcuMzk4IDguNzkyIDYuMTRDMjE5LjM3IDIzMi41IDI1NiAxODQuNTM3IDI1NiAxMjguMDAyQzI1NiA1Ny4zMDcgMTk4LjY5MSAwIDEyOC4wMDEgMG0tODAuMDYgMTgyLjM0Yy0uMjgyLjYzNi0xLjI4My44MjctMi4xOTQuMzljLS45MjktLjQxNy0xLjQ1LTEuMjg0LTEuMTUtMS45MjJjLjI3Ni0uNjU1IDEuMjc5LS44MzggMi4yMDUtLjM5OWMuOTMuNDE4IDEuNDYgMS4yOTMgMS4xMzkgMS45MzFtNi4yOTYgNS42MThjLS42MS41NjYtMS44MDQuMzAzLTIuNjE0LS41OTFjLS44MzctLjg5Mi0uOTk0LTIuMDg2LS4zNzUtMi42NmMuNjMtLjU2NiAxLjc4Ny0uMzAxIDIuNjI2LjU5MWMuODM4LjkwMyAxIDIuMDg4LjM2MyAyLjY2bTQuMzIgNy4xODhjLS43ODUuNTQ1LTIuMDY3LjAzNC0yLjg2LTEuMTA0Yy0uNzg0LTEuMTM4LS43ODQtMi41MDMuMDE3LTMuMDVjLjc5NS0uNTQ3IDIuMDU4LS4wNTUgMi44NjEgMS4wNzVjLjc4MiAxLjE1Ny43ODIgMi41MjItLjAxOSAzLjA4bTcuMzA0IDguMzI1Yy0uNzAxLjc3NC0yLjE5Ni41NjYtMy4yOS0uNDljLTEuMTE5LTEuMDMyLTEuNDMtMi40OTYtLjcyNi0zLjI3Yy43MS0uNzc2IDIuMjEzLS41NTggMy4zMTUuNDljMS4xMSAxLjAzIDEuNDUgMi41MDUuNzAxIDMuMjdtOS40NDIgMi44MWMtLjMxIDEuMDAzLTEuNzUgMS40NTktMy4xOTkgMS4wMzNjLTEuNDQ4LS40MzktMi4zOTUtMS42MTMtMi4xMDMtMi42MjZjLjMwMS0xLjAxIDEuNzQ3LTEuNDg0IDMuMjA3LTEuMDI4YzEuNDQ2LjQzNiAyLjM5NiAxLjYwMiAyLjA5NSAyLjYyMm0xMC43NDQgMS4xOTNjLjAzNiAxLjA1NS0xLjE5MyAxLjkzLTIuNzE1IDEuOTVjLTEuNTMuMDM0LTIuNzY5LS44Mi0yLjc4Ni0xLjg2YzAtMS4wNjUgMS4yMDItMS45MzIgMi43MzMtMS45NThjMS41MjItLjAzIDIuNzY4LjgxOCAyLjc2OCAxLjg2OG0xMC41NTUtLjQwNWMuMTgyIDEuMDMtLjg3NSAyLjA4OC0yLjM4NyAyLjM3Yy0xLjQ4NS4yNzEtMi44NjEtLjM2NS0zLjA1LTEuMzg2Yy0uMTg0LTEuMDU2Ljg5My0yLjExNCAyLjM3Ni0yLjM4N2MxLjUxNC0uMjYzIDIuODY4LjM1NiAzLjA2MSAxLjQwMyIgLz48L3N2Zz4="/>
+</symbol>
+<symbol id="mx-image-1i0zwgk" viewBox="0 0 32 32">
+<image width="32" height="32" xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiMxNjZhYTkiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEzLjk4MyAxMS4wNzhoMi4xMTlhLjE4Ni4xODYgMCAwMC4xODYtLjE4NVY5LjAwNmEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NmgtMi4xMTlhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4OGMwIC4xMDIuMDgzLjE4NS4xODUuMTg1bS0yLjk1NC01LjQzaDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODZWMy41NzRhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODVoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0wIDIuNzE2aDIuMTE4YS4xODcuMTg3IDAgMDAuMTg2LS4xODZWNi4yOWEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NWgtMi4xMThhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4N2MwIC4xMDIuMDgyLjE4NS4xODUuMTg2bS0yLjkzIDBoMi4xMmEuMTg2LjE4NiAwIDAwLjE4NC0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVIOC4xYS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODdjMCAuMTAyLjA4My4xODUuMTg1LjE4Nm0tMi45NjQgMGgyLjExOWEuMTg2LjE4NiAwIDAwLjE4NS0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVINS4xMzZhLjE4Ni4xODYgMCAwMC0uMTg2LjE4NXYxLjg4N2MwIC4xMDIuMDg0LjE4NS4xODYuMTg2bTUuODkzIDIuNzE1aDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODVWOS4wMDZhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODZoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0tMi45MyAwaDIuMTJhLjE4NS4xODUgMCAwMC4xODQtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg1LjE4NSAwIDAwLS4xODQuMTg1djEuODg4YzAgLjEwMi4wODMuMTg1LjE4NS4xODVtLTIuOTY0IDBoMi4xMTlhLjE4NS4xODUgMCAwMC4xODUtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg2LjE4NiAwIDAwLS4xODYuMTg2djEuODg3YzAgLjEwMi4wODQuMTg1LjE4Ni4xODVtLTIuOTIgMGgyLjEyYS4xODUuMTg1IDAgMDAuMTg0LS4xODVWOS4wMDZhLjE4NS4xODUgMCAwMC0uMTg0LS4xODZoLTIuMTJhLjE4NS4xODUgMCAwMC0uMTg0LjE4NXYxLjg4OGMwIC4xMDIuMDgyLjE4NS4xODUuMTg1TTIzLjc2MyA5Ljg5Yy0uMDY1LS4wNTEtLjY3Mi0uNTEtMS45NTQtLjUxLS4zMzguMDAxLS42NzYuMDMtMS4wMS4wODctLjI0OC0xLjctMS42NTMtMi41My0xLjcxNi0yLjU2NmwtLjM0NC0uMTk5LS4yMjYuMzI3Yy0uMjg0LjQzOC0uNDkuOTIyLS42MTIgMS40My0uMjMuOTctLjA5IDEuODgyLjQwMyAyLjY2MS0uNTk1LjMzMi0xLjU1LjQxMy0xLjc0NC40MkguNzUxYS43NTEuNzUxIDAgMDAtLjc1Ljc0OCAxMS4zNzYgMTEuMzc2IDAgMDAuNjkyIDQuMDYyYy41NDUgMS40MjggMS4zNTUgMi40OCAyLjQxIDMuMTI0IDEuMTguNzIzIDMuMSAxLjEzNyA1LjI3NSAxLjEzNy45ODMuMDAzIDEuOTYzLS4wODYgMi45My0uMjY2YTEyLjI0OCAxMi4yNDggMCAwMDMuODIzLTEuMzg5Yy45OC0uNTY3IDEuODYtMS4yODggMi42MS0yLjEzNiAxLjI1Mi0xLjQxOCAxLjk5OC0yLjk5NyAyLjU1My00LjRoLjIyMWMxLjM3MiAwIDIuMjE1LS41NDkgMi42OC0xLjAwOS4zMDktLjI5My41NS0uNjUuNzA3LTEuMDQ2bC4wOTgtLjI4OFoiLz48L3N2Zz4="/>
+</symbol>
+<symbol id="mx-image-etucuo" viewBox="0 0 32 32">
+<image width="32" height="32" xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjkwIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJtMTI4IC4wNDhsMTI4IDcyLjQwNVYyMTcuMzFsLTEyOCA3Mi40MDVMMCAyMTcuMzFWNzIuNDUzeiIgLz48cGF0aCBmaWxsPSIjOGVkNmZiIiBkPSJtMjMzLjE1MyAyMTIuMjg3bC0xMDAuOTAyIDU3LjE0VjIyNC45OWw2Mi44ODktMzQuNjMyem02LjkwNy02LjIzMVY4Ni42NTRsLTM2LjkwMiAyMS4zdjc2Ljh6bS0yMTcuNiA2LjIzbDEwMC45MDMgNTcuMDk0di00NC40MzhsLTYyLjg4OS0zNC41ODR6bS02LjkwNy02LjIzVjg2LjY1NGwzNi45MDMgMjEuM3Y3Ni44em00LjMtMTI3LjEzbDEwMy41MS01OC41NDN2NDIuOTlMNTcuMDQ1IDk5Ljg0bC0uNTMyLjI5em0yMTUuODYgMEwxMzIuMjUxIDIwLjM4MnY0Mi45OWw2Ni4yNyAzNi41MTVsLjUzMS4yOXoiIC8+PHBhdGggZmlsbD0iIzFjNzhjMCIgZD0ibTEyMy4zNjMgMjE0Ljg0N2wtNjIuMDItMzQuMTV2LTY3LjU3NGw2Mi4wMiAzNS43OTJ6bTguODg4IDBsNjIuMDItMzQuMTAxdi02Ny42MjNsLTYyLjAyIDM1Ljc5MnpNNjUuNDk3IDEwNS4yOThsNjIuMzEtMzQuMjQ2bDYyLjI2IDM0LjI0NmwtNjIuMjYgMzUuOTM3eiIgLz48L3N2Zz4="/>
+</symbol>
+</defs>
+<rect fill="#ffffff" width="100%" height="100%" x="0" y="0" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+<g>
+<g data-cell-id="0">
+<g data-cell-id="1">
+<g data-cell-id="environment-divider">
+<g>
+<rect x="253" y="242" width="660" height="1" fill="#e1e8ea" stroke="none" pointer-events="all" style="fill: light-dark(rgb(225, 232, 234), rgb(34, 40, 42));"/>
+</g>
+</g>
+<g data-cell-id="develop">
+<g transform="translate(0.5,0.5)">
+<rect x="10" y="84" width="166" height="72" rx="10" ry="10" fill="#f2f7f6" stroke="#a6c9c0" pointer-events="all" style="fill: light-dark(rgb(242, 247, 246), rgb(23, 27, 26)); stroke: light-dark(rgb(166, 201, 192), rgb(48, 78, 70));"/>
+</g>
+<g data-cell-id="develop-icon">
+<g>
+<use href="#mx-image-gxg1am" xlink:href="#mx-image-gxg1am" x="24" y="96" width="23" height="23"/>
+</g>
+</g>
+<g data-cell-id="develop-name">
+<g>
+<rect x="56" y="90" width="113" height="31" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Menlo" font-weight="bold" text-anchor="start" font-size="22px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="56" y="115.5">develop</text>
+</g>
+</g>
+</g>
+<g data-cell-id="develop-env">
+<g>
+<rect x="25" y="126" width="145" height="21" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#176752" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="15px" style="fill: light-dark(rgb(23, 103, 82), rgb(113, 181, 163));">
+<text x="25" y="143">변경 시 배포</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="main">
+<g transform="translate(0.5,0.5)">
+<rect x="10" y="286" width="166" height="72" rx="10" ry="10" fill="#ecf3fc" stroke="#aac1e0" pointer-events="all" style="fill: light-dark(rgb(236, 243, 252), rgb(23, 29, 37)); stroke: light-dark(rgb(170, 193, 224), rgb(56, 76, 102));"/>
+</g>
+<g data-cell-id="main-icon">
+<g>
+<use href="#mx-image-gxg1am" xlink:href="#mx-image-gxg1am" x="24" y="298" width="23" height="23"/>
+</g>
+</g>
+<g data-cell-id="main-name">
+<g>
+<rect x="56" y="292" width="113" height="31" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Menlo" font-weight="bold" text-anchor="start" font-size="22px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="56" y="317.5">main</text>
+</g>
+</g>
+</g>
+<g data-cell-id="main-env">
+<g>
+<rect x="25" y="328" width="145" height="21" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#28588C" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="15px" style="fill: light-dark(rgb(40, 88, 140), rgb(131, 173, 217));">
+<text x="25" y="345">운영 배포</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-image">
+<g transform="translate(0.5,0.5)">
+<rect x="250" y="10" width="325" height="68" rx="8" ry="8" fill="#ffffff" stroke="#cdd9de" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18)); stroke: light-dark(rgb(205, 217, 222), rgb(45, 55, 60));"/>
+</g>
+<g data-cell-id="dev-image-icon">
+<g>
+<use href="#mx-image-1i0zwgk" xlink:href="#mx-image-1i0zwgk" x="265" y="28" width="32" height="32"/>
+</g>
+</g>
+<g data-cell-id="dev-image-lane">
+<g>
+<rect x="310" y="20" width="254" height="16" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#21675B" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="12px" style="fill: light-dark(rgb(33, 103, 91), rgb(116, 176, 166));">
+<text x="310" y="33">백엔드 변경</text>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-image-name">
+<g>
+<rect x="310" y="37" width="254" height="26" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="310" y="59">이미지 빌드 → GHCR</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-ec2">
+<g/>
+<g data-cell-id="dev-ec2-icon">
+<g transform="translate(0.5,0.5)">
+<path d="M 646 27 L 680 27 L 680 61 L 646 61 Z" fill="#ed7100" stroke="none" pointer-events="all" style="fill: light-dark(rgb(237, 113, 0), rgb(216, 109, 12));"/>
+<path d="M 656.69 50.31 L 668.83 50.31 L 668.83 38.17 L 656.69 38.17 Z M 669.8 38.17 L 671.74 38.17 L 671.74 39.14 L 669.8 39.14 L 669.8 41.09 L 671.74 41.09 L 671.74 42.06 L 669.8 42.06 L 669.8 43.51 L 671.74 43.51 L 671.74 44.49 L 669.8 44.49 L 669.8 46.43 L 671.74 46.43 L 671.74 47.4 L 669.8 47.4 L 669.8 49.34 L 671.74 49.34 L 671.74 50.31 L 669.8 50.31 L 669.8 50.38 C 669.8 50.88 669.39 51.29 668.89 51.29 L 668.83 51.29 L 668.83 53.23 L 667.86 53.23 L 667.86 51.29 L 665.91 51.29 L 665.91 53.23 L 664.94 53.23 L 664.94 51.29 L 663.49 51.29 L 663.49 53.23 L 662.51 53.23 L 662.51 51.29 L 660.57 51.29 L 660.57 53.23 L 659.6 53.23 L 659.6 51.29 L 657.66 51.29 L 657.66 53.23 L 656.69 53.23 L 656.69 51.29 L 656.62 51.29 C 656.12 51.29 655.71 50.88 655.71 50.38 L 655.71 50.31 L 654.26 50.31 L 654.26 49.34 L 655.71 49.34 L 655.71 47.4 L 654.26 47.4 L 654.26 46.43 L 655.71 46.43 L 655.71 44.49 L 654.26 44.49 L 654.26 43.51 L 655.71 43.51 L 655.71 42.06 L 654.26 42.06 L 654.26 41.09 L 655.71 41.09 L 655.71 39.14 L 654.26 39.14 L 654.26 38.17 L 655.71 38.17 L 655.71 38.11 C 655.71 37.61 656.12 37.2 656.62 37.2 L 656.69 37.2 L 656.69 35.26 L 657.66 35.26 L 657.66 37.2 L 659.6 37.2 L 659.6 35.26 L 660.57 35.26 L 660.57 37.2 L 662.51 37.2 L 662.51 35.26 L 663.49 35.26 L 663.49 37.2 L 664.94 37.2 L 664.94 35.26 L 665.91 35.26 L 665.91 37.2 L 667.86 37.2 L 667.86 35.26 L 668.83 35.26 L 668.83 37.2 L 668.89 37.2 C 669.39 37.2 669.8 37.61 669.8 38.11 Z M 663.49 56.57 C 663.49 56.6 663.46 56.63 663.43 56.63 L 650.43 56.63 C 650.4 56.63 650.37 56.6 650.37 56.57 L 650.37 43.57 C 650.37 43.54 650.4 43.51 650.43 43.51 L 653.29 43.51 L 653.29 42.54 L 650.43 42.54 C 649.86 42.54 649.4 43.01 649.4 43.57 L 649.4 56.57 C 649.4 57.14 649.86 57.6 650.43 57.6 L 663.43 57.6 C 663.99 57.6 664.46 57.14 664.46 56.57 L 664.46 54.2 L 663.49 54.2 Z M 676.6 31.43 L 676.6 44.43 C 676.6 44.99 676.14 45.46 675.57 45.46 L 672.71 45.46 L 672.71 44.49 L 675.57 44.49 C 675.6 44.49 675.63 44.46 675.63 44.43 L 675.63 31.43 C 675.63 31.4 675.6 31.37 675.57 31.37 L 662.57 31.37 C 662.54 31.37 662.51 31.4 662.51 31.43 L 662.51 34.29 L 661.54 34.29 L 661.54 31.43 C 661.54 30.86 662.01 30.4 662.57 30.4 L 675.57 30.4 C 676.14 30.4 676.6 30.86 676.6 31.43 Z" fill="#ffffff" stroke="none" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+</g>
+</g>
+<g data-cell-id="dev-ec2-name">
+<g>
+<rect x="693" y="28" width="225" height="32" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="693" y="53">개발 EC2</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-front">
+<g transform="translate(0.5,0.5)">
+<rect x="250" y="86" width="325" height="68" rx="8" ry="8" fill="#ffffff" stroke="#cdd9de" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18)); stroke: light-dark(rgb(205, 217, 222), rgb(45, 55, 60));"/>
+</g>
+<g data-cell-id="dev-front-icon">
+<g>
+<use href="#mx-image-etucuo" xlink:href="#mx-image-etucuo" x="265" y="104" width="32" height="32"/>
+</g>
+</g>
+<g data-cell-id="dev-front-lane">
+<g>
+<rect x="310" y="96" width="254" height="16" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#3266A0" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="12px" style="fill: light-dark(rgb(50, 102, 160), rgb(116, 161, 210));">
+<text x="310" y="109">프론트엔드 변경</text>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-front-name">
+<g>
+<rect x="310" y="113" width="254" height="26" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="310" y="135">개발 설정으로 빌드</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="dev-s3">
+<g/>
+<g data-cell-id="dev-s3-icon">
+<g transform="translate(0.5,0.5)">
+<path d="M 646 103 L 680 103 L 680 137 L 646 137 Z" fill="#7aa116" stroke="none" pointer-events="all" style="fill: light-dark(rgb(122, 161, 22), rgb(97, 130, 11));"/>
+<path d="M 673.15 121.41 L 673.34 120.09 C 675.05 121.12 675.08 121.55 675.08 121.56 C 675.07 121.56 674.78 121.81 673.15 121.41 Z M 672.2 121.14 C 669.23 120.24 665.09 118.34 663.42 117.55 C 663.42 117.55 663.42 117.54 663.42 117.53 C 663.42 116.89 662.9 116.37 662.25 116.37 C 661.61 116.37 661.08 116.89 661.08 117.53 C 661.08 118.18 661.61 118.7 662.25 118.7 C 662.53 118.7 662.79 118.59 662.99 118.43 C 664.96 119.36 669.07 121.23 672.07 122.12 L 670.88 130.47 C 670.88 130.5 670.88 130.52 670.88 130.54 C 670.88 131.28 667.62 132.63 662.3 132.63 C 656.92 132.63 653.63 131.28 653.63 130.54 C 653.63 130.52 653.62 130.5 653.62 130.47 L 651.15 112.4 C 653.29 113.88 657.89 114.66 662.3 114.66 C 666.7 114.66 671.3 113.88 673.44 112.41 Z M 650.89 110.52 C 650.92 109.88 654.59 107.37 662.3 107.37 C 670 107.37 673.68 109.88 673.71 110.52 L 673.71 110.74 C 673.29 112.17 668.53 113.69 662.3 113.69 C 656.06 113.69 651.29 112.16 650.89 110.73 Z M 674.69 110.53 C 674.69 108.85 669.86 106.4 662.3 106.4 C 654.74 106.4 649.91 108.85 649.91 110.53 L 649.96 110.89 L 652.65 130.58 C 652.72 132.78 658.59 133.6 662.3 133.6 C 666.9 133.6 671.79 132.54 671.85 130.58 L 673.01 122.37 C 673.66 122.53 674.19 122.61 674.62 122.61 C 675.19 122.61 675.58 122.47 675.82 122.19 C 676.01 121.95 676.09 121.68 676.03 121.38 C 675.9 120.71 675.11 119.98 673.48 119.06 L 674.64 110.91 Z" fill="#ffffff" stroke="none" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+</g>
+</g>
+<g data-cell-id="dev-s3-name">
+<g>
+<rect x="693" y="104" width="225" height="32" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="693" y="129">S3 개발 경로</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="realtime-image">
+<g transform="translate(0.5,0.5)">
+<rect x="250" y="162" width="325" height="68" rx="8" ry="8" fill="#ffffff" stroke="#cdd9de" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18)); stroke: light-dark(rgb(205, 217, 222), rgb(45, 55, 60));"/>
+</g>
+<g data-cell-id="realtime-image-icon">
+<g>
+<use href="#mx-image-1i0zwgk" xlink:href="#mx-image-1i0zwgk" x="265" y="180" width="32" height="32"/>
+</g>
+</g>
+<g data-cell-id="realtime-image-lane">
+<g>
+<rect x="310" y="172" width="254" height="16" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#614382" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="12px" style="fill: light-dark(rgb(97, 67, 130), rgb(187, 161, 216));">
+<text x="310" y="185">아지트 실시간 서버 변경</text>
+</g>
+</g>
+</g>
+<g data-cell-id="realtime-image-name">
+<g>
+<rect x="310" y="189" width="254" height="26" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="310" y="211">이미지 빌드 → GHCR</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="shared-realtime">
+<g/>
+<g data-cell-id="shared-realtime-icon">
+<g transform="translate(0.5,0.5)">
+<path d="M 646 179 L 680 179 L 680 213 L 646 213 Z" fill="#ed7100" stroke="none" pointer-events="all" style="fill: light-dark(rgb(237, 113, 0), rgb(216, 109, 12));"/>
+<path d="M 656.69 202.31 L 668.83 202.31 L 668.83 190.17 L 656.69 190.17 Z M 669.8 190.17 L 671.74 190.17 L 671.74 191.14 L 669.8 191.14 L 669.8 193.09 L 671.74 193.09 L 671.74 194.06 L 669.8 194.06 L 669.8 195.51 L 671.74 195.51 L 671.74 196.49 L 669.8 196.49 L 669.8 198.43 L 671.74 198.43 L 671.74 199.4 L 669.8 199.4 L 669.8 201.34 L 671.74 201.34 L 671.74 202.31 L 669.8 202.31 L 669.8 202.38 C 669.8 202.88 669.39 203.29 668.89 203.29 L 668.83 203.29 L 668.83 205.23 L 667.86 205.23 L 667.86 203.29 L 665.91 203.29 L 665.91 205.23 L 664.94 205.23 L 664.94 203.29 L 663.49 203.29 L 663.49 205.23 L 662.51 205.23 L 662.51 203.29 L 660.57 203.29 L 660.57 205.23 L 659.6 205.23 L 659.6 203.29 L 657.66 203.29 L 657.66 205.23 L 656.69 205.23 L 656.69 203.29 L 656.62 203.29 C 656.12 203.29 655.71 202.88 655.71 202.38 L 655.71 202.31 L 654.26 202.31 L 654.26 201.34 L 655.71 201.34 L 655.71 199.4 L 654.26 199.4 L 654.26 198.43 L 655.71 198.43 L 655.71 196.49 L 654.26 196.49 L 654.26 195.51 L 655.71 195.51 L 655.71 194.06 L 654.26 194.06 L 654.26 193.09 L 655.71 193.09 L 655.71 191.14 L 654.26 191.14 L 654.26 190.17 L 655.71 190.17 L 655.71 190.11 C 655.71 189.61 656.12 189.2 656.62 189.2 L 656.69 189.2 L 656.69 187.26 L 657.66 187.26 L 657.66 189.2 L 659.6 189.2 L 659.6 187.26 L 660.57 187.26 L 660.57 189.2 L 662.51 189.2 L 662.51 187.26 L 663.49 187.26 L 663.49 189.2 L 664.94 189.2 L 664.94 187.26 L 665.91 187.26 L 665.91 189.2 L 667.86 189.2 L 667.86 187.26 L 668.83 187.26 L 668.83 189.2 L 668.89 189.2 C 669.39 189.2 669.8 189.61 669.8 190.11 Z M 663.49 208.57 C 663.49 208.6 663.46 208.63 663.43 208.63 L 650.43 208.63 C 650.4 208.63 650.37 208.6 650.37 208.57 L 650.37 195.57 C 650.37 195.54 650.4 195.51 650.43 195.51 L 653.29 195.51 L 653.29 194.54 L 650.43 194.54 C 649.86 194.54 649.4 195.01 649.4 195.57 L 649.4 208.57 C 649.4 209.14 649.86 209.6 650.43 209.6 L 663.43 209.6 C 663.99 209.6 664.46 209.14 664.46 208.57 L 664.46 206.2 L 663.49 206.2 Z M 676.6 183.43 L 676.6 196.43 C 676.6 196.99 676.14 197.46 675.57 197.46 L 672.71 197.46 L 672.71 196.49 L 675.57 196.49 C 675.6 196.49 675.63 196.46 675.63 196.43 L 675.63 183.43 C 675.63 183.4 675.6 183.37 675.57 183.37 L 662.57 183.37 C 662.54 183.37 662.51 183.4 662.51 183.43 L 662.51 186.29 L 661.54 186.29 L 661.54 183.43 C 661.54 182.86 662.01 182.4 662.57 182.4 L 675.57 182.4 C 676.14 182.4 676.6 182.86 676.6 183.43 Z" fill="#ffffff" stroke="none" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+</g>
+</g>
+<g data-cell-id="shared-realtime-name">
+<g>
+<rect x="693" y="180" width="239" height="32" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="18px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="693" y="204">개발/운영 공용 컨테이너 교체</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-image">
+<g transform="translate(0.5,0.5)">
+<rect x="250" y="250" width="325" height="68" rx="8" ry="8" fill="#ffffff" stroke="#cdd9de" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18)); stroke: light-dark(rgb(205, 217, 222), rgb(45, 55, 60));"/>
+</g>
+<g data-cell-id="prod-image-icon">
+<g transform="translate(0.5,0.5)">
+<path d="M 265 268 L 297 268 L 297 300 L 265 300 Z" fill="#ed7100" stroke="none" pointer-events="all" style="fill: light-dark(rgb(237, 113, 0), rgb(216, 109, 12));"/>
+<path d="M 275.06 289.94 L 286.49 289.94 L 286.49 278.51 L 275.06 278.51 Z M 287.4 278.51 L 289.23 278.51 L 289.23 279.43 L 287.4 279.43 L 287.4 281.26 L 289.23 281.26 L 289.23 282.17 L 287.4 282.17 L 287.4 283.54 L 289.23 283.54 L 289.23 284.46 L 287.4 284.46 L 287.4 286.29 L 289.23 286.29 L 289.23 287.2 L 287.4 287.2 L 287.4 289.03 L 289.23 289.03 L 289.23 289.94 L 287.4 289.94 L 287.4 290.01 C 287.4 290.47 287.02 290.86 286.55 290.86 L 286.49 290.86 L 286.49 292.69 L 285.57 292.69 L 285.57 290.86 L 283.74 290.86 L 283.74 292.69 L 282.83 292.69 L 282.83 290.86 L 281.46 290.86 L 281.46 292.69 L 280.54 292.69 L 280.54 290.86 L 278.71 290.86 L 278.71 292.69 L 277.8 292.69 L 277.8 290.86 L 275.97 290.86 L 275.97 292.69 L 275.06 292.69 L 275.06 290.86 L 274.99 290.86 C 274.53 290.86 274.14 290.47 274.14 290.01 L 274.14 289.94 L 272.77 289.94 L 272.77 289.03 L 274.14 289.03 L 274.14 287.2 L 272.77 287.2 L 272.77 286.29 L 274.14 286.29 L 274.14 284.46 L 272.77 284.46 L 272.77 283.54 L 274.14 283.54 L 274.14 282.17 L 272.77 282.17 L 272.77 281.26 L 274.14 281.26 L 274.14 279.43 L 272.77 279.43 L 272.77 278.51 L 274.14 278.51 L 274.14 278.45 C 274.14 277.98 274.53 277.6 274.99 277.6 L 275.06 277.6 L 275.06 275.77 L 275.97 275.77 L 275.97 277.6 L 277.8 277.6 L 277.8 275.77 L 278.71 275.77 L 278.71 277.6 L 280.54 277.6 L 280.54 275.77 L 281.46 275.77 L 281.46 277.6 L 282.83 277.6 L 282.83 275.77 L 283.74 275.77 L 283.74 277.6 L 285.57 277.6 L 285.57 275.77 L 286.49 275.77 L 286.49 277.6 L 286.55 277.6 C 287.02 277.6 287.4 277.98 287.4 278.45 Z M 281.46 295.83 C 281.46 295.86 281.43 295.89 281.4 295.89 L 269.17 295.89 C 269.14 295.89 269.11 295.86 269.11 295.83 L 269.11 283.6 C 269.11 283.57 269.14 283.54 269.17 283.54 L 271.86 283.54 L 271.86 282.63 L 269.17 282.63 C 268.64 282.63 268.2 283.06 268.2 283.6 L 268.2 295.83 C 268.2 296.36 268.64 296.8 269.17 296.8 L 281.4 296.8 C 281.94 296.8 282.37 296.36 282.37 295.83 L 282.37 293.6 L 281.46 293.6 Z M 293.8 272.17 L 293.8 284.4 C 293.8 284.94 293.36 285.37 292.83 285.37 L 290.14 285.37 L 290.14 284.46 L 292.83 284.46 C 292.86 284.46 292.89 284.43 292.89 284.4 L 292.89 272.17 C 292.89 272.14 292.86 272.11 292.83 272.11 L 280.6 272.11 C 280.57 272.11 280.54 272.14 280.54 272.17 L 280.54 274.86 L 279.63 274.86 L 279.63 272.17 C 279.63 271.64 280.06 271.2 280.6 271.2 L 292.83 271.2 C 293.36 271.2 293.8 271.64 293.8 272.17 Z" fill="#ffffff" stroke="none" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+</g>
+</g>
+<g data-cell-id="prod-image-lane">
+<g>
+<rect x="310" y="253" width="254" height="16" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#21675B" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="12px" style="fill: light-dark(rgb(33, 103, 91), rgb(116, 176, 166));">
+<text x="310" y="266">백엔드 변경</text>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-image-name">
+<g>
+<rect x="310" y="270" width="254" height="26" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="310" y="292">GHCR 이미지 재사용</text>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-image-detail">
+<g>
+<rect x="310" y="297" width="260" height="17" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#415866" font-family="Helvetica" text-anchor="start" font-size="13px" style="fill: light-dark(rgb(65, 88, 102), rgb(148, 168, 180));">
+<text x="310" y="311">main 커밋의 Compose로 대기 EC2 기동</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-nginx">
+<g/>
+<g data-cell-id="prod-nginx-icon">
+<g>
+<image width="34" height="34" xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjkxIj48cGF0aCBmaWxsPSIjMDA5NjM5IiBkPSJNMi4wNTQgMjE4LjE4N2MxLjMyIDIuMzQ3IDMuMjI3IDQuMTA4IDUuNTc1IDUuNDI4bDExMi45NjIgNjUuMTM3YzQuNjk1IDIuNzg3IDEwLjQxNiAyLjc4NyAxNC45NjQgMGwxMTIuOTYzLTY1LjEzN2M0LjY5NS0yLjY0IDcuNDgyLTcuNjI5IDcuNDgyLTEzLjA1N1Y4MC4yODRjMC01LjQyOC0yLjc4Ny0xMC40MTYtNy40ODItMTMuMDU2TDEzNS41NTUgMi4wOWMtNC42OTQtMi43ODgtMTAuNDE2LTIuNzg4LTE0Ljk2NCAwTDcuNjMgNjcuMjI4QzIuNzg3IDY5Ljg2OCAwIDc0Ljg1NiAwIDgwLjI4NHYxMzAuNDJjMCAyLjY0Mi41ODcgNS4xMzYgMi4wNTQgNy40ODMiIC8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTkxLjgzNyAxOTUuMTU0YTE0LjQ2MyAxNC40NjMgMCAwIDEtMTQuNTI0IDE0LjUyNGExNC40NjMgMTQuNDYzIDAgMCAxLTE0LjUyMy0xNC41MjRWOTUuNTQyYzAtNy43NzYgNi44OTUtMTQuMDg0IDE2LjQzLTE0LjA4NGM2Ljg5NiAwIDE0Ljk2NSAyLjc4NyAxOS44MDYgOC44MDJsNC40IDUuMjgybDYwLjczNyA3Mi42MThWOTUuODM1YTE0LjQ2MyAxNC40NjMgMCAwIDEgMTQuNTI0LTE0LjUyNGExNC40NjMgMTQuNDYzIDAgMCAxIDE0LjUyMyAxNC41MjR2OTkuNjEzYzAgNy43NzUtNi44OTUgMTQuMDgzLTE2LjQzIDE0LjA4M2MtNi44OTYgMC0xNC45NjUtMi43ODctMTkuODA2LTguODAybC02NS4xMzctNzcuNzU0eiIgLz48L3N2Zz4=" x="646" y="267"/>
+</g>
+</g>
+<g data-cell-id="prod-nginx-name">
+<g>
+<rect x="693" y="268" width="225" height="32" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="693" y="293">Nginx BLUE/GREEN 전환</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-front">
+<g transform="translate(0.5,0.5)">
+<rect x="250" y="326" width="325" height="68" rx="8" ry="8" fill="#ffffff" stroke="#cdd9de" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18)); stroke: light-dark(rgb(205, 217, 222), rgb(45, 55, 60));"/>
+</g>
+<g data-cell-id="prod-front-icon">
+<g>
+<use href="#mx-image-etucuo" xlink:href="#mx-image-etucuo" x="265" y="344" width="32" height="32"/>
+</g>
+</g>
+<g data-cell-id="prod-front-lane">
+<g>
+<rect x="310" y="336" width="254" height="16" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#3266A0" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="12px" style="fill: light-dark(rgb(50, 102, 160), rgb(116, 161, 210));">
+<text x="310" y="349">프론트엔드 변경</text>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-front-name">
+<g>
+<rect x="310" y="353" width="254" height="26" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="310" y="375">운영 설정으로 빌드</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="prod-s3">
+<g/>
+<g data-cell-id="prod-s3-icon">
+<g transform="translate(0.5,0.5)">
+<path d="M 646 343 L 680 343 L 680 377 L 646 377 Z" fill="#7aa116" stroke="none" pointer-events="all" style="fill: light-dark(rgb(122, 161, 22), rgb(97, 130, 11));"/>
+<path d="M 673.15 361.41 L 673.34 360.09 C 675.05 361.12 675.08 361.55 675.08 361.56 C 675.07 361.56 674.78 361.81 673.15 361.41 Z M 672.2 361.14 C 669.23 360.24 665.09 358.34 663.42 357.55 C 663.42 357.55 663.42 357.54 663.42 357.53 C 663.42 356.89 662.9 356.37 662.25 356.37 C 661.61 356.37 661.08 356.89 661.08 357.53 C 661.08 358.18 661.61 358.7 662.25 358.7 C 662.53 358.7 662.79 358.59 662.99 358.43 C 664.96 359.36 669.07 361.23 672.07 362.12 L 670.88 370.47 C 670.88 370.5 670.88 370.52 670.88 370.54 C 670.88 371.28 667.62 372.63 662.3 372.63 C 656.92 372.63 653.63 371.28 653.63 370.54 C 653.63 370.52 653.62 370.5 653.62 370.47 L 651.15 352.4 C 653.29 353.88 657.89 354.66 662.3 354.66 C 666.7 354.66 671.3 353.88 673.44 352.41 Z M 650.89 350.52 C 650.92 349.88 654.59 347.37 662.3 347.37 C 670 347.37 673.68 349.88 673.71 350.52 L 673.71 350.74 C 673.29 352.17 668.53 353.69 662.3 353.69 C 656.06 353.69 651.29 352.16 650.89 350.73 Z M 674.69 350.53 C 674.69 348.85 669.86 346.4 662.3 346.4 C 654.74 346.4 649.91 348.85 649.91 350.53 L 649.96 350.89 L 652.65 370.58 C 652.72 372.78 658.59 373.6 662.3 373.6 C 666.9 373.6 671.79 372.54 671.85 370.58 L 673.01 362.37 C 673.66 362.53 674.19 362.61 674.62 362.61 C 675.19 362.61 675.58 362.47 675.82 362.19 C 676.01 361.95 676.09 361.68 676.03 361.38 C 675.9 360.71 675.11 359.98 673.48 359.06 L 674.64 350.91 Z" fill="#ffffff" stroke="none" pointer-events="all" style="fill: light-dark(rgb(255, 255, 255), rgb(18, 18, 18));"/>
+</g>
+</g>
+<g data-cell-id="prod-s3-name">
+<g>
+<rect x="693" y="344" width="225" height="32" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#192F39" font-family="Helvetica" font-weight="bold" text-anchor="start" font-size="20px" style="fill: light-dark(rgb(25, 47, 57), rgb(185, 204, 213));">
+<text x="693" y="369">S3 운영 경로</text>
+</g>
+</g>
+</g>
+</g>
+<g data-cell-id="develop-to-dev-image">
+<g>
+<path d="M 176 120 L 212 120 L 212 44 L 240.61 44" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 248.21 44 L 240.61 46.53 L 240.61 41.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="dev-image-to-dev-ec2">
+<g>
+<path d="M 575 44 L 628.61 44" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 636.21 44 L 628.61 46.53 L 628.61 41.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="develop-to-dev-front">
+<g>
+<path d="M 176 120 L 240.61 120" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 248.21 120 L 240.61 122.53 L 240.61 117.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="dev-front-to-dev-s3">
+<g>
+<path d="M 575 120 L 628.61 120" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 636.21 120 L 628.61 122.53 L 628.61 117.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="develop-to-realtime-image">
+<g>
+<path d="M 176 120 L 212 120 L 212 196 L 240.61 196" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 248.21 196 L 240.61 198.53 L 240.61 193.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="realtime-image-to-shared">
+<g>
+<path d="M 575 196 L 628.61 196" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 636.21 196 L 628.61 198.53 L 628.61 193.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="main-to-prod-image">
+<g>
+<path d="M 176 322 L 212 322 L 212 284 L 240.61 284" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 248.21 284 L 240.61 286.53 L 240.61 281.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="prod-image-to-prod-nginx">
+<g>
+<path d="M 575 284 L 628.61 284" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 636.21 284 L 628.61 286.53 L 628.61 281.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="main-to-prod-front">
+<g>
+<path d="M 176 322 L 212 322 L 212 360 L 240.61 360" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 248.21 360 L 240.61 362.53 L 240.61 357.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="prod-front-to-prod-s3">
+<g>
+<path d="M 575 360 L 628.61 360" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 636.21 360 L 628.61 362.53 L 628.61 357.47 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="release-merge">
+<g>
+<path d="M 93 156 L 93 276.61" fill="none" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" stroke-dasharray="6.4 6.4" pointer-events="stroke" style="stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+<path d="M 93 284.21 L 90.47 276.61 L 95.53 276.61 Z" fill="#738793" stroke="#738793" stroke-width="1.6" stroke-miterlimit="10" pointer-events="all" style="fill: light-dark(rgb(115, 135, 147), rgb(110, 127, 137)); stroke: light-dark(rgb(115, 135, 147), rgb(110, 127, 137));"/>
+</g>
+</g>
+<g data-cell-id="merge-label">
+<g>
+<rect x="105" y="208" width="82" height="23" fill="none" stroke="none" pointer-events="all"/>
+</g>
+<g>
+<g fill="#415866" font-family="Helvetica" text-anchor="start" font-size="14px" style="fill: light-dark(rgb(65, 88, 102), rgb(148, 168, 180));">
+<text x="105" y="225.5">병합</text>
+</g>
+</g>
+</g>
+</g>
+</g>
+</g>
+</svg>

@@ -31,6 +31,8 @@ jobs:
         shard: ${{ fromJSON(github.event_name == 'push' && '[1]' || '[1,2,3,4]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      ORG_GRADLE_PROJECT_testForks: "2"
 
     defaults:
       run:

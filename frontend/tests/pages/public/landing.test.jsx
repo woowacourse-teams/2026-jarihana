@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { useAuth } from "../../../src/features/auth";
+import { LandingHeader } from "../../../src/pages/landing/LandingChrome";
 import { LandingPage } from "../../../src/pages/landing/LandingPage";
 import { useLandingChapters } from "../../../src/pages/landing/useLandingChapters";
 import { ToastProvider } from "../../../src/shared/ui";
@@ -65,14 +66,9 @@ test("reads as the clubhouse, the sparring and games cards, the core feature car
 test("announces the clubhouse as coming soon instead of opening an unreleased space", () => {
   useAuth.mockReturnValue({ status: "anonymous", login: jest.fn() });
   renderLanding();
-  const tries = [
-    screen.getByRole("button", { name: "아지트 꾸며 보기" }),
-    screen.getByRole("button", { name: "직접 꾸며 보기" })
-  ];
-  for (const button of tries) {
-    expect(button).toHaveAttribute("data-ph-capture-attribute-action", "landing_clubhouse_try");
-  }
-  fireEvent.click(tries[0]);
+  const tryButton = screen.getByRole("button", { name: "직접 꾸며 보기" });
+  expect(tryButton).toHaveAttribute("data-ph-capture-attribute-action", "landing_clubhouse_try");
+  fireEvent.click(tryButton);
   expect(screen.getByText("아지트 꾸미기는 곧 열려요")).toBeInTheDocument();
   expect(screen.getByText("동아리와 스터디마다 생기는 아지트를 준비하고 있어요.")).toBeInTheDocument();
 });
@@ -91,12 +87,13 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
     expect(link).toHaveAttribute("data-ph-capture-attribute-action", action);
   }
 
-  const recruiting = screen.getAllByRole("link", { name: "모집 중인 모임 보기" });
-  expect(recruiting).toHaveLength(2);
-  for (const link of recruiting) {
-    expect(link).toHaveAttribute("href", "/groups?recruiting=true");
-    expect(link).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
-  }
+  const recruiting = screen.getByRole("link", { name: "모집 중인 모임 보기" });
+  expect(recruiting).toHaveAttribute("href", "/groups?recruiting=true");
+  expect(recruiting).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
+
+  const shortcut = within(screen.getByRole("main")).getByRole("link", { name: "자리하나? 바로가기" });
+  expect(shortcut).toHaveAttribute("href", "https://jarihana.com/home");
+  expect(shortcut).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
 
   for (const [name, href, action] of [
     ["나에게 맞는 자리 찾기", "/land/join", "landing_feature_join"],
@@ -123,41 +120,17 @@ test("links the menu, the recruiting list, the feature pages and the footer", ()
   );
 });
 
-test("keeps the start button disabled while checking the current session", () => {
-  const login = jest.fn();
-  useAuth.mockReturnValue({ status: "loading", login });
-  renderLanding();
-  const button = screen.getByRole("button", { name: "연결 중" });
-  expect(button).toBeDisabled();
-  fireEvent.click(button);
-  expect(login).not.toHaveBeenCalled();
-});
-
-test("lets signed-in visitors return home without another login", () => {
-  const login = jest.fn();
-  useAuth.mockReturnValue({ status: "authenticated", login });
-  renderLanding();
-  const home = screen.getByRole("link", { name: "홈으로 가기" });
-  expect(home).toHaveAttribute("href", "/home");
-  expect(home).toHaveAttribute("data-ph-capture-attribute-action", "group_home");
-  expect(login).not.toHaveBeenCalled();
-});
-
-test("returns a new login to home and continues an interrupted signup", () => {
-  const login = jest.fn();
-  useAuth.mockReturnValue({ status: "anonymous", login });
-  const { rerender } = renderLanding();
-  fireEvent.click(screen.getByRole("button", { name: "시작하기", exact: true }));
-  expect(login).toHaveBeenCalledTimes(1);
-  expect(sessionStorage.getItem("jarihana:auth:return-target")).toBe("/home");
-
-  useAuth.mockReturnValue({ status: "signup-required", login });
-  rerender(
-    <ToastProvider>
-      <LandingPage />
-    </ToastProvider>
-  );
-  const signup = screen.getByRole("link", { name: "가입 계속하기" });
-  expect(signup).toHaveAttribute("href", "/signup");
-  expect(login).toHaveBeenCalledTimes(1);
-});
+test.each(["anonymous", "loading", "unavailable", "signup-required", "authenticated"])(
+  "the landing header links directly to the service home when the session is %s",
+  (status) => {
+    const login = jest.fn();
+    useAuth.mockReturnValue({ status, login });
+    render(<LandingHeader />);
+    const header = within(screen.getByRole("banner"));
+    const home = header.getByRole("link", { name: "자리하나? 바로가기", exact: true });
+    expect(home).toHaveAttribute("href", "https://jarihana.com/home");
+    expect(home).toHaveAttribute("data-ph-capture-attribute-action", "landing_explore");
+    expect(header.queryByRole("button")).not.toBeInTheDocument();
+    expect(login).not.toHaveBeenCalled();
+  }
+);

@@ -1,0 +1,203 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="delivery" name="CI/CD" alt="develop에 배포 대상 변경을 푸시하면 백엔드는 GHCR 이미지를 개발 EC2에서 실행하고 프론트엔드는 개발 설정으로 빌드해 S3 개발 경로에 게시합니다. 아지트 실시간 서버는 develop에서 Realtime Deploy가 이미지를 빌드해 GHCR에 게시한 뒤 개발과 운영이 함께 쓰는 컨테이너를 교체합니다. main에서는 변경 범위에 따라 백엔드와 프론트엔드를 배포합니다. 백엔드는 기존 GHCR 이미지를 main 커밋의 Compose로 기동한 뒤 Nginx 트래픽을 전환하고 프론트엔드는 운영 설정으로 빌드해 S3 운영 경로에 게시합니다.">
+    <mxGraphModel grid="0" guides="1" connect="1" arrows="1" fold="0" page="1" pageScale="1" pageWidth="930" pageHeight="399" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="environment-divider" parent="1" vertex="1" style="rounded=0;absoluteArcSize=1;arcSize=0;fillColor=#E1E8EA;strokeColor=none;strokeWidth=1;" value="">
+          <mxGeometry x="255" y="237" width="660" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="develop" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=20;fillColor=#F2F7F6;strokeColor=#A6C9C0;strokeWidth=1;" value="">
+          <mxGeometry x="12" y="79" width="166" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-icon" parent="develop" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjUwIj48cGF0aCBmaWxsPSIjMTYxNjE0IiBkPSJNMTI4LjAwMSAwQzU3LjMxNyAwIDAgNTcuMzA3IDAgMTI4LjAwMWMwIDU2LjU1NCAzNi42NzYgMTA0LjUzNSA4Ny41MzUgMTIxLjQ2YzYuMzk3IDEuMTg1IDguNzQ2LTIuNzc3IDguNzQ2LTYuMTU4YzAtMy4wNTItLjEyLTEzLjEzNS0uMTc0LTIzLjgzYy0zNS42MSA3Ljc0Mi00My4xMjQtMTUuMTAzLTQzLjEyNC0xNS4xMDNjLTUuODIzLTE0Ljc5NS0xNC4yMTMtMTguNzMtMTQuMjEzLTE4LjczYy0xMS42MTMtNy45NDQuODc2LTcuNzguODc2LTcuNzhjMTIuODUzLjkwMiAxOS42MjEgMTMuMTkgMTkuNjIxIDEzLjE5YzExLjQxNyAxOS41NjggMjkuOTQ1IDEzLjkxMSAzNy4yNDkgMTAuNjRjMS4xNDktOC4yNzIgNC40NjYtMTMuOTIgOC4xMjctMTcuMTE2Yy0yOC40MzEtMy4yMzYtNTguMzE4LTE0LjIxMi01OC4zMTgtNjMuMjU4YzAtMTMuOTc1IDUtMjUuMzk0IDEzLjE4OC0zNC4zNThjLTEuMzI5LTMuMjI0LTUuNzEtMTYuMjQyIDEuMjQtMzMuODc0YzAgMCAxMC43NDktMy40NCAzNS4yMSAxMy4xMjFjMTAuMjEtMi44MzYgMjEuMTYtNC4yNTggMzIuMDM4LTQuMzA3YzEwLjg3OC4wNDkgMjEuODM3IDEuNDcgMzIuMDY2IDQuMzA3YzI0LjQzMS0xNi41NiAzNS4xNjUtMTMuMTIgMzUuMTY1LTEzLjEyYzYuOTY3IDE3LjYzIDIuNTg0IDMwLjY1IDEuMjU1IDMzLjg3M2M4LjIwNyA4Ljk2NCAxMy4xNzMgMjAuMzgzIDEzLjE3MyAzNC4zNThjMCA0OS4xNjMtMjkuOTQ0IDU5Ljk4OC01OC40NDcgNjMuMTU3YzQuNTkxIDMuOTcyIDguNjgyIDExLjc2MiA4LjY4MiAyMy43MDRjMCAxNy4xMjYtLjE0OCAzMC45MS0uMTQ4IDM1LjEyNmMwIDMuNDA3IDIuMzA0IDcuMzk4IDguNzkyIDYuMTRDMjE5LjM3IDIzMi41IDI1NiAxODQuNTM3IDI1NiAxMjguMDAyQzI1NiA1Ny4zMDcgMTk4LjY5MSAwIDEyOC4wMDEgMG0tODAuMDYgMTgyLjM0Yy0uMjgyLjYzNi0xLjI4My44MjctMi4xOTQuMzljLS45MjktLjQxNy0xLjQ1LTEuMjg0LTEuMTUtMS45MjJjLjI3Ni0uNjU1IDEuMjc5LS44MzggMi4yMDUtLjM5OWMuOTMuNDE4IDEuNDYgMS4yOTMgMS4xMzkgMS45MzFtNi4yOTYgNS42MThjLS42MS41NjYtMS44MDQuMzAzLTIuNjE0LS41OTFjLS44MzctLjg5Mi0uOTk0LTIuMDg2LS4zNzUtMi42NmMuNjMtLjU2NiAxLjc4Ny0uMzAxIDIuNjI2LjU5MWMuODM4LjkwMyAxIDIuMDg4LjM2MyAyLjY2bTQuMzIgNy4xODhjLS43ODUuNTQ1LTIuMDY3LjAzNC0yLjg2LTEuMTA0Yy0uNzg0LTEuMTM4LS43ODQtMi41MDMuMDE3LTMuMDVjLjc5NS0uNTQ3IDIuMDU4LS4wNTUgMi44NjEgMS4wNzVjLjc4MiAxLjE1Ny43ODIgMi41MjItLjAxOSAzLjA4bTcuMzA0IDguMzI1Yy0uNzAxLjc3NC0yLjE5Ni41NjYtMy4yOS0uNDljLTEuMTE5LTEuMDMyLTEuNDMtMi40OTYtLjcyNi0zLjI3Yy43MS0uNzc2IDIuMjEzLS41NTggMy4zMTUuNDljMS4xMSAxLjAzIDEuNDUgMi41MDUuNzAxIDMuMjdtOS40NDIgMi44MWMtLjMxIDEuMDAzLTEuNzUgMS40NTktMy4xOTkgMS4wMzNjLTEuNDQ4LS40MzktMi4zOTUtMS42MTMtMi4xMDMtMi42MjZjLjMwMS0xLjAxIDEuNzQ3LTEuNDg0IDMuMjA3LTEuMDI4YzEuNDQ2LjQzNiAyLjM5NiAxLjYwMiAyLjA5NSAyLjYyMm0xMC43NDQgMS4xOTNjLjAzNiAxLjA1NS0xLjE5MyAxLjkzLTIuNzE1IDEuOTVjLTEuNTMuMDM0LTIuNzY5LS44Mi0yLjc4Ni0xLjg2YzAtMS4wNjUgMS4yMDItMS45MzIgMi43MzMtMS45NThjMS41MjItLjAzIDIuNzY4LjgxOCAyLjc2OCAxLjg2OG0xMC41NTUtLjQwNWMuMTgyIDEuMDMtLjg3NSAyLjA4OC0yLjM4NyAyLjM3Yy0xLjQ4NS4yNzEtMi44NjEtLjM2NS0zLjA1LTEuMzg2Yy0uMTg0LTEuMDU2Ljg5My0yLjExNCAyLjM3Ni0yLjM4N2MxLjUxNC0uMjYzIDIuODY4LjM1NiAzLjA2MSAxLjQwMyIgLz48L3N2Zz4=;" value="">
+          <mxGeometry x="14" y="12" width="23" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-name" parent="develop" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=22;fontColor=#192F39;fontFamily=Menlo;fontStyle=1;" value="develop">
+          <mxGeometry x="46" y="6" width="113" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-env" parent="develop" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=15;fontColor=#176752;fontFamily=Helvetica;fontStyle=1;" value="변경 시 배포">
+          <mxGeometry x="15" y="42" width="145" height="21" as="geometry" />
+        </mxCell>
+        <mxCell id="main" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=20;fillColor=#ECF3FC;strokeColor=#AAC1E0;strokeWidth=1;" value="">
+          <mxGeometry x="12" y="281" width="166" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="main-icon" parent="main" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjUwIj48cGF0aCBmaWxsPSIjMTYxNjE0IiBkPSJNMTI4LjAwMSAwQzU3LjMxNyAwIDAgNTcuMzA3IDAgMTI4LjAwMWMwIDU2LjU1NCAzNi42NzYgMTA0LjUzNSA4Ny41MzUgMTIxLjQ2YzYuMzk3IDEuMTg1IDguNzQ2LTIuNzc3IDguNzQ2LTYuMTU4YzAtMy4wNTItLjEyLTEzLjEzNS0uMTc0LTIzLjgzYy0zNS42MSA3Ljc0Mi00My4xMjQtMTUuMTAzLTQzLjEyNC0xNS4xMDNjLTUuODIzLTE0Ljc5NS0xNC4yMTMtMTguNzMtMTQuMjEzLTE4LjczYy0xMS42MTMtNy45NDQuODc2LTcuNzguODc2LTcuNzhjMTIuODUzLjkwMiAxOS42MjEgMTMuMTkgMTkuNjIxIDEzLjE5YzExLjQxNyAxOS41NjggMjkuOTQ1IDEzLjkxMSAzNy4yNDkgMTAuNjRjMS4xNDktOC4yNzIgNC40NjYtMTMuOTIgOC4xMjctMTcuMTE2Yy0yOC40MzEtMy4yMzYtNTguMzE4LTE0LjIxMi01OC4zMTgtNjMuMjU4YzAtMTMuOTc1IDUtMjUuMzk0IDEzLjE4OC0zNC4zNThjLTEuMzI5LTMuMjI0LTUuNzEtMTYuMjQyIDEuMjQtMzMuODc0YzAgMCAxMC43NDktMy40NCAzNS4yMSAxMy4xMjFjMTAuMjEtMi44MzYgMjEuMTYtNC4yNTggMzIuMDM4LTQuMzA3YzEwLjg3OC4wNDkgMjEuODM3IDEuNDcgMzIuMDY2IDQuMzA3YzI0LjQzMS0xNi41NiAzNS4xNjUtMTMuMTIgMzUuMTY1LTEzLjEyYzYuOTY3IDE3LjYzIDIuNTg0IDMwLjY1IDEuMjU1IDMzLjg3M2M4LjIwNyA4Ljk2NCAxMy4xNzMgMjAuMzgzIDEzLjE3MyAzNC4zNThjMCA0OS4xNjMtMjkuOTQ0IDU5Ljk4OC01OC40NDcgNjMuMTU3YzQuNTkxIDMuOTcyIDguNjgyIDExLjc2MiA4LjY4MiAyMy43MDRjMCAxNy4xMjYtLjE0OCAzMC45MS0uMTQ4IDM1LjEyNmMwIDMuNDA3IDIuMzA0IDcuMzk4IDguNzkyIDYuMTRDMjE5LjM3IDIzMi41IDI1NiAxODQuNTM3IDI1NiAxMjguMDAyQzI1NiA1Ny4zMDcgMTk4LjY5MSAwIDEyOC4wMDEgMG0tODAuMDYgMTgyLjM0Yy0uMjgyLjYzNi0xLjI4My44MjctMi4xOTQuMzljLS45MjktLjQxNy0xLjQ1LTEuMjg0LTEuMTUtMS45MjJjLjI3Ni0uNjU1IDEuMjc5LS44MzggMi4yMDUtLjM5OWMuOTMuNDE4IDEuNDYgMS4yOTMgMS4xMzkgMS45MzFtNi4yOTYgNS42MThjLS42MS41NjYtMS44MDQuMzAzLTIuNjE0LS41OTFjLS44MzctLjg5Mi0uOTk0LTIuMDg2LS4zNzUtMi42NmMuNjMtLjU2NiAxLjc4Ny0uMzAxIDIuNjI2LjU5MWMuODM4LjkwMyAxIDIuMDg4LjM2MyAyLjY2bTQuMzIgNy4xODhjLS43ODUuNTQ1LTIuMDY3LjAzNC0yLjg2LTEuMTA0Yy0uNzg0LTEuMTM4LS43ODQtMi41MDMuMDE3LTMuMDVjLjc5NS0uNTQ3IDIuMDU4LS4wNTUgMi44NjEgMS4wNzVjLjc4MiAxLjE1Ny43ODIgMi41MjItLjAxOSAzLjA4bTcuMzA0IDguMzI1Yy0uNzAxLjc3NC0yLjE5Ni41NjYtMy4yOS0uNDljLTEuMTE5LTEuMDMyLTEuNDMtMi40OTYtLjcyNi0zLjI3Yy43MS0uNzc2IDIuMjEzLS41NTggMy4zMTUuNDljMS4xMSAxLjAzIDEuNDUgMi41MDUuNzAxIDMuMjdtOS40NDIgMi44MWMtLjMxIDEuMDAzLTEuNzUgMS40NTktMy4xOTkgMS4wMzNjLTEuNDQ4LS40MzktMi4zOTUtMS42MTMtMi4xMDMtMi42MjZjLjMwMS0xLjAxIDEuNzQ3LTEuNDg0IDMuMjA3LTEuMDI4YzEuNDQ2LjQzNiAyLjM5NiAxLjYwMiAyLjA5NSAyLjYyMm0xMC43NDQgMS4xOTNjLjAzNiAxLjA1NS0xLjE5MyAxLjkzLTIuNzE1IDEuOTVjLTEuNTMuMDM0LTIuNzY5LS44Mi0yLjc4Ni0xLjg2YzAtMS4wNjUgMS4yMDItMS45MzIgMi43MzMtMS45NThjMS41MjItLjAzIDIuNzY4LjgxOCAyLjc2OCAxLjg2OG0xMC41NTUtLjQwNWMuMTgyIDEuMDMtLjg3NSAyLjA4OC0yLjM4NyAyLjM3Yy0xLjQ4NS4yNzEtMi44NjEtLjM2NS0zLjA1LTEuMzg2Yy0uMTg0LTEuMDU2Ljg5My0yLjExNCAyLjM3Ni0yLjM4N2MxLjUxNC0uMjYzIDIuODY4LjM1NiAzLjA2MSAxLjQwMyIgLz48L3N2Zz4=;" value="">
+          <mxGeometry x="14" y="12" width="23" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="main-name" parent="main" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=22;fontColor=#192F39;fontFamily=Menlo;fontStyle=1;" value="main">
+          <mxGeometry x="46" y="6" width="113" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="main-env" parent="main" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=15;fontColor=#28588C;fontFamily=Helvetica;fontStyle=1;" value="운영 배포">
+          <mxGeometry x="15" y="42" width="145" height="21" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-image" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=16;fillColor=#FFFFFF;strokeColor=#CDD9DE;strokeWidth=1;" value="">
+          <mxGeometry x="252" y="5" width="325" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-image-icon" parent="dev-image" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiMxNjZhYTkiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEzLjk4MyAxMS4wNzhoMi4xMTlhLjE4Ni4xODYgMCAwMC4xODYtLjE4NVY5LjAwNmEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NmgtMi4xMTlhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4OGMwIC4xMDIuMDgzLjE4NS4xODUuMTg1bS0yLjk1NC01LjQzaDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODZWMy41NzRhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODVoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0wIDIuNzE2aDIuMTE4YS4xODcuMTg3IDAgMDAuMTg2LS4xODZWNi4yOWEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NWgtMi4xMThhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4N2MwIC4xMDIuMDgyLjE4NS4xODUuMTg2bS0yLjkzIDBoMi4xMmEuMTg2LjE4NiAwIDAwLjE4NC0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVIOC4xYS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODdjMCAuMTAyLjA4My4xODUuMTg1LjE4Nm0tMi45NjQgMGgyLjExOWEuMTg2LjE4NiAwIDAwLjE4NS0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVINS4xMzZhLjE4Ni4xODYgMCAwMC0uMTg2LjE4NXYxLjg4N2MwIC4xMDIuMDg0LjE4NS4xODYuMTg2bTUuODkzIDIuNzE1aDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODVWOS4wMDZhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODZoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0tMi45MyAwaDIuMTJhLjE4NS4xODUgMCAwMC4xODQtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg1LjE4NSAwIDAwLS4xODQuMTg1djEuODg4YzAgLjEwMi4wODMuMTg1LjE4NS4xODVtLTIuOTY0IDBoMi4xMTlhLjE4NS4xODUgMCAwMC4xODUtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg2LjE4NiAwIDAwLS4xODYuMTg2djEuODg3YzAgLjEwMi4wODQuMTg1LjE4Ni4xODVtLTIuOTIgMGgyLjEyYS4xODUuMTg1IDAgMDAuMTg0LS4xODVWOS4wMDZhLjE4NS4xODUgMCAwMC0uMTg0LS4xODZoLTIuMTJhLjE4NS4xODUgMCAwMC0uMTg0LjE4NXYxLjg4OGMwIC4xMDIuMDgyLjE4NS4xODUuMTg1TTIzLjc2MyA5Ljg5Yy0uMDY1LS4wNTEtLjY3Mi0uNTEtMS45NTQtLjUxLS4zMzguMDAxLS42NzYuMDMtMS4wMS4wODctLjI0OC0xLjctMS42NTMtMi41My0xLjcxNi0yLjU2NmwtLjM0NC0uMTk5LS4yMjYuMzI3Yy0uMjg0LjQzOC0uNDkuOTIyLS42MTIgMS40My0uMjMuOTctLjA5IDEuODgyLjQwMyAyLjY2MS0uNTk1LjMzMi0xLjU1LjQxMy0xLjc0NC40MkguNzUxYS43NTEuNzUxIDAgMDAtLjc1Ljc0OCAxMS4zNzYgMTEuMzc2IDAgMDAuNjkyIDQuMDYyYy41NDUgMS40MjggMS4zNTUgMi40OCAyLjQxIDMuMTI0IDEuMTguNzIzIDMuMSAxLjEzNyA1LjI3NSAxLjEzNy45ODMuMDAzIDEuOTYzLS4wODYgMi45My0uMjY2YTEyLjI0OCAxMi4yNDggMCAwMDMuODIzLTEuMzg5Yy45OC0uNTY3IDEuODYtMS4yODggMi42MS0yLjEzNiAxLjI1Mi0xLjQxOCAxLjk5OC0yLjk5NyAyLjU1My00LjRoLjIyMWMxLjM3MiAwIDIuMjE1LS41NDkgMi42OC0xLjAwOS4zMDktLjI5My41NS0uNjUuNzA3LTEuMDQ2bC4wOTgtLjI4OFoiLz48L3N2Zz4=;" value="">
+          <mxGeometry x="15" y="18" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-image-lane" parent="dev-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#21675B;fontFamily=Helvetica;fontStyle=1;" value="백엔드 변경">
+          <mxGeometry x="60" y="10" width="254" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-image-name" parent="dev-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="이미지 빌드 → GHCR">
+          <mxGeometry x="60" y="27" width="254" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-ec2" parent="1" vertex="1" style="group;recursiveResize=0;" value="">
+          <mxGeometry x="640" y="5" width="280" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-ec2-icon" parent="dev-ec2" vertex="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#ffffff;gradientColor=none;aspect=fixed;outlineConnect=0;" value="">
+          <mxGeometry x="8" y="17" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-ec2-name" parent="dev-ec2" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="개발 EC2">
+          <mxGeometry x="55" y="18" width="225" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-front" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=16;fillColor=#FFFFFF;strokeColor=#CDD9DE;strokeWidth=1;" value="">
+          <mxGeometry x="252" y="81" width="325" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-front-icon" parent="dev-front" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjkwIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJtMTI4IC4wNDhsMTI4IDcyLjQwNVYyMTcuMzFsLTEyOCA3Mi40MDVMMCAyMTcuMzFWNzIuNDUzeiIgLz48cGF0aCBmaWxsPSIjOGVkNmZiIiBkPSJtMjMzLjE1MyAyMTIuMjg3bC0xMDAuOTAyIDU3LjE0VjIyNC45OWw2Mi44ODktMzQuNjMyem02LjkwNy02LjIzMVY4Ni42NTRsLTM2LjkwMiAyMS4zdjc2Ljh6bS0yMTcuNiA2LjIzbDEwMC45MDMgNTcuMDk0di00NC40MzhsLTYyLjg4OS0zNC41ODR6bS02LjkwNy02LjIzVjg2LjY1NGwzNi45MDMgMjEuM3Y3Ni44em00LjMtMTI3LjEzbDEwMy41MS01OC41NDN2NDIuOTlMNTcuMDQ1IDk5Ljg0bC0uNTMyLjI5em0yMTUuODYgMEwxMzIuMjUxIDIwLjM4MnY0Mi45OWw2Ni4yNyAzNi41MTVsLjUzMS4yOXoiIC8+PHBhdGggZmlsbD0iIzFjNzhjMCIgZD0ibTEyMy4zNjMgMjE0Ljg0N2wtNjIuMDItMzQuMTV2LTY3LjU3NGw2Mi4wMiAzNS43OTJ6bTguODg4IDBsNjIuMDItMzQuMTAxdi02Ny42MjNsLTYyLjAyIDM1Ljc5MnpNNjUuNDk3IDEwNS4yOThsNjIuMzEtMzQuMjQ2bDYyLjI2IDM0LjI0NmwtNjIuMjYgMzUuOTM3eiIgLz48L3N2Zz4=;" value="">
+          <mxGeometry x="15" y="18" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-front-lane" parent="dev-front" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#3266A0;fontFamily=Helvetica;fontStyle=1;" value="프론트엔드 변경">
+          <mxGeometry x="60" y="10" width="254" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-front-name" parent="dev-front" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="개발 설정으로 빌드">
+          <mxGeometry x="60" y="27" width="254" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-s3" parent="1" vertex="1" style="group;recursiveResize=0;" value="">
+          <mxGeometry x="640" y="81" width="280" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-s3-icon" parent="dev-s3" vertex="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#ffffff;gradientColor=none;aspect=fixed;outlineConnect=0;" value="">
+          <mxGeometry x="8" y="17" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-s3-name" parent="dev-s3" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="S3 개발 경로">
+          <mxGeometry x="55" y="18" width="225" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="realtime-image" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=16;fillColor=#FFFFFF;strokeColor=#CDD9DE;strokeWidth=1;" value="">
+          <mxGeometry x="252" y="157" width="325" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="realtime-image-icon" parent="realtime-image" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiMxNjZhYTkiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEzLjk4MyAxMS4wNzhoMi4xMTlhLjE4Ni4xODYgMCAwMC4xODYtLjE4NVY5LjAwNmEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NmgtMi4xMTlhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4OGMwIC4xMDIuMDgzLjE4NS4xODUuMTg1bS0yLjk1NC01LjQzaDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODZWMy41NzRhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODVoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0wIDIuNzE2aDIuMTE4YS4xODcuMTg3IDAgMDAuMTg2LS4xODZWNi4yOWEuMTg2LjE4NiAwIDAwLS4xODYtLjE4NWgtMi4xMThhLjE4NS4xODUgMCAwMC0uMTg1LjE4NXYxLjg4N2MwIC4xMDIuMDgyLjE4NS4xODUuMTg2bS0yLjkzIDBoMi4xMmEuMTg2LjE4NiAwIDAwLjE4NC0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVIOC4xYS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODdjMCAuMTAyLjA4My4xODUuMTg1LjE4Nm0tMi45NjQgMGgyLjExOWEuMTg2LjE4NiAwIDAwLjE4NS0uMTg2VjYuMjlhLjE4NS4xODUgMCAwMC0uMTg1LS4xODVINS4xMzZhLjE4Ni4xODYgMCAwMC0uMTg2LjE4NXYxLjg4N2MwIC4xMDIuMDg0LjE4NS4xODYuMTg2bTUuODkzIDIuNzE1aDIuMTE4YS4xODYuMTg2IDAgMDAuMTg2LS4xODVWOS4wMDZhLjE4Ni4xODYgMCAwMC0uMTg2LS4xODZoLTIuMTE4YS4xODUuMTg1IDAgMDAtLjE4NS4xODV2MS44ODhjMCAuMTAyLjA4Mi4xODUuMTg1LjE4NW0tMi45MyAwaDIuMTJhLjE4NS4xODUgMCAwMC4xODQtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg1LjE4NSAwIDAwLS4xODQuMTg1djEuODg4YzAgLjEwMi4wODMuMTg1LjE4NS4xODVtLTIuOTY0IDBoMi4xMTlhLjE4NS4xODUgMCAwMC4xODUtLjE4NVY5LjAwNmEuMTg1LjE4NSAwIDAwLS4xODQtLjE4NmgtMi4xMmEuMTg2LjE4NiAwIDAwLS4xODYuMTg2djEuODg3YzAgLjEwMi4wODQuMTg1LjE4Ni4xODVtLTIuOTIgMGgyLjEyYS4xODUuMTg1IDAgMDAuMTg0LS4xODVWOS4wMDZhLjE4NS4xODUgMCAwMC0uMTg0LS4xODZoLTIuMTJhLjE4NS4xODUgMCAwMC0uMTg0LjE4NXYxLjg4OGMwIC4xMDIuMDgyLjE4NS4xODUuMTg1TTIzLjc2MyA5Ljg5Yy0uMDY1LS4wNTEtLjY3Mi0uNTEtMS45NTQtLjUxLS4zMzguMDAxLS42NzYuMDMtMS4wMS4wODctLjI0OC0xLjctMS42NTMtMi41My0xLjcxNi0yLjU2NmwtLjM0NC0uMTk5LS4yMjYuMzI3Yy0uMjg0LjQzOC0uNDkuOTIyLS42MTIgMS40My0uMjMuOTctLjA5IDEuODgyLjQwMyAyLjY2MS0uNTk1LjMzMi0xLjU1LjQxMy0xLjc0NC40MkguNzUxYS43NTEuNzUxIDAgMDAtLjc1Ljc0OCAxMS4zNzYgMTEuMzc2IDAgMDAuNjkyIDQuMDYyYy41NDUgMS40MjggMS4zNTUgMi40OCAyLjQxIDMuMTI0IDEuMTguNzIzIDMuMSAxLjEzNyA1LjI3NSAxLjEzNy45ODMuMDAzIDEuOTYzLS4wODYgMi45My0uMjY2YTEyLjI0OCAxMi4yNDggMCAwMDMuODIzLTEuMzg5Yy45OC0uNTY3IDEuODYtMS4yODggMi42MS0yLjEzNiAxLjI1Mi0xLjQxOCAxLjk5OC0yLjk5NyAyLjU1My00LjRoLjIyMWMxLjM3MiAwIDIuMjE1LS41NDkgMi42OC0xLjAwOS4zMDktLjI5My41NS0uNjUuNzA3LTEuMDQ2bC4wOTgtLjI4OFoiLz48L3N2Zz4=;" value="">
+          <mxGeometry x="15" y="18" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="realtime-image-lane" parent="realtime-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#614382;fontFamily=Helvetica;fontStyle=1;" value="아지트 실시간 서버 변경">
+          <mxGeometry x="60" y="10" width="254" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="realtime-image-name" parent="realtime-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="이미지 빌드 → GHCR">
+          <mxGeometry x="60" y="27" width="254" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="shared-realtime" parent="1" vertex="1" style="group;recursiveResize=0;" value="">
+          <mxGeometry x="640" y="157" width="280" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="shared-realtime-icon" parent="shared-realtime" vertex="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#ffffff;gradientColor=none;aspect=fixed;outlineConnect=0;" value="">
+          <mxGeometry x="8" y="17" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="shared-realtime-name" parent="shared-realtime" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=18;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="개발/운영 공용 컨테이너 교체">
+          <mxGeometry x="55" y="18" width="239" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-image" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=16;fillColor=#FFFFFF;strokeColor=#CDD9DE;strokeWidth=1;" value="">
+          <mxGeometry x="252" y="245" width="325" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-image-icon" parent="prod-image" vertex="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;fillColor=#ED7100;strokeColor=#ffffff;gradientColor=none;aspect=fixed;outlineConnect=0;" value="">
+          <mxGeometry x="15" y="18" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-image-lane" parent="prod-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#21675B;fontFamily=Helvetica;fontStyle=1;" value="백엔드 변경">
+          <mxGeometry x="60" y="3" width="254" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-image-name" parent="prod-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="GHCR 이미지 재사용">
+          <mxGeometry x="60" y="20" width="254" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-image-detail" parent="prod-image" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=13;fontColor=#415866;fontFamily=Helvetica;fontStyle=0;" value="main 커밋의 Compose로 대기 EC2 기동">
+          <mxGeometry x="60" y="47" width="260" height="17" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-nginx" parent="1" vertex="1" style="group;recursiveResize=0;" value="">
+          <mxGeometry x="640" y="245" width="280" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-nginx-icon" parent="prod-nginx" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjkxIj48cGF0aCBmaWxsPSIjMDA5NjM5IiBkPSJNMi4wNTQgMjE4LjE4N2MxLjMyIDIuMzQ3IDMuMjI3IDQuMTA4IDUuNTc1IDUuNDI4bDExMi45NjIgNjUuMTM3YzQuNjk1IDIuNzg3IDEwLjQxNiAyLjc4NyAxNC45NjQgMGwxMTIuOTYzLTY1LjEzN2M0LjY5NS0yLjY0IDcuNDgyLTcuNjI5IDcuNDgyLTEzLjA1N1Y4MC4yODRjMC01LjQyOC0yLjc4Ny0xMC40MTYtNy40ODItMTMuMDU2TDEzNS41NTUgMi4wOWMtNC42OTQtMi43ODgtMTAuNDE2LTIuNzg4LTE0Ljk2NCAwTDcuNjMgNjcuMjI4QzIuNzg3IDY5Ljg2OCAwIDc0Ljg1NiAwIDgwLjI4NHYxMzAuNDJjMCAyLjY0Mi41ODcgNS4xMzYgMi4wNTQgNy40ODMiIC8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTkxLjgzNyAxOTUuMTU0YTE0LjQ2MyAxNC40NjMgMCAwIDEtMTQuNTI0IDE0LjUyNGExNC40NjMgMTQuNDYzIDAgMCAxLTE0LjUyMy0xNC41MjRWOTUuNTQyYzAtNy43NzYgNi44OTUtMTQuMDg0IDE2LjQzLTE0LjA4NGM2Ljg5NiAwIDE0Ljk2NSAyLjc4NyAxOS44MDYgOC44MDJsNC40IDUuMjgybDYwLjczNyA3Mi42MThWOTUuODM1YTE0LjQ2MyAxNC40NjMgMCAwIDEgMTQuNTI0LTE0LjUyNGExNC40NjMgMTQuNDYzIDAgMCAxIDE0LjUyMyAxNC41MjR2OTkuNjEzYzAgNy43NzUtNi44OTUgMTQuMDgzLTE2LjQzIDE0LjA4M2MtNi44OTYgMC0xNC45NjUtMi43ODctMTkuODA2LTguODAybC02NS4xMzctNzcuNzU0eiIgLz48L3N2Zz4=;" value="">
+          <mxGeometry x="8" y="17" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-nginx-name" parent="prod-nginx" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="Nginx BLUE/GREEN 전환">
+          <mxGeometry x="55" y="18" width="225" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-front" parent="1" vertex="1" style="rounded=1;absoluteArcSize=1;arcSize=16;fillColor=#FFFFFF;strokeColor=#CDD9DE;strokeWidth=1;" value="">
+          <mxGeometry x="252" y="321" width="325" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-front-icon" parent="prod-front" vertex="1" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjkwIj48cGF0aCBmaWxsPSIjZmZmIiBkPSJtMTI4IC4wNDhsMTI4IDcyLjQwNVYyMTcuMzFsLTEyOCA3Mi40MDVMMCAyMTcuMzFWNzIuNDUzeiIgLz48cGF0aCBmaWxsPSIjOGVkNmZiIiBkPSJtMjMzLjE1MyAyMTIuMjg3bC0xMDAuOTAyIDU3LjE0VjIyNC45OWw2Mi44ODktMzQuNjMyem02LjkwNy02LjIzMVY4Ni42NTRsLTM2LjkwMiAyMS4zdjc2Ljh6bS0yMTcuNiA2LjIzbDEwMC45MDMgNTcuMDk0di00NC40MzhsLTYyLjg4OS0zNC41ODR6bS02LjkwNy02LjIzVjg2LjY1NGwzNi45MDMgMjEuM3Y3Ni44em00LjMtMTI3LjEzbDEwMy41MS01OC41NDN2NDIuOTlMNTcuMDQ1IDk5Ljg0bC0uNTMyLjI5em0yMTUuODYgMEwxMzIuMjUxIDIwLjM4MnY0Mi45OWw2Ni4yNyAzNi41MTVsLjUzMS4yOXoiIC8+PHBhdGggZmlsbD0iIzFjNzhjMCIgZD0ibTEyMy4zNjMgMjE0Ljg0N2wtNjIuMDItMzQuMTV2LTY3LjU3NGw2Mi4wMiAzNS43OTJ6bTguODg4IDBsNjIuMDItMzQuMTAxdi02Ny42MjNsLTYyLjAyIDM1Ljc5MnpNNjUuNDk3IDEwNS4yOThsNjIuMzEtMzQuMjQ2bDYyLjI2IDM0LjI0NmwtNjIuMjYgMzUuOTM3eiIgLz48L3N2Zz4=;" value="">
+          <mxGeometry x="15" y="18" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-front-lane" parent="prod-front" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#3266A0;fontFamily=Helvetica;fontStyle=1;" value="프론트엔드 변경">
+          <mxGeometry x="60" y="10" width="254" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-front-name" parent="prod-front" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="운영 설정으로 빌드">
+          <mxGeometry x="60" y="27" width="254" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-s3" parent="1" vertex="1" style="group;recursiveResize=0;" value="">
+          <mxGeometry x="640" y="321" width="280" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-s3-icon" parent="prod-s3" vertex="1" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fillColor=#7AA116;strokeColor=#ffffff;gradientColor=none;aspect=fixed;outlineConnect=0;" value="">
+          <mxGeometry x="8" y="17" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="prod-s3-name" parent="prod-s3" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=20;fontColor=#192F39;fontFamily=Helvetica;fontStyle=1;" value="S3 운영 경로">
+          <mxGeometry x="55" y="18" width="225" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-to-dev-image" parent="1" source="develop" target="dev-image" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="214" y="115" />
+              <mxPoint x="214" y="39" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dev-image-to-dev-ec2" parent="1" source="dev-image" target="dev-ec2" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-to-dev-front" parent="1" source="develop" target="dev-front" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="dev-front-to-dev-s3" parent="1" source="dev-front" target="dev-s3" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="develop-to-realtime-image" parent="1" source="develop" target="realtime-image" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="214" y="115" />
+              <mxPoint x="214" y="191" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="realtime-image-to-shared" parent="1" source="realtime-image" target="shared-realtime" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="main-to-prod-image" parent="1" source="main" target="prod-image" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="214" y="317" />
+              <mxPoint x="214" y="279" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prod-image-to-prod-nginx" parent="1" source="prod-image" target="prod-nginx" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="main-to-prod-front" parent="1" source="main" target="prod-front" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="214" y="317" />
+              <mxPoint x="214" y="355" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="prod-front-to-prod-s3" parent="1" source="prod-front" target="prod-s3" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="release-merge" parent="1" source="develop" target="main" edge="1" style="edgeStyle=none;noEdgeStyle=1;rounded=0;strokeWidth=1.6;strokeColor=#738793;startArrow=none;endArrow=blockThin;endFill=1;endSize=6;exitPerimeter=0;entryPerimeter=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;dashed=1;dashPattern=4 4;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="merge-label" parent="1" vertex="1" style="text;html=0;strokeColor=none;fillColor=none;whiteSpace=nowrap;spacing=0;align=left;verticalAlign=middle;fontSize=14;fontColor=#415866;fontFamily=Helvetica;fontStyle=0;" value="병합">
+          <mxGeometry x="107" y="203" width="82" height="23" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
