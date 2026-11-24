@@ -27,6 +27,8 @@ jobs:
     name: ${{ github.event_name == 'push' && 'Backend Compile Cache' || 'Backend Test' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      ORG_GRADLE_PROJECT_testForks: "2"
 
     defaults:
       run:
