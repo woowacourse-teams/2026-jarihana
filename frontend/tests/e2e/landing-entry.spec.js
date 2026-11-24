@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "playwright/test";
 import { installApiFixture } from "./api-fixture.js";
 
+const serviceHome = "https://jarihana.com/home";
+
 for (const width of [390, 1440]) {
   test(`public landing entry and browse at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -31,6 +33,20 @@ for (const width of [390, 1440]) {
     await page.goto("/land");
     await expect(page.locator(".landing-page")).toBeVisible();
   });
+
+  test(`public landing shortcut opens the service home at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await installApiFixture(page, { auth: "anonymous" });
+    await page.goto("/land");
+    const headerShortcut = page.getByRole("banner").getByRole("link", { name: "자리하나? 바로가기", exact: true });
+    await expect(headerShortcut).toBeVisible();
+    await expect(headerShortcut).toHaveAttribute("href", serviceHome);
+    const hero = page.locator(".landing-clubhouse__curtain");
+    await expect(hero.getByRole("button").or(hero.getByRole("link"))).toHaveCount(1);
+    await page.route(serviceHome, (route) => route.fulfill({ contentType: "text/plain", body: "자리하나 홈" }));
+    await hero.getByRole("link", { name: "자리하나? 바로가기", exact: true }).click();
+    await expect(page).toHaveURL(serviceHome);
+  });
 }
 
 test("members keep the current home and may explicitly open the landing", async ({ page }) => {
@@ -42,26 +58,23 @@ test("members keep the current home and may explicitly open the landing", async 
   await page.goto("/land");
   await expect(page.locator(".landing-page")).toBeVisible();
   await expect(page.getByRole("banner")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "GitHub로 시작하기" })).toHaveCount(0);
-  const home = page.getByRole("banner").getByRole("link", { name: "홈으로 가기" });
-  await expect(home).toHaveAttribute("href", "/home");
+  const home = page.getByRole("banner").getByRole("link", { name: "자리하나? 바로가기", exact: true });
+  await page.route(serviceHome, (route) => route.fulfill({ contentType: "text/plain", body: "자리하나 홈" }));
   await home.click();
-  await expect(page).toHaveURL(/\/home$/);
-  await expect(page.locator(".groups-page--home")).toBeVisible();
+  await expect(page).toHaveURL(serviceHome);
   await page.goBack();
   await expect(page.locator(".landing-page")).toBeVisible();
-  await page.getByRole("link", { name: /바로 참여를 신청해요/ }).click();
+  await page.getByRole("link", { name: "나에게 맞는 자리 찾기" }).click();
   await expect(page).toHaveURL(/\/land\/join$/);
   await expect(page.locator(".landing-page")).toBeVisible();
   await expect(page.locator(".app-shell")).toHaveCount(0);
   await page.goBack();
-  await page.getByRole("link", { name: /오늘 바로 모임을 열 수 있어요/ }).click();
+  await page.getByRole("link", { name: "새로운 자리 만들기" }).click();
   await expect(page).toHaveURL(/\/land\/create$/);
   await expect(page.getByRole("link", { name: "모임 만들기", exact: true }).first()).toHaveAttribute("href", "/groups/new");
 });
 
 test("the demo-day landing has compact branding and an invitation after the credits", async ({ page }) => {
-  const serviceHome = "https://jarihana.com/home";
   await installApiFixture(page, { auth: "anonymous" });
 
   await page.goto("/land", { waitUntil: "domcontentloaded" });
@@ -70,10 +83,9 @@ test("the demo-day landing has compact branding and an invitation after the cred
     header: Boolean(document.querySelector("header.landing-header")),
     footer: Boolean(document.querySelector("footer.landing-footer")),
     tech: Boolean(document.querySelector("#tech")),
-    team: Boolean(document.querySelector(".landing-demoday")),
-    heroActions: Boolean(document.querySelector(".landing-clubhouse__actions"))
+    team: Boolean(document.querySelector(".landing-demoday"))
   }));
-  expect(regularLanding).toEqual({ header: true, footer: true, tech: true, team: false, heroActions: true });
+  expect(regularLanding).toEqual({ header: true, footer: true, tech: true, team: false });
 
   await page.goto("/land/demoday", { waitUntil: "domcontentloaded" });
   await page.locator(".landing-demoday").waitFor();
@@ -86,7 +98,6 @@ test("the demo-day landing has compact branding and an invitation after the cred
       footer: Boolean(document.querySelector("footer.landing-footer")),
       compactFooter: Boolean(document.querySelector("main + footer.landing-demoday-footer")),
       tech: Boolean(document.querySelector("#tech")),
-      heroActions: Boolean(document.querySelector(".landing-clubhouse__actions")),
       inviteFollowsTeam: invite.previousElementSibling === team,
       inviteIsLast: invite === document.querySelector("main#main-content > :last-child"),
       inviteLink: invite.querySelector("a")?.getAttribute("href"),
@@ -99,7 +110,6 @@ test("the demo-day landing has compact branding and an invitation after the cred
     footer: false,
     compactFooter: true,
     tech: false,
-    heroActions: false,
     inviteFollowsTeam: true,
     inviteIsLast: true,
     inviteLink: serviceHome,
