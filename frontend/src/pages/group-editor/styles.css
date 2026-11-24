@@ -350,6 +350,10 @@
     margin: 0 0 var(--space-3);
 }
 
+.group-editor__visibility-warning {
+    color: var(--color-danger);
+}
+
 .group-editor__clubhouse .clubhouse-setup__cards {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
 }
