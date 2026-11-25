@@ -41,6 +41,11 @@ public class TestSupportConfig {
     }
 
     @Bean
+    public WebSocketTestDiagnostics webSocketTestDiagnostics() {
+        return new WebSocketTestDiagnostics();
+    }
+
+    @Bean
     public CrewRosterFixture crewRosterFixture(JdbcTemplate jdbcTemplate) {
         return new CrewRosterFixture(jdbcTemplate);
     }
