@@ -130,7 +130,7 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     }
 
     private void assertRejected(Member owner, String command, String destination) throws Exception {
-        try (var trace = diagnostics.start(); Socket socket = connect(owner, true, trace.id())) {
+        try (var trace = diagnostics.start(); Socket socket = connect(owner, true, trace)) {
             socket.awaitingRejection = true;
             String request = command + " " + destination;
             try {
@@ -150,6 +150,8 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
             } catch (ExecutionException failure) {
                 throw new AssertionError(
                         request + ": " + failure.getCause() + "; " + trace, failure.getCause());
+            } finally {
+                System.out.println("WS_TRACE " + request + " | " + trace);
             }
         }
     }
@@ -311,10 +313,11 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         return connect(owner, validCsrf, null);
     }
 
-    private Socket connect(Member owner, boolean validCsrf, String traceId) throws Exception {
+    private Socket connect(Member owner, boolean validCsrf, WebSocketTestDiagnostics.Trace trace)
+            throws Exception {
         String token = tokens.issue(owner.getId()).value();
         String csrf = csrf(token);
-        Socket socket = open(token, csrf, "http://localhost:5173", traceId);
+        Socket socket = open(token, csrf, "http://localhost:5173", trace);
         socket.send(
                 "CONNECT\naccept-version:1.2\nhost:localhost\nX-XSRF-TOKEN:"
                         + (validCsrf ? csrf : "invalid")
@@ -331,15 +334,17 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         return open(token, csrf, origin, null);
     }
 
-    private Socket open(String token, String csrf, String origin, String traceId) throws Exception {
-        Socket socket = new Socket();
+    private Socket open(
+            String token, String csrf, String origin, WebSocketTestDiagnostics.Trace trace)
+            throws Exception {
+        Socket socket = new Socket(trace);
         var builder =
                 HttpClient.newHttpClient()
                         .newWebSocketBuilder()
                         .header("Origin", origin)
                         .header("Cookie", "accessToken=" + token + "; XSRF-TOKEN=" + csrf)
                         .connectTimeout(Duration.ofSeconds(5));
-        if (traceId != null) builder.header(WebSocketTestDiagnostics.HEADER, traceId);
+        if (trace != null) builder.header(WebSocketTestDiagnostics.HEADER, trace.id());
         socket.connection =
                 builder.buildAsync(
                                 URI.create("ws://localhost:" + RestAssured.port + "/api/ws/chat"),
@@ -355,6 +360,11 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         private final CompletableFuture<String> rejection = new CompletableFuture<>();
         private volatile boolean awaitingRejection;
         private WebSocket connection;
+        private final WebSocketTestDiagnostics.Trace trace;
+
+        Socket(WebSocketTestDiagnostics.Trace trace) {
+            this.trace = trace;
+        }
 
         @Override
         public void onOpen(WebSocket webSocket) {
@@ -366,6 +376,10 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
             fragments.append(data);
             if (last) {
                 String frame = fragments.toString();
+                if (trace != null) {
+                    if (frame.startsWith("CONNECTED\n")) trace.record("client received CONNECTED");
+                    if (frame.startsWith("ERROR\n")) trace.record("client received ERROR");
+                }
                 if (awaitingRejection) rejection.complete(frame);
                 else frames.add(frame);
                 fragments.setLength(0);
@@ -376,6 +390,7 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
 
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int status, String reason) {
+            if (trace != null) trace.record("client close " + status);
             rejection.completeExceptionally(
                     new IOException("WebSocket closed (code=" + status + ", reason='" + reason + "')"));
             closed.complete(status);
@@ -384,6 +399,7 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
 
         @Override
         public void onError(WebSocket webSocket, Throwable failure) {
+            if (trace != null) trace.record("client error " + failure.getClass().getSimpleName());
             rejection.completeExceptionally(failure);
             closed.completeExceptionally(failure);
         }
