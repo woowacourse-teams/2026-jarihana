@@ -78,6 +78,12 @@ tasks.named('test') {
 	testLogging {
 		exceptionFormat = 'full'
 	}
+	onOutput { descriptor, event ->
+		if (descriptor.className == 'com.project.jarihana.chat.ChatWebSocketTest' && event.message.startsWith('WS_TRACE ')) {
+			logger.lifecycle(event.message.trim())
+		}
+	}
+
 	// 함께 보관하는 통합 테스트 컨텍스트와 커넥션 풀의 수를 제한한다.
 	systemProperty 'spring.test.context.cache.maxSize', '8'
 }
