@@ -46,6 +46,7 @@ ADR 0006과 0007에 이르기까지의 기록이다.
 | 0028 | [모임 채팅은 DB 순번과 개인 경로로 복구한다](0028-durable-group-chat-and-postgres-notify.md) | 채택, 로컬 구현 / 운영 적용 대기 | 2026-10-25 (보완 10-26) | `docs/chat-architecture-decisions` |
 | 0030 | [계정 활성 상태로 채팅 푸시를 보류하고 상태는 UNLOGGED로 저장한다](0030-account-activity-and-unlogged-chat-push.md) | 채택, V23 UNLOGGED 전환·로컬 검증 완료 / 운영 미적용 | 2026-11-06 | `feat/account-active-chat-push` |
 | 0031 | [Refresh Token을 갱신할 때마다 회전하고, 재사용되면 그 로그인을 폐기한다](0031-refresh-token-rotation-and-reuse-detection.md) | 제안, 구현 전 | 2026-11-03 | `docs/refresh-token-rotation-adr` |
+| 0033 | [소속 공개 모임은 확인된 소속으로 판정하고 요청 앞단의 인터셉터와 목록 SQL 조건으로 숨긴다](0033-affiliation-group-visibility.md) | 제안, 구현과 통합 테스트 완료 / PR 검토 대기 | 2026-11-24 (보완 11-26) | `feat/crew-only-group` |
 
 ## 오목 실시간 통신
 

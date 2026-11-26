@@ -17,7 +17,8 @@ public record GroupDetailResult(
         int approvedCount,
         GroupMemberRole currentMemberRole,
         Long currentMemberRegistrationId,
-        RegistrationStatus currentMemberRegistrationStatus
+        RegistrationStatus currentMemberRegistrationStatus,
+        String visibleAffiliationName
 ) {
 
     public GroupDetailResult {

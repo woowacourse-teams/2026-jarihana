@@ -24,7 +24,7 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = :viewerId),
                 exists (select gm.id from GroupMember gm where gm.group.id = g.id and gm.member.id = :viewerId
                     and gm.role = com.project.jarihana.groupmember.domain.GroupMemberRole.LEADER),
-                i.tokenHash, i.encryptedToken, i.state)
+                i.tokenHash, i.encryptedToken, i.state, g.visibility)
             from Invitation i join i.group g join i.inviterMember inviter left join i.targetMember target
             where i.id = :id
             """)
@@ -57,6 +57,12 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = :memberId), i.state)
             from Invitation i join i.group g join i.inviterMember inviter
             where i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT and i.targetMember.id = :memberId
+              and (g.visibility <> com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                or exists (select viewerAffiliation.id from MemberAffiliation viewerAffiliation
+                    where viewerAffiliation.member.id = :memberId
+                      and viewerAffiliation.affiliation.id = g.visibleAffiliationId)
+                or exists (select viewerMembership.id from GroupMember viewerMembership
+                    where viewerMembership.group.id = g.id and viewerMembership.member.id = :memberId))
               and (i.createdAt, i.id) < (:createdAt, :id)
             order by i.createdAt desc, i.id desc
             """)

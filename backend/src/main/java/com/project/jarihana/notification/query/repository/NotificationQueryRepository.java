@@ -28,6 +28,25 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
                    com.project.jarihana.notification.domain.NotificationEventType.GROUP_ANNOUNCEMENT_CREATED)
               and (:includeChat = true or notification.eventType <>
                    com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED)
+              and not exists (
+                  select hiddenGroup.id from Group hiddenGroup
+                  where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
+                    and not exists (
+                        select viewerMembership.id from GroupMember viewerMembership
+                        where viewerMembership.group.id = hiddenGroup.id
+                          and viewerMembership.member.id = notification.member.id
+                    )
+              )
             """)
     Optional<NotificationProjection> findActiveByIdAndMemberId(
             @Param("id") long id, @Param("memberId") long memberId,
@@ -43,6 +62,25 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.deletedAt is null
               and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED
               and (notification.createdAt, notification.id) < (:cursorCreatedAt, :cursorId)
+              and not exists (
+                  select hiddenGroup.id from Group hiddenGroup
+                  where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
+                    and not exists (
+                        select viewerMembership.id from GroupMember viewerMembership
+                        where viewerMembership.group.id = hiddenGroup.id
+                          and viewerMembership.member.id = notification.member.id
+                    )
+              )
             order by notification.createdAt desc, notification.id desc
             """)
     Slice<NotificationProjection> findPage(
@@ -84,6 +122,25 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
               and notification.deletedAt is null
               and notification.readAt is null
               and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.CHAT_MESSAGE_RECEIVED
+              and not exists (
+                  select hiddenGroup.id from Group hiddenGroup
+                  where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
+                    and (
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
+                        or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
+                            and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
+                    )
+                    and not exists (
+                        select viewerMembership.id from GroupMember viewerMembership
+                        where viewerMembership.group.id = hiddenGroup.id
+                          and viewerMembership.member.id = notification.member.id
+                    )
+              )
             """)
     long countUnread(@Param("memberId") long memberId);
 }

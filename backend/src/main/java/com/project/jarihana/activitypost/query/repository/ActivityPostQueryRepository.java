@@ -56,6 +56,19 @@ public interface ActivityPostQueryRepository extends JpaRepository<ActivityPost,
             where post.deletedAt is null
               and (:groupId is null or activityGroup.id = :groupId)
               and (:onlyMine = false or author.id = :memberId)
+              and (
+                  activityGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PUBLIC
+                  or (activityGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY and exists (
+                      select viewerAffiliation.id from MemberAffiliation viewerAffiliation
+                      where viewerAffiliation.member.id = :memberId
+                        and viewerAffiliation.affiliation.id = activityGroup.visibleAffiliationId
+                  ))
+                  or exists (
+                      select viewerMembership.id from GroupMember viewerMembership
+                      where viewerMembership.group.id = activityGroup.id
+                        and viewerMembership.member.id = :memberId
+                  )
+              )
               and (post.activityDate, post.id) < (:cursorDate, :cursorId)
             order by post.activityDate desc, post.id desc
             """)

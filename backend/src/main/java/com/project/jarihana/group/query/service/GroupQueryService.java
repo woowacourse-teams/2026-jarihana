@@ -107,7 +107,8 @@ public class GroupQueryService {
                 currentMemberId,
                 now,
                 cursor == null ? null : cursor.createdAt(),
-                cursor == null ? null : cursor.id()
+                cursor == null ? null : cursor.id(),
+                loginMemberReader.currentMemberId().orElse(null)
         );
 
         GroupListPage page = groupListRepository.findPage(
@@ -118,7 +119,11 @@ public class GroupQueryService {
     }
 
     public HomeResult findHome(HomeQuery query) {
-        HomeGroupPages pages = groupListRepository.findHomePages(query.sessionDate(), LocalDateTime.now(clock));
+        HomeGroupPages pages = groupListRepository.findHomePages(
+                query.sessionDate(),
+                LocalDateTime.now(clock),
+                loginMemberReader.currentMemberId().orElse(null)
+        );
         return new HomeResult(toListResult(pages.today()), toListResult(pages.recruiting()), toListResult(pages.ended()));
     }
 
@@ -178,7 +183,8 @@ public class GroupQueryService {
                         projection.approvedCount(),
                         projection.activeRecruitment().getStartsAt(),
                         projection.activeRecruitment().getEndsAt()
-                )
+                ),
+                projection.group().getVisibility().name()
         );
     }
 
@@ -242,7 +248,8 @@ public class GroupQueryService {
                 projection.approvedCount(),
                 projection.roleOf(currentMemberId),
                 projection.currentMemberRegistrationId(),
-                projection.currentMemberRegistrationStatus()
+                projection.currentMemberRegistrationStatus(),
+                projection.visibleAffiliationName()
         );
     }
 

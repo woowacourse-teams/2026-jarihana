@@ -6,6 +6,9 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.project.jarihana.member.domain.Affiliation;
+import com.project.jarihana.member.domain.VerifiedAffiliations;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.token.AccessTokenProvider;
 import com.project.jarihana.group.domain.Group;
@@ -14,6 +17,7 @@ import com.project.jarihana.group.domain.SessionGroupSchedule;
 import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
@@ -39,6 +43,7 @@ class RealtimeJoinTokenAcceptanceTest extends IntegrationTestSupport {
     private static final long NOW = FIXED_NOW.atZone(ZONE).toInstant().toEpochMilli();
 
     @Autowired MemberRepository members;
+    @Autowired MemberAffiliationRepository memberAffiliations;
     @Autowired GroupJpaRepository groups;
     @Autowired GroupMemberJpaRepository memberships;
     @Autowired AccessTokenProvider tokens;
@@ -124,6 +129,23 @@ class RealtimeJoinTokenAcceptanceTest extends IntegrationTestSupport {
         // When / Then
         memberRequest(visitor).post("/groups/" + session.getId() + "/space/join-token")
                 .then().statusCode(404).body("error.code", equalTo("GROUP_SPACE_NOT_AVAILABLE"));
+    }
+
+    @Test
+    @DisplayName("소속 공개 모임의 아지트 입장 토큰은 소속 밖 외부인에게 없는 모임처럼 404로 응답한다")
+    void rejectsOutsideVisitorOfAffiliationGroup() {
+        // Given
+        memberAffiliations.insertIfAbsent(visitor.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        long wooteco = memberAffiliations.findAffiliationIdsByMemberId(visitor.getId()).getFirst();
+        group = groups.save(group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, wooteco, VerifiedAffiliations.of(wooteco)));
+        Member basic = members.save(Member.createBasic("외부", "realtime-basic"));
+
+        // When / Then
+        memberRequest(basic).post(tokenPath())
+                .then().statusCode(404).body("error.code", equalTo("GROUP_NOT_FOUND"));
+        memberRequest(visitor).post(tokenPath()).then().statusCode(200);
+        memberships.save(GroupMember.createMember(group, basic, FIXED_NOW));
+        memberRequest(basic).post(tokenPath()).then().statusCode(200);
     }
 
     private RequestSpecification memberRequest(Member member) {

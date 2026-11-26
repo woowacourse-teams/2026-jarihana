@@ -19,6 +19,7 @@ public record GroupListSearchCriteria(
         Long currentMemberId,
         LocalDateTime now,
         LocalDateTime cursorCreatedAt,
-        Long cursorId
+        Long cursorId,
+        Long viewerId
 ) {
 }

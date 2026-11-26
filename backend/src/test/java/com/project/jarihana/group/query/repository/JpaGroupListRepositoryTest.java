@@ -183,7 +183,7 @@ class JpaGroupListRepositoryTest {
     }
 
     private GroupListSearchCriteria criteria(LocalDateTime cursorTime, Long cursorId) {
-        return new GroupListSearchCriteria(GroupStatus.ACTIVE, null, null, null, null, false, null, null, null, NOW, cursorTime, cursorId);
+        return new GroupListSearchCriteria(GroupStatus.ACTIVE, null, null, null, null, false, null, null, null, NOW, cursorTime, cursorId, null);
     }
 
     private Member saveMember(String name, String githubId) {

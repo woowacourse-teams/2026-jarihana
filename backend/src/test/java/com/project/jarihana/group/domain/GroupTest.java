@@ -1,5 +1,6 @@
 package com.project.jarihana.group.domain;
 
+import com.project.jarihana.member.domain.VerifiedAffiliations;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GroupTest {
 
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 8, 18, 10, 0);
+    private static final long WOOTECO = 1L;
+    private static final long OTHER = 2L;
 
     @DisplayName("동아리와 스터디는 반복 일정 없이 유동 일정으로 생성할 수 있다.")
     @Test
@@ -250,5 +253,108 @@ class GroupTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("새 모임은 전체 공개이고, 모임장이 확인된 소속으로만 소속 공개를 켤 수 있다.")
+    @Test
+    void leaderTurnsOnAffiliationOnlyWithOwnAffiliation() {
+        // Given
+        Group group = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
+
+        // When
+        Group affiliationOnly = group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // Then
+        assertThat(group.getVisibility()).isEqualTo(GroupVisibility.PUBLIC);
+        assertThat(group.getVisibleAffiliationId()).isNull();
+        assertThat(affiliationOnly.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(affiliationOnly.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.none()))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(OTHER)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("소속 공개에는 공개할 소속이 필요하고, 다른 공개 범위에서는 소속을 비운다.")
+    @Test
+    void affiliationIsRequiredOnlyForAffiliationOnly() {
+        // Given
+        Group group = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
+
+        // When
+        Group privateGroup = group.changeVisibility(GroupVisibility.PRIVATE, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // Then
+        assertThat(privateGroup.getVisibility()).isEqualTo(GroupVisibility.PRIVATE);
+        assertThat(privateGroup.getVisibleAffiliationId()).isNull();
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, null, VerifiedAffiliations.of(WOOTECO)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("위임으로 모임장이 된 소속 밖 회원은 소속 공개를 끄거나 유지할 수만 있다.")
+    @Test
+    void outsideLeaderOnlyTurnsOffAffiliationOnly() {
+        // Given
+        Group affiliationOnly = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // When
+        Group kept = affiliationOnly.modify("새 이름", "새 소개", null, null, null, null)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(OTHER));
+        Group opened = affiliationOnly.changeVisibility(GroupVisibility.PUBLIC, null, VerifiedAffiliations.none());
+
+        // Then
+        assertThat(kept.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(kept.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+        assertThat(kept.getName()).isEqualTo("새 이름");
+        assertThat(opened.getVisibility()).isEqualTo(GroupVisibility.PUBLIC);
+        assertThat(opened.getVisibleAffiliationId()).isNull();
+        assertThatThrownBy(() -> affiliationOnly.changeVisibility(GroupVisibility.AFFILIATION_ONLY, OTHER, VerifiedAffiliations.of(WOOTECO)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+    }
+
+    @DisplayName("상태 전이는 공개 범위와 공개할 소속을 유지한다.")
+    @Test
+    void transitionsKeepVisibility() {
+        // Given
+        Group affiliationOnly = Group.createClub("러닝크루", "함께 달려요", null, null, null, CREATED_AT)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // When
+        Group scheduled = affiliationOnly.replaceRecurringSchedule(recurringSchedule())
+                .withBaseScheduleVisibility(false);
+        Group ended = scheduled.endAt(CREATED_AT.plusHours(25));
+
+        // Then
+        assertThat(scheduled.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(scheduled.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+        assertThat(ended.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(ended.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+    }
+
+    @DisplayName("소속 공개 모임은 그 소속의 회원과 현재 구성원에게만 보이고 그 소속만 초대로 받는다.")
+    @Test
+    void affiliationOnlyGroupIsVisibleToSameAffiliationAndCurrentMembers() {
+        // Given
+        Group open = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
+        Group affiliationOnly = open.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // When & Then
+        assertThat(open.isVisibleTo(VerifiedAffiliations.none(), false)).isTrue();
+        assertThat(open.allowsInvitationTo(VerifiedAffiliations.none())).isTrue();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.none(), false)).isFalse();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.of(OTHER), false)).isFalse();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.none(), true)).isTrue();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.of(OTHER, WOOTECO), false)).isTrue();
+        assertThat(affiliationOnly.allowsInvitationTo(VerifiedAffiliations.of(OTHER))).isFalse();
+        assertThat(affiliationOnly.allowsInvitationTo(VerifiedAffiliations.of(WOOTECO))).isTrue();
     }
 }

@@ -27,6 +27,7 @@ import com.project.jarihana.invitation.domain.InvitationStatus;
 import com.project.jarihana.invitation.domain.InvitationType;
 import com.project.jarihana.invitation.domain.InvitationState;
 import com.project.jarihana.invitation.domain.event.InvitationIssuedEvent;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class InvitationCommandService {
     private final InvitationCommandRepository invitations;
     private final InvitationAcceptanceCommandRepository acceptances;
     private final MemberRepository members;
+    private final MemberAffiliationRepository memberAffiliations;
     private final GroupCommandRepository groups;
     private final GroupMemberCommandRepository groupMembers;
     private final InvitationTokenCodec tokens;
@@ -80,6 +82,11 @@ public class InvitationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증 정보가 필요합니다."));
         long groupId = invitations.findGroupIdById(invitationId).orElseThrow(InvitationCommandService::notFound);
         Group group = groups.findWithOptimisticLockById(groupId).orElseThrow(InvitationCommandService::notFound);
+        // 앞단 인터셉터가 이미 막지만, 소속 공개 전환과 동시에 온 수락은 낙관적 잠금 안에서 다시 판정한다.
+        var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
+        if (existing.isEmpty() && !group.allowsInvitationTo(memberAffiliations.getVerifiedAffiliations(memberId))) {
+            throw notFound();
+        }
         Invitation invitation = invitations.findDirectWithOptimisticLockById(invitationId).orElseGet(() ->
                 invitations.findWithOptimisticLockById(invitationId).orElseThrow(InvitationCommandService::notFound));
         if (invitation.getType() == InvitationType.DIRECT) {
@@ -95,7 +102,6 @@ public class InvitationCommandService {
         if (invitation.getState() == InvitationState.REJECTED) {
             throw new BusinessException(ErrorCode.INVITATION_REJECTED, "거절한 초대장입니다.");
         }
-        var existing = groupMembers.findByGroupIdAndMemberId(groupId, memberId);
         if (existing.isPresent()) {
             var membership = existing.orElseThrow();
             return new AcceptInvitationResult(false, invitationId, groupId, membership.getId(), membership.getJoinedAt());
@@ -213,6 +219,9 @@ public class InvitationCommandService {
             Member target = members.findById(command.targetMemberId()).filter(member -> member.getWithdrawnAt() == null)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PARAMETER, "가입 완료한 초대 대상을 지정해야 합니다."));
             if (inviter.equals(target)) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "자신을 초대할 수 없습니다.");
+            if (!group.allowsInvitationTo(memberAffiliations.getVerifiedAffiliations(target.getId()))) {
+                throw new BusinessException(ErrorCode.INVALID_PARAMETER, "소속 공개 모임에는 같은 소속의 회원만 초대할 수 있습니다.");
+            }
             if (groupMembers.findByGroupIdAndMemberId(groupId, target.getId()).isPresent()) {
                 throw new BusinessException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS, "이미 모임에 참여 중인 회원입니다.");
             }

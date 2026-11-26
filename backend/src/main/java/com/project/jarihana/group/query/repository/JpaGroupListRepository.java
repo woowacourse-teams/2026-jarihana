@@ -50,16 +50,16 @@ public class JpaGroupListRepository implements GroupListRepository {
     }
 
     @Override
-    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now) {
+    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now, Long viewerId) {
         Slice<Group> today = findGroups(new GroupListSearchCriteria(
                 GroupStatus.ACTIVE, GroupType.SESSION, null, sessionDate, null, false,
-                null, null, null, now, null, null), 100);
+                null, null, null, now, null, null, viewerId), 100);
         Slice<Group> recruiting = findGroups(new GroupListSearchCriteria(
                 GroupStatus.ACTIVE, null, null, null, null, false,
-                true, null, null, now, null, null), 4);
+                true, null, null, now, null, null, viewerId), 4);
         Slice<Group> ended = findGroups(new GroupListSearchCriteria(
                 GroupStatus.ENDED, null, null, null, null, false,
-                null, null, null, now, null, null), 4);
+                null, null, null, now, null, null, viewerId), 4);
         List<GroupListPage> pages = hydratePages(List.of(today, recruiting, ended), now);
         return new HomeGroupPages(pages.get(0), pages.get(1), pages.get(2));
     }
@@ -79,6 +79,7 @@ public class JpaGroupListRepository implements GroupListRepository {
                 criteria.currentMemberId(),
                 criteria.recruiting(),
                 criteria.now(),
+                criteria.viewerId(),
                 pageable
         );
     }

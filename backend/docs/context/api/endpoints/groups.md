@@ -17,6 +17,18 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 `recruiting=true`는 기간상 열린 공고의 모집으로 가입한 인원이 정원보다 적은 그룹을,
 `recruiting=false`는 그런 공고가 없는 그룹을 조회한다.
 
+### 공개 범위
+
+- `PUBLIC` (공개): 누구나 모임을 볼 수 있다. 기존 모임과 공개 범위를 생략한 생성 요청의 기본값이다.
+- `PRIVATE` (비공개): 소속에 관계없이 현재 구성원만 모임을 볼 수 있다. 새 모임원은 지정 초대나 유효한 공유 초대 링크로 합류한다.
+- `AFFILIATION_ONLY` (소속 공개): 모임이 정한 소속(`visibleAffiliation`)의 회원과 현재 구성원만 모임을 볼 수 있다. 새 신청과 초대 수락은 그 소속 회원에게 허용한다.
+
+소속은 서비스가 확인한 회원에게만 붙는다. 지금은 크루 명단으로 확인하는 우아한테크코스 하나이며, 명단에 있는 `CREW`가 이 소속을 얻는다.
+가입 때 직접 입력한 부트캠프나 회사 정보는 소속으로 보지 않는다.
+
+모임이 보이지 않으면 목록과 검색, 홈에 나타나지 않으며 상세와 하위 API는 404를 반환한다.
+비공개 전환 전의 대기 신청은 남겨 두되 비공개인 동안에는 승인할 수 없다. 소속 공개 전환 전의 대기 신청은 모임장이 승인 또는 미승인할 수 있다.
+
 ### `GET /api/home`
 
 - 설명: 홈 초기 화면의 오늘 세션, 모집 중 모임, 종료 모임을 한 응답으로 조회
@@ -116,7 +128,8 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
         "approvedCount": 5,
         "startsAt": "2026-08-13T00:00:00",
         "endsAt": "2026-08-31T23:59:59"
-      }
+      },
+      "visibility": "PUBLIC"
     }],
     "nextCursor": null,
     "hasNext": false
@@ -300,11 +313,15 @@ Request Body는 없다.
     "currentMemberRegistrationId": null,
     "currentMemberRegistrationStatus": null,
     "createdAt": "2026-08-13T10:00:00",
-    "clubhouseSetupEnabled": false
+    "clubhouseSetupEnabled": false,
+    "visibility": "PUBLIC",
+    "visibleAffiliation": null
   },
   "error": null
 }
 ```
+
+`visibleAffiliation`은 소속 공개 모임이 정한 소속(`{"id": 1, "name": "우아한테크코스"}`)이고, 다른 공개 범위에서는 `null`이다.
 
 유동적 CLUB·STUDY는 두 일정이 모두 `null`이다. SESSION은 `sessionSchedule`만 반환한다. ENDED 그룹도 직접 조회할 수 있다.
 인증된 요청이면 `currentMemberRole`에 현재 사용자의 승인된 그룹 역할(`LEADER` 또는 `MEMBER`)을 반환하고, `currentMemberRegistrationId`와 `currentMemberRegistrationStatus`에 현재 모집 공고에 대한 본인 신청 식별자와 상태(`PENDING`, `APPROVED`, `REJECTED`)를 반환한다. 비로그인 사용자나 해당 신청이 없는 사용자는 각 값을 `null`로 반환한다.
@@ -313,7 +330,7 @@ Request Body는 없다.
 
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
-| 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
+| 그룹 없음 또는 조회자에게 보이지 않는 모임 | `GROUP_NOT_FOUND` | 404 |
 
 ### `PATCH /api/groups/{groupId}`
 

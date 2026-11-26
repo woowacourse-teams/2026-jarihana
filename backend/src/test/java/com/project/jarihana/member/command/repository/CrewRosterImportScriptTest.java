@@ -13,6 +13,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -126,9 +127,10 @@ class CrewRosterImportScriptTest {
                 select count(*) from member
                 where bootcamp_name is not null or field is not null or career is not null or company_name is not null
                 """, Integer.class)).isZero();
+        assertThat(wootecoMemberGithubIds()).containsExactly("1001", "1002", "1003");
     }
 
-    @DisplayName("이미 크루나 코치인 회원은 명단과 달라도 바꾸지 않는다.")
+    @DisplayName("이미 크루나 코치인 회원은 명단과 달라도 바꾸지 않고, 소속은 명단에 있는 크루만 얻는다.")
     @Test
     void importKeepsExistingCrewAndCoach() throws Exception {
         // Given
@@ -140,6 +142,10 @@ class CrewRosterImportScriptTest {
                 insert into member (crew_name, github_id, member_type, created_at, updated_at)
                 values ('코치', '1002', 'COACH', localtimestamp, localtimestamp)
                 """);
+        jdbc.update("""
+                insert into member (crew_name, generation, github_id, member_type, course, created_at, updated_at)
+                values ('나래', 4, '9998', 'CREW', 'BACKEND', localtimestamp, localtimestamp)
+                """);
         var before = jdbc.queryForList("select * from member order by id");
 
         // When
@@ -148,6 +154,18 @@ class CrewRosterImportScriptTest {
         // Then
         assertThat(result.getExitCode()).as(result.getStderr()).isZero();
         assertThat(jdbc.queryForList("select * from member order by id")).isEqualTo(before);
+        assertThat(wootecoMemberGithubIds()).containsExactly("1001");
+    }
+
+    private List<String> wootecoMemberGithubIds() {
+        return jdbc.queryForList("""
+                select member.github_id
+                from member_affiliation membership
+                         join affiliation on affiliation.id = membership.affiliation_id
+                         join member on member.id = membership.member_id
+                where affiliation.code = 'WOOTECO'
+                order by member.github_id
+                """, String.class);
     }
 
     @DisplayName("같은 기수에 같은 닉네임의 크루가 있으면 그 회원은 크루로 바꾸지 않고 나머지는 계속 적재한다.")

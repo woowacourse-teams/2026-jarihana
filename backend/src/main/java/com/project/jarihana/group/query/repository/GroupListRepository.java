@@ -11,5 +11,5 @@ public interface GroupListRepository {
 
     GroupListPage findPage(GroupListSearchCriteria criteria, int size);
 
-    HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now);
+    HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now, Long viewerId);
 }

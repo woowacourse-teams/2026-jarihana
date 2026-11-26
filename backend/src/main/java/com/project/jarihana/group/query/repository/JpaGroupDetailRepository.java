@@ -18,17 +18,20 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
     private final GroupMemberJpaRepository groupMemberRepository;
     private final GroupRecruitmentJpaRepository recruitmentRepository;
     private final RegistrationJpaRepository registrationRepository;
+    private final GroupVisibilityRepository visibilityRepository;
 
     public JpaGroupDetailRepository(
             GroupJpaRepository groupRepository,
             GroupMemberJpaRepository groupMemberRepository,
             GroupRecruitmentJpaRepository recruitmentRepository,
-            RegistrationJpaRepository registrationRepository
+            RegistrationJpaRepository registrationRepository,
+            GroupVisibilityRepository visibilityRepository
     ) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.recruitmentRepository = recruitmentRepository;
         this.registrationRepository = registrationRepository;
+        this.visibilityRepository = visibilityRepository;
     }
 
     @Override
@@ -56,7 +59,15 @@ public class JpaGroupDetailRepository implements GroupDetailRepository {
                 approvedCount,
                 currentMemberRegistration.map(RegistrationJpaRepository.CurrentMemberRegistration::getId).orElse(null),
                 currentMemberRegistration.map(RegistrationJpaRepository.CurrentMemberRegistration::getStatus).orElse(null)
-        ));
+        ).withVisibleAffiliationName(findVisibleAffiliationName(group.get())));
+    }
+
+    private String findVisibleAffiliationName(Group group) {
+        Long affiliationId = group.getVisibleAffiliationId();
+        if (affiliationId == null) {
+            return null;
+        }
+        return visibilityRepository.findAffiliationNameById(affiliationId).orElse(null);
     }
 
     private Optional<RegistrationJpaRepository.CurrentMemberRegistration> findCurrentMemberRegistration(

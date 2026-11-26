@@ -34,7 +34,9 @@ public record GroupDetailResponse(
         Long currentMemberRegistrationId,
         RegistrationStatus currentMemberRegistrationStatus,
         LocalDateTime createdAt,
-        boolean clubhouseSetupEnabled
+        boolean clubhouseSetupEnabled,
+        String visibility,
+        VisibleAffiliation visibleAffiliation
 ) {
 
     public static GroupDetailResponse from(GroupDetailResult result) {
@@ -58,7 +60,9 @@ public record GroupDetailResponse(
                 result.currentMemberRegistrationId(),
                 result.currentMemberRegistrationStatus(),
                 group.getCreatedAt(),
-                group.isClubhouseSetupEnabled()
+                group.isClubhouseSetupEnabled(),
+                group.getVisibility().name(),
+                VisibleAffiliation.of(group.getVisibleAffiliationId(), result.visibleAffiliationName())
         );
     }
 
@@ -141,6 +145,19 @@ public record GroupDetailResponse(
                     recruitment.getStartsAt(),
                     recruitment.getEndsAt()
             );
+        }
+    }
+
+    /**
+     * 소속 공개 모임이 정한 소속. 다른 공개 범위에서는 {@code null}이다.
+     */
+    public record VisibleAffiliation(long id, String name) {
+
+        private static VisibleAffiliation of(Long id, String name) {
+            if (id == null) {
+                return null;
+            }
+            return new VisibleAffiliation(id, name);
         }
     }
 }

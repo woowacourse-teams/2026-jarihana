@@ -234,7 +234,7 @@ class CursorBoundaryRegressionTest {
                 (Group last) -> groupJpaRepository.findPage(GroupStatus.ACTIVE, null, null, null, null,
                         last == null ? CursorBounds.LATEST_TIME : last.getCreatedAt(),
                         last == null ? CursorBounds.LAST_ID : last.getId(),
-                        false, null, null, null, NOW, PAGE).getContent(),
+                        false, null, null, null, NOW, null, PAGE).getContent(),
                 Group::getId);
 
         // Then

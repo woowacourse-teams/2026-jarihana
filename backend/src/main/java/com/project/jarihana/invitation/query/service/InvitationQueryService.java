@@ -1,11 +1,14 @@
 package com.project.jarihana.invitation.query.service;
 
+import com.project.jarihana.common.auth.LoginMemberReader;
+import com.project.jarihana.group.query.repository.GroupVisibilityRepository;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import com.project.jarihana.common.github.GithubAvatarUrl;
 import com.project.jarihana.common.pagination.CursorBounds;
 import com.project.jarihana.group.command.repository.GroupCommandRepository;
 import com.project.jarihana.group.domain.Group;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
 import com.project.jarihana.invitation.command.service.InvitationTokenCodec;
@@ -41,6 +44,8 @@ public class InvitationQueryService {
     private final GroupMemberCommandRepository groupMembers;
     private final Clock clock;
     private final InvitationTokenCodec tokens;
+    private final GroupVisibilityRepository groupVisibility;
+    private final LoginMemberReader loginMemberReader;
 
     public IssuedInvitationResult findIssued(long memberId, long groupId, IssuedInvitationQuery query) {
         requireMember(memberId);
@@ -91,8 +96,15 @@ public class InvitationQueryService {
 
     public InvitationDetailResult previewLink(String token) {
         long id = invitations.findLinkIdByTokenHash(tokens.hash(token)).orElseThrow(InvitationQueryService::notFound);
-        InvitationDetailProjection item = invitations.findDetail(id, 0).orElseThrow(InvitationQueryService::notFound);
+        Long viewerId = loginMemberReader.currentMemberId().orElse(null);
+        InvitationDetailProjection item = invitations.findDetail(id, viewerId == null ? 0 : viewerId)
+                .orElseThrow(InvitationQueryService::notFound);
         InvitationStatus status = status(item);
+        if (item.visibility() == GroupVisibility.PRIVATE) {
+            if (!item.viewerPresent() && status != InvitationStatus.VALID) throw notFound();
+        } else if (!groupVisibility.existsVisibleById(item.groupId(), viewerId)) {
+            throw notFound();
+        }
         return detail(item, status, status == InvitationStatus.VALID, false, null);
     }
 
@@ -103,7 +115,9 @@ public class InvitationQueryService {
 
     private InvitationDetailResult detail(InvitationDetailProjection item, InvitationStatus status,
             boolean canAccept, boolean canRevoke, String path) {
-        return new InvitationDetailResult(item.id(), item.type(), item.groupId(), item.groupName(), item.groupIntroduction(),
+        String introduction = item.visibility() == GroupVisibility.PRIVATE && !item.viewerPresent()
+                ? "" : item.groupIntroduction();
+        return new InvitationDetailResult(item.id(), item.type(), item.groupId(), item.groupName(), introduction,
                 item.inviterId(), item.inviterCrewName(), item.createdAt(), item.expiresAt(),
                 status, canAccept, canRevoke, path);
     }

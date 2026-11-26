@@ -18,6 +18,12 @@ public interface InvitationCandidateRepository extends Repository<Member, Long> 
             from Member m
             where m.withdrawnAt is null and m.id <> :memberId and (:keyword = '' or locate(:keyword, m.crewName) > 0)
               and not exists (select gm.id from GroupMember gm where gm.group.id = :groupId and gm.member.id = m.id)
+              and exists (
+                  select g.id from Group g where g.id = :groupId
+                    and (g.visibility <> com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                      or exists (select candidateAffiliation.id from MemberAffiliation candidateAffiliation
+                          where candidateAffiliation.member = m
+                            and candidateAffiliation.affiliation.id = g.visibleAffiliationId)))
               and (m.createdAt, m.id) < (:createdAt, :id)
             order by m.createdAt desc, m.id desc
             """)

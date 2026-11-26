@@ -19,14 +19,14 @@ public class InMemoryGroupListRepository implements GroupListRepository {
     private final List<GroupListProjection> groups = new CopyOnWriteArrayList<>();
 
     @Override
-    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now) {
+    public HomeGroupPages findHomePages(LocalDate sessionDate, LocalDateTime now, Long viewerId) {
         return new HomeGroupPages(
                 findPage(new GroupListSearchCriteria(GroupStatus.ACTIVE, GroupType.SESSION, null, sessionDate,
-                        null, false, null, null, null, now, null, null), 100),
+                        null, false, null, null, null, now, null, null, viewerId), 100),
                 findPage(new GroupListSearchCriteria(GroupStatus.ACTIVE, null, null, null,
-                        null, false, true, null, null, now, null, null), 4),
+                        null, false, true, null, null, now, null, null, viewerId), 4),
                 findPage(new GroupListSearchCriteria(GroupStatus.ENDED, null, null, null,
-                        null, false, null, null, null, now, null, null), 4));
+                        null, false, null, null, null, now, null, null, viewerId), 4));
     }
 
     @Override

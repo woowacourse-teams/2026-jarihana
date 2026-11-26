@@ -26,25 +26,28 @@ public class MemberCommandService {
     private final AccessTokenProvider accessTokenProvider;
     private final RefreshTokenIssuer refreshTokenIssuer;
     private final PointRewardService pointRewards;
+    private final CrewVerificationService crewVerificationService;
 
     public MemberCommandService(
             MemberRepository memberRepository,
             CrewRosterRepository crewRosterRepository,
             AccessTokenProvider accessTokenProvider,
             RefreshTokenIssuer refreshTokenIssuer,
-            PointRewardService pointRewards
+            PointRewardService pointRewards,
+            CrewVerificationService crewVerificationService
     ) {
         this.memberRepository = memberRepository;
         this.crewRosterRepository = crewRosterRepository;
         this.accessTokenProvider = accessTokenProvider;
         this.refreshTokenIssuer = refreshTokenIssuer;
         this.pointRewards = pointRewards;
+        this.crewVerificationService = crewVerificationService;
     }
 
     /**
      * 가입 세션의 githubId로 회원을 만들고 이후 API에서 쓸 토큰을 발급한다.
      *
-     * <p>회원 저장, 가입 보상 예약과 Refresh Token 발급을 하나의 트랜잭션으로 묶는다.
+     * <p>회원 저장, 크루의 우아한테크코스 소속, 가입 보상 예약과 Refresh Token 발급을 하나의 트랜잭션으로 묶는다.
      */
     @Transactional
     public MemberSignupResult signup(MemberSignupCommand command) {
@@ -54,6 +57,9 @@ public class MemberCommandService {
         validateCrewNameAvailable(member);
 
         member = memberRepository.save(member);
+        if (member.getMemberType() == MemberType.CREW) {
+            crewVerificationService.grantCrewAffiliation(member);
+        }
         pointRewards.memberSignedUp(member.getId());
         return new MemberSignupResult(
                 member.getId(),

@@ -34,7 +34,8 @@ public record GroupListResponse(List<GroupItem> items, String nextCursor, boolea
             SessionScheduleResponse sessionSchedule,
             GroupLeader leader,
             int memberCount,
-            GroupActiveRecruitment activeRecruitment
+            GroupActiveRecruitment activeRecruitment,
+            String visibility
     ) {
 
         private static GroupItem from(Item item) {
@@ -52,7 +53,8 @@ public record GroupListResponse(List<GroupItem> items, String nextCursor, boolea
                     item.memberCount(),
                     item.activeRecruitment() == null
                             ? null
-                            : GroupActiveRecruitment.from(item.activeRecruitment())
+                            : GroupActiveRecruitment.from(item.activeRecruitment()),
+                    item.visibility()
             );
         }
     }

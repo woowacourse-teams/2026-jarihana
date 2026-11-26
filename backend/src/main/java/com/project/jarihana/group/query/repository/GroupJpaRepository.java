@@ -28,6 +28,9 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
                   or lower(g.introduction) like lower(concat('%', cast(:keyword as String), '%'))
               )
               and (g.createdAt, g.id) < (:cursorCreatedAt, :cursorId)
+              and not (
+            """ + GroupVisibilityRepository.HIDDEN_FROM_VIEWER + """
+              )
               and (
                   :joinedOnly = false
                   or exists (
@@ -93,6 +96,7 @@ public interface GroupJpaRepository extends JpaRepository<Group, Long> {
             @Param("currentMemberId") Long currentMemberId,
             @Param("recruiting") Boolean recruiting,
             @Param("now") LocalDateTime now,
+            @Param("viewerId") Long viewerId,
             Pageable pageable
     );
 }

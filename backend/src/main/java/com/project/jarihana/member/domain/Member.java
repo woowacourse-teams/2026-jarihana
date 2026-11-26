@@ -75,7 +75,7 @@ public class Member extends BaseEntity {
             String githubId,
             MemberType memberType,
             Course course,
-            Affiliation affiliation,
+            SelfReportedAffiliation affiliation,
             LocalDateTime withdrawnAt
     ) {
         this.id = id;
@@ -181,11 +181,11 @@ public class Member extends BaseEntity {
             MemberType memberType,
             Course course
     ) {
-        return new Member(null, crewName, generation, githubId, memberType, course, Affiliation.NONE, null);
+        return new Member(null, crewName, generation, githubId, memberType, course, SelfReportedAffiliation.NONE, null);
     }
 
     public static Member createBootcamp(String crewName, String githubId, Bootcamp bootcamp, MemberField field) {
-        Affiliation affiliation = new Affiliation(bootcamp, field, null, null);
+        SelfReportedAffiliation affiliation = new SelfReportedAffiliation(bootcamp, field, null, null);
         return new Member(null, crewName, null, githubId, MemberType.BOOTCAMP, null, affiliation, null);
     }
 
@@ -196,12 +196,12 @@ public class Member extends BaseEntity {
             Career career,
             Company company
     ) {
-        Affiliation affiliation = new Affiliation(null, field, career, company);
+        SelfReportedAffiliation affiliation = new SelfReportedAffiliation(null, field, career, company);
         return new Member(null, crewName, null, githubId, MemberType.PROFESSIONAL, null, affiliation, null);
     }
 
     public static Member createBasic(String crewName, String githubId) {
-        return new Member(null, crewName, null, githubId, MemberType.MEMBER, null, Affiliation.NONE, null);
+        return new Member(null, crewName, null, githubId, MemberType.MEMBER, null, SelfReportedAffiliation.NONE, null);
     }
 
     /**
@@ -255,10 +255,11 @@ public class Member extends BaseEntity {
     }
 
     /**
-     * 크루와 코치가 아닌 회원의 소속 정보를 생성자에 한 번에 넘기기 위한 묶음이다.
+     * 크루와 코치가 아닌 회원이 가입 때 직접 입력한 소속 정보를 생성자에 한 번에 넘기기 위한 묶음이다.
+     * 서비스가 확인한 소속은 {@link MemberAffiliation}이며, 이 값은 모임 공개 범위 판정에 쓰지 않는다.
      */
-    private record Affiliation(Bootcamp bootcamp, MemberField field, Career career, Company company) {
+    private record SelfReportedAffiliation(Bootcamp bootcamp, MemberField field, Career career, Company company) {
 
-        private static final Affiliation NONE = new Affiliation(null, null, null, null);
+        private static final SelfReportedAffiliation NONE = new SelfReportedAffiliation(null, null, null, null);
     }
 }
