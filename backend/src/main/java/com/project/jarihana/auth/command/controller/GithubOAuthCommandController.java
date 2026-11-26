@@ -3,6 +3,7 @@ package com.project.jarihana.auth.command.controller;
 import com.project.jarihana.auth.command.service.GithubOAuthCommandService;
 import com.project.jarihana.auth.command.service.dto.GithubLoginCommand;
 import com.project.jarihana.auth.command.service.dto.GithubLoginResult;
+import com.project.jarihana.auth.config.AuthCookieProperties;
 import com.project.jarihana.auth.config.AuthProperties;
 import com.project.jarihana.auth.cookie.AuthCookieFactory;
 import com.project.jarihana.auth.cookie.AuthCookieReader;
@@ -31,17 +32,20 @@ public class GithubOAuthCommandController {
 
     private final GithubOAuthCommandService githubOAuthCommandService;
     private final AuthProperties authProperties;
+    private final AuthCookieProperties authCookieProperties;
     private final AuthCookieFactory authCookieFactory;
     private final SignupSession signupSession;
 
     public GithubOAuthCommandController(
             GithubOAuthCommandService githubOAuthCommandService,
             AuthProperties authProperties,
+            AuthCookieProperties authCookieProperties,
             AuthCookieFactory authCookieFactory,
             SignupSession signupSession
     ) {
         this.githubOAuthCommandService = githubOAuthCommandService;
         this.authProperties = authProperties;
+        this.authCookieProperties = authCookieProperties;
         this.authCookieFactory = authCookieFactory;
         this.signupSession = signupSession;
     }
@@ -80,6 +84,7 @@ public class GithubOAuthCommandController {
 
     private ResponseCookie expiredStateCookie() {
         return ResponseCookie.from(authProperties.oauthStateCookieName(), "")
+                .secure(authCookieProperties.secure())
                 .path(STATE_COOKIE_PATH)
                 .maxAge(0)
                 .build();
