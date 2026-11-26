@@ -1,6 +1,7 @@
 import {
   groupMemberPageSchema,
   memberSignupResponseSchema,
+  myAffiliationsSchema,
   transferLeaderResponseSchema
 } from "../../entities/member/index.js";
 import { apiRequest } from "../../shared/api/index.js";
@@ -37,4 +38,8 @@ export function signupMember(values) {
     schema: memberSignupResponseSchema,
     skipAuthRefresh: true
   });
+}
+
+export function fetchMyAffiliations() {
+  return apiRequest("members/me/affiliations", { schema: myAffiliationsSchema });
 }

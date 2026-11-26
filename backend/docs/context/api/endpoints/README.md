@@ -119,6 +119,7 @@
 | 인증·회원 | `POST` | `/api/auth/refresh` | `PUBLIC` | Access Token 재발급 |
 | 인증·회원 | `POST` | `/api/members` | `AUTH` | 회원 가입 완료 |
 | 인증·회원 | `GET` | `/api/members/me` | `AUTH` | 내 정보와 가입 완료 여부 조회 |
+| 인증·회원 | `GET` | `/api/members/me/affiliations` | `MEMBER` | [내 확인된 소속 목록 조회](auth-members.md) |
 | 인증·회원 | `GET` | `/api/oauth/github/callback` | `PUBLIC` | GitHub OAuth 콜백 처리 |
 | 알림함 | `GET` | `/api/notifications` | `MEMBER` | 본인 알림 목록 조회 |
 | 알림함 | `GET` | `/api/notifications/{id}` | `MEMBER` | 본인 알림과 이동 대상 조회 |

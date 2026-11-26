@@ -16,8 +16,14 @@ const mockUploadImage = jest.fn();
 
 let mockGroupFixture;
 let mockAuthMember = { id: 7 };
+let mockAffiliations = [];
+const WOOTECO = { id: 1, name: "우아한테크코스" };
 
 jest.mock("../../../src/features/auth/index.js", () => ({ useAuth: () => ({ member: mockAuthMember }) }));
+jest.mock("../../../src/features/member/index.js", () => ({
+  ...jest.requireActual("../../../src/features/member/index.js"),
+  useMyAffiliations: () => ({ data: mockAffiliations, isSuccess: true })
+}));
 jest.mock("../../../src/features/group/index.js", () => ({
   useCreateGroup: () => ({ mutateAsync: mockCreateGroup, isPending: false }),
   useDeleteGroup: () => ({ mutateAsync: mockDeleteGroup, isPending: false }),
@@ -202,10 +208,11 @@ describe("NewGroupPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthMember = { id: 7 };
+    mockAffiliations = [];
     mockCreateGroup.mockResolvedValue({ id: 73, status: "ACTIVE" });
   });
 
-  it("비크루는 공개와 비공개 중 선택해 모임을 만든다", async () => {
+  it("소속이 없는 회원은 공개와 비공개 중 선택해 모임을 만든다", async () => {
     // Given
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
@@ -214,7 +221,7 @@ describe("NewGroupPage", () => {
 
     const visibility = screen.getByRole("combobox", { name: "공개 범위" });
     expect(visibility).toHaveValue("PUBLIC");
-    expect(screen.queryByRole("option", { name: "크루 공개" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "우아한테크코스 공개" })).not.toBeInTheDocument();
     // When
     await user.selectOptions(visibility, "PRIVATE");
     submitForm("group-create-form");
@@ -224,9 +231,10 @@ describe("NewGroupPage", () => {
     expect(mockCreateGroup.mock.calls[0][0]).toHaveProperty("visibility", "PRIVATE");
   });
 
-  it("크루는 처음부터 크루 전용 모임으로 만들 수 있다", async () => {
+  it("확인된 소속이 있으면 처음부터 그 소속 공개 모임으로 만들 수 있다", async () => {
     // Given
     mockAuthMember = { id: 7, memberType: "CREW" };
+    mockAffiliations = [WOOTECO];
     const user = userEvent.setup();
     renderPage(<NewGroupPage />);
     await user.type(screen.getByLabelText("모임 이름"), "크루 스터디");
@@ -235,12 +243,12 @@ describe("NewGroupPage", () => {
     // When
     const visibility = screen.getByRole("combobox", { name: "공개 범위" });
     expect(visibility).toHaveAttribute("data-ph-capture-attribute-action", "group_visibility_change");
-    await user.selectOptions(visibility, "CREW_ONLY");
+    await user.selectOptions(visibility, "AFFILIATION_ONLY:1");
     submitForm("group-create-form");
 
     // Then
     await waitFor(() => expect(mockCreateGroup).toHaveBeenCalledTimes(1));
-    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ name: "크루 스터디", visibility: "CREW_ONLY" });
+    expect(mockCreateGroup.mock.calls[0][0]).toMatchObject({ name: "크루 스터디", visibility: "AFFILIATION_ONLY", visibleAffiliationId: 1 });
   });
 
   it("모임 종류 안내를 선택과 분리하고 순서대로 제공한다", async () => {
@@ -665,6 +673,7 @@ describe("GroupManagePage", () => {
       createdAt: "2026-08-20T12:00:00"
     };
     mockAuthMember = { id: 7 };
+    mockAffiliations = [];
     mockModifyGroup.mockResolvedValue(mockGroupFixture);
     mockDeleteGroup.mockResolvedValue(undefined);
     mockTerminateGroup.mockResolvedValue({ id: 17, status: "ENDED" });
@@ -768,14 +777,15 @@ describe("GroupManagePage", () => {
     expect(mockReplaceSessionSchedule).not.toHaveBeenCalled();
   });
 
-  it("크루인 모임장은 크루 전용을 끄고 켤 수 있다", async () => {
+  it("소속이 있는 모임장은 소속 공개를 끄고 켤 수 있다", async () => {
     // Given
     mockAuthMember = { id: 7, memberType: "CREW" };
-    mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
+    mockAffiliations = [WOOTECO];
+    mockGroupFixture = { ...mockGroupFixture, visibility: "AFFILIATION_ONLY", visibleAffiliation: WOOTECO };
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
     const visibility = screen.getByRole("combobox", { name: "공개 범위" });
-    expect(visibility).toHaveValue("CREW_ONLY");
+    expect(visibility).toHaveValue("AFFILIATION_ONLY:1");
 
     // When
     await user.selectOptions(visibility, "PUBLIC");
@@ -786,9 +796,9 @@ describe("GroupManagePage", () => {
     expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PUBLIC" });
   });
 
-  it("위임으로 모임장이 된 비크루는 크루 전용을 끌 수 있다", async () => {
+  it("위임으로 모임장이 된 소속 밖 회원은 소속 공개를 끌 수 있다", async () => {
     // Given
-    mockGroupFixture = { ...mockGroupFixture, visibility: "CREW_ONLY" };
+    mockGroupFixture = { ...mockGroupFixture, visibility: "AFFILIATION_ONLY", visibleAffiliation: WOOTECO };
     const user = userEvent.setup();
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
     const visibility = screen.getByRole("combobox", { name: "공개 범위" });
@@ -799,12 +809,12 @@ describe("GroupManagePage", () => {
 
     // Then
     expect(visibility).toHaveValue("PRIVATE");
-    expect(visibility).toHaveAccessibleDescription("다른 공개 범위로 저장하면 크루 공개로 다시 바꿀 수 없어요.");
+    expect(visibility).toHaveAccessibleDescription("다른 공개 범위로 저장하면 우아한테크코스 공개로 다시 바꿀 수 없어요.");
     await waitFor(() => expect(mockModifyGroup).toHaveBeenCalledTimes(1));
     expect(mockModifyGroup.mock.calls[0][0]).toMatchObject({ visibility: "PRIVATE" });
   });
 
-  it("크루가 아닌 모임장의 전체 공개 모임에는 크루 공개 선택지를 두지 않는다", () => {
+  it("소속이 없는 모임장의 전체 공개 모임에는 소속 공개 선택지를 두지 않는다", () => {
     // Given
     renderPage(<GroupManagePage groupId="17" now={new Date("2026-08-21T11:00:00")} />);
 
@@ -813,7 +823,7 @@ describe("GroupManagePage", () => {
 
     // Then
     expect(visibility).toHaveValue("PUBLIC");
-    expect(screen.queryByRole("option", { name: "크루 공개" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "우아한테크코스 공개" })).not.toBeInTheDocument();
   });
 
   it("edits the meeting type and location alongside the overview", async () => {

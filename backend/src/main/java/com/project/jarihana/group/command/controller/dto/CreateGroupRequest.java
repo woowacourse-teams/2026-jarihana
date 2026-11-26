@@ -7,6 +7,7 @@ import com.project.jarihana.group.domain.MeetingType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.DayOfWeek;
@@ -25,7 +26,8 @@ public record CreateGroupRequest(
         @Valid RecurringScheduleRequest recurringSchedule,
         @Valid SessionScheduleRequest sessionSchedule,
         @Size(max = 32) String clubhouseTemplateKey,
-        GroupVisibility visibility
+        GroupVisibility visibility,
+        @Positive Long visibleAffiliationId
 ) {
 
     public CreateGroupCommand toCommand() {
@@ -40,7 +42,8 @@ public record CreateGroupRequest(
                 recurringSchedule == null ? null : recurringSchedule.toCommand(),
                 sessionSchedule == null ? null : sessionSchedule.toCommand(),
                 clubhouseTemplateKey,
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 

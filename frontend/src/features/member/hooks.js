@@ -1,9 +1,9 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSafeNextCursor } from "../../entities/cursor/index.js";
 import { captureEvent } from "../../shared/analytics/index.js";
 import { groupKeys } from "../group/index.js";
-import { fetchMembers, signupMember, transferLeader } from "./api.js";
+import { fetchMembers, fetchMyAffiliations, signupMember, transferLeader } from "./api.js";
 
 export const memberKeys = {
   all: ["group-members"],
@@ -44,5 +44,15 @@ export function useSignupMember() {
       captureEvent("signup_completed", { member_id: member.id });
       return queryClient.invalidateQueries();
     }
+  });
+}
+
+/* 로그인한 회원의 확인된 소속. 로그인 전에는 부르지 않는다. */
+export function useMyAffiliations(enabled) {
+  return useQuery({
+    queryKey: ["members", "me", "affiliations"],
+    queryFn: fetchMyAffiliations,
+    enabled: Boolean(enabled),
+    staleTime: 5 * 60 * 1000
   });
 }

@@ -1,14 +1,23 @@
 import { Info } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { visibilityOptionValue } from "../../entities/group/index.js";
+
 import { UnderlineSelect } from "./EditorFields.jsx";
 
-export function VisibilityField({ canChooseCrew, descriptionId, savedVisibility, registration }) {
+/**
+ * @param affiliations 회원이 확인된 소속. 소속마다 "소속 공개" 선택지를 둔다.
+ * @param savedAffiliation 저장된 소속 공개 모임의 소속. 위임받은 모임장이 그 소속이 아니어도 지금 값을 유지할 수 있게 둔다.
+ */
+export function VisibilityField({ affiliations = [], descriptionId, savedAffiliation, registration }) {
   const id = useId();
   const helpId = `${id}-help`;
   const helpReference = useRef(null);
   const [showsHelp, setShowsHelp] = useState(false);
-  const canKeepCrew = savedVisibility === "CREW_ONLY";
+  const affiliationOptions =
+    savedAffiliation && !affiliations.some((affiliation) => affiliation.id === savedAffiliation.id)
+      ? [...affiliations, savedAffiliation]
+      : affiliations;
 
   useEffect(() => {
     if (!showsHelp) return undefined;
@@ -61,7 +70,7 @@ export function VisibilityField({ canChooseCrew, descriptionId, savedVisibility,
                 <span className="group-editor__visibility-tooltip" id={helpId} role="tooltip">
                   <span><strong>공개</strong> 누구나 모임을 볼 수 있어요.</span>
                   <span><strong>비공개</strong> 현재 모임원만 볼 수 있고, 새 모임원은 초대로 합류해요.</span>
-                  <span><strong>크루 공개</strong> 크루와 현재 모임원에게 보이며, 크루만 신청하거나 초대를 수락할 수 있어요.</span>
+                  <span><strong>소속 공개</strong> 같은 소속 회원과 현재 모임원에게 보이며, 같은 소속만 신청하거나 초대를 수락할 수 있어요.</span>
                 </span>
               )}
             </span>
@@ -70,7 +79,11 @@ export function VisibilityField({ canChooseCrew, descriptionId, savedVisibility,
         >
           <option value="PUBLIC">공개</option>
           <option value="PRIVATE">비공개</option>
-          {(canChooseCrew || canKeepCrew) && <option value="CREW_ONLY">크루 공개</option>}
+          {affiliationOptions.map((affiliation) => (
+            <option key={affiliation.id} value={visibilityOptionValue("AFFILIATION_ONLY", affiliation.id)}>
+              {affiliation.name} 공개
+            </option>
+          ))}
         </UnderlineSelect>
       </div>
     </div>

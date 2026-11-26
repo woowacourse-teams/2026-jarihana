@@ -4,9 +4,10 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
-import { groupVisibilitySchema } from "../../entities/group/index.js";
+import { visibilityOptionSchema, visibilityRequest } from "../../entities/group/index.js";
 import { useAuth } from "../../features/auth/index.js";
 import { useCreateGroup } from "../../features/group/index.js";
+import { useMyAffiliations } from "../../features/member/index.js";
 import {
   DEFAULT_GROUP_IMAGE_URL,
   useImageUpload
@@ -51,7 +52,7 @@ const baseSchema = z.object({
   startTime: timeSchema,
   endTime: timeSchema,
   flexibleTime: z.boolean(),
-  visibility: groupVisibilitySchema
+  visibility: visibilityOptionSchema
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
@@ -93,7 +94,7 @@ function toCreateBody(values, representativeImageKey, clubhouseTemplateKey) {
     meetingType: values.meetingType,
     location: location || null,
     representativeImageKey,
-    ...(values.visibility !== "PUBLIC" ? { visibility: values.visibility } : {})
+    ...(values.visibility !== "PUBLIC" ? visibilityRequest(values.visibility) : {})
   };
   if (values.type === "SESSION") {
     return {
@@ -157,7 +158,7 @@ export function NewGroupPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { member } = useAuth();
-  const canChooseCrew = member?.memberType === "CREW";
+  const myAffiliations = useMyAffiliations(Boolean(member));
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
@@ -346,7 +347,7 @@ export function NewGroupPage() {
                     />
                   </div>
                 </div>
-                <VisibilityField canChooseCrew={canChooseCrew} registration={register("visibility")} />
+                <VisibilityField affiliations={myAffiliations.data ?? []} registration={register("visibility")} />
               </div>
             </div>
           </div>

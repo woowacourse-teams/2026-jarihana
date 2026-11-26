@@ -122,3 +122,6 @@ export const transferLeaderResponseSchema = z.object({
   previousLeaderGroupMemberId: entityIdSchema,
   leaderGroupMemberId: entityIdSchema
 });
+
+/* 회원이 확인된 소속. 소속 공개 모임을 만들거나 바꿀 때 고를 수 있다. */
+export const myAffiliationsSchema = z.array(z.object({ id: entityIdSchema, name: z.string() }));

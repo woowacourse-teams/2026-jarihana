@@ -20,7 +20,8 @@ public record CreateGroupCommand(
         RecurringSchedule recurringSchedule,
         SessionSchedule sessionSchedule,
         String clubhouseTemplateKey,
-        GroupVisibility visibility
+        GroupVisibility visibility,
+        Long visibleAffiliationId
 ) {
 
     public CreateGroupCommand(GroupType type, String name, String introduction, String description,
@@ -28,14 +29,14 @@ public record CreateGroupCommand(
                               RecurringSchedule recurringSchedule, SessionSchedule sessionSchedule,
                               String clubhouseTemplateKey) {
         this(type, name, introduction, description, meetingType, location, representativeImageKey,
-                recurringSchedule, sessionSchedule, clubhouseTemplateKey, null);
+                recurringSchedule, sessionSchedule, clubhouseTemplateKey, null, null);
     }
 
     public CreateGroupCommand(GroupType type, String name, String introduction, String description,
                               MeetingType meetingType, String location, String representativeImageKey,
                               RecurringSchedule recurringSchedule, SessionSchedule sessionSchedule) {
         this(type, name, introduction, description, meetingType, location, representativeImageKey,
-                recurringSchedule, sessionSchedule, null, null);
+                recurringSchedule, sessionSchedule, null, null, null);
     }
 
     public record RecurringSchedule(

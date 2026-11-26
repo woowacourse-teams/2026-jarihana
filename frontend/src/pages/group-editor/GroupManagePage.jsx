@@ -4,7 +4,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
-import { groupVisibilitySchema } from "../../entities/group/index.js";
+import { visibilityOptionSchema, visibilityOptionValue, visibilityRequest } from "../../entities/group/index.js";
+import { useMyAffiliations } from "../../features/member/index.js";
 import { useAuth } from "../../features/auth/index.js";
 import {
   useDeleteGroup,
@@ -66,7 +67,7 @@ const manageSchema = z
     startTime: timeSchema,
     endTime: timeSchema,
     flexibleTime: z.boolean(),
-    visibility: groupVisibilitySchema
+    visibility: visibilityOptionSchema
   })
   .superRefine((values, context) => {
     /* 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. */
@@ -112,7 +113,7 @@ function toFormValues(group) {
     endTime: timeValue(schedule?.endTime) || DEFAULT_TIMES.endTime,
     /* 요일은 있는데 시각이 비어 있으면 시간을 유동적으로 둔 일정이다. */
     flexibleTime: Boolean(recurring) && !recurring.startTime,
-    visibility: group.visibility ?? "PUBLIC"
+    visibility: visibilityOptionValue(group.visibility ?? "PUBLIC", group.visibleAffiliation?.id)
   };
 }
 
@@ -155,7 +156,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const toast = useToast();
   const visibilityWarningId = useId();
   const { member } = useAuth();
-  const canChooseCrew = member?.memberType === "CREW";
+  const myAffiliations = useMyAffiliations(Boolean(member));
   const groupQuery = useGroup(groupId);
   const modifyMutation = useModifyGroup(groupId);
   const deleteMutation = useDeleteGroup(groupId);
@@ -208,7 +209,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const flexibleTime = values.flexibleTime ?? false;
   const group = groupQuery.data;
   const showsVisibilityWarning =
-    group?.status === "ACTIVE" && group.visibility === "CREW_ONLY" && !canChooseCrew;
+    group?.status === "ACTIVE" && group.visibility === "AFFILIATION_ONLY" &&
+    myAffiliations.isSuccess && !myAffiliations.data.some((affiliation) => affiliation.id === group.visibleAffiliation?.id);
 
   useEffect(
     () => () => {
@@ -347,8 +349,8 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           meetingType: formValues.meetingType,
           location: formValues.location.trim() || null,
           representativeImageKey: representativeImageKey ?? null,
-          ...(formValues.visibility !== (group.visibility ?? "PUBLIC")
-            ? { visibility: formValues.visibility }
+          ...(formValues.visibility !== visibilityOptionValue(group.visibility ?? "PUBLIC", group.visibleAffiliation?.id)
+            ? visibilityRequest(formValues.visibility)
             : {})
         });
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
@@ -465,9 +467,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                   </div>
                   {group.status === "ACTIVE" && (
                     <VisibilityField
-                      canChooseCrew={canChooseCrew}
+                      affiliations={myAffiliations.data ?? []}
                       descriptionId={showsVisibilityWarning ? visibilityWarningId : undefined}
-                      savedVisibility={group.visibility}
+                      savedAffiliation={group.visibleAffiliation ?? undefined}
                       registration={register("visibility")}
                     />
                   )}
@@ -511,7 +513,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
 
           {showsVisibilityWarning && (
             <p className="group-editor__visibility-warning" id={visibilityWarningId}>
-              다른 공개 범위로 저장하면 크루 공개로 다시 바꿀 수 없어요.
+              다른 공개 범위로 저장하면 {group.visibleAffiliation?.name ?? "이 소속"} 공개로 다시 바꿀 수 없어요.
             </p>
           )}
 

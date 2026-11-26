@@ -10,11 +10,12 @@ public record ModifyGroupCommand(
         MeetingType meetingType,
         String location,
         String representativeImageKey,
-        GroupVisibility visibility
+        GroupVisibility visibility,
+        Long visibleAffiliationId
 ) {
 
     public ModifyGroupCommand(String name, String introduction, String description, MeetingType meetingType,
                               String location, String representativeImageKey) {
-        this(name, introduction, description, meetingType, location, representativeImageKey, null);
+        this(name, introduction, description, meetingType, location, representativeImageKey, null, null);
     }
 }

@@ -158,8 +158,8 @@ URL을 반환한다. 이 주소는 백엔드의 접근 확인을 거쳐 같은 �
 - `location`은 최대 255자의 nullable 문자열이다. 오프라인 장소 또는 온라인 접속 정보를 저장할 수 있다.
 - `representativeImageKey`는 nullable 스토리지 키이며, `null`이면 기본 대표 이미지를 사용한다.
 - `clubhouseTemplateKey`는 `CLUB`·`STUDY`에서 선택한 아지트 테마 키다. 선택한 테마의 발행된 기본 도면과 배치를 사용한다. 이전 클라이언트가 이 필드를 생략하면 그룹만 생성한다.
-- `visibility`는 선택 필드이며 `PUBLIC`, `PRIVATE`, `CREW_ONLY` 중 하나다. 생략하면 `PUBLIC`이다. `CREW_ONLY`는 요청 회원이 `CREW`일 때만 허용한다.
-- 비공개 모임은 새 모임 알림을 발송하지 않는다. 크루 공개 모임의 새 모임 알림은 활성 푸시 구독이 있는 `CREW`에게만 저장한다.
+- `visibility`는 선택 필드이며 `PUBLIC`, `PRIVATE`, `AFFILIATION_ONLY` 중 하나다. 생략하면 `PUBLIC`이다. `AFFILIATION_ONLY`는 `visibleAffiliationId`(양수)가 함께 필요하며, 요청 회원이 그 소속으로 확인되었을 때만 허용한다. 다른 공개 범위에서는 `visibleAffiliationId`를 무시한다.
+- 비공개 모임은 새 모임 알림을 발송하지 않는다. 소속 공개 모임의 새 모임 알림은 활성 푸시 구독이 있는 그 소속 회원에게만 저장한다.
 
 #### 요청 — CLUB 또는 STUDY
 
@@ -242,7 +242,8 @@ Location: /api/groups/12
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |
-| `CREW`가 아닌 회원이 `CREW_ONLY`로 생성 | `GROUP_ACCESS_DENIED` | 403 |
+| 확인되지 않은 소속으로 `AFFILIATION_ONLY` 생성 | `GROUP_ACCESS_DENIED` | 403 |
+| `AFFILIATION_ONLY`인데 `visibleAffiliationId` 없음 | `INVALID_PARAMETER` | 400 |
 | type·문자열 제약 위반 | `INVALID_PARAMETER` | 400 |
 | 선택한 아지트 테마를 사용할 수 없거나 SESSION에 아지트 테마 전달 | `INVALID_PARAMETER` | 400 |
 | CLUB·STUDY에 sessionSchedule 전달 | `SCHEDULE_TYPE_MISMATCH` | 400 |
@@ -402,7 +403,7 @@ Request Body는 없다.
 - 수정 가능한 기본 정보의 전체 표현을 전달한다. 전달하지 않은 필드를 기존 값으로 보존하는 부분 수정은 지원하지 않는다.
 - `description`, `location`, `representativeImageKey`는 nullable 필드지만 요청에 반드시 포함해야 하며, 비우려면 각각 `null`을 명시한다.
 - `type`, `status`, 일정은 이 API에서 수정하지 않는다.
-- `visibility`를 생략하면 지금 값을 유지한다. 모임장은 `PUBLIC` 또는 `PRIVATE`로 바꿀 수 있고 `CREW_ONLY`로 바꾸는 것은 크루인 모임장만 할 수 있다. 위임받은 비크루 모임장은 이미 설정된 `CREW_ONLY`를 유지할 수 있다.
+- `visibility`를 생략하면 지금 공개 범위와 소속을 유지한다. 모임장은 `PUBLIC` 또는 `PRIVATE`로 바꿀 수 있고, `AFFILIATION_ONLY`는 `visibleAffiliationId`와 함께 보내며 모임장이 그 소속으로 확인되었을 때만 바꿀 수 있다. 위임받은 모임장이 그 소속이 아니면 이미 설정된 공개 범위와 소속을 그대로 보내 유지할 수 있다.
 - `meetingType`과 `location`은 그룹의 모임 방식과 장소를 전체 교체한다. `meetingType`은 필수이며 `ONLINE`, `OFFLINE`, `FLEXIBLE` 중 하나를 보낸다. 장소를 비우려면 `null`을 명시한다.
 
 #### 응답 200
@@ -413,7 +414,7 @@ Request Body는 없다.
 | 상황 | 코드 | HTTP |
 | --- | --- | --- |
 | 모임장이 아님 | `GROUP_ACCESS_DENIED` | 403 |
-| `CREW`가 아닌 모임장이 `CREW_ONLY`로 켬 | `GROUP_ACCESS_DENIED` | 403 |
+| 확인되지 않은 소속으로 `AFFILIATION_ONLY`를 켬 | `GROUP_ACCESS_DENIED` | 403 |
 | 그룹 없음 | `GROUP_NOT_FOUND` | 404 |
 | ENDED 그룹 | `GROUP_ENDED` | 409 |
 | 그룹 이름 중복 | `GROUP_NAME_DUPLICATED` | 409 |

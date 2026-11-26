@@ -31,6 +31,7 @@ import com.project.jarihana.image.command.service.ImageMarkdown;
 import com.project.jarihana.image.command.service.ImageReferenceService;
 import com.project.jarihana.image.command.service.PromotedImage;
 import com.project.jarihana.invitation.command.service.InvitationCommandService;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -91,6 +92,7 @@ public class GroupCommandService {
     private final ConcurrentCommandExecutor concurrentCommands;
     private final InvitationCommandService invitationCommandService;
     private final PointRewardService pointRewards;
+    private final MemberAffiliationRepository memberAffiliationRepository;
 
     public GroupCommandService(
             MemberRepository memberRepository,
@@ -112,7 +114,8 @@ public class GroupCommandService {
             ApplicationEventPublisher events,
             ConcurrentCommandExecutor concurrentCommands,
             InvitationCommandService invitationCommandService,
-            PointRewardService pointRewards
+            PointRewardService pointRewards,
+            MemberAffiliationRepository memberAffiliationRepository
     ) {
         this.memberRepository = memberRepository;
         this.groupCommandRepository = groupCommandRepository;
@@ -134,6 +137,7 @@ public class GroupCommandService {
         this.concurrentCommands = concurrentCommands;
         this.invitationCommandService = invitationCommandService;
         this.pointRewards = pointRewards;
+        this.memberAffiliationRepository = memberAffiliationRepository;
     }
 
     @Transactional
@@ -146,7 +150,11 @@ public class GroupCommandService {
 
         LocalDateTime now = LocalDateTime.now(clock);
         Group group = groupCommandRepository.save(createGroup(command, now)
-                .changeVisibility(visibilityOrDefault(command.visibility()), member.getMemberType()));
+                .changeVisibility(
+                        visibilityOrDefault(command.visibility()),
+                        command.visibleAffiliationId(),
+                        memberAffiliationRepository.getVerifiedAffiliations(memberId)
+                ));
         if (command.clubhouseTemplateKey() != null) {
             groupSpaces.initializeForNewGroup(group, command.clubhouseTemplateKey(), now);
         }
@@ -327,10 +335,14 @@ public class GroupCommandService {
             throw new BusinessException(ErrorCode.GROUP_NAME_DUPLICATED, GROUP_NAME_DUPLICATED_MESSAGE);
         }
         // 공개 범위 권한은 이미지를 옮기기 전에 확인해, 거절된 요청이 스토리지를 건드리지 않게 한다.
-        Group visibilityApplied = group.changeVisibility(
-                command.visibility() == null ? group.getVisibility() : command.visibility(),
-                member.getMemberType()
-        );
+        // visibility를 생략하면 지금 공개 범위와 소속을 그대로 둔다.
+        Group visibilityApplied = command.visibility() == null
+                ? group
+                : group.changeVisibility(
+                        command.visibility(),
+                        command.visibleAffiliationId(),
+                        memberAffiliationRepository.getVerifiedAffiliations(memberId)
+                );
         LocalDateTime now = LocalDateTime.now(clock);
         GroupImages images = promoteGroupImages(
                 memberId,

@@ -8,6 +8,7 @@ import com.project.jarihana.group.domain.MeetingType;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import tools.jackson.databind.JsonNode;
 
@@ -35,6 +36,9 @@ public final class ModifyGroupRequest {
 
     private final GroupVisibility visibility;
 
+    @Positive
+    private final Long visibleAffiliationId;
+
     private final boolean representativeImageKeyPresent;
     private final boolean representativeImageKeyValueValid;
     private final boolean descriptionPresent;
@@ -50,9 +54,11 @@ public final class ModifyGroupRequest {
             @JsonProperty("meetingType") MeetingType meetingType,
             @JsonProperty("location") JsonNode location,
             @JsonProperty("representativeImageKey") JsonNode representativeImageKey,
-            @JsonProperty("visibility") GroupVisibility visibility
+            @JsonProperty("visibility") GroupVisibility visibility,
+            @JsonProperty("visibleAffiliationId") Long visibleAffiliationId
     ) {
         this.visibility = visibility;
+        this.visibleAffiliationId = visibleAffiliationId;
         this.name = name;
         this.introduction = introduction;
         this.description = nullableTextValue(description);
@@ -116,6 +122,6 @@ public final class ModifyGroupRequest {
 
     public ModifyGroupCommand toCommand() {
         return new ModifyGroupCommand(name, introduction, description, meetingType, location,
-                representativeImageKey, visibility);
+                representativeImageKey, visibility, visibleAffiliationId);
     }
 }
