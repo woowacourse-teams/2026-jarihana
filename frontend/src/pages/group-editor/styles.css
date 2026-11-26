@@ -354,16 +354,20 @@
     gap: var(--space-2);
 }
 
+.group-fact--visibility {
+    position: relative;
+}
+
 .group-fact--visibility .group-editor__ul {
     min-inline-size: 7rem;
 }
 
 .group-editor__visibility-info {
-    position: relative;
     display: inline-flex;
 }
 
 .group-editor__visibility-info button {
+    position: relative;
     display: grid;
     place-items: center;
     min-inline-size: 1.5rem;
@@ -375,20 +379,73 @@
     cursor: pointer;
 }
 
+/*
+ * 공개 범위 칸 전체를 기준으로 띄워 선택란과 옆 칸을 가리지 않는다. 카드가 쌓이는 좁은 화면은 칸 위에,
+ * 넓은 화면은 칸 오른쪽의 빈 그림 영역에 둔다. 이름과 설명을 두 열로 나누고 단어 중간에서 줄을 바꾸지 않는다.
+ */
 .group-editor__visibility-tooltip {
     position: absolute;
     z-index: 5;
-    inset-block-end: 100%;
+    inset-block-end: calc(100% + var(--space-2));
     inset-inline-end: 0;
     display: grid;
     gap: var(--space-2);
-    inline-size: min(17rem, 70vw);
-    padding: var(--space-3);
-    border-radius: var(--radius-sm);
+    inline-size: min(21.5rem, calc(100vw - var(--space-8)));
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
     background: var(--color-surface);
     color: var(--color-text);
     font-size: var(--text-caption);
-    line-height: 1.5;
+    line-height: 1.55;
+    word-break: keep-all;
+    box-shadow: var(--shadow-float);
+}
+
+/* 좁은 화면의 꼬리는 툴팁 대신 정보 버튼에 붙여, 칸 너비와 관계없이 아이콘 바로 위를 가리킨다. */
+.group-editor__visibility-info button[aria-describedby]::after {
+    position: absolute;
+    z-index: 6;
+    inset-block-end: calc(100% + 2px);
+    inset-inline-start: calc(50% - 6px);
+    inline-size: 12px;
+    block-size: 12px;
+    background: var(--color-surface);
+    content: "";
+    transform: rotate(45deg);
+}
+
+.group-editor__visibility-tooltip > span {
+    display: grid;
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+    column-gap: var(--space-2);
+}
+
+.group-editor__visibility-tooltip strong {
+    color: var(--color-text-brand);
+}
+
+@media (min-width: 1024px) {
+    .group-editor__visibility-tooltip {
+        inset-block: 50% auto;
+        inset-inline: calc(100% + var(--space-5)) auto;
+        inline-size: 21.5rem;
+        transform: translateY(-50%);
+    }
+
+    .group-editor__visibility-info button[aria-describedby]::after {
+        content: none;
+    }
+
+    .group-editor__visibility-tooltip::before {
+        position: absolute;
+        inset-block-start: calc(50% - 6px);
+        inset-inline-start: -6px;
+        inline-size: 12px;
+        block-size: 12px;
+        background: inherit;
+        content: "";
+        transform: rotate(45deg);
+    }
 }
 
 .group-editor__visibility-warning {
@@ -398,11 +455,6 @@
     font-weight: var(--font-weight-semibold);
 }
 
-@media (max-width: 767px) {
-    .group-editor__visibility-tooltip {
-        inline-size: min(17rem, 58vw);
-    }
-}
 
 .group-editor__clubhouse .clubhouse-setup__cards {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
