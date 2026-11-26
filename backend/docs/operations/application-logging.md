@@ -25,10 +25,9 @@ ECS formatter 생성에는 Boot 내부 클래스 이름을 사용하므로 Boot 
 필요하면 `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`로 기존 인코딩 경로로 복귀할 수 있다.
 `service.name`은 `spring.application.name`(`jarihana`), `service.version`은
 `APP_VERSION`이다. 직접 실행에서 버전을 주입하지 않으면 `unknown`을 기록한다.
-배포 Compose는 이미지 태그 `BACKEND_TAG`를 `APP_VERSION`으로 전달하며, 기존
-개발·운영 workflow가 `BACKEND_TAG=${{ github.sha }}`를 설정한다.
-현재 배포 로그 경로는 Docker `local` driver → 앱 Alloy → Loki다. 아래 CloudWatch 절차는
-남겨 둔 legacy 운영 도구와 기존 로그 조회용이며 현재 backend 컨테이너의 기본 전송 경로가 아니다.
+개발과 단일 서버 운영 Compose는 이미지 태그 `BACKEND_TAG`를 `APP_VERSION`으로 전달한다.
+운영 Blue-Green Compose는 이미지 다이제스트 `BACKEND_DIGEST`를 전달한다.
+현재 배포 로그 경로는 Docker `local` driver → 앱 Alloy → Loki다.
 `@timestamp`, `log.level`, `log.logger`, `process`, `ecs.version`은 Boot formatter가
 생성한다. `ecs.version`을 애플리케이션 버전으로 덮어쓰거나 별도로 고정하지 않는다.
 서비스 설정과 기본값은 [Spring Boot 4.1 로깅 문서](https://docs.spring.io/spring-boot/4.1/reference/features/logging.html#features.logging.structured.elastic-common-schema)를 따른다.
@@ -152,163 +151,14 @@ APP_VERSION=local-check ./gradlew bootRun \
 ```
 
 일반 로그가 한 줄 JSON인지, `service.version=local-check`인지 확인한다.
-이 실행은 dev/prod 프로필의 DB schema validation이나 AWS 전송 검증을 대신하지 않는다.
-
-## CloudWatch legacy 운영 도구
-
-CloudWatch 자동화와 조회 예시는 보존하지만 현재 배포용 `infra/docker-compose.dev.yml`과
-`infra/docker-compose.yml`의 backend는 Docker `local` driver를 사용하고 Alloy가 Loki로 보낸다.
-이 절은 기존 CloudWatch 로그 그룹을 유지·조회해야 할 때의 참고로 사용한다.
-
-| 설정 | 개발 기본값 | 운영 기본값 |
-| --- | --- | --- |
-| `CLOUDWATCH_LOG_GROUP` | `/jarihana/dev/application` | `/jarihana/prod/application` |
-| `CLOUDWATCH_LOG_REGION` | `ap-northeast-2` | `ap-northeast-2` |
-| 로그 스트림 | `<BACKEND_TAG>/<container ID>` | `<BACKEND_TAG>/<container ID>` |
-| 그룹 자동 생성 | `false` | `false` |
-| 전송 모드 / 버퍼 | `non-blocking` / `4m` | `non-blocking` / `4m` |
-
-과거 `awslogs` 경로에서 지역과 그룹을 바꾸려면 **Compose 실행 환경**에 해당 변수를 주입했다. 현재 workflow는
-이 두 GitHub Variables를 자동 매핑하지 않으므로, GitHub UI에 값을 등록하는 것만으로
-override가 적용되지는 않는다. 기본값을 쓸 때는 추가 workflow 변수가 필요 없다.
-환경별 그룹 이름은 반드시 구분한다.
-
-legacy CloudWatch 경로를 다시 사용할 때는 `CloudWatch Manage`의 `cloudwatch-prepare`를 실행해 선택한 환경의 로그 그룹을
-만든다. `cloudwatch-install`도 같은 prepare를 먼저 실행한다. 수동 SSH에서는 저장소 루트에서
-다음처럼 실행한다.
-
-```bash
-TARGET_ENVIRONMENT=dev EXPECTED_INSTANCE_ID=<확인한-EC2-ID> APPLICATION_LOG_RETENTION_DAYS=14 bash infra/cloudwatch/common/prepare-aws.sh
-```
-
-`TARGET_ENVIRONMENT`는 `dev` 또는 `prod`이고, 기본 로그 그룹은 각각
-`/jarihana/dev/application`, `/jarihana/prod/application`이다. 보존 기간 기본값은
-14일이며 CloudWatch Manage 선택지는 7, 14, 30, 60, 90일이다. 기본 그룹을 override하는
-수동 실행에서는 `CLOUDWATCH_LOG_GROUP`이 Compose 실행 환경의 `CLOUDWATCH_LOG_GROUP`과
-같아야 한다. `prepare-aws.sh`는 확인한 EC2 리전에 로그 그룹을 만들기 때문에 Compose의
-`CLOUDWATCH_LOG_REGION`도 같은 리전을 사용해야 한다. 현재 배포 workflow는 그룹·지역
-override용 GitHub Variables를 자동 매핑하지 않는다.
-
-배포 담당자는 새 컨테이너를 띄우기 전에 다음 조건을 확인한다.
-
-1. 선택 환경의 로그 그룹이 해당 지역에 있고 보존 기간이 설정되어 있다.
-2. Docker daemon이 사용하는 EC2 instance profile에 해당 그룹의 스트림 생성·기록
-   권한이 있다. 애플리케이션 컨테이너에 AWS access key를 추가하지 않는다.
-3. 호스트에서 instance profile 자격 증명과 해당 지역 CloudWatch Logs endpoint에
-   접근할 수 있다. 외부 통신 경로나 VPC endpoint, DNS, HTTPS 통신을 확인한다.
-4. 그룹 이름·지역·IAM·통신이 Compose 실행 환경과 일치한다. 그룹이 없거나 권한·통신이
-   불충분하면 `awslogs` 초기화로 컨테이너 시작이 실패할 수 있다.
-
-AWS 관리형 [`CloudWatchAgentServerPolicy`](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/CloudWatchAgentServerPolicy.html)
-v3에는 로그 그룹 생성, 스트림 생성, 이벤트 기록, 로그 그룹 조회, 보존 기간 설정 권한이
-`Resource: "*"`로 포함되어 있다. 이 정책이 Docker
-호스트의 EC2 역할에 이미 연결되어 있으면 새 애플리케이션 로그 그룹 준비와 Docker 로그 전송에
-같은 역할을 재사용할 수 있다. 실제 역할 연결 여부는 이 저장소에서 검증하지 않는다.
-
-아래는 이미 준비된 로그 그룹에 Docker 런타임 쓰기 권한만 따로 줄 때의 최소 예시다.
-`ACCOUNT_ID`와 지역·그룹 이름을 실제 준비한 값으로 교체한다. 개발과 운영이 다른 호스트라면
-각 호스트가 기록할 그룹만 허용한다. 조회 담당자의 `FilterLogEvents`, `StartQuery`,
-`GetQueryResults` 등 조회 권한은 이 쓰기 정책과 별도로 관리한다.
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
-      "Resource": [
-        "arn:aws:logs:ap-northeast-2:ACCOUNT_ID:log-group:/jarihana/dev/application:log-stream:*",
-        "arn:aws:logs:ap-northeast-2:ACCOUNT_ID:log-group:/jarihana/prod/application:log-stream:*"
-      ]
-    }
-  ]
-}
-```
-
-이 최소 예시는 `prepare-aws.sh` 실행 권한이 아니다. 그룹 생성과 보존 기간 변경까지
-같은 역할에서 수행하려면 `logs:CreateLogGroup`, `logs:DescribeLogGroups`,
-`logs:PutRetentionPolicy`가 추가로 필요하다. Docker 자격 증명·쓰기 권한은
-[awslogs 문서](https://docs.docker.com/engine/logging/drivers/awslogs/)를,
-리소스 ARN은 [CloudWatch IAM 문서](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/iam-access-control-overview-cwl.html)를 따른다.
-
-`non-blocking`은 전송 정체가 요청 처리를 막지 않게 하는 선택이다. 컨테이너별
-중간 버퍼 `4m`가 가득 차면 새 로그가 버려진다. 전송 장애·급격한 트래픽·프로세스
-종료 시 로그 완전성을 보장하지 않으므로 이 스트림을 감사 원장으로 사용하지 않는다.
-버퍼 크기는 [Docker 전송 모드](https://docs.docker.com/engine/logging/configure/#configure-the-delivery-mode-of-log-messages-from-container-to-log-driver)의
-상한이며 전체 Docker 메모리 사용량의 상한을 뜻하지 않는다.
+이 실행은 로컬 JSON 출력을 확인하는 절차다.
 
 ## 배포 후 확인과 장애 조사
 
-현재 배포에서는 Loki에서 요청 ID로 로그 수신을 확인한다. legacy CloudWatch 경로를 다시 적용했다면
-컨테이너를 재생성해야 logging 설정이 적용된다. 단순 restart로 기존 컨테이너의 driver 설정이
-바뀌지는 않는다. 배포용 환경 변수를 준비한 `backend/` 셸에서 개발 컨테이너의 실제 설정을 확인한다.
-
-```bash
-docker compose -f ../infra/docker-compose.dev.yml config --quiet
-container_id=$(docker compose -f ../infra/docker-compose.dev.yml ps -q backend)
-docker inspect --format '{{json .HostConfig.LogConfig}}' "$container_id"
-curl -i http://localhost:8080/api/groups
-aws logs tail /jarihana/dev/application --region ap-northeast-2 --since 5m --format short
-```
-
-운영 확인은 Compose 파일을 `../infra/docker-compose.yml`, 포트를 `8080`, 그룹을
-`/jarihana/prod/application`으로 바꾼다. 그룹과 지역을 override했다면 명령에도 같은
-값을 사용한다. 응답 `X-Request-Id`로 같은 요청을 찾고 다음을 확인한다.
-
-- 로그 그룹이 환경별로 분리되어 있고 `service.environment`와 일치한다.
-- `service.version`이 배포한 이미지의 커밋 SHA와 같다.
-- 시작·완료 이벤트가 연결되고 완료의 상태 코드와 소요 시간이 JSON 숫자다.
-- 토큰·쿠키·OAuth code/state·개인정보·자유 입력 본문이 로그에 없다.
-
-이 확인은 실제 AWS 수집 검증 절차이며, 로컬 설정 검증 성공만으로 통과했다고
-판정하지 않는다. 수집이 없으면 그룹/지역 오타, EC2 role, endpoint 통신, Docker
-호스트 로그의 driver 오류, 새 컨테이너 반영 여부 순으로 확인한다. `docker logs`
-출력은 로컬 캐시일 수 있으므로 CloudWatch 수신 증거로 취급하지 않는다.
-
-## Logs Insights 예시
-
-대상 환경의 그룹과 좁은 시간 범위를 선택한다. JSON 필드 검색은
-[CloudWatch Logs Insights 문법](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax-operations-functions.html)을 사용한다.
-아래 쿼리는 배포 후 실제 수집 데이터로 확인한다.
-
-요청 ID로 시간순 조사:
-
-```text
-fields @timestamp, event.action, log.level, jarihana.route, http.response.status_code, event.duration, error.type
-| filter http.request.id = "응답의-X-Request-Id"
-| sort @timestamp asc
-| limit 200
-```
-
-5분 단위 API별 요청 수:
-
-```text
-filter log.logger = "com.project.jarihana.common.logging.Events"
-| filter event.action = "http.request.completed"
-| stats count(*) as requests by bin(5m), jarihana.route
-```
-
-상태 코드별 오류 수:
-
-```text
-filter log.logger = "com.project.jarihana.common.logging.Events"
-| filter event.action = "http.request.completed" and http.response.status_code >= 400
-| stats count(*) as errors by bin(5m), http.response.status_code, jarihana.route
-```
-
-API별 지연 시간(ms):
-
-```text
-filter log.logger = "com.project.jarihana.common.logging.Events"
-| filter event.action = "http.request.completed"
-| fields event.duration / 1000000 as duration_ms
-| stats count(*) as requests, avg(duration_ms) as avg_ms, pct(duration_ms, 95) as p95_ms, max(duration_ms) as max_ms by jarihana.route
-```
-
-요청 수·오류 수·지연 시간은 모두 HTTP **완료 이벤트만** 집계한다. 시작 이벤트와
-업무 완료 이벤트를 합치면 중복 집계된다. 종료 전에 프로세스가 죽거나 로그가 유실되면
-완료 이벤트가 없을 수 있으므로 이 수치는 관측된 완료 요청에 한정된다.
+개발·운영에서 공개 API를 호출하고 응답의 `X-Request-Id`로 Grafana의 Loki에서 해당 요청을 찾는다.
+환경 라벨을 확인하고 `service.version`을 배포한 이미지의 태그 또는 다이제스트와 대조한다.
+시작·완료 이벤트의 요청 ID가 응답 헤더와 일치하는지 확인한다.
+로그가 수신되지 않으면 [모니터링 수집 확인](../../../infra/docs/observability/OPERATIONS.md#수집-확인)을 따른다.
 
 ## 개인정보와 변경 규칙
 

@@ -13,7 +13,7 @@
 운영 배포 스크립트, Nginx 템플릿과 앱 Compose는 모두 해당 실행을 시작한 main 커밋의
 `github.sha`를 사용한다. 대기 중 main에 다른 커밋이 들어와도 이번 실행의 SHA는 바뀌지 않는다.
 최초 전환 이후에는 배포 버전을 지정하기 위한 제어태그 생성, GitHub 변수 변경과 서버의 버전 pin 교체가 필요 없다.
-개발 Blue-Green도 같은 방식으로 해당 develop 실행의 SHA를 사용한다.
+개발 백엔드는 [Backend Development Deploy](../../../.github/workflows/backend-dev-deploy.yml)가 `jarihana-dev`에서 배포한다.
 서버의 주소, 권한, 토큰과 설치형 watchdog/수집기는 [서버 구성](server-setup/README.md)에서 관리한다.
 
 점검 제외와 0건 지표 초기화를 도입할 때는 [앱과 제어기의 적용 순서](../../docs/observability/PROBE-METRICS-ROLLOUT.md#앱과-배포-제어기의-적용-순서)를 먼저 따른다.
