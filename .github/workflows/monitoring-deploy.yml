@@ -113,6 +113,12 @@ jobs:
               "${endpoint}" > /dev/null
           done
 
+          # 인증서는 nginx가 기동한 뒤 비동기로 발급되므로 재시도하며 공개 인증서 검증까지 확인한다.
+          curl --fail --silent --show-error \
+            --resolve "grafana.jarihana.com:443:${MONITORING_BIND_ADDRESS}" \
+            --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 \
+            "https://grafana.jarihana.com/api/health" > /dev/null
+
           node grafana/explore/sync-starred-queries.mjs
 
           "${compose[@]}" ps
