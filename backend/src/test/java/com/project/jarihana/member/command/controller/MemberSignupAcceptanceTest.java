@@ -79,6 +79,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
                 .extracting(Member::getMemberType)
                 .isEqualTo(MemberType.MEMBER);
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).isEmpty();
     }
 
     @DisplayName("크루 명단에 있는 GitHub 사용자는 입력한 닉네임과 명단의 기수, 과정으로 크루로 가입한다.")
@@ -97,6 +98,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat(response.jsonPath().getString("data.memberType")).isEqualTo("CREW");
         assertThat(response.jsonPath().getInt("data.generation")).isEqualTo(8);
         assertThat(response.jsonPath().getString("data.course")).isEqualTo("BACKEND");
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).containsExactly("WOOTECO");
     }
 
     @DisplayName("요청에 크루 유형과 기수를 적어도 명단에 없으면 기본 멤버로 가입한다.")
@@ -179,6 +181,7 @@ class MemberSignupAcceptanceTest extends IntegrationTestSupport {
         assertThat((Object) response.jsonPath().get("data.course")).isNull();
         assertThat((Object) response.jsonPath().get("data.generation")).isNull();
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).get().extracting(Member::getGeneration).isNull();
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).isEmpty();
     }
 
     @DisplayName("코치끼리 같은 이름을 사용할 수 없다.")

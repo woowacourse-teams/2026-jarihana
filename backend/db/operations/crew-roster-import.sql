@@ -1,4 +1,4 @@
--- 우테코 크루 명단을 crew_roster에 넣고, 이미 가입한 사람 중 명단에 있는 사람을 크루로 바꾼다.
+-- 우테코 크루 명단을 crew_roster에 넣고, 이미 가입한 사람 중 명단에 있는 사람을 크루로 바꾸고 우아한테크코스 소속을 붙인다.
 --
 -- 실행: psql "$DATABASE_URL" -f backend/db/operations/crew-roster-import.sql < crew_whitelist.csv
 --
@@ -69,5 +69,16 @@ WHERE m.github_id = r.github_id
         AND crew.crew_name = m.crew_name
         AND crew.generation = r.generation
   );
+
+-- 명단에 있는 크루는 우아한테크코스 소속을 얻는다. 이미 있는 소속은 그대로 둔다.
+-- 방금 크루가 된 회원과, 소속을 모르는 이전 버전이 크루로 바꿔 소속이 빠진 회원을 함께 채운다.
+-- 명단 인증 전부터 있던 자가 신고 크루는 명단에 있을 때만 얻는다.
+INSERT INTO member_affiliation (member_id, affiliation_id)
+SELECT m.id, a.id
+FROM member AS m
+         JOIN crew_roster AS r ON r.github_id = m.github_id
+         JOIN affiliation AS a ON a.code = 'WOOTECO'
+WHERE m.member_type = 'CREW'
+ON CONFLICT (member_id, affiliation_id) DO NOTHING;
 
 COMMIT;

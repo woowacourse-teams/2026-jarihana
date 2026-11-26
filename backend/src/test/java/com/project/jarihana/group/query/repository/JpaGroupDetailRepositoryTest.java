@@ -132,7 +132,8 @@ class JpaGroupDetailRepositoryTest {
         return GroupDetailResponse.from(new GroupDetailResult(
                 detail.group(), detail.group().getDescription(), null, detail.members(),
                 detail.activeRecruitment(), detail.approvedCount(), detail.roleOf(currentMemberId),
-                detail.currentMemberRegistrationId(), detail.currentMemberRegistrationStatus()
+                detail.currentMemberRegistrationId(), detail.currentMemberRegistrationStatus(),
+                detail.visibleAffiliationName()
         ));
     }
 

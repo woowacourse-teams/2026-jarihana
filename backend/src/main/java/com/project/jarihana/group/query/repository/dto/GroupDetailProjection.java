@@ -14,7 +14,8 @@ public record GroupDetailProjection(
         GroupRecruitment activeRecruitment,
         int approvedCount,
         Long currentMemberRegistrationId,
-        RegistrationStatus currentMemberRegistrationStatus
+        RegistrationStatus currentMemberRegistrationStatus,
+        String visibleAffiliationName
 ) {
 
     public GroupDetailProjection {
@@ -50,7 +51,24 @@ public record GroupDetailProjection(
                 activeRecruitment,
                 approvedCount,
                 currentMemberRegistrationId,
-                currentMemberRegistrationStatus
+                currentMemberRegistrationStatus,
+                null
+        );
+    }
+
+    /**
+     * 소속 공개 모임이 정한 소속의 이름을 담는다. 다른 공개 범위에서는 비워 둔다.
+     */
+    public GroupDetailProjection withVisibleAffiliationName(String name) {
+        return new GroupDetailProjection(
+                id,
+                group,
+                members,
+                activeRecruitment,
+                approvedCount,
+                currentMemberRegistrationId,
+                currentMemberRegistrationStatus,
+                name
         );
     }
 

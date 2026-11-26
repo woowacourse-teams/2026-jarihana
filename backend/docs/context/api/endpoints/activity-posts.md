@@ -1,6 +1,6 @@
 # 사진 활동 기록
 
-> 크루 전용 모임: 크루 전용 모임의 활동 기록은 크루와 현재 구성원에게만 보인다. 전체 피드에서 빼고, 모임별 목록은 `GROUP_NOT_FOUND`(404)를, 댓글과 반응의 조회, 작성, 삭제는 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`(404)를 반환한다. 기준은 [그룹 공개 범위](groups.md#공개-범위)를 따른다.
+> 소속 공개 모임: 소속 공개 모임의 활동 기록은 그 소속 회원과 현재 구성원에게만 보인다. 전체 피드에서 빼고, 모임별 목록은 `GROUP_NOT_FOUND`(404)를, 댓글과 반응의 조회, 작성, 삭제는 각각 `ACTIVITY_POST_NOT_FOUND`, `ACTIVITY_POST_COMMENT_NOT_FOUND`(404)를 반환한다. 기준은 [그룹 공개 범위](groups.md#공개-범위)를 따른다.
 >
 > 비공개 모임의 데이터는 현재 구성원에게만 보이며, 조회 권한은 [그룹 공개 범위](groups.md#공개-범위)를 따른다.
 

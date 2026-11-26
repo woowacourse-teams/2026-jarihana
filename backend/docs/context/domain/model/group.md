@@ -14,7 +14,8 @@
 | `description` | String | nullable, 최대 10000자 | 상세 소개 |
 | `representativeImageKey` | String | nullable | 이미지 URL이 아닌 스토리지 키 |
 | `status` | Enum (`GroupStatus`) | NOT NULL, 기본값 `ACTIVE` | 그룹의 활동 상태. `ACTIVE`는 활동 중인 모임, `ENDED`는 종료된 모임 |
-| `visibility` | Enum (`GroupVisibility`) | NOT NULL, 기본값 `PUBLIC` | 모임을 볼 수 있는 범위. `PUBLIC`, `PRIVATE`, `CREW_ONLY` |
+| `visibility` | Enum (`GroupVisibility`) | NOT NULL, 기본값 `PUBLIC` | 모임을 볼 수 있는 범위. `PUBLIC`, `PRIVATE`, `AFFILIATION_ONLY` |
+| `visibleAffiliationId` | Long | `AFFILIATION_ONLY`일 때 NOT NULL, 그 외 `null`. `affiliation(id)` FK | 소속 공개 모임을 볼 수 있는 [소속](member.md#소속) |
 | `createdAt` | LocalDateTime | NOT NULL | 그룹 생성 시각 |
 | `updatedAt` | LocalDateTime | NOT NULL | 최종 수정 시각 |
 
@@ -53,15 +54,15 @@ ENDED    종료된 모임
 ```javascript
 PUBLIC     누구에게나 보이는 모임
 PRIVATE    현재 구성원에게만 보이는 모임
-CREW_ONLY  memberType = CREW인 회원과 그 모임의 현재 구성원에게만 보이는 모임
+AFFILIATION_ONLY  visibleAffiliationId 소속의 회원과 그 모임의 현재 구성원에게만 보이는 모임
 ```
 
-- 크루 전용으로 켜는 사람은 `CREW`인 모임장뿐이다. 위임받은 비크루 모임장은 `PUBLIC` 또는 `PRIVATE`로 바꿀 수 있다. 값을 그대로 두는 수정은 모임장 유형과 관계없이 허용한다.
-- `CREW_ONLY` 모임에는 `CREW`만 새로 신청하거나 초대를 수락할 수 있다. 크루 전용으로 바뀌기 전에 들어온 비크루 구성원은 내보내지 않으며, 구성원인 동안 계속 볼 수 있다. 모임을 나가면 다른 비크루 회원과 같이 보이지 않는다.
-- 크루 전용으로 바뀌기 전에 남은 비크루의 대기 신청은 모임장이 재량으로 승인하거나 미승인한다. 승인되면 구성원이 된다.
+- 소속 공개로 켜는 사람은 그 소속이 확인된 모임장뿐이다. 위임받은 모임장이 그 소속이 아니면 `PUBLIC` 또는 `PRIVATE`로 바꿀 수만 있다. 공개 범위와 소속을 그대로 두는 수정은 모임장 소속과 관계없이 허용한다.
+- `AFFILIATION_ONLY` 모임에는 그 소속 회원만 새로 신청하거나 초대를 수락할 수 있다. 소속 공개로 바뀌기 전에 들어온 소속 밖 구성원은 내보내지 않으며, 구성원인 동안 계속 볼 수 있다. 모임을 나가면 다른 소속 밖 회원과 같이 보이지 않는다.
+- 소속 공개로 바뀌기 전에 남은 소속 밖 회원의 대기 신청은 모임장이 재량으로 승인하거나 미승인한다. 승인되면 구성원이 된다.
 - `PRIVATE` 모임에는 유효한 지정 초대 또는 공유 초대 링크로만 새로 합류한다. 비공개 상태에서는 대기 신청을 승인할 수 없다.
-- 코치(`COACH`)도 크루가 아니므로 비크루와 같게 다룬다.
-- 보이지 않는 모임은 모든 조회 경로에서 없는 모임처럼 다룬다. 선택 이유는 [백엔드 ADR 0033](../../../adr/0033-crew-only-group-visibility.md)을 따른다.
+- 회원 유형(`memberType`)은 판정에 쓰지 않는다. 우아한테크코스 소속은 명단에 있는 `CREW`가 얻고, 코치(`COACH`)는 명단으로 확인하지 않으므로 얻지 않는다.
+- 보이지 않는 모임은 모든 조회 경로에서 없는 모임처럼 다룬다. 선택 이유는 [백엔드 ADR 0033](../../../adr/0033-affiliation-group-visibility.md)을 따른다.
 
 ## 역할 모델
 

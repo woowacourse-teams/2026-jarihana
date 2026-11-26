@@ -10,6 +10,7 @@ import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.groupmember.command.repository.GroupMemberCommandRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.groupmember.domain.GroupMemberRole;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.recruitment.command.repository.GroupRecruitmentCommandRepository;
@@ -44,6 +45,7 @@ public class RegistrationCommandService {
     private final RegistrationCommandRepository registrationRepository;
     private final GroupMemberCommandRepository groupMemberRepository;
     private final MemberRepository memberRepository;
+    private final MemberAffiliationRepository memberAffiliationRepository;
     private final Clock clock;
     private final ApplicationEventPublisher events;
     private final ConcurrentCommandExecutor concurrentCommands;
@@ -73,7 +75,7 @@ public class RegistrationCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND, "회원 정보를 찾을 수 없습니다."));
         // 공개 범위 전환과 겹친 신청은 모임 행 공유 잠금 안에서 다시 판정한다.
         boolean groupMember = groupMemberRepository.findByGroupIdAndMemberId(groupId, memberId).isPresent();
-        if (!group.isVisibleTo(member.getMemberType(), groupMember)) {
+        if (!group.isVisibleTo(memberAffiliationRepository.getVerifiedAffiliations(memberId), groupMember)) {
             throw new BusinessException(ErrorCode.RECRUITMENT_NOT_FOUND, "모집 공고를 찾을 수 없습니다.");
         }
         validateApplicant(group, recruitmentId, memberId);

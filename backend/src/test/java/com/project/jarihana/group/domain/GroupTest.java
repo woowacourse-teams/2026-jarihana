@@ -1,6 +1,6 @@
 package com.project.jarihana.group.domain;
 
-import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.member.domain.VerifiedAffiliations;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +18,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GroupTest {
 
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 8, 18, 10, 0);
+    private static final long WOOTECO = 1L;
+    private static final long OTHER = 2L;
 
     @DisplayName("동아리와 스터디는 반복 일정 없이 유동 일정으로 생성할 수 있다.")
     @Test
@@ -253,95 +255,106 @@ class GroupTest {
                 .isEqualTo(ErrorCode.INVALID_PARAMETER);
     }
 
-    @DisplayName("새 모임은 전체 공개이고, 크루인 모임장만 크루 전용으로 켤 수 있다.")
+    @DisplayName("새 모임은 전체 공개이고, 모임장이 확인된 소속으로만 소속 공개를 켤 수 있다.")
     @Test
-    void onlyCrewLeaderTurnsOnCrewOnly() {
+    void leaderTurnsOnAffiliationOnlyWithOwnAffiliation() {
         // Given
         Group group = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
 
         // When
-        Group crewOnly = group.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW);
+        Group affiliationOnly = group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
 
         // Then
         assertThat(group.getVisibility()).isEqualTo(GroupVisibility.PUBLIC);
-        assertThat(crewOnly.getVisibility()).isEqualTo(GroupVisibility.CREW_ONLY);
-        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.MEMBER))
+        assertThat(group.getVisibleAffiliationId()).isNull();
+        assertThat(affiliationOnly.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(affiliationOnly.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.none()))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
-        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.COACH))
-                .isInstanceOf(BusinessException.class)
-                .extracting(exception -> ((BusinessException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
-    }
-
-    @DisplayName("위임으로 모임장이 된 비크루는 크루 전용을 끌 수만 있다.")
-    @Test
-    void nonCrewLeaderOnlyTurnsOffCrewOnly() {
-        // Given
-        Group crewOnly = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT)
-                .changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW);
-
-        // When
-        Group opened = crewOnly.changeVisibility(GroupVisibility.PUBLIC, MemberType.MEMBER);
-
-        // Then
-        assertThat(opened.getVisibility()).isEqualTo(GroupVisibility.PUBLIC);
-        assertThatThrownBy(() -> opened.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.MEMBER))
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(OTHER)))
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
     }
 
-    @DisplayName("공개 범위를 그대로 두는 수정은 모임장 유형과 관계없이 허용한다.")
+    @DisplayName("소속 공개에는 공개할 소속이 필요하고, 다른 공개 범위에서는 소속을 비운다.")
     @Test
-    void keepingVisibilityNeedsNoCrewLeader() {
+    void affiliationIsRequiredOnlyForAffiliationOnly() {
         // Given
-        Group crewOnly = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT)
-                .changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW);
+        Group group = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
 
         // When
-        Group kept = crewOnly.modify("새 이름", "새 소개", null, null, null, null)
-                .changeVisibility(GroupVisibility.CREW_ONLY, MemberType.MEMBER);
+        Group privateGroup = group.changeVisibility(GroupVisibility.PRIVATE, WOOTECO, VerifiedAffiliations.of(WOOTECO));
 
         // Then
-        assertThat(kept.getVisibility()).isEqualTo(GroupVisibility.CREW_ONLY);
+        assertThat(privateGroup.getVisibility()).isEqualTo(GroupVisibility.PRIVATE);
+        assertThat(privateGroup.getVisibleAffiliationId()).isNull();
+        assertThatThrownBy(() -> group.changeVisibility(GroupVisibility.AFFILIATION_ONLY, null, VerifiedAffiliations.of(WOOTECO)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_PARAMETER);
+    }
+
+    @DisplayName("위임으로 모임장이 된 소속 밖 회원은 소속 공개를 끄거나 유지할 수만 있다.")
+    @Test
+    void outsideLeaderOnlyTurnsOffAffiliationOnly() {
+        // Given
+        Group affiliationOnly = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
+
+        // When
+        Group kept = affiliationOnly.modify("새 이름", "새 소개", null, null, null, null)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(OTHER));
+        Group opened = affiliationOnly.changeVisibility(GroupVisibility.PUBLIC, null, VerifiedAffiliations.none());
+
+        // Then
+        assertThat(kept.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(kept.getVisibleAffiliationId()).isEqualTo(WOOTECO);
         assertThat(kept.getName()).isEqualTo("새 이름");
+        assertThat(opened.getVisibility()).isEqualTo(GroupVisibility.PUBLIC);
+        assertThat(opened.getVisibleAffiliationId()).isNull();
+        assertThatThrownBy(() -> affiliationOnly.changeVisibility(GroupVisibility.AFFILIATION_ONLY, OTHER, VerifiedAffiliations.of(WOOTECO)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
     }
 
-    @DisplayName("상태 전이는 공개 범위를 유지한다.")
+    @DisplayName("상태 전이는 공개 범위와 공개할 소속을 유지한다.")
     @Test
     void transitionsKeepVisibility() {
         // Given
-        Group crewOnly = Group.createClub("러닝크루", "함께 달려요", null, null, null, CREATED_AT)
-                .changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW);
+        Group affiliationOnly = Group.createClub("러닝크루", "함께 달려요", null, null, null, CREATED_AT)
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
 
         // When
-        Group scheduled = crewOnly.replaceRecurringSchedule(recurringSchedule())
+        Group scheduled = affiliationOnly.replaceRecurringSchedule(recurringSchedule())
                 .withBaseScheduleVisibility(false);
         Group ended = scheduled.endAt(CREATED_AT.plusHours(25));
 
         // Then
-        assertThat(scheduled.getVisibility()).isEqualTo(GroupVisibility.CREW_ONLY);
-        assertThat(ended.getVisibility()).isEqualTo(GroupVisibility.CREW_ONLY);
+        assertThat(scheduled.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(scheduled.getVisibleAffiliationId()).isEqualTo(WOOTECO);
+        assertThat(ended.getVisibility()).isEqualTo(GroupVisibility.AFFILIATION_ONLY);
+        assertThat(ended.getVisibleAffiliationId()).isEqualTo(WOOTECO);
     }
 
-    @DisplayName("크루 전용 모임은 크루와 현재 구성원에게만 보이고 크루만 새로 받는다.")
+    @DisplayName("소속 공개 모임은 그 소속의 회원과 현재 구성원에게만 보이고 그 소속만 초대로 받는다.")
     @Test
-    void crewOnlyGroupIsVisibleToCrewAndCurrentMembers() {
+    void affiliationOnlyGroupIsVisibleToSameAffiliationAndCurrentMembers() {
         // Given
         Group open = Group.createStudy("자바스터디", "자바를 공부해요", null, null, null, CREATED_AT);
-        Group crewOnly = open.changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW);
+        Group affiliationOnly = open.changeVisibility(GroupVisibility.AFFILIATION_ONLY, WOOTECO, VerifiedAffiliations.of(WOOTECO));
 
         // When & Then
-        assertThat(open.isVisibleTo(null, false)).isTrue();
-        assertThat(open.allowsInvitationTo(MemberType.MEMBER)).isTrue();
-        assertThat(crewOnly.isVisibleTo(null, false)).isFalse();
-        assertThat(crewOnly.isVisibleTo(MemberType.MEMBER, false)).isFalse();
-        assertThat(crewOnly.isVisibleTo(MemberType.COACH, false)).isFalse();
-        assertThat(crewOnly.isVisibleTo(MemberType.MEMBER, true)).isTrue();
-        assertThat(crewOnly.isVisibleTo(MemberType.CREW, false)).isTrue();
-        assertThat(crewOnly.allowsInvitationTo(MemberType.MEMBER)).isFalse();
-        assertThat(crewOnly.allowsInvitationTo(MemberType.CREW)).isTrue();
+        assertThat(open.isVisibleTo(VerifiedAffiliations.none(), false)).isTrue();
+        assertThat(open.allowsInvitationTo(VerifiedAffiliations.none())).isTrue();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.none(), false)).isFalse();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.of(OTHER), false)).isFalse();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.none(), true)).isTrue();
+        assertThat(affiliationOnly.isVisibleTo(VerifiedAffiliations.of(OTHER, WOOTECO), false)).isTrue();
+        assertThat(affiliationOnly.allowsInvitationTo(VerifiedAffiliations.of(OTHER))).isFalse();
+        assertThat(affiliationOnly.allowsInvitationTo(VerifiedAffiliations.of(WOOTECO))).isTrue();
     }
 }

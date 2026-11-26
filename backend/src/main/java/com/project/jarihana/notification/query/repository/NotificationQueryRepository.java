@@ -32,8 +32,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
                     and (
-                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
                         or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
                             and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
                     )
@@ -62,8 +66,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
                     and (
-                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
                         or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
                             and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
                     )
@@ -118,8 +126,12 @@ public interface NotificationQueryRepository extends Repository<Notification, Lo
                   select hiddenGroup.id from Group hiddenGroup
                   where hiddenGroup.id = cast(function('jsonb_extract_path_text', notification.payload, 'groupId') as Long)
                     and (
-                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                            and notification.member.memberType <> com.project.jarihana.member.domain.MemberType.CREW)
+                        (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                            and not exists (
+                                select recipientAffiliation.id from MemberAffiliation recipientAffiliation
+                                where recipientAffiliation.member.id = notification.member.id
+                                  and recipientAffiliation.affiliation.id = hiddenGroup.visibleAffiliationId
+                            ))
                         or (hiddenGroup.visibility = com.project.jarihana.group.domain.GroupVisibility.PRIVATE
                             and notification.eventType <> com.project.jarihana.notification.domain.NotificationEventType.INVITATION_RECEIVED)
                     )

@@ -283,6 +283,7 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(member.getCrewName()).isEqualTo("도담");
         assertThat(member.getGeneration()).isEqualTo(8);
         assertThat(member.getCourse()).isEqualTo(Course.FRONTEND);
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).containsExactly("WOOTECO");
     }
 
     @DisplayName("크루 명단에 있는 부트캠프 회원은 로그인할 때 소속 정보를 비우고 크루가 된다.")
@@ -340,6 +341,55 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
                 .extracting(Member::getMemberType)
                 .isEqualTo(MemberType.MEMBER);
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).isEmpty();
+    }
+
+    @DisplayName("소속을 모르는 이전 버전이 크루로 바꾼 명단 크루는 다음 로그인에서 우아한테크코스 소속을 한 번만 얻는다.")
+    @Test
+    void grantWootecoAffiliationToExistingCrewOnLogin() {
+        // Given
+        memberRepository.save(Member.create("가온", 8, GITHUB_ID, Course.BACKEND));
+        crewRosterFixture.register(GITHUB_ID, 8, "BACKEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).containsExactly("WOOTECO");
+    }
+
+    @DisplayName("명단 인증 전부터 있던 자가 신고 크루는 명단에 없으면 로그인해도 소속을 얻지 않는다.")
+    @Test
+    void keepSelfReportedCrewOutsideRosterWithoutAffiliation() {
+        // Given
+        memberRepository.save(Member.create("가온", 7, GITHUB_ID, Course.BACKEND));
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(memberRepository.findByGithubId(GITHUB_ID)).get()
+                .extracting(Member::getMemberType)
+                .isEqualTo(MemberType.CREW);
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).isEmpty();
+    }
+
+    @DisplayName("코치는 로그인해도 소속을 얻지 않는다.")
+    @Test
+    void keepCoachWithoutAffiliationOnLogin() {
+        // Given
+        memberRepository.save(Member.create("코치", null, GITHUB_ID, MemberType.COACH, null));
+        crewRosterFixture.register(GITHUB_ID, 8, "FRONTEND");
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        assertThat(crewRosterFixture.affiliationCodes(GITHUB_ID)).isEmpty();
     }
 
     @DisplayName("이미 크루인 회원은 명단의 기수, 과정과 달라도 로그인할 때 바뀌지 않는다.")

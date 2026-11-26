@@ -3,7 +3,7 @@ package com.project.jarihana.group.domain;
 import com.project.jarihana.common.domain.BaseEntity;
 import com.project.jarihana.common.exception.BusinessException;
 import com.project.jarihana.common.exception.ErrorCode;
-import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.member.domain.VerifiedAffiliations;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -90,6 +90,12 @@ public class Group extends BaseEntity {
     @Column(name = "visibility", nullable = false, length = 20)
     private GroupVisibility visibility = GroupVisibility.PUBLIC;
 
+    /**
+     * 소속 공개일 때 모임을 볼 수 있는 소속. 다른 공개 범위에서는 비어 있다.
+     */
+    @Column(name = "visible_affiliation_id")
+    private Long visibleAffiliationId;
+
     private Group(
             Long id,
             Long version,
@@ -106,7 +112,8 @@ public class Group extends BaseEntity {
             LocalDateTime createdAt,
             boolean showBaseScheduleInCalendar,
             LocalDate endedOn,
-            GroupVisibility visibility
+            GroupVisibility visibility,
+            Long visibleAffiliationId
     ) {
         super(require(createdAt, "생성 시각"));
         this.id = id;
@@ -125,6 +132,7 @@ public class Group extends BaseEntity {
         this.showBaseScheduleInCalendar = showBaseScheduleInCalendar;
         this.endedOn = endedOn;
         this.visibility = require(visibility, "공개 범위");
+        this.visibleAffiliationId = validateVisibleAffiliation(this.visibility, visibleAffiliationId);
     }
 
     private static void validateSchedule(
@@ -162,6 +170,13 @@ public class Group extends BaseEntity {
             throw new BusinessException(ErrorCode.INVALID_PARAMETER, fieldName + "은 필수입니다.");
         }
         return value;
+    }
+
+    private static Long validateVisibleAffiliation(GroupVisibility visibility, Long visibleAffiliationId) {
+        if ((visibility == GroupVisibility.AFFILIATION_ONLY) != (visibleAffiliationId != null)) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "공개할 소속은 소속 공개 모임에만 정합니다.");
+        }
+        return visibleAffiliationId;
     }
 
     public static Group createClub(
@@ -234,7 +249,8 @@ public class Group extends BaseEntity {
                 createdAt,
                 true,
                 null,
-                GroupVisibility.PUBLIC
+                GroupVisibility.PUBLIC,
+                null
         );
     }
 
@@ -327,7 +343,8 @@ public class Group extends BaseEntity {
                 createdAt,
                 true,
                 null,
-                GroupVisibility.PUBLIC
+                GroupVisibility.PUBLIC,
+                null
         );
     }
 
@@ -393,7 +410,8 @@ public class Group extends BaseEntity {
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
                 endedOn,
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 
@@ -424,7 +442,8 @@ public class Group extends BaseEntity {
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
                 endedOn,
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 
@@ -452,7 +471,8 @@ public class Group extends BaseEntity {
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
                 endedOn,
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 
@@ -477,7 +497,8 @@ public class Group extends BaseEntity {
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
                 endedOn,
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 
@@ -501,7 +522,8 @@ public class Group extends BaseEntity {
                 getCreatedAt(),
                 showBaseScheduleInCalendar,
                 now.toLocalDate(),
-                visibility
+                visibility,
+                visibleAffiliationId
         );
     }
 
@@ -509,33 +531,40 @@ public class Group extends BaseEntity {
         requireActive();
         return new Group(id, version, type, meetingType, location, recurringSchedule, sessionSchedule,
                 name, introduction, description, representativeImageKey, status, getCreatedAt(),
-                visible, endedOn, visibility);
+                visible, endedOn, visibility, visibleAffiliationId);
     }
 
     /**
-     * 공개 범위를 바꾼다. 크루 전용으로 켜는 것은 크루인 모임장만 할 수 있다. 위임으로 모임장이 된 비크루는
-     * 전체 공개나 비공개로 바꿀 수 있다. 공개 범위 전환은 기존 구성원에 영향을 주지 않는다.
+     * 공개 범위를 바꾼다. 소속 공개는 모임장이 확인된 소속 중 하나로만 켤 수 있다. 위임으로 모임장이 된 회원이
+     * 그 소속이 아니면 지금 범위를 유지하거나 전체 공개나 비공개로 바꿀 수만 있다. 전환은 기존 구성원에 영향을 주지 않는다.
+     *
+     * <p>소속 공개가 아니면 {@code nextAffiliationId}는 무시한다.
      */
-    public Group changeVisibility(GroupVisibility nextVisibility, MemberType leaderType) {
+    public Group changeVisibility(
+            GroupVisibility nextVisibility,
+            Long nextAffiliationId,
+            VerifiedAffiliations leaderAffiliations
+    ) {
         requireActive();
         GroupVisibility next = require(nextVisibility, "공개 범위");
-        if (next == visibility) {
+        Long affiliationId = next == GroupVisibility.AFFILIATION_ONLY ? require(nextAffiliationId, "공개할 소속") : null;
+        if (next == visibility && Objects.equals(affiliationId, visibleAffiliationId)) {
             return this;
         }
-        if (next == GroupVisibility.CREW_ONLY && leaderType != MemberType.CREW) {
-            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "크루인 모임장만 크루 전용으로 바꿀 수 있습니다.");
+        if (next == GroupVisibility.AFFILIATION_ONLY && !leaderAffiliations.includes(affiliationId)) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED, "모임장이 확인된 소속으로만 소속 공개를 켤 수 있습니다.");
         }
         return new Group(id, version, type, meetingType, location, recurringSchedule, sessionSchedule,
                 name, introduction, description, representativeImageKey, status, getCreatedAt(),
-                showBaseScheduleInCalendar, endedOn, next);
+                showBaseScheduleInCalendar, endedOn, next, affiliationId);
     }
 
-    public boolean isVisibleTo(MemberType viewerType, boolean groupMember) {
-        return visibility.isVisibleTo(viewerType, groupMember);
+    public boolean isVisibleTo(VerifiedAffiliations viewerAffiliations, boolean groupMember) {
+        return visibility.isVisibleTo(viewerAffiliations.includes(visibleAffiliationId), groupMember);
     }
 
-    public boolean allowsInvitationTo(MemberType inviteeType) {
-        return visibility.allowsInvitationTo(inviteeType);
+    public boolean allowsInvitationTo(VerifiedAffiliations inviteeAffiliations) {
+        return visibility.allowsInvitationTo(inviteeAffiliations.includes(visibleAffiliationId));
     }
 
     public boolean canEndAt(LocalDateTime now) {
@@ -599,6 +628,10 @@ public class Group extends BaseEntity {
 
     public GroupVisibility getVisibility() {
         return visibility;
+    }
+
+    public Long getVisibleAffiliationId() {
+        return visibleAffiliationId;
     }
 
     @Override

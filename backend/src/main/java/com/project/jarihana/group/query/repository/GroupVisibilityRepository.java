@@ -5,10 +5,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 /**
  * 조회자에게 모임이 보이는지 판단한다.
  *
- * <p>비공개 모임은 현재 구성원에게 보이고 크루 공개 모임은 크루에게도 보인다. 숨김 조건은 {@link #HIDDEN_FROM_VIEWER} 한 곳에
+ * <p>비공개 모임은 현재 구성원에게 보이고 소속 공개 모임은 그 소속의 회원에게도 보인다. 숨김 조건은 {@link #HIDDEN_FROM_VIEWER} 한 곳에
  * 두고, 경로 변수로 모임을 찾는 판정은 모두 이 조건을 쓴다. 보이지 않는 모임은 호출하는 쪽이 없는 자원과 같은
  * 404로 응답한다. {@code viewerId}가 {@code null}이면 비로그인 조회자다. 없는 자원은 숨긴 것으로 보지 않아,
  * 없을 때의 응답은 각 컨트롤러가 정한다.
@@ -21,11 +23,11 @@ public interface GroupVisibilityRepository extends Repository<Group, Long> {
     String HIDDEN_FROM_VIEWER = """
             g.visibility <> com.project.jarihana.group.domain.GroupVisibility.PUBLIC
             and not (
-                g.visibility = com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
+                g.visibility = com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
                 and exists (
-                    select viewer.id from Member viewer
-                    where viewer.id = :viewerId
-                      and viewer.memberType = com.project.jarihana.member.domain.MemberType.CREW
+                    select viewerAffiliation.id from MemberAffiliation viewerAffiliation
+                    where viewerAffiliation.member.id = :viewerId
+                      and viewerAffiliation.affiliation.id = g.visibleAffiliationId
                 )
             )
             and not exists (
@@ -37,6 +39,9 @@ public interface GroupVisibilityRepository extends Repository<Group, Long> {
 
     @Query("select count(g.id) > 0 from Group g where g.id = :groupId and not (" + HIDDEN_FROM_VIEWER + ")")
     boolean existsVisibleById(@Param("groupId") long groupId, @Param("viewerId") Long viewerId);
+
+    @Query("select affiliation.name from Affiliation affiliation where affiliation.id = :affiliationId")
+    Optional<String> findAffiliationNameById(@Param("affiliationId") long affiliationId);
 
     @Query("select count(g.id) > 0 from Group g where g.id = :groupId and " + HIDDEN_FROM_VIEWER)
     boolean isGroupHidden(@Param("groupId") long groupId, @Param("viewerId") Long viewerId);

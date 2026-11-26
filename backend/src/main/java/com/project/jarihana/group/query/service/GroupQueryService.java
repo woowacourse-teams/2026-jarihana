@@ -248,7 +248,8 @@ public class GroupQueryService {
                 projection.approvedCount(),
                 projection.roleOf(currentMemberId),
                 projection.currentMemberRegistrationId(),
-                projection.currentMemberRegistrationStatus()
+                projection.currentMemberRegistrationStatus(),
+                projection.visibleAffiliationName()
         );
     }
 

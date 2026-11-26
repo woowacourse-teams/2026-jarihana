@@ -57,9 +57,10 @@ public interface InvitationQueryRepository extends Repository<Invitation, Long> 
                 exists (select a.id from InvitationAcceptance a where a.invitation.id = i.id and a.member.id = :memberId), i.state)
             from Invitation i join i.group g join i.inviterMember inviter
             where i.type = com.project.jarihana.invitation.domain.InvitationType.DIRECT and i.targetMember.id = :memberId
-              and (g.visibility <> com.project.jarihana.group.domain.GroupVisibility.CREW_ONLY
-                or exists (select viewer.id from Member viewer where viewer.id = :memberId
-                    and viewer.memberType = com.project.jarihana.member.domain.MemberType.CREW)
+              and (g.visibility <> com.project.jarihana.group.domain.GroupVisibility.AFFILIATION_ONLY
+                or exists (select viewerAffiliation.id from MemberAffiliation viewerAffiliation
+                    where viewerAffiliation.member.id = :memberId
+                      and viewerAffiliation.affiliation.id = g.visibleAffiliationId)
                 or exists (select viewerMembership.id from GroupMember viewerMembership
                     where viewerMembership.group.id = g.id and viewerMembership.member.id = :memberId))
               and (i.createdAt, i.id) < (:createdAt, :id)

@@ -16,10 +16,12 @@ import com.project.jarihana.group.query.repository.GroupJpaRepository;
 import com.project.jarihana.group.query.repository.GroupMemberJpaRepository;
 import com.project.jarihana.group.query.repository.RegistrationJpaRepository;
 import com.project.jarihana.groupmember.domain.GroupMember;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.member.domain.Affiliation;
 import com.project.jarihana.member.domain.Course;
 import com.project.jarihana.member.domain.Member;
-import com.project.jarihana.member.domain.MemberType;
+import com.project.jarihana.member.domain.VerifiedAffiliations;
 import com.project.jarihana.recruitment.domain.GroupRecruitment;
 import com.project.jarihana.recruitment.domain.JoinMethod;
 import com.project.jarihana.recruitment.query.repository.GroupRecruitmentJpaRepository;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -52,12 +55,12 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
 /**
- * 크루 전용 모임은 크루와 그 모임의 현재 구성원에게만 보인다.
+ * 소속 공개 모임은 모임이 정한 소속의 회원과 그 모임의 현재 구성원에게만 보인다.
  *
- * <p>각 테스트는 같은 모임을 만든다. 공개 상태에서 비크루 외부인에게 지정 초대와 알림, 미승인된 신청을 남기고,
- * 비크루 회원 한 명을 구성원으로 들인 뒤 크루 전용으로 바꾼다.
+ * <p>각 테스트는 같은 모임을 만든다. 모임장과 크루 한 명은 우아한테크코스 소속이다. 공개 상태에서 소속 밖 외부인에게
+ * 지정 초대와 알림, 미승인된 신청을 남기고, 소속 밖 회원 한 명을 구성원으로 들인 뒤 우아한테크코스 소속 공개로 바꾼다.
  */
-class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
+class AffiliationGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
 
     private static final String GROUP_NAME = "크루 전용 스터디";
 
@@ -69,8 +72,10 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
     @Autowired private ActivityPostPhotoCommandRepository photos;
     @Autowired private AnnouncementCommandRepository announcements;
     @Autowired private MemberRepository members;
+    @Autowired private MemberAffiliationRepository memberAffiliations;
     @Autowired private AccessTokenProvider accessTokens;
     @Autowired private AuthCookieProperties cookies;
+    @Autowired private JdbcTemplate jdbc;
 
     private Member leader;
     private Member crew;
@@ -93,10 +98,13 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
     }
 
     @BeforeEach
-    void givenCrewOnlyGroup() {
+    void givenAffiliationGroup() {
         csrf = given().get("/groups?size=1").cookie("XSRF-TOKEN");
         leader = members.save(Member.create("가온", 8, "crew-only-leader", Course.BACKEND));
         crew = members.save(Member.create("나래", 8, "crew-only-crew", Course.FRONTEND));
+        memberAffiliations.insertIfAbsent(leader.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        memberAffiliations.insertIfAbsent(crew.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        long woowaAffiliationId = memberAffiliations.findAffiliationIdsByMemberId(leader.getId()).getFirst();
         outsider = members.save(Member.createBasic("다솜", "crew-only-outsider"));
         insider = members.save(Member.createBasic("라온", "crew-only-insider"));
 
@@ -128,12 +136,13 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
         linkToken = sharePath.substring(sharePath.lastIndexOf('/') + 1);
 
         group = groups.save(groups.findById(group.getId()).orElseThrow()
-                .changeVisibility(GroupVisibility.CREW_ONLY, MemberType.CREW));
+                .changeVisibility(GroupVisibility.AFFILIATION_ONLY, woowaAffiliationId,
+                        VerifiedAffiliations.of(woowaAffiliationId)));
     }
 
-    @DisplayName("크루 전용 모임은 비로그인 사용자와 비크루 외부인의 목록, 검색, 홈에서 빠진다.")
+    @DisplayName("소속 공개 모임은 비로그인 사용자와 소속 밖 외부인의 목록, 검색, 홈에서 빠진다.")
     @Test
-    void hidesCrewOnlyGroupFromListsForOutsiders() {
+    void hidesAffiliationGroupFromListsForOutsiders() {
         // When & Then
         for (RequestSpecification viewer : List.of(anonymous(), as(outsider))) {
             viewer.get("/groups?size=20").then().statusCode(200)
@@ -147,13 +156,13 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
         for (Member viewer : List.of(crew, insider, leader)) {
             as(viewer).get("/groups?size=20&keyword=크루 전용").then().statusCode(200)
                     .body("data.items.name", hasItem(GROUP_NAME))
-                    .body("data.items.visibility", hasItem("CREW_ONLY"));
+                    .body("data.items.visibility", hasItem("AFFILIATION_ONLY"));
         }
         as(crew).get("/home").then().statusCode(200)
                 .body("data.recruiting.items.name", hasItem(GROUP_NAME));
     }
 
-    @DisplayName("크루 전용 모임과 그 하위 조회는 외부인에게 없는 모임처럼 404로 응답하고, 크루와 현재 구성원에게는 보인다.")
+    @DisplayName("소속 공개 모임과 그 하위 조회는 외부인에게 없는 모임처럼 404로 응답하고, 같은 소속 회원과 현재 구성원에게는 보인다.")
     @Test
     void returnsNotFoundForEverySubResourceToOutsiders() {
         // Given
@@ -178,7 +187,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
             as(crew).get(path).then().statusCode(200);
             as(insider).get(path).then().statusCode(200);
         }
-        as(crew).get("/groups/{groupId}", groupId).then().body("data.visibility", equalTo("CREW_ONLY"));
+        as(crew).get("/groups/{groupId}", groupId).then()
+                .body("data.visibility", equalTo("AFFILIATION_ONLY"))
+                .body("data.visibleAffiliation.name", equalTo("우아한테크코스"));
         as(outsider).get("/groups/{groupId}/music/events", groupId).then().statusCode(404)
                 .body("error.code", equalTo("GROUP_NOT_FOUND"));
     }
@@ -223,7 +234,7 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .then().statusCode(403).body("error.code", equalTo("GROUP_ACCESS_DENIED"));
     }
 
-    @DisplayName("크루 전용 모임의 활동 기록은 전체 피드에서 빠지고 댓글, 반응 조회와 남기기도 외부인에게 404다.")
+    @DisplayName("소속 공개 모임의 활동 기록은 전체 피드에서 빠지고 댓글, 반응 조회와 남기기도 외부인에게 404다.")
     @Test
     void hidesActivityPostsFromOutsiders() {
         // When & Then
@@ -253,9 +264,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .then().statusCode(201);
     }
 
-    @DisplayName("비크루 외부인은 크루 전용 모임에 신청할 수 없고, 크루는 신청할 수 있다.")
+    @DisplayName("소속 밖 외부인은 소속 공개 모임에 신청할 수 없고, 같은 소속은 신청할 수 있다.")
     @Test
-    void rejectsRegistrationFromNonCrew() {
+    void rejectsRegistrationFromOutsideAffiliation() {
         // Given
         Member newcomer = members.save(Member.createBasic("마루", "crew-only-newcomer"));
 
@@ -270,9 +281,27 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items.size()", equalTo(1));
     }
 
-    @DisplayName("크루 전용으로 바뀌기 전에 남은 비크루의 대기 신청은 모임장이 재량으로 승인할 수 있다.")
+    @DisplayName("다른 소속으로 확인된 회원에게도 보이지 않고, 모임이 정한 소속을 얻은 뒤에는 보인다.")
     @Test
-    void leaderDecidesEarlierPendingRegistrationFromNonCrew() {
+    void showsGroupOnlyToMembersOfItsAffiliation() {
+        // Given
+        jdbc.update("insert into affiliation (code, name) values ('OTHER_SCHOOL', '다른 학교') on conflict (code) do nothing");
+        Member otherAffiliation = members.save(Member.createBasic("마루", "affiliation-other"));
+        memberAffiliations.insertIfAbsent(otherAffiliation.getId(), "OTHER_SCHOOL", FIXED_NOW);
+
+        // When & Then
+        as(otherAffiliation).get("/groups/{id}", group.getId()).then().statusCode(404);
+        as(otherAffiliation).get("/groups?size=20").then().statusCode(200)
+                .body("data.items.name", not(hasItem(GROUP_NAME)));
+
+        memberAffiliations.insertIfAbsent(otherAffiliation.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        as(otherAffiliation).get("/groups/{id}", group.getId()).then().statusCode(200)
+                .body("data.visibleAffiliation.name", equalTo("우아한테크코스"));
+    }
+
+    @DisplayName("소속 공개로 바뀌기 전에 남은 소속 밖 회원의 대기 신청은 모임장이 재량으로 승인할 수 있다.")
+    @Test
+    void leaderDecidesEarlierPendingRegistrationFromOutsider() {
         // Given
         Member applicant = members.save(Member.createBasic("마루", "crew-only-applicant"));
         Registration pending = registrations.save(
@@ -289,7 +318,7 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .body("data.currentMemberRole", equalTo("MEMBER"));
     }
 
-    @DisplayName("크루 전용으로 바뀌기 전의 신청, 초대, 알림도 비크루 외부인에게는 숨긴다.")
+    @DisplayName("소속 공개로 바뀌기 전의 신청, 초대, 알림도 소속 밖 외부인에게는 숨긴다.")
     @Test
     void hidesEarlierRegistrationsInvitationsAndNotificationsFromOutsiders() {
         // When & Then
@@ -305,9 +334,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .body("data.unreadCount", equalTo(0));
     }
 
-    @DisplayName("크루 전용 모임의 초대는 크루만 미리 보고 수락할 수 있다.")
+    @DisplayName("소속 공개 모임의 초대는 같은 소속만 미리 보고 수락할 수 있다.")
     @Test
-    void allowsOnlyCrewToUseInvitations() {
+    void allowsOnlySameAffiliationToUseInvitations() {
         // When & Then
         anonymous().get("/invitations/links/{token}", linkToken).then().statusCode(404)
                 .body("error.code", equalTo("INVITATION_NOT_FOUND"));
@@ -329,9 +358,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items.crewName", hasItem("나래"));
     }
 
-    @DisplayName("크루 전용 모임의 지정 초대 후보에는 크루만 나오고, 비크루를 지정해 초대할 수 없다.")
+    @DisplayName("소속 공개 모임의 지정 초대 후보에는 같은 소속만 나오고, 소속 밖 회원을 지정해 초대할 수 없다.")
     @Test
-    void invitesOnlyCrewToCrewOnlyGroup() {
+    void invitesOnlySameAffiliationToGroup() {
         // When & Then
         as(leader).get("/groups/{id}/invitation-candidates?size=20", group.getId()).then().statusCode(200)
                 .body("data.items.memberType", everyItem(equalTo("CREW")))
@@ -344,9 +373,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .then().statusCode(400).body("error.code", equalTo("INVALID_PARAMETER"));
     }
 
-    @DisplayName("크루 전용으로 바뀌기 전에 들어온 비크루 구성원은 계속 모임과 기록을 본다.")
+    @DisplayName("소속 공개로 바뀌기 전에 들어온 소속 밖 구성원은 계속 모임과 기록을 본다.")
     @Test
-    void keepsExistingNonCrewMembersInside() {
+    void keepsExistingOutsideMembersInside() {
         // When & Then
         as(insider).get("/groups?size=20&relation=JOINED").then().statusCode(200)
                 .body("data.items.name", hasItem(GROUP_NAME));
@@ -357,9 +386,9 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
                 .body("data.items.crewName", hasItem("라온"));
     }
 
-    @DisplayName("공유 미리보기는 크루 전용 모임의 이름과 소개를 담지 않고 모임 페이지로 넘기기만 한다.")
+    @DisplayName("공유 미리보기는 소속 공개 모임의 이름과 소개를 담지 않고 모임 페이지로 넘기기만 한다.")
     @Test
-    void rendersGenericSharePreviewForCrewOnlyGroup() {
+    void rendersGenericSharePreviewForAffiliationGroup() {
         // When & Then
         for (RequestSpecification viewer : List.of(anonymous(), as(crew))) {
             String html = viewer.get("/share/groups/{id}", group.getId())
@@ -434,7 +463,7 @@ class CrewOnlyGroupVisibilityAcceptanceTest extends IntegrationTestSupport {
 
     private void makePrivate() {
         group = groups.save(groups.findById(group.getId()).orElseThrow()
-                .changeVisibility(GroupVisibility.PRIVATE, MemberType.CREW));
+                .changeVisibility(GroupVisibility.PRIVATE, null, VerifiedAffiliations.none()));
     }
 
     private JsonPath issueInvitation(Map<String, Object> body) {
