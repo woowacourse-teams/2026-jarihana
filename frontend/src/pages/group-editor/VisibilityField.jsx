@@ -70,7 +70,7 @@ export function VisibilityField({ affiliations = [], descriptionId, savedAffilia
                 <span className="group-editor__visibility-tooltip" id={helpId} role="tooltip">
                   <span><strong>공개</strong> 누구나 모임을 볼 수 있어요.</span>
                   <span><strong>비공개</strong> 현재 모임원만 볼 수 있고, 새 모임원은 초대로 합류해요.</span>
-                  <span><strong>소속 공개</strong> 같은 소속 회원과 현재 모임원에게 보이며, 같은 소속만 신청하거나 초대를 수락할 수 있어요.</span>
+                  <span><strong>소속 공개</strong> 같은 소속 회원과 현재 모임원만 보고, 같은 소속만 합류해요.</span>
                 </span>
               )}
             </span>
