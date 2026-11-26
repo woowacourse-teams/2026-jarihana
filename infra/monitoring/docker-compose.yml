@@ -127,6 +127,13 @@ services:
       GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,tempo,zipkin,opentsdb,stackdriver,mssql,jaeger,mysql,influxdb,grafana-postgresql-datasource,grafana-pyroscope-datasource
       GF_FEATURE_TOGGLES_ENABLE: canvasPanelPanZoom
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?Set SLACK_WEBHOOK_URL}
+      # mem_limit보다 낮은 Go 소프트 한도. 컨테이너 한도에 닿기 전에 GC가 먼저 메모리를 회수한다.
+      GOMEMLIMIT: 512MiB
+    # 2026-11-26 배포 직후 Grafana가 809 MiB까지 늘어 스왑 없는 호스트 전체가 약 4분 반 멈췄다.
+    # 한도를 넘으면 호스트 대신 Grafana 컨테이너만 OOM으로 종료되고 restart 정책으로 다시 뜬다.
+    # 스왑으로 한도를 늘리지 않도록 memswap_limit을 mem_limit과 같게 둔다.
+    mem_limit: 640m
+    memswap_limit: 640m
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

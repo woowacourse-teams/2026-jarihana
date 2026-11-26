@@ -505,7 +505,16 @@ HTTP p95·p99와 DB p95는 histogram bucket이 있어야 계산된다. 백엔드
 - named volume은 Prometheus·Loki·Grafana 데이터와 Alloy 상태를 컨테이너 교체 사이에 보관한다.
   Tempo 선택 구성을 켰다면 `tempo-data`도 같은 방식으로 보관한다.
   일반 재배포에 `down -v`를 사용하지 않는다. EC2 디스크 장애에 대비한 백업은 별도다.
-- 모니터링 Compose는 Grafana·Loki·Prometheus·모니터링 Alloy에 컨테이너별 메모리 상한을 걸지 않는다.
+- Grafana는 `mem_limit: 640m`, `memswap_limit: 640m`으로 컨테이너 메모리 상한을 두고,
+  `GOMEMLIMIT: 512MiB`로 그보다 먼저 Go GC가 회수하게 한다. 2026-11-26 배포 직후 Grafana가 809 MiB까지 늘어
+  스왑 없는 호스트 전체가 약 4분 반 멈춘 뒤 커널 OOM killer에 종료되었다. 상한이 있으면 호스트를 멈추는 대신
+  Grafana 컨테이너만 OOM으로 종료되고 `unless-stopped` 정책으로 다시 뜬다. 640 MiB는 2026-11-19부터 7일 동안의
+  최대 RSS 538 MiB(재시작 직후)보다 크고, 평소 사용량(p99 271 MiB)의 두 배 이상이다.
+  상한에 걸렸는지는 `docker inspect -f '{{.RestartCount}}' jarihana-monitoring-grafana-1`의 증가와
+  `sudo dmesg | grep 'Memory cgroup out of memory'`로 확인한다. `State.OOMKilled`는 재시작 후 다시 실행 중이면
+  `false`로 돌아가므로 이것만 보지 않는다. 커널 로그의 `constraint=CONSTRAINT_MEMCG`는 컨테이너 상한에 걸린 것이고,
+  `global_oom`이면 호스트 전체 메모리가 바닥난 것이다.
+- 모니터링 Compose는 Loki, Prometheus, 모니터링 Alloy에는 컨테이너별 메모리 상한을 걸지 않는다.
   Tempo 선택 구성도 컨테이너별 메모리 상한은 두지 않는다.
   실제 메모리는 같은 호스트의 Docker·OS·다른 프로세스와 공유한다. 앱 Compose의 Alloy는 기존
   `mem_limit: 256m`을 유지한다. 1GiB micro에서 동작을 보장하는 설정이 아니므로 수집량과 조회 부하를
