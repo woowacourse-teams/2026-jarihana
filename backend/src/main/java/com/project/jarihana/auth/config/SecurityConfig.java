@@ -129,10 +129,14 @@ public class SecurityConfig {
      * 경로를 지정하지 않으면 context-path인 {@code /api}가 쿠키 path가 된다. 그러면 루트
      * 경로에서 뜨는 프론트엔드 문서가 {@code document.cookie}로 토큰을 읽지 못해
      * {@code X-XSRF-TOKEN} 헤더를 채울 수 없고, 모든 변경 요청이 403으로 막힌다.
+     *
+     * <p>Secure도 직접 정한다. 기본값은 요청의 {@code isSecure()}를 따르는데, 운영 백엔드는 앞단이
+     * HTTPS를 끝낸 뒤 HTTP로 요청을 받으므로 그 값이 항상 거짓이라 쿠키가 Secure 없이 나간다.
      */
     private CookieCsrfTokenRepository csrfTokenRepository() {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookiePath("/");
+        repository.setCookieCustomizer(cookie -> cookie.secure(authCookieProperties.secure()));
         return repository;
     }
 

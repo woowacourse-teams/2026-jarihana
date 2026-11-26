@@ -34,8 +34,8 @@ Nginx, Prometheus, Loki, Grafana와 호스트 수집 Alloy는
 대상은 Docker Engine과 Docker Compose v2가 설치된 Linux EC2다. Alloy의 host 네트워크와 호스트 마운트는 Linux EC2
 기준이며 macOS에서 호스트 지표가 동일하게 수집된다고 가정하지 않는다.
 
-처음에는 dev에서 확인한다. 모니터링 서버의 Nginx `80`은 Grafana에 접근할 운영자에게,
-`8080`은 앱 EC2 보안 그룹의 사설 접근에만 열도록 보안 그룹·라우팅을 확인한다. 사설 IP bind만으로
+처음에는 dev에서 확인한다. 모니터링 서버의 Nginx `80`은 Let's Encrypt HTTP-01 확인을 위해 인터넷에,
+`443`은 Grafana에 접근할 운영자에게, `8080`은 앱 EC2 보안 그룹의 사설 접근에만 열도록 보안 그룹과 라우팅을 확인한다. 사설 IP bind만으로
 인터넷 접근이 차단된다고 판단하지 않는다. 이 초기 구성의 수신 API에는 인증·TLS가 없으므로
 인터넷에 공개하지 않는다. 외부망을 통과해야 한다면 먼저 인증·TLS 경로를 추가한다.
 
@@ -97,12 +97,13 @@ docker compose --env-file /dev/null --project-name jarihana-monitoring --file do
 `GF_SECURITY_ADMIN_PASSWORD`로 전달한다. 값이 없거나 비어 있으면 배포 입력 검사와 Compose 구성 검사가 실패한다.
 Grafana는 시작할 때 마운트된 파일에서 알림 규칙·연락처·전달 정책을 읽으며 이후 시작할 때도
 파일 설정을 다시 적용한다. Webhook 준비·변경과 실제 전송 확인은 [Slack 장애 알림](SLACK.md)을 따른다.
-`MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
+`MONITORING_BIND_ADDRESS`는 Nginx `80`, `443`, `8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
 Prometheus `9090`, Loki `3100`, Grafana `3000`은 호스트 loopback 관리 포트로 유지한다.
 Tempo 선택 구성을 켤 때도 조회 `3200`은 loopback 관리 포트로 두고 OTLP `4317`은 호스트에 publish하지 않는다.
 기본값 `127.0.0.1`은 같은 서버에서 시험할 때만 사용하며 외부 앱 EC2에서는 접근할 수 없다.
-Nginx `80`은 `Host: grafana.jarihana.com` 요청의 Grafana 루트 경로와 WebSocket을 전달하며
-다른 Host는 `404`로 응답한다. `8080`은 RFC1918 사설 IPv4와 loopback만
+Nginx `443`은 `grafana.jarihana.com`의 Grafana 루트 경로와 WebSocket을 전달한다.
+Nginx `80`의 `Host: grafana.jarihana.com` 요청은 `/api/health`만 Grafana로 전달하고 나머지는 `https://`로
+리다이렉트하며, 다른 Host는 `404`로 응답한다. `8080`은 RFC1918 사설 IPv4와 loopback만
 허용하고 다른 출발지는 거부한다. 정확히 일치하는 다음 POST 경로만 전달하며 나머지 경로는 `404`다.
 허용 경로의 POST 외 메서드는 `403`으로 거부한다.
 
@@ -163,7 +164,11 @@ curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://1
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:3100/ready"
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 "http://127.0.0.1:3000/api/health"
 curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 -H "Host: grafana.jarihana.com" "http://${MONITORING_BIND_ADDRESS}:80/api/health"
+curl --fail --retry 30 --retry-all-errors --retry-delay 3 --max-time 5 --resolve "grafana.jarihana.com:443:${MONITORING_BIND_ADDRESS}" "https://grafana.jarihana.com/api/health"
 ```
+
+마지막 HTTPS 확인은 인증서 발급이 끝나야 통과한다. 처음 배포하거나 `nginx-acme` 볼륨을 지운 직후에는
+발급에 몇 초가 걸리며, 실패하면 `logs nginx`에서 `acme` 경고를 확인한다.
 
 Compose를 직접 실행했다면 준비 상태 확인 후 Node 24로 다음 명령을 실행한다.
 workflow 배포에서는 이 단계까지 자동으로 실행한다. 스크립트는 위에서 export한
@@ -183,14 +188,24 @@ Prometheus·Grafana는 컨테이너 healthcheck도 설정했다. Loki 이미지�
 distroless 이미지이므로 위의 외부 `/ready` 확인을 사용한다. 컨테이너가 running이라는 사실만으로
 데이터 수신까지 확인한 것은 아니다.
 
-`grafana.jarihana.com`의 DNS를 CloudFront 배포에 연결하고 `https://grafana.jarihana.com/`으로
-Grafana를 연다. CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
-CloudFront의 원본 요청은 `Host: grafana.jarihana.com`을 유지해야 한다.
-루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다. CloudFront/DNS의 실제 적용 상태는
-운영 자원에서 별도로 확인한다.
-수집 주소는 모니터링 EC2의 사설 IP `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 필요 없다.
+`grafana.jarihana.com`의 DNS는 모니터링 EC2 공인 IP를 직접 가리키며 `https://grafana.jarihana.com/`으로
+Grafana를 연다. HTTPS는 모니터링 Nginx가 처리하고 Nginx → Grafana는 Compose 네트워크의 HTTP로 연결한다.
+루트 `jarihana.com`의 기존 서비스 레코드는 변경하지 않는다.
+
+인증서는 Nginx ACME 모듈이 Let's Encrypt에서 받는다. 설정은 `nginx/nginx.conf`의 `load_module`과
+`nginx/grafana.conf`의 `acme_issuer`, `acme_certificate`이며 별도 certbot, cron, reload는 없다.
+
+- 발급과 갱신은 HTTP-01이다. Let's Encrypt가 인터넷에서 `http://grafana.jarihana.com/.well-known/acme-challenge/`에
+  접근하므로 보안 그룹의 `80` 인바운드는 인터넷에 열어 둔다. 브라우저 접속에는 `443` 인바운드도 필요하다.
+- 계정 키와 인증서는 `nginx-acme` 볼륨(`/var/cache/nginx/acme-letsencrypt`)에 보관한다. 배포마다 컨테이너를
+  재생성해도 저장된 인증서를 다시 읽으므로 새로 발급하지 않는다. 이 볼륨을 지우면 다음 기동 때 새 계정으로 다시 발급한다.
+  같은 이름의 인증서는 일주일에 5번까지만 발급되므로 볼륨을 반복해서 지우지 않는다.
+- 로컬에서 Compose를 실행해도 Nginx가 실제 Let's Encrypt에 발급을 시도하지만 확인 요청이 운영 서버로 가므로
+  실패하고 `443`은 handshake에 실패한다. 로컬 확인은 `80`의 `/api/health`와 Grafana `3000`으로 한다.
+
+수집 주소는 모니터링 EC2의 사설 IP `8080`을 사용하며 수집용 도메인, DNS, `extra_hosts`는 필요 없다.
 Grafana의 도메인을 변경한다면
-Compose의 `GF_SERVER_ROOT_URL`과 `nginx/default.conf`의 Host 설정을 함께 수정한다.
+Compose의 `GF_SERVER_ROOT_URL`과 `nginx/grafana.conf`의 `server_name`을 함께 수정한다.
 Grafana Live의 WebSocket Origin 검사 때문에 브라우저 접속 주소와 공개 URL이 일치해야 한다.
 SSH로 관리할 때는 개인 컴퓨터에서 아래와 같이 loopback Grafana 포트 `3000`으로 터널을 열 수도 있다.
 
@@ -490,7 +505,16 @@ HTTP p95·p99와 DB p95는 histogram bucket이 있어야 계산된다. 백엔드
 - named volume은 Prometheus·Loki·Grafana 데이터와 Alloy 상태를 컨테이너 교체 사이에 보관한다.
   Tempo 선택 구성을 켰다면 `tempo-data`도 같은 방식으로 보관한다.
   일반 재배포에 `down -v`를 사용하지 않는다. EC2 디스크 장애에 대비한 백업은 별도다.
-- 모니터링 Compose는 Grafana·Loki·Prometheus·모니터링 Alloy에 컨테이너별 메모리 상한을 걸지 않는다.
+- Grafana는 `mem_limit: 640m`, `memswap_limit: 640m`으로 컨테이너 메모리 상한을 두고,
+  `GOMEMLIMIT: 512MiB`로 그보다 먼저 Go GC가 회수하게 한다. 2026-11-26 배포 직후 Grafana가 809 MiB까지 늘어
+  스왑 없는 호스트 전체가 약 4분 반 멈춘 뒤 커널 OOM killer에 종료되었다. 상한이 있으면 호스트를 멈추는 대신
+  Grafana 컨테이너만 OOM으로 종료되고 `unless-stopped` 정책으로 다시 뜬다. 640 MiB는 2026-11-19부터 7일 동안의
+  최대 RSS 538 MiB(재시작 직후)보다 크고, 평소 사용량(p99 271 MiB)의 두 배 이상이다.
+  상한에 걸렸는지는 `docker inspect -f '{{.RestartCount}}' jarihana-monitoring-grafana-1`의 증가와
+  `sudo dmesg | grep 'Memory cgroup out of memory'`로 확인한다. `State.OOMKilled`는 재시작 후 다시 실행 중이면
+  `false`로 돌아가므로 이것만 보지 않는다. 커널 로그의 `constraint=CONSTRAINT_MEMCG`는 컨테이너 상한에 걸린 것이고,
+  `global_oom`이면 호스트 전체 메모리가 바닥난 것이다.
+- 모니터링 Compose는 Loki, Prometheus, 모니터링 Alloy에는 컨테이너별 메모리 상한을 걸지 않는다.
   Tempo 선택 구성도 컨테이너별 메모리 상한은 두지 않는다.
   실제 메모리는 같은 호스트의 Docker·OS·다른 프로세스와 공유한다. 앱 Compose의 Alloy는 기존
   `mem_limit: 256m`을 유지한다. 1GiB micro에서 동작을 보장하는 설정이 아니므로 수집량과 조회 부하를

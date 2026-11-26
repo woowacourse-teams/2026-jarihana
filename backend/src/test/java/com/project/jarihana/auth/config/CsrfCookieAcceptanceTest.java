@@ -35,6 +35,23 @@ class CsrfCookieAcceptanceTest extends IntegrationTestSupport {
         assertThat(csrfCookie.isHttpOnly()).isFalse();
     }
 
+    @DisplayName("CSRF 쿠키는 요청이 HTTP로 들어와도 설정에 따라 Secure를 붙인다.")
+    @Test
+    void markCsrfCookieSecureBehindTlsTerminatingProxy() {
+        // Given
+
+        // When
+        ExtractableResponse<Response> response = RestAssured.given()
+                .when()
+                .get(PUBLIC_PATH)
+                .then()
+                .extract();
+
+        // Then
+        Cookie csrfCookie = response.detailedCookie("XSRF-TOKEN");
+        assertThat(csrfCookie.isSecured()).isTrue();
+    }
+
     @DisplayName("CSRF 토큰이 없는 변경 요청은 403으로 거부한다.")
     @Test
     void rejectMutationWithoutCsrfToken() {

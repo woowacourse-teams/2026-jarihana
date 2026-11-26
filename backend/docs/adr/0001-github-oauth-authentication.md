@@ -12,6 +12,9 @@
 - 개정: 2026-11-20. 마지막 후속 작업인 만료 Refresh Token 정리를 닫는다.
   [백엔드 ADR 0031](0031-refresh-token-rotation-and-reuse-detection.md)이 갱신마다 회전하고 회전된 행을
   남기기로 하면서 행이 갱신마다 늘어 정리가 필수가 되었다. 정리 방식은 후속 작업 항목에 적는다.
+- 개정: 2026-11-26. 가입 세션 쿠키(`SESSION`)와 콜백이 내리는 `state` 만료 쿠키의 `Secure`를 정하지
+  않아, HTTPS를 앞단에서 끝내는 운영과 dev에서 `Secure` 없이 내려갔다. 둘 다 자격 증명 쿠키와 같은
+  설정을 따르게 한다. 결과 항목 참조.
 
 ## 배경
 
@@ -49,6 +52,14 @@
 - 콜백은 성공 시 항상 `302`로 `{frontendOrigin}/oauth/callback?signupRequired=true|false`로 이동한다.
 - Refresh Token 저장소가 유출되어도 원문 토큰을 복원할 수 없다.
 - `state`를 한 번 쓰면 같은 값으로 다시 콜백을 처리할 수 없다.
+- 콜백 응답의 쿠키는 모두 `jarihana.auth.cookie.secure` 설정으로 `Secure`를 정한다(2026-11-26 추가).
+  운영과 dev는 `true`, 로컬은 `false`다. Refresh Token과 Access Token 쿠키는 처음부터 이 설정을
+  따랐지만, 가입 세션 쿠키(`SESSION`)는 Spring Session 기본값인 요청의 `isSecure()`를, `state` 만료
+  쿠키는 아무 값도 따르지 않았다. 운영과 dev에서는 CloudFront가 HTTPS를 끝내고 백엔드는 nginx에게서 HTTP로
+  요청을 받으므로([ADR 0009](0009-aws-deployment-topology.md)) `isSecure()`가 항상 `false`다. 가입 세션
+  쿠키는 `SessionCookieConfig`의 `DefaultCookieSerializerCustomizer`로, `state` 만료 쿠키는
+  `GithubOAuthCommandController`에서 지정한다. `XSRF-TOKEN`은
+  [ADR 0005](0005-csrf-token-delivery.md)의 결정 7이 같은 방식으로 정한다.
 
 ## 후속 작업
 

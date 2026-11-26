@@ -38,17 +38,20 @@ repository-wide Actions variables `MONITORING_HOST_ID`·`MONITORING_BIND_ADDRESS
 `GRAFANA_ADMIN_PASSWORD`·`SLACK_WEBHOOK_URL`을 환경변수로 주입하므로 EC2에 `.env`를 따로 만들 필요가 없다.
 workflow는 `MONITORING_HOST_ID`를 컨테이너 `HOST_ID`로 매핑해 backend dev/prod workflow의
 `vars.HOST_ID`와 충돌하지 않게 한다. 이 값은 지표 라벨에 사용할 안정적인 모니터링 호스트 이름이며 실제 AWS instance ID일 필요는 없다.
-`MONITORING_BIND_ADDRESS`는 Nginx `80`·`8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
+`MONITORING_BIND_ADDRESS`는 Nginx `80`, `443`, `8080`을 bind할 모니터링 EC2의 실제 사설 IPv4다.
 Prometheus `9090`, Loki `3100`, Grafana `3000`은 호스트 loopback 관리 포트로 유지한다.
 Tempo 선택 구성을 켤 때도 조회 `3200`은 loopback으로 두고 OTLP `4317`은 호스트에 publish하지 않는다.
 Grafana의 `GF_SERVER_ROOT_URL`은 Compose에서 `https://grafana.jarihana.com/`으로 고정한다.
-CloudFront에서 HTTPS를 처리하고, CloudFront → Nginx → Grafana는 HTTP로 연결한다.
-도메인을 변경할 때는 Compose의 이 값과 Nginx Host 설정을 함께 맞춘다.
-Nginx `80`은 `grafana.jarihana.com` Host만 받고 다른 Host는 `404`로 응답한다.
-`grafana.jarihana.com`의 공개 DNS는 CloudFront 배포에 연결하며 루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
-앱 Alloy는 모니터링 EC2의 사설 IP와 `8080`을 사용하며 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
-CloudFront/DNS 적용 여부는 운영 자원에서 별도로 확인한다.
-Nginx `80`은 Grafana 루트 경로·WebSocket, `8080`은 기본 두 수집 API만 제공한다.
+`grafana.jarihana.com`의 공개 DNS는 모니터링 EC2 공인 IP를 직접 가리키며 CloudFront는 거치지 않는다.
+루트 `jarihana.com`의 기존 서비스는 변경하지 않는다.
+HTTPS는 모니터링 Nginx가 직접 처리한다. Nginx ACME 모듈(`ngx_http_acme_module`)이 Let's Encrypt에서
+HTTP-01로 인증서를 받고 만료 전에 갱신하며, 계정 키와 인증서는 `nginx-acme` 볼륨에 보관해 컨테이너를 재생성해도
+다시 발급하지 않는다. 공개 Grafana 설정은 [`nginx/grafana.conf`](nginx/grafana.conf)에 있다.
+Nginx `80`의 `grafana.jarihana.com`은 HTTP-01 확인 요청과 사설 주소 헬스체크용 `/api/health`만 직접 처리하고
+나머지는 `https://`로 `301` 리다이렉트한다. 다른 Host의 `80` 요청은 `404`, 다른 SNI의 `443` 연결은 handshake를 거부한다.
+도메인을 변경할 때는 Compose의 `GF_SERVER_ROOT_URL`과 `nginx/grafana.conf`의 `server_name`을 함께 맞춘다.
+앱 Alloy는 모니터링 EC2의 사설 IP와 `8080`을 사용하며 수집용 도메인, DNS, `extra_hosts`는 추가하지 않는다.
+Nginx `443`은 Grafana 루트 경로와 WebSocket, `8080`은 기본 두 수집 API만 제공한다.
 앱 Alloy의 기본 목적지는 `http://<monitoring-private-ip>:8080/prometheus/api/v1/write`,
 `http://<monitoring-private-ip>:8080/loki/api/v1/push`다.
 Nginx는 `/prometheus` 접두사를 제거해 전달하고 Loki 경로는 그대로 전달한다.
@@ -57,8 +60,8 @@ Tempo 선택 구성을 켤 때만 `http://<monitoring-private-ip>:8080/tempo`를
 해당 경로의 Tempo `proxy_pass`를 복원한 설정이나 override를 적용한다. Grafana Tempo 데이터 소스,
 Prometheus Tempo scrape, 앱 Alloy OTLP pipeline, 백엔드 OTel 변수도 함께 켜야 하며, 자세한 절차는
 [트레이스 선택 구성 문서](../docs/observability/TRACING.md)를 따른다. `8080`은 RFC1918 사설 IPv4·loopback의 정확한 POST 경로만 허용한다.
-다른 경로는 `404`, 허용 경로의 다른 메서드는 `403`이다. 보안 그룹에서 `80`은 CloudFront 원본 접근에,
-`8080`은 앱 EC2 보안 그룹에 허용한다. 기본 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며 새 변수·시크릿은 없다.
+다른 경로는 `404`, 허용 경로의 다른 메서드는 `403`이다. 보안 그룹에서 `80`과 `443`은 Grafana 접속과
+Let's Encrypt의 HTTP-01 확인을 위해 인터넷에, `8080`은 앱 EC2 보안 그룹에 허용한다. 기본 수집 주소는 기존 `MONITORING_BIND_ADDRESS`로 만들며 새 변수와 시크릿은 없다.
 최초 구축은 모니터링 스택을 먼저 배포한 뒤 backend·Alloy를 갱신한다. 기존 Tempo 구성에서 이번 JDBC 지표로
 전환할 때는 백엔드를 먼저 배포해 `jdbc_query_seconds_*` 수집을 확인한 다음 모니터링을 배포한다.
 새 구성 적용 시에는 실제 보안 그룹과 라우팅을 별도로 검증한다.

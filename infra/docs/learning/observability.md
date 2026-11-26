@@ -632,7 +632,7 @@ Tempo 선택 구성을 켜면 Tempo 데이터 소스도 `tempo:3200`으로 직�
 Nginx `8080`으로 보낸다. 수집용 도메인·DNS·`extra_hosts`는 추가하지 않는다.
 앱 배포 workflow는 기존 `MONITORING_BIND_ADDRESS`와 신호별 경로로 목적지 URL을 만든다.
 기본 메트릭·로그 수집 주소용 새 변수·시크릿은 필요 없으며 같은 `MONITORING_BIND_ADDRESS`는 Nginx
-`80`·`8080` bind에 사용한다. Tempo 선택 구성에서는 `TEMPO_OTLP_ENDPOINT`와 백엔드 OTel 변수도
+`80`, `443`, `8080` bind에 사용한다. Tempo 선택 구성에서는 `TEMPO_OTLP_ENDPOINT`와 백엔드 OTel 변수도
 함께 켠다.
 Prometheus `9090`, Loki `3100`, Grafana `3000`은 loopback 관리 포트로 유지한다. Tempo 선택 구성의
 조회 포트 `3200`도 loopback으로 둔다.
