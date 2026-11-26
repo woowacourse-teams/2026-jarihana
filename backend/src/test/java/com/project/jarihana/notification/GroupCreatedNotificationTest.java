@@ -3,8 +3,12 @@ package com.project.jarihana.notification;
 import com.project.jarihana.group.command.service.GroupCommandService;
 import com.project.jarihana.group.command.service.dto.CreateGroupCommand;
 import com.project.jarihana.group.domain.GroupType;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.group.domain.MeetingType;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
+import com.project.jarihana.member.domain.Affiliation;
+import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,11 +17,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import static com.project.jarihana.support.TestSupportConfig.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GroupCreatedNotificationTest extends NotificationIntegrationTestSupport {
 
     @Autowired private GroupCommandService groupService;
+    @Autowired private MemberAffiliationRepository memberAffiliations;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private ApplicationEventPublisher events;
 
@@ -69,6 +75,44 @@ class GroupCreatedNotificationTest extends NotificationIntegrationTestSupport {
 
         // Then
         assertThat(jdbc.queryForObject("select count(*) from groups", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("소속 공개 모임을 만들면 새 모임 알림은 활성 구독이 있는 그 소속 회원에게만 간다.")
+    void notifyOnlySameAffiliationSubscribers() {
+        // Given
+        var creator = member("101");
+        var crew = member("102");
+        memberAffiliations.insertIfAbsent(creator.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        memberAffiliations.insertIfAbsent(crew.getId(), Affiliation.WOOTECO_CODE, FIXED_NOW);
+        long wooteco = memberAffiliations.findAffiliationIdsByMemberId(crew.getId()).getFirst();
+        var basic = members.save(Member.createBasic("기본", "203"));
+        subscription(crew, "crew");
+        subscription(basic, "basic");
+        var command = new CreateGroupCommand(GroupType.CLUB, "크루 모임", "크루끼리", null,
+                MeetingType.FLEXIBLE, null, null, null, null, null, GroupVisibility.AFFILIATION_ONLY, wooteco);
+
+        // When
+        groupService.createGroup(creator.getId(), command);
+
+        // Then
+        assertThat(jdbc.queryForList("select member_id from notifications", Long.class))
+                .containsExactly(crew.getId());
+        assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void privateGroupCreationDoesNotNotifyOutsideSubscribers() {
+        var creator = members.save(Member.createBasic("모임장", "101"));
+        subscription(member("102"), "crew");
+        subscription(members.save(Member.createBasic("기본", "203")), "basic");
+        var command = new CreateGroupCommand(GroupType.CLUB, "비공개 모임", "초대로 모여요", null,
+                MeetingType.FLEXIBLE, null, null, null, null, null, GroupVisibility.PRIVATE, null);
+
+        groupService.createGroup(creator.getId(), command);
+
         assertThat(jdbc.queryForObject("select count(*) from notifications", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from notification_deliveries", Integer.class)).isZero();
     }

@@ -182,6 +182,24 @@ Location: /api/members/12
 | --- | --- | --- |
 | 가입 세션과 Access Token이 모두 없음 | `UNAUTHENTICATED` | 401 |
 
+### `GET /api/members/me/affiliations`
+
+- 설명: 회원이 확인된 [소속](../../domain/model/member.md#소속) 목록을 조회한다. 소속 공개 모임을 만들거나 바꿀 때 고를 수 있는 소속이다.
+- 권한: `MEMBER`
+- 내 정보 응답(`GET /api/members/me`)은 이전 프론트엔드가 모르는 필드를 거부하므로 소속은 이 경로로 따로 준다.
+
+#### 응답 200
+
+```json
+{
+  "success": true,
+  "data": [{"id": 1, "name": "우아한테크코스"}],
+  "error": null
+}
+```
+
+소속이 없으면 `data`는 빈 배열이다.
+
 ### `GET /api/oauth/github/authorization` (폐기)
 
 이 엔드포인트는 만들지 않는다. 팀 회의에서 프론트엔드가 GitHub authorize URL로 직접 보내면

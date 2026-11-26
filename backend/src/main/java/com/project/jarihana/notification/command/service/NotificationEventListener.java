@@ -5,7 +5,9 @@ import com.project.jarihana.activitypost.domain.event.ActivityPostCommentedEvent
 import com.project.jarihana.activitypost.domain.event.ActivityPostReactedEvent;
 import com.project.jarihana.announcement.domain.event.AnnouncementCreatedEvent;
 import com.project.jarihana.chat.domain.ChatMessageCreatedEvent;
+import com.project.jarihana.member.command.repository.MemberAffiliationRepository;
 import com.project.jarihana.member.command.repository.MemberRepository;
+import com.project.jarihana.group.domain.GroupVisibility;
 import com.project.jarihana.group.domain.event.GroupCreatedEvent;
 import com.project.jarihana.groupmember.query.repository.GroupMemberAccessRepository;
 import com.project.jarihana.member.domain.Member;
@@ -33,6 +35,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -47,12 +50,21 @@ public class NotificationEventListener {
     private final PushSubscriptionCommandRepository subscriptions;
     private final GroupMemberAccessRepository groupMembers;
     private final MemberRepository members;
+    private final MemberAffiliationRepository memberAffiliations;
     private final JsonMapper json;
     private final NotificationProperties properties;
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = false)
     public void onGroupCreated(GroupCreatedEvent event) {
+        if (event.visibility() == GroupVisibility.PRIVATE) {
+            return;
+        }
+        Set<Long> affiliationMembers = event.visibility() == GroupVisibility.AFFILIATION_ONLY
+                ? Set.copyOf(memberAffiliations.findMemberIdsByAffiliationId(event.visibleAffiliationId()))
+                : Set.of();
         Map<Long, List<PushSubscription>> activeByMember = subscriptions.findActiveExceptCreator(event.creatorMemberId()).stream()
+                .filter(subscription -> event.visibility().isVisibleTo(
+                        affiliationMembers.contains(subscription.getMember().getId()), false))
                 .collect(Collectors.groupingBy(subscription -> subscription.getMember().getId(),
                         LinkedHashMap::new, Collectors.toList()));
         List<Member> recipients = activeByMember.values().stream().map(active -> active.getFirst().getMember()).toList();

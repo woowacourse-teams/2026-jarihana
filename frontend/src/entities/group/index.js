@@ -13,6 +13,33 @@ const memberTypeSchema = z.enum(["CREW", "COACH", "BOOTCAMP", "PROFESSIONAL", "M
 export const groupTypeSchema = z.enum(["CLUB", "STUDY", "SESSION"]);
 export const groupMeetingTypeSchema = z.enum(["ONLINE", "OFFLINE", "FLEXIBLE"]);
 export const groupStatusSchema = z.enum(["ACTIVE", "ENDED"]);
+/* 이 값을 모르는 이전 서버 응답에는 필드가 없다. 화면은 값이 없으면 전체 공개로 다룬다. */
+export const groupVisibilitySchema = z.enum(["PUBLIC", "PRIVATE", "AFFILIATION_ONLY"]);
+export const visibleAffiliationSchema = z.object({ id: entityIdSchema, name: z.string() });
+
+const AFFILIATION_OPTION_PREFIX = "AFFILIATION_ONLY:";
+
+/**
+ * 공개 범위 선택란은 값 하나로 공개 범위와 소속을 함께 고른다. 소속 공개는 `AFFILIATION_ONLY:소속ID`다.
+ */
+export function visibilityOptionValue(visibility, affiliationId) {
+  if (visibility === "AFFILIATION_ONLY" && affiliationId != null) {
+    return `${AFFILIATION_OPTION_PREFIX}${affiliationId}`;
+  }
+  return visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC";
+}
+
+export function visibilityRequest(optionValue) {
+  if (typeof optionValue === "string" && optionValue.startsWith(AFFILIATION_OPTION_PREFIX)) {
+    return {
+      visibility: "AFFILIATION_ONLY",
+      visibleAffiliationId: Number(optionValue.slice(AFFILIATION_OPTION_PREFIX.length))
+    };
+  }
+  return { visibility: optionValue === "PRIVATE" ? "PRIVATE" : "PUBLIC" };
+}
+
+export const visibilityOptionSchema = z.string().regex(/^(PUBLIC|PRIVATE|AFFILIATION_ONLY:\d+)$/);
 export const groupRoleSchema = z.enum(["LEADER", "MEMBER"]);
 export const groupRegistrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const groupRelationSchema = z.literal("JOINED");
@@ -155,12 +182,14 @@ export const groupListItemSchema = z.object({
   leader: leaderSchema.nullable(),
   memberCount: z.number().int().nonnegative(),
   activeRecruitment: activeRecruitmentSchema.nullable(),
-  currentMemberRole: groupRoleSchema.nullable().optional()
+  currentMemberRole: groupRoleSchema.nullable().optional(),
+  visibility: groupVisibilitySchema.optional()
 });
 
 export const groupListPageSchema = cursorPageSchema(groupListItemSchema);
 
 export const groupDetailSchema = groupListItemSchema.extend({
+  visibleAffiliation: visibleAffiliationSchema.nullable().optional(),
   description: z.string().nullable(),
   meetingType: groupMeetingTypeSchema,
   location: z.string().max(255).nullable(),

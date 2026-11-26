@@ -56,6 +56,7 @@ export function UnderlineSelect({
   className = "",
   error,
   label,
+  labelAction,
   labelHidden = false,
   registration,
   ...properties
@@ -63,21 +64,26 @@ export function UnderlineSelect({
   const generated = useId();
   const { errorId, inputId } = fieldIds(properties.id, generated);
 
+  const describedBy = [properties["aria-describedby"], error ? errorId : null]
+    .filter(Boolean).join(" ") || undefined;
   return (
     <div className={`group-editor__field ${className}`.trim()}>
-      <label
-        className={
-          labelHidden ? "group-editor__field-label is-hidden" : "group-editor__field-label"
-        }
-        htmlFor={inputId}
-      >
-        {label}
-      </label>
+      <span className="group-editor__field-heading">
+        <label
+          className={
+            labelHidden ? "group-editor__field-label is-hidden" : "group-editor__field-label"
+          }
+          htmlFor={inputId}
+        >
+          {label}
+        </label>
+        {labelAction}
+      </span>
       <span className="group-editor__ul group-editor__ul--select">
         <select
           {...properties}
           {...registration}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy}
           aria-invalid={error ? "true" : undefined}
           id={inputId}
         >

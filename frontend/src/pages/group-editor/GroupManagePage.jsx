@@ -1,9 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
+import { visibilityOptionSchema, visibilityOptionValue, visibilityRequest } from "../../entities/group/index.js";
+import { useMyAffiliations } from "../../features/member/index.js";
+import { useAuth } from "../../features/auth/index.js";
 import {
   useDeleteGroup,
   useGroup,
@@ -38,6 +41,7 @@ import {
   UnderlineField,
   UnderlineSelect
 } from "./EditorFields.jsx";
+import { VisibilityField } from "./VisibilityField.jsx";
 import { GroupMembersPanel } from "./GroupMembersPanel.jsx";
 import { MarkdownEditor } from "./MarkdownEditor.jsx";
 import { ScheduleDialog } from "./ScheduleDialog.jsx";
@@ -62,7 +66,8 @@ const manageSchema = z
     sessionDate: z.string(),
     startTime: timeSchema,
     endTime: timeSchema,
-    flexibleTime: z.boolean()
+    flexibleTime: z.boolean(),
+    visibility: visibilityOptionSchema
   })
   .superRefine((values, context) => {
     /* 유동적 일정과 유동적 시간은 시간을 보내지 않으므로 비교하지 않는다. */
@@ -107,7 +112,8 @@ function toFormValues(group) {
     startTime: timeValue(schedule?.startTime) || DEFAULT_TIMES.startTime,
     endTime: timeValue(schedule?.endTime) || DEFAULT_TIMES.endTime,
     /* 요일은 있는데 시각이 비어 있으면 시간을 유동적으로 둔 일정이다. */
-    flexibleTime: Boolean(recurring) && !recurring.startTime
+    flexibleTime: Boolean(recurring) && !recurring.startTime,
+    visibility: visibilityOptionValue(group.visibility ?? "PUBLIC", group.visibleAffiliation?.id)
   };
 }
 
@@ -148,6 +154,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const groupId = suppliedGroupId ?? params.groupId;
   const navigate = useNavigate();
   const toast = useToast();
+  const visibilityWarningId = useId();
+  const { member } = useAuth();
+  const myAffiliations = useMyAffiliations(Boolean(member));
   const groupQuery = useGroup(groupId);
   const modifyMutation = useModifyGroup(groupId);
   const deleteMutation = useDeleteGroup(groupId);
@@ -188,6 +197,7 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
       daysOfWeek: [],
       sessionDate: "",
       flexibleTime: false,
+      visibility: "PUBLIC",
       ...DEFAULT_TIMES
     }
   });
@@ -198,6 +208,9 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
   const daysOfWeek = values.daysOfWeek ?? [];
   const flexibleTime = values.flexibleTime ?? false;
   const group = groupQuery.data;
+  const showsVisibilityWarning =
+    group?.status === "ACTIVE" && group.visibility === "AFFILIATION_ONLY" &&
+    myAffiliations.isSuccess && !myAffiliations.data.some((affiliation) => affiliation.id === group.visibleAffiliation?.id);
 
   useEffect(
     () => () => {
@@ -335,7 +348,10 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
           description: formValues.description,
           meetingType: formValues.meetingType,
           location: formValues.location.trim() || null,
-          representativeImageKey: representativeImageKey ?? null
+          representativeImageKey: representativeImageKey ?? null,
+          ...(formValues.visibility !== visibilityOptionValue(group.visibility ?? "PUBLIC", group.visibleAffiliation?.id)
+            ? visibilityRequest(formValues.visibility)
+            : {})
         });
         toast.show({ title: "모임 정보를 저장했어요.", tone: "success" });
         navigate(`/groups/${groupId}`, { replace: true });
@@ -449,6 +465,14 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
                       />
                     </div>
                   </div>
+                  {group.status === "ACTIVE" && (
+                    <VisibilityField
+                      affiliations={myAffiliations.data ?? []}
+                      descriptionId={showsVisibilityWarning ? visibilityWarningId : undefined}
+                      savedAffiliation={group.visibleAffiliation ?? undefined}
+                      registration={register("visibility")}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -486,6 +510,12 @@ export function GroupManagePage({ groupId: suppliedGroupId, now = new Date() }) 
               />
             </div>
           </section>
+
+          {showsVisibilityWarning && (
+            <p className="group-editor__visibility-warning" id={visibilityWarningId}>
+              다른 공개 범위로 저장하면 {group.visibleAffiliation?.name ?? "이 소속"} 공개로 다시 바꿀 수 없어요.
+            </p>
+          )}
 
           <div className="group-detail-tabs group-editor__tabs">
             <Tabs

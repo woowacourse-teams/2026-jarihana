@@ -16,6 +16,9 @@ public interface MemberAffiliationRepository extends Repository<MemberAffiliatio
     @Query("select membership.affiliation.id from MemberAffiliation membership where membership.member.id = :memberId")
     List<Long> findAffiliationIdsByMemberId(@Param("memberId") long memberId);
 
+    @Query("select membership.member.id from MemberAffiliation membership where membership.affiliation.id = :affiliationId")
+    List<Long> findMemberIdsByAffiliationId(@Param("affiliationId") long affiliationId);
+
     default VerifiedAffiliations getVerifiedAffiliations(long memberId) {
         return VerifiedAffiliations.from(findAffiliationIdsByMemberId(memberId));
     }

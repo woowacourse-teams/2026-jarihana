@@ -37,7 +37,7 @@ public class GroupSharePreviewService {
 
     /**
      * CloudFront는 모임 페이지의 모든 첫 요청을 이 미리보기로 보내고, 응답을 공개 캐시에 둔다.
-     * 그래서 크루 공개와 비공개 모임은 이름과 소개를 빼고 모임 페이지로 넘긴다.
+     * 그래서 소속 공개와 비공개 모임은 이름과 소개를 빼고 모임 페이지로 넘긴다.
      * 실제로 볼 수 있는지는 넘어간 화면이 모임 API를 부를 때 다시 판단한다.
      */
     public GroupSharePreview findGroupPreview(long groupId) {

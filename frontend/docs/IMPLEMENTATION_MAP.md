@@ -412,7 +412,14 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - `401 + UNAUTHENTICATED`에서만 refresh하고, 동시 refresh는 하나로 합치며 원 요청은
   최대 한 번만 재시도한다. `403`은 refresh하지 않는다.
 - 가입 결정 payload는 UI의 승인/미승인을 백엔드 값 `APPROVED`/`REJECTED`로 보낸다.
-- 그룹: `CLUB | STUDY | SESSION`, 상태: `ACTIVE | ENDED`.
+- 그룹: `CLUB | STUDY | SESSION`, 상태: `ACTIVE | ENDED`, 공개 범위: `PUBLIC | PRIVATE | AFFILIATION_ONLY`.
+- 모임 정보의 장소 옆에서 공개 범위를 선택하고, 정보 버튼으로 각 범위를 확인한다. 누구나 공개와 비공개를 선택할 수 있고,
+  `GET /members/me/affiliations`의 확인된 소속마다 "{소속 이름} 공개" 선택지를 둔다. 선택지 값은 `AFFILIATION_ONLY:소속ID`이고
+  저장할 때 `visibility`와 `visibleAffiliationId`로 나눠 보낸다.
+  정보 툴팁은 흰 카드에 범위 이름과 설명을 두 열로 보여 주고 단어 중간에서 줄을 바꾸지 않는다. 1024px 이상에서는 공개 범위
+  칸 오른쪽의 빈 그림 영역에, 그보다 좁으면 칸 위에 띄워 선택란과 다른 칸을 가리지 않으며 꼬리는 칸 또는 정보 버튼을 가리킨다.
+  소속 공개 모임을 위임받은 소속 밖 모임장은 현재 상태를 유지하거나 다른 공개 범위로 바꿀 수 있다. 다른 값으로 저장하면
+  다시 그 소속 공개를 선택할 수 없다는 경고를 모임 정보 카드 바깥에 표시한다. 비공개 모임은 현재 모임원만 보고, 초대로만 합류한다.
 - 그룹 모임 방식: `ONLINE | OFFLINE | FLEXIBLE`. `FLEXIBLE`은 고정된 온라인·오프라인 방식 없이 유동적으로 정하는 경우다. `type`은 그룹 종류이고 `meetingType`은 진행 방식이므로 서로 다른 값이다.
 - 그룹 상세 응답의 `location`은 nullable 문자열이며 최대 255자다. 오프라인 장소뿐 아니라 온라인 접속 정보도 저장할 수 있다.
 - 모집 방식: `AUTO | APPROVAL`, 조회 상태: `SCHEDULED | OPEN | ALWAYS_OPEN | CLOSED`.
@@ -446,6 +453,8 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - `location`: 최대 255자의 nullable 문자열
 - `currentMemberRegistrationId`: 현재 모집에 대한 본인 신청 ID, 신청이 없으면 `null`
 - 목록 응답은 현재 모임 방식·장소를 제공하지 않으므로 `groupListItemSchema`에는 포함하지 않는다.
+- `visibility`: 목록과 상세 모두 `PUBLIC`, `PRIVATE`, `AFFILIATION_ONLY`. 필드가 없는 이전 서버 응답은 화면에서 `PUBLIC`으로 다룬다.
+  상세의 `visibleAffiliation`(`{id, name}`)은 소속 공개 모임이 정한 소속이고 다른 범위에서는 `null`이다.
 
 ### 내 신청 목록 응답 스키마
 

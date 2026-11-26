@@ -4,7 +4,10 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 
+import { visibilityOptionSchema, visibilityRequest } from "../../entities/group/index.js";
+import { useAuth } from "../../features/auth/index.js";
 import { useCreateGroup } from "../../features/group/index.js";
+import { useMyAffiliations } from "../../features/member/index.js";
 import {
   DEFAULT_GROUP_IMAGE_URL,
   useImageUpload
@@ -12,6 +15,7 @@ import {
 import { Button, GroupImage, Tabs, useToast } from "../../shared/ui/index.js";
 import { scheduleLines } from "../groups/pageUtils.js";
 import { ClubhouseThemePicker } from "../space/ClubhouseThemePicker.jsx";
+import { VisibilityField } from "./VisibilityField.jsx";
 import {
   RepresentativeImageNotice,
   ScheduleFact,
@@ -47,7 +51,8 @@ const baseSchema = z.object({
   sessionDate: z.string(),
   startTime: timeSchema,
   endTime: timeSchema,
-  flexibleTime: z.boolean()
+  flexibleTime: z.boolean(),
+  visibility: visibilityOptionSchema
 });
 
 export const newGroupSchema = baseSchema.superRefine((values, context) => {
@@ -88,7 +93,8 @@ function toCreateBody(values, representativeImageKey, clubhouseTemplateKey) {
     description: values.description,
     meetingType: values.meetingType,
     location: location || null,
-    representativeImageKey
+    representativeImageKey,
+    ...(values.visibility !== "PUBLIC" ? visibilityRequest(values.visibility) : {})
   };
   if (values.type === "SESSION") {
     return {
@@ -151,6 +157,8 @@ function draftSummary(values) {
 export function NewGroupPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { member } = useAuth();
+  const myAffiliations = useMyAffiliations(Boolean(member));
   const createMutation = useCreateGroup();
   const representativeImageUpload = useImageUpload();
   const descriptionImageUpload = useImageUpload();
@@ -192,7 +200,8 @@ export function NewGroupPage() {
       sessionDate: "",
       startTime: "19:00",
       endTime: "21:00",
-      flexibleTime: false
+      flexibleTime: false,
+      visibility: "PUBLIC"
     }
   });
 
@@ -338,6 +347,7 @@ export function NewGroupPage() {
                     />
                   </div>
                 </div>
+                <VisibilityField affiliations={myAffiliations.data ?? []} registration={register("visibility")} />
               </div>
             </div>
           </div>
