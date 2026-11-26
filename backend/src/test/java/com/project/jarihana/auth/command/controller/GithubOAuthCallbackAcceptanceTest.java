@@ -203,6 +203,23 @@ class GithubOAuthCallbackAcceptanceTest extends IntegrationTestSupport {
         assertThat(stateCookie.getValue()).isEmpty();
     }
 
+    @DisplayName("콜백 응답의 쿠키는 요청이 HTTP로 들어와도 설정에 따라 모두 Secure를 붙인다.")
+    @Test
+    void markEveryCallbackCookieSecureBehindTlsTerminatingProxy() {
+        // Given
+        githubOAuthClient.willReturn(GITHUB_ID);
+
+        // When
+        ExtractableResponse<Response> response = callback(ISSUED_STATE, "authorization-code", ISSUED_STATE);
+
+        // Then
+        List<Cookie> cookies = response.detailedCookies().asList();
+        assertThat(cookies)
+                .extracting(Cookie::getName)
+                .contains(SESSION_COOKIE_NAME, authProperties.oauthStateCookieName(), "XSRF-TOKEN");
+        assertThat(cookies).allSatisfy(cookie -> assertThat(cookie.isSecured()).as(cookie.getName()).isTrue());
+    }
+
     @DisplayName("state가 일치하지 않아도 state 쿠키를 만료시킨다.")
     @Test
     void expireStateCookieAfterFailure() {
