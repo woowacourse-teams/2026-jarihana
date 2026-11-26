@@ -15,6 +15,7 @@ import com.project.jarihana.group.domain.Group;
 import com.project.jarihana.groupmember.domain.GroupMember;
 import com.project.jarihana.member.domain.Member;
 import com.project.jarihana.notification.support.NotificationIntegrationTestSupport;
+import com.project.jarihana.support.WebSocketTestDiagnostics;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -36,9 +38,12 @@ import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     @Autowired AccessTokenProvider tokens;
@@ -48,6 +53,7 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     @Autowired ChatPostgresListener listener;
     @Autowired SimpUserRegistry registry;
     @Autowired ChatEventDispatcher dispatcher;
+    @Autowired WebSocketTestDiagnostics diagnostics;
 
     @Test
     @DisplayName("지연된 읽음 이벤트는 이후 커밋된 메시지까지의 미읽음 스냅샷 순번을 제공한다")
@@ -113,18 +119,39 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         Member owner = member("304");
         for (String destination :
                 new String[] {"/queue/chat-events", "/topic/chat", "/user/999/queue/chat-events"}) {
-            try (Socket socket = connect(owner, true)) {
-                socket.subscribe(destination);
-                assertThat(socket.frames.poll(5, TimeUnit.SECONDS)).contains("ERROR");
-            }
+            assertRejected(owner, "SUBSCRIBE", destination);
         }
         for (String destination :
                 new String[] {
                     "/user/queue/chat-events", "/app/presence/inactive", "/app/presence/active/other"
                 }) {
-            try (Socket socket = connect(owner, true)) {
-                socket.send("SEND\ndestination:" + destination + "\n\nforged\0");
-                assertThat(socket.frames.poll(5, TimeUnit.SECONDS)).contains("ERROR");
+            assertRejected(owner, "SEND", destination);
+        }
+    }
+
+    private void assertRejected(Member owner, String command, String destination) throws Exception {
+        try (var trace = diagnostics.start(); Socket socket = connect(owner, true, trace)) {
+            socket.awaitingRejection = true;
+            String request = command + " " + destination;
+            try {
+                if (command.equals("SUBSCRIBE")) {
+                    socket.subscribe(destination);
+                } else {
+                    socket.send("SEND\ndestination:" + destination + "\n\nforged\0");
+                }
+            } catch (CompletionException failure) {
+                socket.rejection.completeExceptionally(failure.getCause());
+            }
+            try {
+                String response = socket.rejection.get(5, TimeUnit.SECONDS);
+                assertThat(response).as("%s (%s)", request, trace).startsWith("ERROR\n");
+            } catch (TimeoutException failure) {
+                throw new AssertionError(request + ": no reply in 5s; " + trace, failure);
+            } catch (ExecutionException failure) {
+                throw new AssertionError(
+                        request + ": " + failure.getCause() + "; " + trace, failure.getCause());
+            } finally {
+                System.out.println("WS_TRACE " + request + " | " + trace);
             }
         }
     }
@@ -283,9 +310,14 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     }
 
     private Socket connect(Member owner, boolean validCsrf) throws Exception {
+        return connect(owner, validCsrf, null);
+    }
+
+    private Socket connect(Member owner, boolean validCsrf, WebSocketTestDiagnostics.Trace trace)
+            throws Exception {
         String token = tokens.issue(owner.getId()).value();
         String csrf = csrf(token);
-        Socket socket = open(token, csrf, "http://localhost:5173");
+        Socket socket = open(token, csrf, "http://localhost:5173", trace);
         socket.send(
                 "CONNECT\naccept-version:1.2\nhost:localhost\nX-XSRF-TOKEN:"
                         + (validCsrf ? csrf : "invalid")
@@ -299,14 +331,22 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
     }
 
     private Socket open(String token, String csrf, String origin) throws Exception {
-        Socket socket = new Socket();
-        socket.connection =
+        return open(token, csrf, origin, null);
+    }
+
+    private Socket open(
+            String token, String csrf, String origin, WebSocketTestDiagnostics.Trace trace)
+            throws Exception {
+        Socket socket = new Socket(trace);
+        var builder =
                 HttpClient.newHttpClient()
                         .newWebSocketBuilder()
                         .header("Origin", origin)
                         .header("Cookie", "accessToken=" + token + "; XSRF-TOKEN=" + csrf)
-                        .connectTimeout(Duration.ofSeconds(5))
-                        .buildAsync(
+                        .connectTimeout(Duration.ofSeconds(5));
+        if (trace != null) builder.header(WebSocketTestDiagnostics.HEADER, trace.id());
+        socket.connection =
+                builder.buildAsync(
                                 URI.create("ws://localhost:" + RestAssured.port + "/api/ws/chat"),
                                 socket)
                         .get(5, TimeUnit.SECONDS);
@@ -317,7 +357,14 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         private final BlockingQueue<String> frames = new LinkedBlockingQueue<>();
         private final CompletableFuture<Integer> closed = new CompletableFuture<>();
         private final StringBuilder fragments = new StringBuilder();
+        private final CompletableFuture<String> rejection = new CompletableFuture<>();
+        private volatile boolean awaitingRejection;
         private WebSocket connection;
+        private final WebSocketTestDiagnostics.Trace trace;
+
+        Socket(WebSocketTestDiagnostics.Trace trace) {
+            this.trace = trace;
+        }
 
         @Override
         public void onOpen(WebSocket webSocket) {
@@ -328,7 +375,13 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
             fragments.append(data);
             if (last) {
-                frames.add(fragments.toString());
+                String frame = fragments.toString();
+                if (trace != null) {
+                    if (frame.startsWith("CONNECTED\n")) trace.record("client received CONNECTED");
+                    if (frame.startsWith("ERROR\n")) trace.record("client received ERROR");
+                }
+                if (awaitingRejection) rejection.complete(frame);
+                else frames.add(frame);
                 fragments.setLength(0);
             }
             webSocket.request(1);
@@ -337,12 +390,17 @@ class ChatWebSocketTest extends NotificationIntegrationTestSupport {
 
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int status, String reason) {
+            if (trace != null) trace.record("client close " + status);
+            rejection.completeExceptionally(
+                    new IOException("WebSocket closed (code=" + status + ", reason='" + reason + "')"));
             closed.complete(status);
             return null;
         }
 
         @Override
         public void onError(WebSocket webSocket, Throwable failure) {
+            if (trace != null) trace.record("client error " + failure.getClass().getSimpleName());
+            rejection.completeExceptionally(failure);
             closed.completeExceptionally(failure);
         }
 
