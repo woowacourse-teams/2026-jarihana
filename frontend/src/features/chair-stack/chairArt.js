@@ -1,5 +1,4 @@
-const prefix = process.env.APP_DEPLOY_ENV === "production" ? "jarihana" : "jarihana-dev";
-const root = `https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/${prefix}/images/games/chair-stack`;
+const root = "/game-assets/chair-stack";
 const spriteSet = {
   sources: {
     red: `${root}/red-side-chair-ba5ae0a3580d.webp`,

@@ -165,7 +165,7 @@ frontend/
 ### Common shell reconciliation
 
 - 공통 헤더의 주요 메뉴는 `자리`, `토론하나?`, `게임하나?`다. 홈은 로고로 이동한다. `자리`는 hover/click/키보드로 열리는 세로 disclosure이며 `뭐있나?`는 `/groups`, `뭐했나?`는 `/activities`, `뭐할래?`는 `/board`로 이동한다. 모바일 drawer에서는 같은 목록을 클릭으로 펼친다. 설명에도 `자리` 용어를 사용하며 기존 라우트, 권한과 링크 action 식별자는 유지한다.
-- 자리 하위 항목의 장식은 돋보기/사진/말풍선이 있는 입체 의자 이미지다. `app/headerChairAssets.js`에서 `APP_DEPLOY_ENV=production`이면 prod, 나머지는 dev S3의 `images/header-chairs/` URL을 직접 참조한다. 이미지 파일은 저장소에 두지 않으며 투명 PNG를 36px로 표시하고 이름과 설명, 링크 동작은 유지한다.
+- 자리 하위 항목의 장식은 돋보기/사진/말풍선이 있는 입체 의자 이미지다. `app/headerChairAssets.js`에서 저장소의 헤더 아이콘을 가져온다. 투명 PNG를 36px로 표시하고 이름과 설명, 링크 동작은 유지한다.
 
 `최종 디자인 2`의 header reference는 단일 규칙이 아니다. 일부 frame은 viewport 상단을 가득 채운
 검은 bar를, 일부 frame은 white canvas 안에 inset된 검은 frame을 보여 준다. 이 차이는 route별
@@ -386,7 +386,7 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - `GROUP_ANNOUNCEMENT_CREATED` 알림은 작성자를 제외한 현재 모임원에게 저장한다. 알림함·푸시 클릭은 `/notifications/open/:id`에서 본인 알림과 공지 상세 권한을 확인하고, 공개 범위 통과 후 읽음 처리한 뒤 `/groups/:groupId/announcements/:announcementId`로 이동한다. 탈퇴한 회원이나 비회원에게 다른 작성자의 MEMBERS 공지 본문은 노출되지 않는다. SW는 payload에 들어 있는 URL을 사용하지 않고 공통 알림 확인 경로로 연다.
 - 알림함과 푸시 클릭은 `/notifications/open/:id`를 공유한다. 새 신청은 `/groups/:groupId/manage/registrations`, 새 참여는 `/groups/:groupId/manage/members`, 승인은 `/my?focusGroup=:groupId`, 모든 미승인은 `/my?registrationStatus=REJECTED&focusRegistration=:registrationId`로 이동한다. 관리 화면은 현재 모임장 여부를 확인한다. 관리 대상 조회 403/404는 읽음 처리 없이 안내한다. 승인·미승인은 읽음 처리 후 목록 캐시를 갱신하고 마이페이지로 이동한다. 해당 유형/미승인 탭을 선택하고 다음 페이지도 조회하여 정확한 카드에 스크롤·키보드 focus·3초 강조를 적용한다. 대상이 없으면 안내하며 reduced-motion에서는 즉시 스크롤한다. 이전 백엔드의 승인 알림 `GROUP_DETAIL` 응답도 프론트 API 경계에서 `MY_GROUPS`로 변환해 같은 카드 강조 경로를 사용한다. 알림함 본문에는 현재 모임 이름과 사건 내용을 표시한다.
 - 이 브라우저 push setting은 명시적 동작에 따른 권한 요청/등록/해제. iPhone·iPad의 일반 브라우저는 홈 화면 설치 안내를 표시한다. 설치 이벤트를 제공하는 브라우저는 설치 버튼을 표시한다.
-- 홈(`/`)에 진입하면 모바일에서 PWA 설치·알림 설정 가이드를 모달로 자동 표시한다. 기기 탭 안에서 브라우저를 선택하며, iOS는 Chrome·Safari, Android는 Chrome·삼성 브라우저를 제공한다. iOS는 실제 화면 이미지로 구성된 5단계 안내를 제공하고 Safari는 첫 공유 화면만 전용 이미지로 사용한 뒤 나머지 단계를 공유한다. Android Chrome은 Chrome 메뉴의 `설치 및 바로가기 만들기`와 설치 선택 화면을 전용 이미지로 안내한다. 2단계에서 `설치` 또는 `홈 화면에 추가`를 고른 뒤 삼성 브라우저와 같은 설치 후속 경로와 공통 푸시 설정 단계를 이어서 사용한다. 삼성 브라우저는 `현재 페이지 추가` 뒤 `웹 앱으로 설치` 경로와 `홈 화면 추가` 경로 중 하나를 따라가며, Play Protect 확인과 푸시 설정 화면은 해당 단계 이미지를 사용하고 목록 버튼·종·푸시 설정 화면은 iOS 이미지를 재사용한다. Samsung Browser로 접속하면 Android 삼성 브라우저 탭을 기본 선택한다. `7일간 보지 않기`는 만료 시각을 브라우저 localStorage에 저장한다. 로그인한 계정에 `GET /api/push-subscriptions` 기준 `enabled=true`인 활성 구독이 있으면 자동 표시하지 않으며, 계정·구독 확인이 실패한 경우에도 팝업을 보류한다. 닫기만 한 경우 홈에 다시 진입하면 다시 표시할 수 있다. 푸터와 알림함의 `설치 안내 보기`에서 수동으로 다시 열 수 있다. 이미지는 공개 S3 URL `https://techcourse-project-2026.s3.ap-northeast-2.amazonaws.com/jarihana-dev/images/push-guide/`의 브라우저별 하위 경로에서 직접 불러온다. 서비스 도메인의 `/images/push-guide/`는 403을 반환하므로 사용하지 않는다. 원본 객체는 `s3://techcourse-project-2026/jarihana-dev/images/push-guide/`에 둔다.
+- 홈(`/`)에 진입하면 모바일에서 PWA 설치·알림 설정 가이드를 모달로 자동 표시한다. 기기 탭 안에서 브라우저를 선택하며, iOS는 Chrome·Safari, Android는 Chrome·삼성 브라우저를 제공한다. iOS는 실제 화면 이미지로 구성된 5단계 안내를 제공하고 Safari는 첫 공유 화면만 전용 이미지로 사용한 뒤 나머지 단계를 공유한다. Android Chrome은 Chrome 메뉴의 `설치 및 바로가기 만들기`와 설치 선택 화면을 전용 이미지로 안내한다. 2단계에서 `설치` 또는 `홈 화면에 추가`를 고른 뒤 삼성 브라우저와 같은 설치 후속 경로와 공통 푸시 설정 단계를 이어서 사용한다. 삼성 브라우저는 `현재 페이지 추가` 뒤 `웹 앱으로 설치` 경로와 `홈 화면 추가` 경로 중 하나를 따라가며, Play Protect 확인과 푸시 설정 화면은 해당 단계 이미지를 사용하고 목록 버튼·종·푸시 설정 화면은 iOS 이미지를 재사용한다. Samsung Browser로 접속하면 Android 삼성 브라우저 탭을 기본 선택한다. `7일간 보지 않기`는 만료 시각을 브라우저 localStorage에 저장한다. 로그인한 계정에 `GET /api/push-subscriptions` 기준 `enabled=true`인 활성 구독이 있으면 자동 표시하지 않으며, 계정·구독 확인이 실패한 경우에도 팝업을 보류한다. 닫기만 한 경우 홈에 다시 진입하면 다시 표시할 수 있다. 푸터와 알림함의 `설치 안내 보기`에서 수동으로 다시 열 수 있다. 안내 이미지는 `public/assets/push-guide/`에서 브라우저별로 관리하고 같은 도메인의 `/assets/push-guide/`에서 제공한다.
 - SW의 IndexedDB에 현재 브라우저의 회원 ID·구독 id·generation·armed·revision을 보관한다. endpoint·암호화 키·알림 본문·로그인 토큰은 보관하지 않는다. 서버는 회원 소유권·활성 상태·generation을 확인한다.
 - SW는 푸시의 구독 id·generation을 조회 전과 응답 후에 다시 확인한다. private 응답 no-store·일반 안내 fallback.
 - logout 전 local disarm 완료 확인 후 `{pushSubscriptionId,generation}`을 전송한다. 계정 전환·logout 뒤 이전 응답의 표시·캐시 반영을 막는다.
@@ -513,12 +513,8 @@ SW 본문은 `모임에 새 채팅 메시지가 도착했어요.`이며 채팅 �
 - Playwright와 단위 테스트의 network fixture만 허용한다.
 - `/api`는 Webpack dev server에서 `http://localhost:8080`으로 proxy한다.
 - `/api/images/groups/*`는 사용자 업로드 이미지의 접근 판정 경로이고 `/images/groups/*`는
-  CloudFront 서명 URL로만 접근하는 실제 전달 경로다. 기본 그룹 이미지와 회원가입 그림 등 서비스 정적
-  이미지는 프론트 배포에 포함하고 `/assets`로 제공한다.
-- 기본 그룹 이미지와 회원가입 그림의 원본은 `src/shared/assets/illustrations`에서 관리한다.
-  기본 그룹 이미지는 백엔드 공유 미리보기에서도 참조하므로 Webpack에서
-  `assets/default-group.png`라는 고정 이름으로 복사하고, import하는 회원가입 그림에는
-  콘텐츠 해시를 붙인다.
+  CloudFront 서명 URL로만 접근하는 실제 전달 경로다. 기본 그룹 이미지는 프론트 배포에 포함하고 `/assets`에서 제공한다.
+- 기본 그룹 이미지의 원본은 `src/shared/assets/illustrations`에서 관리한다. 백엔드 공유 미리보기에서도 참조하므로 Webpack에서 `assets/default-group.png`로 복사한다.
 - 운영은 same-origin reverse proxy 또는 cookie가 유효한 same-site 배포를 전제로 한다.
 - GitHub client secret은 어떤 프론트엔드 설정이나 bundle에도 포함하지 않는다.
 - 실제 OAuth 완료는 GitHub OAuth 앱의 public client ID, backend client secret, callback URL,
@@ -631,7 +627,7 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - `/games/chair-stack`은 공개 플레이 화면이다. 비회원은 닉네임을 입력하고 시작하며 회원은 게임방 카드에서 진입하면 별도 입력이나 시작 버튼 없이 서비스 닉네임으로 새 판을 시작한다. 기존 진행 판과 종료 결과는 그대로 연다. 공개 랭킹은 같은 브라우저의 게스트 또는 회원의 최고 기록 한 건을 표시한다.
 - 서버가 색과 시작 방향을 결정한다. 새 판의 의자는 첫 의자와 크기가 같고, 좌판과 등받이 틈에 다리를 끼울 수 있다. 게임판 터치나 드래그, 방향키로 위치를 맞춘 뒤 놓는다. 브라우저는 서버가 계산한 충돌과 의자 자세를 Canvas에서 재생하며, 동작 줄이기에서는 마지막 자세를 표시한다.
 - 서버의 `flat`과 `sideProfile` 값에 맞춰 게임판에 충돌 모양과 같은 실루엣을 사용한다. 이전 판의 원근 그림에는 `verticalShear`를 적용한다. 게임판 위에 쌓은 의자 수와 내 최고 기록을 표시한다. 성공 배치 하나를 100m로 표시하고 카메라가 오를 때 하늘색, 황혼, 오로라, 우주 레이어의 투명도를 여러 의자 높이에 걸쳐 연속적으로 바꾼다. 구름과 바람은 장식으로 표시한다. 종료 후 공통 모달에 점수와 다시 도전 버튼을 띄운다.
-- 게임에서 사용하는 의자 그림은 빨강, 노랑, 연두, 파랑의 옆모습 WebP 4개다. `chairArt.js`가 `APP_DEPLOY_ENV=production`이면 `jarihana`, 그 외에는 `jarihana-dev`의 공개 S3 `images/games/chair-stack/`에서 해시가 포함된 파일을 불러온다. 이미지 원본은 저장소에 포함하지 않는다.
+- 게임에서 사용하는 의자 그림은 빨강, 노랑, 연두, 파랑의 옆모습 WebP 4개다. `chairArt.js`는 `public/game-assets/chair-stack/`에 보관한 파일을 불러온다.
 - 새로고침은 현재 판을 다시 읽고, 통신 실패는 같은 요청 ID와 흔들림 위치로 재시도한다. 규칙과 계약은 [의자 쌓기 API](../../backend/docs/context/api/endpoints/chair-stack.md)를 따른다.
 
 ## 게임방과 오목
@@ -639,7 +635,7 @@ replace 이동한다. 헤더의 홈과 브랜드 링크는 `/home`, 탐색 링�
 - 초대 링크 입력창 오른쪽에는 같은 테두리 안에 공통 IconButton과 Lucide Copy를 배치한다. 접근성 이름 "복사"와 기존 `gomoku_invitation_copy` action, 성공 후 자동 닫기를 유지한다. 입력창의 label과 버튼은 별도 DOM 요소로 연결해 아이콘 클릭이 입력창 선택 동작과 겹치지 않게 한다.
 - `InvitationLink.jsx`는 방 상단에서 초대 링크를 펼치고 접는 패널이다. 최초 발급 후 자동으로 열며 이때 복사하지 않는다. 패널의 "복사"가 현재 주소를 클립보드에 쓰고 성공 후 닫으며 트리거로 포커스를 돌려준다. 실패하면 직접 복사 안내와 패널을 유지한다. 상단 "초대링크" 버튼으로 닫기, Escape, 바깥 클릭도 지원하며 패널 안에는 별도 접기 버튼을 두지 않는다. 다시 열 때 주소를 유지하며 "새 링크 만들기"만 재발급하고 복사하지 않는다. 패널은 heading에 절대 배치해 `.gomoku-board-slot`의 할당 높이와 판 크기를 바꾸지 않는다. 기존 `gomoku_invitation_copy`, `gomoku_invitation_link_select`와 주소의 분석/녹화 제외를 유지하고 토글은 `gomoku_invitation_toggle`, 재발급은 `gomoku_invitation_create`로 구분한다.
 
-- `/games`: 공개 카탈로그. 시안의 큰 일러스트/본문/전체 너비 CTA를 가진 두 열 카드이며 모바일은 한 열이다. `GameArtwork`는 `artworkAssets.js`의 이미지 경로를 사용한다. 오목은 dev/prod S3 URL, 리듬 작살은 함께 배포하는 `/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp`를 사용하며 로드 실패 시 게임 아이콘으로 대체한다. 리듬 작살 그림은 실제 클레이 스프라이트의 행성이가 사방에서 오는 세균을 작살로 잡는 장면이다. 오목의 "게임 시작"은 `/games/gomoku`, 리듬게임의 "게임 시작"은 `/games/rhythm-harpoon`으로 이동한다. 빼빼로데이 이벤트 상태의 `gameRoomOpen`이 `true`가 되면(운영 2026-11-12 13:00, local과 dev는 항상) 오목 다음에 "공평하게 반띵" 카드가 새로고침 없이 나타나고, 그림은 이미지 대신 `StickHalvingArtwork`로 막대를 그린다.
+- `/games`: 공개 카탈로그. 시안의 큰 일러스트/본문/전체 너비 CTA를 가진 두 열 카드이며 모바일은 한 열이다. `GameArtwork`는 `artworkAssets.js`의 이미지 경로를 사용한다. 오목은 `/game-assets/gomoku/gomoku-lounge-v1.webp`, 리듬 작살은 `/game-assets/rhythm-harpoon/assets/rhythm-lounge-harpoon-v2.webp`를 사용하며 로드 실패 시 게임 아이콘으로 대체한다. 리듬 작살 그림은 실제 클레이 스프라이트의 행성이가 사방에서 오는 세균을 작살로 잡는 장면이다. 오목의 "게임 시작"은 `/games/gomoku`, 리듬게임의 "게임 시작"은 `/games/rhythm-harpoon`으로 이동한다. 빼빼로데이 이벤트 상태의 `gameRoomOpen`이 `true`가 되면(운영 2026-11-12 13:00, local과 dev는 항상) 오목 다음에 "공평하게 반띵" 카드가 새로고침 없이 나타나고, 그림은 이미지 대신 `StickHalvingArtwork`로 막대를 그린다.
 - `/games/rhythm-harpoon`: 리듬게임 첫 화면. 게임방 목록과 같은 카드 두 장으로 싱글 플레이(실제 판이 소리 없이 자동으로 치는 장면, `RhythmDemoBoard`)와 온라인 매칭(내 판과 가끔 놓치는 상대 판이 나란히 자동으로 치는 장면, `demo-rival.mjs`) 중 하나를 고른다. 온라인 매칭의 "대기실 입장"은 회원 전용 대기실로 가고 로그인 전이면 로그인(또는 가입) 뒤 대기실로 돌아온다(`useOpenBattle`). 두 카드 아래에는 따라 하기(`/games/rhythm-harpoon/learn`)로 가는 전체 너비의 낮은 초록 카드를 "TUTORIAL" 제목과 "1분이면 끝나요." 한 줄만으로 둔다. 처음 온 사람에게는 들어오자마자 "튜토리얼을 보시겠어요?" 창을 띄우고(튜토리얼 보기, 괜찮아요), 답하거나 닫으면 `rhythm_tutorial_offered` 쿠키(Path `/games/rhythm-harpoon`, 1년)를 남겨 다시 묻지 않는다. 쿠키가 없어도 이 브라우저에 따라 하기를 마치거나 건너뛴 기록(`haengseong-lesson-v1`)이 있으면 묻지 않는다(`tutorialPrompt.js`).
 - `/games/rhythm-harpoon/single`: 싱글 플레이. 혼자 연습과 랭킹 도전 카드를 크게 둔다. 카드는 어두운 게임 바탕 위의 밝은 색이며 혼자 연습은 파랑, 랭킹 도전은 노랑이고, 각각 안을 칠한 그림(사람 한 명, 트로피, `RhythmModeArt`)을 원형 바탕 위에 둔다. 혼자 연습을 닫아 둔 동안에는 이 화면을 쓰지 않는다(아래 혼자 연습 항목).
 - `/games/rhythm-harpoon/learn`: 따라 하기. 연습, 랭킹 도전과 같은 민트 바탕의 클레이 화면이다. 단계별 2마디 듣기와 4마디 해보기, 빠르기(기본 96 BPM)와 배속 선택, 두 방향 트릴 패턴, 지금 울리는 음표를 굵게 보여 주는 악보를 제공한다. 진행 상태는 localStorage의 `haengseong-lesson-v1`에만 둔다.

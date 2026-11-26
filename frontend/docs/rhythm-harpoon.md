@@ -317,7 +317,6 @@ python scripts/arrange-double-taps.py --input-wav <원본 WAV 절대 경로> --c
 `sprite-atlas.mjs`의 URL, 시트 크기와 프레임 좌표를 연습, 따라 하기, 메뉴의 판 그림과 결과 화면이 공유한다.
 행성이 표정 4개, 세균의 기본/포획 상태 4색, 작살, 포획 효과와 하트를 기존 인덱스 순서로 유지한다.
 초록색은 16분 격자 밖 박자를 위한 프레임이며 ANOTHER 스윙 채보에서 쓴다.
-원본 `sprites.png`는 보존한다.
 
 내장 `image_gen`으로 승인 시안에 아래 프롬프트를 적용했다.
 
