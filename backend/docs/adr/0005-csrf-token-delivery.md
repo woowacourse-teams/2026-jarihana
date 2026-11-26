@@ -11,6 +11,9 @@
   드러나 모든 변경 요청이 403으로 막혔다. 결정 6으로 경로를 명시한다.
 - 개정: 2026-08-27. 후속 작업의 CORS 항목은 [ADR 0009](0009-aws-deployment-topology.md)가
   단일 오리진 구성을 확정하면서 닫혔다.
+- 개정: 2026-11-26. 최초 채택본은 `Secure`를 정하지 않아 Spring Security 기본값인 요청의
+  `isSecure()`를 따랐고, HTTPS를 앞단에서 끝내는 운영과 dev에서 `XSRF-TOKEN`이 `Secure` 없이
+  내려갔다. 결정 7로 `Secure`를 설정에 묶는다.
 
 ## 배경
 
@@ -54,6 +57,21 @@ Spring Security의 기본 구성은 CSRF 토큰을 **지연 생성**한다. 토�
 쿠키를 읽지 못한다. 토큰을 읽지 못하면 `X-XSRF-TOKEN` 헤더를 채울 수 없고, 결정 4에 따라 모든
 변경 요청이 403 `ACCESS_DENIED`로 거부된다. Access Token 쿠키는 [ADR 0002](0002-access-token-cookie.md)가
 처음부터 경로를 `/`로 못 박아 두어 이 문제를 겪지 않았다.
+
+7. `XSRF-TOKEN` 쿠키의 `Secure`는 자격 증명 쿠키와 같은 `jarihana.auth.cookie.secure` 설정을
+   따른다(2026-11-26 추가). `CookieCsrfTokenRepository.setCookieCustomizer`로 지정한다. 운영과 dev는
+   `true`, 로컬은 `false`다.
+
+지정하지 않으면 `CookieCsrfTokenRepository`는 요청의 `isSecure()`로 `Secure`를 정한다. 운영과 dev에서는
+CloudFront가 HTTPS를 끝내고([ADR 0009](0009-aws-deployment-topology.md)) 백엔드는 nginx에게서 HTTP로
+요청을 받으므로 이 값이 항상 `false`다. 2026-11-26에 운영과 dev의 `GET /api/groups` 응답에서
+`Set-Cookie: XSRF-TOKEN=...; Path=/`처럼 `Secure`가 빠진 쿠키를 확인했다. 그러면 브라우저가 같은 사이트에
+평문 HTTP로 접속할 때도 이 쿠키를 싣는다.
+
+`server.forward-headers-strategy`를 켜서 nginx가 보내는 `X-Forwarded-Proto`로 `isSecure()`를 맞추는
+방법도 있다. 그러나 같은 설정이 `X-Forwarded-For`로 요청의 클라이언트 주소까지 바꾸므로 어떤 프록시를
+믿을지 함께 정해야 한다. 자격 증명 쿠키는 이미 설정값으로 `Secure`를 정하고 있어, 이 결정은 그 방식에
+맞추고 프록시 헤더 신뢰는 다루지 않는다.
 
 ## 왜 double submit인가
 
@@ -100,6 +118,9 @@ BREACH는 압축된 HTTPS **응답 본문**에 비밀값이 들어 있고 공격
 - **쿠키 경로가 context-path와 분리되어 있다.** 결정 6이 `/`로 고정한다. context-path를 바꾸거나
   `setCookiePath` 호출을 지우면 같은 403이 재발한다. 이 회귀는
   `CsrfCookieAcceptanceTest`가 막는다.
+- **`Secure`는 요청이 아니라 설정을 따른다.** 결정 7의 쿠키 커스터마이저를 지우면 운영에서 다시
+  `Secure`가 빠진다. 테스트 서버도 HTTP로 요청을 받으므로 테스트 설정을 운영과 같은 `true`로 두고
+  `CsrfCookieAcceptanceTest`가 이 회귀를 막는다.
 
 ## 결과
 
