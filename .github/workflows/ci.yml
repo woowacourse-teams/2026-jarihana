@@ -24,7 +24,11 @@ concurrency:
 
 jobs:
   backend:
-    name: ${{ github.event_name == 'push' && 'Backend Compile Cache' || 'Backend Test' }}
+    name: ${{ github.event_name == 'push' && 'Backend Compile Cache' || format('Backend Test ({0}/4)', matrix.shard) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(github.event_name == 'push' && '[1]' || '[1,2,3,4]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -80,7 +84,47 @@ jobs:
 
       - name: 백엔드 테스트
         if: github.event_name != 'push'
-        run: ./gradlew test --rerun --no-daemon
+        run: ./gradlew test --rerun --no-daemon -Pshardpilot.count=4 -Pshardpilot.index=${{ matrix.shard }}
+
+      - name: 벤치마크 테스트 목록 검증
+        if: github.event_name != 'push'
+        env:
+          COMPILE_HIT: ${{ steps.compile-cache.outputs.cache-hit }}
+          DEPENDENCIES_HIT: ${{ steps.java.outputs.cache-hit }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from xml.etree.ElementTree import parse
+
+          total = skipped = failed = fingerprint = 0
+          for path in Path('build/test-results/test').glob('TEST-*.xml'):
+              suite = parse(path).getroot()
+              skipped += int(suite.get('skipped', 0))
+              failed += int(suite.get('errors', 0)) + int(suite.get('failures', 0))
+              for case in suite.findall('testcase'):
+                  identity = json.dumps([case.attrib['classname'], case.attrib['name']], ensure_ascii=False)
+                  fingerprint += int.from_bytes(hashlib.sha256(identity.encode()).digest(), 'big')
+                  total += 1
+          assert total > 0 and failed == 0 and skipped == 0, (total, failed, skipped)
+          print('BENCH_RESULT', total, format(fingerprint % (1 << 256), '064x'),
+                os.environ['COMPILE_HIT'] or 'miss', os.environ['DEPENDENCIES_HIT'] or 'miss',
+                os.environ['BASE_SHA'])
+          PY
+
+  backend-result:
+    name: Backend Test
+    if: ${{ always() && github.event_name != 'push' }}
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: 모든 테스트 그룹 결과 확인
+        env:
+          RESULT: ${{ needs.backend.result }}
+        run: test "$RESULT" = success
 
   frontend:
     if: github.event_name != 'push'
